@@ -16,13 +16,13 @@
  *   • invitations are single-use, expire after 7 days, are stored as a hash, and are rate-limited per company;
  *   • access ends immediately on suspension, removal or role change (the membership is read on every request);
  *   • everything is written to the append-only staff history (actor, company, time).
- * Nothing works while SELLER_STAFF_ENABLED is off.
+ * Nothing works while SELLER_STAFF_ENABLED is off, except for a company in the one-company pilot (SELLER_STAFF_PILOT_SELLER_IDS).
  */
 const crypto = require('crypto');
 const db = require('../db');
 const { withTransaction } = require('../utils/withTransaction');
 const { SELLER_ROLES, permissionsForRole } = require('../lib/sellerRbac');
-const { sellerStaffEnabled } = require('../lib/launchGuards');
+const { sellerStaffEnabledFor } = require('../lib/launchGuards');
 
 const STAFF_ROLES = ['inventory_manager', 'fulfillment', 'finance'];
 const INVITE_DAYS = 7; const INVITES_PER_DAY = 20;
@@ -33,7 +33,9 @@ function err(status, code, message) { const e = new Error(message); e.status = s
 const hashToken = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const base = () => (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 
-function enabled(env = process.env) { if (!sellerStaffEnabled(env)) throw err(404, 'STAFF_NOT_AVAILABLE', 'Staff accounts are not available yet.'); }
+// Staff accounts for THIS company: the general switch, or the company is in the one-company pilot.
+function enabled(sellerId, env = process.env) { if (!sellerStaffEnabledFor(sellerId, env)) throw err(404, 'STAFF_NOT_AVAILABLE', 'Staff accounts are not available yet.'); }
+const INVITE_GONE = () => err(404, 'INVITE_NOT_FOUND', 'This invitation is no longer valid. Ask the company owner to send a new one.');
 function ownerOnly(ctx) { if (!ctx || ctx.role !== 'owner' || ctx.staff || !ctx.sellerId) throw err(403, 'OWNER_ONLY', 'Only the company owner can manage staff.'); }
 
 async function event(runner, member, action, actorUserId, actorRole, data = {}) {
@@ -61,7 +63,7 @@ async function expireStale(runner, sellerId) {
 }
 
 async function listTeam(ctx) {
-  enabled(); ownerOnly(ctx);
+  ownerOnly(ctx); enabled(ctx.sellerId);
   await expireStale(db, ctx.sellerId);
   const members = (await db.query(
     `SELECT m.*, u.full_name FROM seller_staff_members m LEFT JOIN users u ON u.id = m.user_id
@@ -76,7 +78,7 @@ async function listTeam(ctx) {
 }
 
 async function invite(ctx, { email, role } = {}, deps = {}) {
-  enabled(); ownerOnly(ctx);
+  ownerOnly(ctx); enabled(ctx.sellerId);
   const addr = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(addr) || addr.length > 320) throw err(422, 'EMAIL_INVALID', 'Enter a valid email address.');
   if (!STAFF_ROLES.includes(role)) throw err(422, 'ROLE_INVALID', 'Choose a staff role.');
@@ -122,7 +124,7 @@ async function ownMember(client, ctx, memberId) {
 }
 
 async function revokeInvite(ctx, memberId) {
-  enabled(); ownerOnly(ctx);
+  ownerOnly(ctx); enabled(ctx.sellerId);
   return withTransaction(async (client) => {
     const m = await ownMember(client, ctx, memberId);
     if (m.status !== 'invited') throw err(409, 'NOT_AN_INVITATION', 'This is not an open invitation.');
@@ -134,7 +136,7 @@ async function revokeInvite(ctx, memberId) {
 }
 
 async function changeRole(ctx, memberId, { role } = {}) {
-  enabled(); ownerOnly(ctx);
+  ownerOnly(ctx); enabled(ctx.sellerId);
   if (!STAFF_ROLES.includes(role)) throw err(422, 'ROLE_INVALID', 'Choose a staff role.');
   return withTransaction(async (client) => {
     const m = await ownMember(client, ctx, memberId);
@@ -152,7 +154,7 @@ const STATUS_ACTIONS = {
   remove: { from: ['active', 'suspended'], to: 'removed', event: 'removed' },
 };
 async function setStatus(ctx, memberId, action) {
-  enabled(); ownerOnly(ctx);
+  ownerOnly(ctx); enabled(ctx.sellerId);
   const spec = STATUS_ACTIONS[action];
   if (!spec) throw err(400, 'BAD_ACTION', 'Unknown action.');
   return withTransaction(async (client) => {
@@ -173,8 +175,8 @@ async function findInvitation(runner, token, lock = false) {
 }
 
 async function previewInvite(userId, token) {
-  enabled();
   const m = await findInvitation(db, token);
+  if (m && !sellerStaffEnabledFor(m.seller_id)) throw INVITE_GONE();   // a company outside the pilot: as if no invitation
   if (!m || m.status !== 'invited' || new Date(m.invite_expires_at) <= new Date()) throw err(404, 'INVITE_NOT_FOUND', 'This invitation is no longer valid. Ask the company owner to send a new one.');
   const u = (await db.query('SELECT lower(email) AS email FROM users WHERE id = $1', [userId])).rows[0];
   return { company: await companyName(m.seller_id), role: m.role, role_label: SELLER_ROLES[m.role].label,
@@ -182,9 +184,9 @@ async function previewInvite(userId, token) {
 }
 
 async function acceptInvite(userId, token, deps = {}) {
-  enabled();
   const out = await withTransaction(async (client) => {
     const m = await findInvitation(client, token, true);
+    if (m && !sellerStaffEnabledFor(m.seller_id)) throw INVITE_GONE();
     if (!m || m.status !== 'invited') throw err(404, 'INVITE_NOT_FOUND', 'This invitation is no longer valid. Ask the company owner to send a new one.');
     if (new Date(m.invite_expires_at) <= new Date()) {
       await client.query(`UPDATE seller_staff_members SET status = 'expired', invite_token_hash = NULL, updated_at = now() WHERE id = $1`, [m.id]);
@@ -227,10 +229,9 @@ async function acceptInvite(userId, token, deps = {}) {
 }
 
 async function myMembership(userId, runner = db) {
-  if (!sellerStaffEnabled()) return null;
   const m = (await runner.query(
     `SELECT m.id, m.seller_id, m.role, m.status FROM seller_staff_members m WHERE m.user_id = $1 AND m.status IN ('active','suspended')`, [userId])).rows[0];
-  if (!m) return null;
+  if (!m || !sellerStaffEnabledFor(m.seller_id)) return null;
   return { company: await companyName(m.seller_id, runner), role: m.role, role_label: SELLER_ROLES[m.role].label, status: m.status,
     permissions: m.status === 'active' ? [...permissionsForRole(m.role)] : [] };
 }

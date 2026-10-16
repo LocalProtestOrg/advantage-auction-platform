@@ -7,7 +7,8 @@
  * The seller is always derived from the session's user, never from the request (no seller id in a URL, body or header
  * is consulted):
  *   • the company OWNER (seller_profiles.user_id) — always;
- *   • a staff member with an ACTIVE membership (migration 199) — only while SELLER_STAFF_ENABLED is on. The membership
+ *   • a staff member with an ACTIVE membership (migration 199) — only while SELLER_STAFF_ENABLED is on, or for a company
+ *     listed in the one-company pilot (SELLER_STAFF_PILOT_SELLER_IDS). The membership
  *     is read on every request, so suspending, removing or changing a member's role takes effect immediately.
  * The resolved context is cached on req.sellerCtx = { sellerId, sellerType, role, userId, staff, memberId } for the
  * handler; services still verify each row belongs to that seller. Every successful change made by a staff member is
@@ -15,20 +16,20 @@
  */
 const db = require('../db');
 const { hasSellerPermission } = require('../lib/sellerRbac');
-const { sellerStaffEnabled } = require('../lib/launchGuards');
+const { sellerStaffEnabledFor, sellerStaffAvailableAnywhere } = require('../lib/launchGuards');
 
 async function resolveSellerContext(userId, runner = db, env = process.env) {
   if (!userId) return null;
   const sp = (await runner.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
   if (sp) return { sellerId: sp.id, sellerType: sp.seller_type, role: 'owner', userId, staff: false };
-  if (!sellerStaffEnabled(env)) return null;
+  if (!sellerStaffAvailableAnywhere(env)) return null;
   const m = (await runner.query(
     `SELECT m.id, m.seller_id, m.role, sp.seller_type
        FROM seller_staff_members m
        JOIN seller_profiles sp ON sp.id = m.seller_id
        JOIN users u ON u.id = m.user_id
       WHERE m.user_id = $1 AND m.status = 'active' AND COALESCE(u.is_active, true) = true`, [userId])).rows[0];
-  if (!m) return null;
+  if (!m || !sellerStaffEnabledFor(m.seller_id, env)) return null;   // general switch, or this company is the pilot
   return { sellerId: m.seller_id, sellerType: m.seller_type, role: m.role, userId, staff: true, memberId: m.id };
 }
 

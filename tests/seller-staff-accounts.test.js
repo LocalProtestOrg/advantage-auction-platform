@@ -495,3 +495,39 @@ describe('7. staff do not change pricing', () => {
     expect(o.platform_fee_bps).toBe(1100);
   });
 });
+
+describe('8. one-company pilot (general switch off, SELLER_STAFF_PILOT_SELLER_IDS = one company)', () => {
+  beforeAll(() => { process.env.SELLER_STAFF_ENABLED = 'false'; process.env.SELLER_STAFF_PILOT_SELLER_IDS = SP.nora; });
+  afterAll(() => { process.env.SELLER_STAFF_ENABLED = 'true'; delete process.env.SELLER_STAFF_PILOT_SELLER_IDS; });
+  test('the pilot company can manage its team and its staff can work; every other company is as if staff accounts were off', async () => {
+    expect((await call('nora', 'GET', '/api/seller-staff/team')).status).toBe(200);
+    expect((await call('nora', 'GET', '/api/seller-staff/me')).body.data.enabled).toBe(true);
+    expect((await call('ivy', 'POST', '/api/seller-storefront/items', { title: 'Pilot chair', price_cents: 1500 })).status).toBe(201);
+    const sueTeam = await call('sue', 'GET', '/api/seller-staff/team');
+    expect(sueTeam.status).toBe(404); expect(sueTeam.body.code).toBe('STAFF_NOT_AVAILABLE');
+    expect((await call('sue', 'POST', '/api/seller-staff/step-up/start', { password: PW })).body.code).toBe('STAFF_NOT_AVAILABLE');
+    expect((await call('sue', 'GET', '/api/seller-staff/me')).body.data.enabled).toBe(false);
+  });
+  test("an active member of a non-pilot company has no access, and that company's invitations cannot be opened or accepted", async () => {
+    const m = await one(`INSERT INTO seller_staff_members (seller_id, invited_email, role, invited_by) VALUES ($1, 'exp@test.example', 'fulfillment', $2) RETURNING id`, [SP.sue, U.sue.id]);
+    await q(`UPDATE seller_staff_members SET user_id = $2, status = 'active', accepted_at = now() WHERE id = $1`, [m.id, U.exp.id]);
+    const r = await call('exp', 'GET', '/api/marketplace/seller/orders');
+    expect(r.status).toBe(403); expect(r.body.code).toBe('NOT_A_SELLER');
+    expect((await call('exp', 'GET', '/api/seller-staff/me')).body.data.membership).toBeNull();
+    const token = 'pilot-test-token-' + 'x'.repeat(30);
+    U.inv = await one(`INSERT INTO users (email, role) VALUES ('inv@test.example', 'buyer') RETURNING *`);
+    await q(`INSERT INTO seller_staff_members (seller_id, invited_email, role, invited_by, invite_token_hash, invite_expires_at)
+      VALUES ($1, 'inv@test.example', 'finance', $2, $3, now() + interval '1 day')`, [SP.sue, U.sue.id, staffSvc._hashToken(token)]);
+    expect((await call('inv', 'POST', '/api/seller-staff/invitations/preview', { token })).body.code).toBe('INVITE_NOT_FOUND');
+    expect((await call('inv', 'POST', '/api/seller-staff/invitations/accept', { token })).body.code).toBe('INVITE_NOT_FOUND');
+    expect((await one(`SELECT status FROM seller_staff_members WHERE invited_email = 'inv@test.example'`)).status).toBe('invited');
+  });
+  test('the pilot list accepts only company ids; with no pilot and the switch off, nothing is available', () => {
+    const g = require('../src/lib/launchGuards');
+    expect(g.sellerStaffPilotIds({ SELLER_STAFF_PILOT_SELLER_IDS: ` ${SP.nora}, not-an-id ,` })).toEqual([SP.nora.toLowerCase()]);
+    expect(g.sellerStaffEnabledFor(SP.sue, { SELLER_STAFF_PILOT_SELLER_IDS: SP.nora })).toBe(false);
+    expect(g.sellerStaffEnabledFor(SP.nora, { SELLER_STAFF_PILOT_SELLER_IDS: SP.nora })).toBe(true);
+    expect(g.sellerStaffAvailableAnywhere({})).toBe(false);
+    expect(g.sellerStaffEnabledFor(SP.nora, {})).toBe(false);
+  });
+});

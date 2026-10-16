@@ -59,4 +59,18 @@ function sellerStaffEnabled(env = process.env) {
   return !!(env && env.SELLER_STAFF_ENABLED === 'true');
 }
 
-module.exports = { sellerStaffEnabled, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };
+// One-company pilot (owner-approved 2026-10-16): while SELLER_STAFF_ENABLED is off, staff accounts work ONLY for the seller
+// companies (seller_profiles ids) listed in SELLER_STAFF_PILOT_SELLER_IDS (comma-separated). Every other company behaves
+// exactly as if staff accounts were off. Unset / empty = no pilot.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function sellerStaffPilotIds(env = process.env) {
+  return String((env && env.SELLER_STAFF_PILOT_SELLER_IDS) || '').split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter((s) => UUID_RE.test(s));
+}
+function sellerStaffEnabledFor(sellerId, env = process.env) {
+  if (sellerStaffEnabled(env)) return true;
+  return !!sellerId && sellerStaffPilotIds(env).includes(String(sellerId).toLowerCase());
+}
+// Whether staff accounts can be in use anywhere (general switch on, or a pilot company configured).
+function sellerStaffAvailableAnywhere(env = process.env) { return sellerStaffEnabled(env) || sellerStaffPilotIds(env).length > 0; }
+
+module.exports = { sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };
