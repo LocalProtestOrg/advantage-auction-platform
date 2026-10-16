@@ -37,22 +37,32 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | M2 moderation, reports, buyer issues, seller permission checkpoint (migration 198) | LIVE (6f6762b), verified in production |
 | Seller staff accounts (migration 199) | LIVE (5dab1ae, 2026-10-16), verified; OFF (`SELLER_STAFF_ENABLED` unset) until production phone-code + step-up verification |
 | Product SEO foundation (migration 200) | LIVE (5dab1ae, 2026-10-16), verified in production (see §4 "Built") |
+| Existing-item product detail editing | Built + tested (34a547d, branch `feat/storefront-next`); not deployed |
+| Shipping settings, seller policies, storefront tabs, policy snapshots, storefront widget (§7) | Requirements recorded 2026-10-16; not built |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
-## 2. Development sequence (recommended)
+## 2. Development sequence (recommended; updated 2026-10-16 with the owner's §7 requirements)
 
-1. **Seller staff accounts** — LIVE 2026-10-16 (switched off pending production phone-code verification).
-2. **Product SEO foundation** (§4.1–4.3) — LIVE 2026-10-16. Server-rendered item pages, canonical URLs, structured data, sitemap, SEO data
-   fields. Safe to build and ship now: it only improves what is already public. Must land **before** bulk import and the
-   widget, so imported and widget items are born with the right data model.
-3. **M3 retail settlement** — build ledger, holds, reconciliation with transfers OFF; live transfers only after owner approval.
-4. **Buyer marketplace search and filters**; per-storefront search and filters.
-5. **Stripe production verification** (payments, webhooks, Connect onboarding, Tax registrations) and checkout readiness.
-6. **Merchant feed** (§4.4) — generate + validate internally (no submission) alongside 4–5; submit to Google Merchant
-   Center only after checkout is live, the merchant account is set up and the owner approves.
-7. **Public marketing launch** (§3) — prepared in advance, launched with confirmed operational readiness.
-8. **Embeddable storefront widget**, seller branding/customization, inventory synchronization.
-9. **Bulk CSV / spreadsheet import.**
+Done: seller staff accounts (LIVE, switched off pending production phone-code verification); product SEO foundation
+(LIVE); existing-item product detail editing (built, awaiting deploy).
+
+1. **Production phone-code / step-up verification** with the owner, then the "Your Team" navigation and staff rollout.
+2. **Shipping settings and item-level shipping controls** (§7.1; migration). First, because policy pages, checkout
+   acknowledgment, the widget, the feed and import all depend on accurate shipping/pickup data. Includes closing two
+   existing gaps (§7.1 "Today").
+3. **Seller Store Terms and Shipping & Pickup Policy management** (§7.2; migration) — versioned, per seller organization.
+4. **Public storefront tabs and product-level policy links** (§7.3; no migration) — needs 2 and 3.
+5. **Immutable policy snapshots + acknowledgment for future checkout** (§7.4; migration) — needs 3; checkout stays OFF.
+6. **M3 retail settlement** — ledger, holds, reconciliation with transfers OFF; live transfers only after owner approval.
+   (Independent of 2–5; can run alongside them.)
+7. **Buyer marketplace search and filters; per-storefront search and filters** — needed by the widget.
+8. **Embeddable Professional Storefront widget** (§7.5–7.6; migration for widget settings) — needs 2–4 and 7.
+9. **Bulk CSV / spreadsheet import** — needs the final item data model (SEO fields + shipping fields).
+10. **Stripe production verification** (payments, webhooks, Connect onboarding, Tax registrations) and checkout readiness.
+11. **Shopping-network feed** (§4.4) — generate + validate internally; needs accurate shipping eligibility (2). Submit to
+    Google Merchant Center only after checkout is live, the merchant account is set up and the owner approves.
+12. **Public marketing launch** (§3) — only when functionality and payment readiness are verified. Nothing in §7 is
+    advertised as live before it is built, tested and deployed.
 
 ## 3. TODO — Public-facing Professional Seller marketing (owner requirement 2026-10-16)
 
@@ -168,3 +178,102 @@ public output.
 - Seller and buyer ownership protections (done: 197/198) and seller staff permissions (built: 199, not deployed).
 - Fulfilment and delivery verification (M3), refund and chargeback handling (partly done), reconciliation and payout holds (M3).
 - Administrative oversight and audit logs (admin read access is not yet logged).
+
+## 7. TODO — Shipping, seller policies, storefront tabs, checkout acknowledgment and storefront widget (owner requirements 2026-10-16, permanent)
+
+Applies together with §0. Every record below belongs to the verified seller organization taken from the session (never
+a browser-supplied seller id); one seller can never read, change or display another seller's settings or policies.
+
+### 7.1 Shipping options — default NO shipping
+Requirements:
+- Store-wide default shipping setting, initially **disabled**; an item-level shipping toggle, initially **disabled** unless
+  the seller deliberately applies an approved store default; an explicit **pickup only** designation.
+- Shipping methods, service areas, handling times, shipping charges and restrictions; settings for large furniture,
+  fragile antiques and oversized merchandise (e.g. freight / white-glove / local delivery / pickup only).
+- Items override the store default. **Changing the store default never silently changes existing published listings**
+  (the default applies to new items only; a bulk "apply to existing items" would be an explicit, previewed action).
+- Shipping charges are calculated or explicitly set before checkout. **Never invent a charge or silently offer free
+  shipping**; free shipping only when the seller explicitly sets it. A buyer can never choose shipping on a pickup-only item.
+- Every product page states clearly whether shipping, pickup, or both are available.
+- The 11% seller fee stays on the item price only; shipping and sales tax remain outside the fee base.
+
+Today (already supported): `marketplace_items.shippable` (default false), `shipping_cost_cents`, `shipping_notes`; a new
+direct listing is not shippable unless the seller ticks shipping; checkout refuses shipping on a non-shippable item
+(`SHIPPING_UNAVAILABLE`); the fee is computed on the item price only; the product page shows "Shipping available" or
+"Local pickup". **Gaps to close in this milestone:** (a) a shippable item with no shipping price is charged $0 shipping at
+checkout (`marketplaceOrderService` treats a missing price as 0) — must be refused until the seller sets a price or
+explicitly marks shipping free; (b) converting an auction lot copies the lot's shipping setting instead of starting at
+"no shipping"; (c) no store-wide default, methods, service areas, handling time, size class or restrictions.
+Migration needed: yes (store shipping defaults on the seller organization; item shipping method/handling/area/size/
+restriction fields and an explicit free-shipping flag; database checks that shipping cannot be offered without a set price).
+
+### 7.2 Seller Store Terms & Conditions and Shipping & Pickup Policy
+- A dedicated account area where each Professional Seller writes, edits, previews and publishes their **own** Store Terms
+  & Conditions (descriptions and condition, as-is disclosures subject to law, returns and cancellation, inspection,
+  pickup deadlines, buyer responsibilities, other seller conditions) and, separately, a **Shipping & Pickup Policy**.
+  Each is edited, previewed and published independently.
+- Stored under the verified seller organization with version history (append-only published versions), timestamps and an
+  audit trail (who edited and published, when). Strict per-seller isolation enforced by the database (composite keys,
+  the 197/198 pattern).
+- These are the seller's terms, not Advantage.Bid's Buyer Terms; Advantage.Bid's platform terms stay separate and prevail:
+  seller terms cannot override mandatory platform policies, payment protections, consumer rights or legal requirements.
+  The interface says so. Advantage.Bid never auto-generates legally binding terms for a seller and never presents
+  seller-entered text as legally approved (optional neutral headings/prompts only).
+- Today: nothing exists. Migration needed: yes (`seller_policies` + append-only `seller_policy_versions`).
+
+### 7.3 Policy access across the storefront and product pages
+- The public storefront (`/pro/:slug`) offers **Shop Items**, **Store Terms & Conditions** and **Shipping & Pickup Policy**
+  — tabs on desktop, an accessible equivalent (stacked sections / select) on small screens.
+- Every product page links to **its own seller's** policies (an item from Heritage & Home links only to Heritage & Home's).
+- Stable, crawlable public URLs, e.g. `/pro/:slug/terms` and `/pro/:slug/shipping-pickup`, server-rendered; available on
+  Advantage.Bid whether or not the seller has a website.
+- Today: storefront is server-rendered at `/pro/:slug` with items; no policy tabs. Migration needed: no (needs 7.2).
+
+### 7.4 Policy acknowledgment and immutable snapshots at checkout
+- Before a fixed-price purchase the buyer can open the applicable seller's Store Terms and Shipping & Pickup Policy and
+  Advantage.Bid's platform terms, and acknowledges them (design: an unticked confirmation naming the seller, with links;
+  the order cannot be created without it).
+- Each order permanently records the exact policy versions in force at purchase (version ids + content hash) and the
+  acknowledgment time; later edits never alter an existing order's record (database-enforced immutability, as with the
+  migration 197 snapshots). Separate from auction buyer's premium settings and auction terms.
+- Checkout stays OFF; the unapproved platform Buyer Terms draft is not modified or deployed by this work.
+- Today: orders already keep immutable item/seller/pickup snapshots (197). Migration needed: yes (policy-version and
+  acknowledgment columns on orders + guard).
+
+### 7.5 Professional Storefront website widget
+- Separate from the auction and estate-sale widgets. Shows the seller's name, branding and logo, published fixed-price
+  inventory (photos, prices, descriptions, availability), search and filters, Store Terms and Shipping & Pickup Policy
+  (Shop Items / Store Terms / Shipping & Pickup tabs, accessible small-screen alternative), and links to each product and
+  to checkout **on Advantage.Bid**.
+- Presentation settings (colors, layout, logo display). Policies and inventory are read live from the same authoritative
+  records as the public storefront — no duplicate documents or inventory for sellers to maintain.
+- Tenant-scoped by a server-issued widget key bound to the seller organization (the white-label auction widget's
+  token-scoped pattern), never a seller id trusted from the browser. Never exposes private seller information, buyer data,
+  unpublished inventory, pickup street addresses, financial records or another seller's policies.
+- SEO: the widget never creates competing indexable product pages (product links point to the canonical
+  `/shop/item/<id>/<slug>` URL; widget frames are noindex), so the deployed product SEO foundation is preserved.
+- Today: no storefront widget. Migration needed: yes (widget settings/keys per seller).
+
+### 7.6 Mandatory dual distribution
+- Every eligible Professional Seller fixed-price listing is published on the Advantage.Bid marketplace; the widget may also
+  show it. There is no seller-website-only option.
+- Advantage.Bid remains the authoritative inventory, pricing, availability, order and transaction system; all payments use
+  the approved Advantage.Bid checkout and financial safeguards; the widget never introduces another payment process.
+- A sale through either surface makes the item unavailable on both immediately; no duplicate sales, stale prices or
+  conflicting status.
+- Today (already supported structurally): one `marketplace_items` record per item, no seller-site-only status, checkout
+  reserves the item row under a lock (`pending_purchase`) and the database refuses a second live order, and every surface
+  reads the same record. The widget must keep that (read live, never cache availability for purchase decisions).
+
+### 7.7 Shopping networks and SEO
+- Keep the deployed product SEO foundation and canonical Advantage.Bid URLs; no duplicate indexing from widgets.
+- Feeds carry accurate availability and shipping eligibility (from 7.1); antiques, collectibles, furniture and one-of-a-kind
+  inventory are supported without fabricated identifiers.
+
+### 7.8 Required tests (added to every relevant milestone)
+Shipping defaults (store and item default off; store default change never alters existing listings; no shipping without a
+set or explicitly free price; pickup-only cannot be shipped; fee base excludes shipping and tax); seller policy isolation
+(cross-seller read/write/display refused; versions append-only); checkout policy snapshots (recorded at purchase, immutable,
+unaffected by later edits); widget ownership (key bound to one seller; no private or unpublished data; another seller's
+policies never shown); inventory synchronization (a sale on either surface removes availability on both; no double sale).
+
