@@ -244,7 +244,11 @@
       if(method==='shipping')body.ship_to=addr;
       return fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
         .then(function(r){return r.json();}).then(function(res){
-          if(!res.success)throw new Error(res.message||'Could not start payment.');
+          if(!res.success){
+            // The seller changed its policies (or price) since this page loaded: refresh the item so the buyer reviews the current ones.
+            if(res.code==='POLICIES_CHANGED'||res.code==='PRICE_CHANGED'){fetch('/api/public/storefront/item/'+encodeURIComponent(ID)).then(function(r){return r.json();}).then(function(x){if(x&&x.success){ITEM=x.data;}}).catch(function(){});}
+            throw new Error(res.message||'Could not start payment.');
+          }
           ORDER=res.data.order; ORDER_KEY=key; return ORDER;
         });
     }

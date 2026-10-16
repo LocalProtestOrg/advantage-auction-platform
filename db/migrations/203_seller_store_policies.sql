@@ -53,6 +53,11 @@ BEGIN
      OR NEW.published_at IS DISTINCT FROM OLD.published_at OR NEW.published_by IS DISTINCT FROM OLD.published_by) THEN
     RAISE EXCEPTION 'a published seller policy can never be rewritten; publish a new version' USING ERRCODE = 'check_violation';
   END IF;
+  -- An administrator's withdrawal record is fixed once written, and cannot be added to any other status.
+  IF (OLD.withdrawn_at IS NOT NULL OR NEW.status <> 'withdrawn') AND (NEW.withdrawn_by IS DISTINCT FROM OLD.withdrawn_by
+     OR NEW.withdrawn_at IS DISTINCT FROM OLD.withdrawn_at OR NEW.withdrawn_reason IS DISTINCT FROM OLD.withdrawn_reason) THEN
+    RAISE EXCEPTION 'a policy withdrawal record can never be changed' USING ERRCODE = 'check_violation';
+  END IF;
   IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
        (OLD.status = 'draft' AND NEW.status = 'published') OR (OLD.status = 'published' AND NEW.status IN ('superseded','withdrawn'))) THEN
     RAISE EXCEPTION 'seller policy status % cannot become %', OLD.status, NEW.status USING ERRCODE = 'check_violation';

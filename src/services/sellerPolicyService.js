@@ -76,6 +76,10 @@ async function publish(ctx, kind) {
     if (draft.body.length < MIN_PUBLISH) throw err(422, 'POLICY_TOO_SHORT', 'Write your policy before publishing it.');
     const current = (await client.query(`SELECT id, content_hash FROM seller_policy_versions WHERE seller_id = $1 AND kind = $2 AND status = 'published'`, [ctx.sellerId, kind])).rows[0];
     if (current && current.content_hash === draft.content_hash) throw err(409, 'NO_CHANGES', 'This is the same as your published policy.');
+    // Text Advantage.Bid withdrew cannot simply be republished: it must be revised first.
+    const withdrawnSame = (await client.query(`SELECT 1 FROM seller_policy_versions WHERE seller_id = $1 AND kind = $2 AND status = 'withdrawn' AND content_hash = $3 LIMIT 1`,
+      [ctx.sellerId, kind, draft.content_hash])).rowCount;
+    if (withdrawnSame) throw err(409, 'WITHDRAWN_TEXT', 'Advantage.Bid withdrew this text. Please revise it before publishing.');
     if (current) await client.query(`UPDATE seller_policy_versions SET status = 'superseded', superseded_at = now() WHERE id = $1`, [current.id]);
     const row = (await client.query(`UPDATE seller_policy_versions SET status = 'published', published_at = now(), published_by = $2 WHERE id = $1 RETURNING *`,
       [draft.id, ctx.userId])).rows[0];
@@ -120,8 +124,14 @@ async function withdraw(versionId, adminId, { reason } = {}) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(versionId || ''))) throw err(404, 'POLICY_NOT_FOUND', 'Policy not found.');
   const note = String(reason || '').trim().slice(0, 1000);
   if (note.length < 5) throw err(422, 'REASON_REQUIRED', 'Give a short reason.');
-  const row = (await db.query(`UPDATE seller_policy_versions SET status = 'withdrawn', withdrawn_by = $2, withdrawn_at = now(), withdrawn_reason = $3
-    WHERE id = $1 AND status = 'published' RETURNING *`, [versionId, adminId, note])).rows[0];
+  // Same company lock as publish(), so a withdrawal and a checkout never interleave (see marketplaceOrderService.createOrder).
+  const row = await withTransaction(async (client) => {
+    const v = (await client.query('SELECT seller_id FROM seller_policy_versions WHERE id = $1', [versionId])).rows[0];
+    if (!v) return null;
+    await client.query('SELECT id FROM seller_profiles WHERE id = $1 FOR UPDATE', [v.seller_id]);
+    return (await client.query(`UPDATE seller_policy_versions SET status = 'withdrawn', withdrawn_by = $2, withdrawn_at = now(), withdrawn_reason = $3
+      WHERE id = $1 AND status = 'published' RETURNING *`, [versionId, adminId, note])).rows[0];
+  });
   if (!row) throw err(409, 'NOT_PUBLISHED', 'Only a published policy can be withdrawn.');
   await writeAuditLog({ event_type: 'seller_policy_withdrawn', entity_type: 'seller_profile', entity_id: row.seller_id, actor_id: adminId,
     metadata: { kind: row.kind, version: row.version, reason: note } }).catch(() => {});

@@ -1079,3 +1079,30 @@ describe('seller policies: review fixes (changed after review, hidden branding, 
     expect((await call('nora', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
   });
 });
+
+describe('seller policies: re-review fixes', () => {
+  test('text Advantage.Bid withdrew cannot be republished unchanged; a withdrawal record never changes', async () => {
+    await call('sue', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sue shipping policy that will be withdrawn by staff.' });
+    const pub = await call('sue', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
+    const w = await call('admin', 'POST', `/api/admin/storefront/policies/${pub.body.data.id}/withdraw`, { reason: 'Misleading shipping promise' });
+    expect(w.status).toBe(200);
+    await call('sue', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sue shipping policy that will be withdrawn by staff.' });
+    const again = await call('sue', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
+    expect(again.status).toBe(409); expect(again.body.code).toBe('WITHDRAWN_TEXT');
+    await call('sue', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sue shipping policy, revised: we ship within 5 business days.' });
+    expect((await call('sue', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
+    const e = await rejects(`UPDATE seller_policy_versions SET withdrawn_reason = 'edited reason' WHERE id = $1`, [pub.body.data.id]);
+    expect(e.message).toMatch(/withdrawal record can never be changed/);
+    const live = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [SP.sue]);
+    const e2 = await rejects(`UPDATE seller_policy_versions SET withdrawn_reason = 'sneaky' WHERE id = $1`, [live.id]);
+    expect(e2.message).toMatch(/withdrawal record can never be changed/);
+  });
+  test('checkout takes a share lock on the seller company before reading policies (no publish/withdraw race)', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'src', 'services', 'marketplaceOrderService.js'), 'utf8');
+    expect(src.indexOf("FOR SHARE', [item.seller_id]")).toBeGreaterThan(0);
+    expect(src.indexOf("FOR SHARE', [item.seller_id]")).toBeLessThan(src.indexOf('sellerPolicies.snapshotFor(item.seller_id, client'));
+    expect(src).toMatch(/23514' && \/own seller\/[\s\S]{0,80}POLICIES_CHANGED/);
+    const pol = fs.readFileSync(path.join(ROOT, 'src', 'services', 'sellerPolicyService.js'), 'utf8');
+    expect(pol).toMatch(/async function withdraw[\s\S]*FOR UPDATE[\s\S]*status = 'withdrawn'/);
+  });
+});

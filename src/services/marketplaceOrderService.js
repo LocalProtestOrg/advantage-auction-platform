@@ -283,6 +283,9 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     const snap = purchaseSnapshot(item, lockedMethod, lockedShipping);
     // The seller's policies apply only when the buyer could see them (seller branding shown). The buyer confirmed the
     // versions on the review screen: if the seller published a different version since, ask the buyer to review again.
+    // Share-lock the seller company: publishing or withdrawing a policy takes the same row FOR UPDATE, so the versions
+    // read here are still the published ones when the order is inserted.
+    await client.query('SELECT id FROM seller_profiles WHERE id = $1 FOR SHARE', [item.seller_id]);
     const policySnap = await sellerPolicies.snapshotFor(item.seller_id, client, { shown: brandingVisible(item.seller_type, item.show_branding_to_buyers) });
     if (opts.expectedPolicyVersions && typeof opts.expectedPolicyVersions === 'object') {
       for (const k of ['store_terms', 'shipping_pickup']) {
@@ -306,7 +309,11 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
        method, shipTo, !!item.is_demo, opts.idempotencyKey || null,
        JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null,
        JSON.stringify(policySnap)])
-      .catch((e) => { if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.'); throw e; });
+      .catch((e) => {
+        if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
+        if (e && e.code === '23514' && /own seller/.test(e.message || '')) throw err(409, 'POLICIES_CHANGED', 'The seller updated their store policies since you reviewed them. Please review them again.');
+        throw e;
+      });
     order = inserted.rows[0];
     await recordEvent(client, order.id, 'created', { actorUserId: buyerUserId, actorRole: 'buyer',
       data: { item_id: itemId, seller_id: item.seller_id, total_charge_cents: b.total_charge_cents, method } });
