@@ -19,6 +19,7 @@
 
 const db = require('../db');
 const sellerActor = require('../lib/sellerActor');
+const productData = require('../lib/productData');
 const { withTransaction } = require('../utils/withTransaction');
 // Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
@@ -177,6 +178,9 @@ async function createDirectListing(actingUserId, data = {}) {
   const price = Math.max(0, parseInt(data.price_cents, 10) || 0);
   if (!price) throw err(422, 'PRICE_REQUIRED', 'A price is required.');
   const images = Array.isArray(data.images) ? data.images.filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u)).slice(0, 24) : [];
+  // Optional product details (brand, barcode, part number, condition type, era, material, photo descriptions): only
+  // what the seller actually entered; an invalid barcode is refused, never corrected (src/lib/productData.js).
+  const pd = productData.normalizeProductFields(data);
   // Location: the seller's confirmed default storefront location, automatically — unless the seller chose a location
   // for THIS item ("Change Location"). Never inferred from the seller's legal address.
   const status = data.status === 'draft' ? 'draft' : 'active';
@@ -192,15 +196,18 @@ async function createDirectListing(actingUserId, data = {}) {
        (seller_id, title, description, category, condition, price_cents, images, thumbnail_url, city, state, zip,
         shippable, shipping_cost_cents, shipping_notes, pickup_group, status, is_demo, conversion_reason,
         pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code, pickup_country,
-        pickup_location_source, pickup_location_updated_at)
+        pickup_location_source, pickup_location_updated_at,
+        brand, manufacturer, gtin, mpn, condition_type, era_or_period, material, image_alt)
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'direct',
-             $18,$19,$20,$21,$22,$23,$24,$25) RETURNING *`,
+             $18,$19,$20,$21,$22,$23,$24,$25, $26,$27,$28,$29,$30,$31,$32,$33::jsonb) RETURNING *`,
     [seller.id, title, data.description || null, data.category || null, data.condition || null, price,
      JSON.stringify(images), images[0] || null, place.city || data.city || null, place.state || data.state || null, place.zip || data.zip || null,
      !!data.shippable, data.shipping_cost_cents != null ? parseInt(data.shipping_cost_cents, 10) : null,
      data.shipping_notes || null, data.pickup_group || null, status, !!seller.is_demo,
      pv.pickup_address_line1, pv.pickup_address_line2, pv.pickup_city, pv.pickup_state, pv.pickup_postal_code, pv.pickup_country,
-     pv.pickup_location_source, new Date()]);
+     pv.pickup_location_source, new Date(),
+     pd.brand || null, pd.manufacturer || null, pd.gtin || null, pd.mpn || null, pd.condition_type || null, pd.era_or_period || null,
+     pd.material || null, JSON.stringify(pd.image_alt || [])]);
   return rows[0];
 }
 
@@ -253,6 +260,7 @@ async function updateItem(id, actingUserId, patch = {}) {
   if (patch.shippable != null) add('shippable', !!patch.shippable);
   if (patch.shipping_cost_cents != null) add('shipping_cost_cents', parseInt(patch.shipping_cost_cents, 10));
   if (patch.status != null) add('status', patch.status);
+  for (const [k, v] of Object.entries(productData.normalizeProductFields(patch))) add(k, k === 'image_alt' ? JSON.stringify(v) : v);
   // Location changes affect THIS item only — never the seller's default or any other item.
   let eff = saleLocation.forItem({ ...seller, ...item });
   const locationChanged = hasPickupInput(patch) || patch.use_storefront_location === true;
@@ -287,7 +295,7 @@ async function updateItem(id, actingUserId, patch = {}) {
 }
 
 // Seller's own listings (all statuses).
-async function listForSeller(sellerId, runner = db) {
+async function listForSeller(sellerId, runner = db, { streetAddress = true } = {}) {
   const { rows } = await runner.query(
     `SELECT mi.*, ${DEFAULT_COLUMNS.map((c) => 'sp.' + c).join(', ')}
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
@@ -298,6 +306,12 @@ async function listForSeller(sellerId, runner = db) {
     const out = Object.assign({}, r);
     DEFAULT_COLUMNS.forEach((k) => { delete out[k]; });
     out.location = { source: eff.source, address: eff.address, missing: eff.missing || [] };
+    if (!streetAddress) {
+      // Staff: the private pickup street address stays with the owner (city/state only), and no internal user ids.
+      PICKUP_COLUMNS.filter((k) => !['pickup_city', 'pickup_state', 'pickup_location_source'].includes(k)).forEach((k) => { delete out[k]; });
+      delete out.converted_by_user_id; delete out.pending_order_id; delete out.zip;
+      out.location.address = eff.address ? { city: eff.address.city || null, state: eff.address.state || null } : null;
+    }
     return out;
   });
 }
@@ -327,7 +341,9 @@ async function getPublicItem(id, runner = db) {
 // Location: city/state only (never the pickup street, unit, ZIP or the seller's default location). No internal ids
 // (seller, source auction/lot, converting user, pending order). Seller name only when the seller's branding is public.
 const PUBLIC_ITEM_FIELDS = ['id', 'title', 'description', 'category', 'condition', 'price_cents', 'images', 'thumbnail_url',
-  'city', 'state', 'shippable', 'shipping_cost_cents', 'shipping_notes', 'status', 'created_at', 'storefront_slug'];
+  'city', 'state', 'shippable', 'shipping_cost_cents', 'shipping_notes', 'status', 'created_at', 'updated_at', 'storefront_slug',
+  // product data the seller chose to give (migration 200) — public by nature; never invented
+  'brand', 'manufacturer', 'gtin', 'mpn', 'condition_type', 'era_or_period', 'material', 'image_alt'];
 function publicItem(row) {
   const out = {};
   PUBLIC_ITEM_FIELDS.forEach((k) => { if (row[k] !== undefined) out[k] = row[k]; });

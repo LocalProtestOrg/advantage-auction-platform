@@ -11,7 +11,13 @@ written to the history), `src/lib/sellerActor.js` (services act for the session'
 `src/services/sellerStepUpService.js`, `src/routes/sellerStaff.js` (`/api/seller-staff`), pages `seller-staff.html` (owner)
 and `seller-staff-invite.html` (invitee). Tests: `tests/seller-staff-accounts.test.js` (real Postgres, two companies, three
 staff roles, outsiders). Not built yet (Milestone 3): the payout-destination change flow and its 72-hour payout hold —
-there is no storefront payout destination to change until Stripe Connect is set up; `company.payout.manage` stays owner-only.
+there is no storefront payout destination to change until Stripe Connect is set up; `company.payout.manage` stays owner-only
+and the step-up guard (`sellerStepUpService.requireStepUp`) must be attached to those routes when they are built. The existing
+auction payout-profile pages remain owner-only (they resolve the owner's own account; staff are never recognised there).
+Security review (2026-10-16) fixes: atomic code-attempt counting, wrong-password lockout, invitations that reveal nothing
+about other accounts (checks run at acceptance), staff see city/state only for pickup locations, Finance does not see the
+buyer's own words in issues, invitation links carry the code in the URL fragment, an active staff account cannot be made a
+company owner (database), simultaneous acceptances return a clear error.
 
 ## 1. Model
 

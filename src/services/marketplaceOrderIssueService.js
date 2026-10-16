@@ -129,10 +129,12 @@ async function sellerIdFor(actor, runner = db) {
 
 async function listForSeller(sellerUserId) {
   const sellerId = await sellerIdFor(sellerUserId);
+  // The buyer's own words can contain their phone number or address: only people who fulfil orders see them.
+  const seeMessage = sellerActor.can(sellerUserId, 'company.orders.fulfil');
   const { rows } = await db.query(
     `SELECT i.*, o.order_number FROM marketplace_order_issues i JOIN marketplace_orders o ON o.id = i.order_id
       WHERE i.seller_id = $1 ORDER BY i.created_at DESC LIMIT 200`, [sellerId]);
-  return rows.map((r) => view(r, { forSeller: true }));
+  return rows.map((r) => { const v = view(r, { forSeller: true }); if (!seeMessage) v.message = null; return v; });
 }
 
 // Seller answers an issue on THEIR order (one response; the buyer's words are never editable).

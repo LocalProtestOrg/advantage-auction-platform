@@ -126,7 +126,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('199_seller_staff_accounts.sql'));   // idempotent
@@ -218,7 +218,7 @@ describe('2. only the owner, after confirming with password + phone code, can ch
   test('a wrong password sends no code; a wrong code is refused; a code works once', async () => {
     const bad = await call('nora', 'POST', '/api/seller-staff/step-up/start', { password: 'wrong' }, 's-pw');
     expect(bad.body.code).toBe('PASSWORD_INCORRECT');
-    expect(await one(`SELECT count(*)::int n FROM seller_step_up_challenges WHERE session_sid = 's-pw'`)).toEqual({ n: 0 });
+    expect(await one(`SELECT count(*)::int n FROM seller_step_up_challenges WHERE session_sid = 's-pw' AND status <> 'password_failed'`)).toEqual({ n: 0 });
     await call('nora', 'POST', '/api/seller-staff/step-up/start', { password: PW }, 's-code');
     const code = mockCodes[PHONE.nora];
     const wrong = await call('nora', 'POST', '/api/seller-staff/step-up/confirm', { code: code === '0000' ? '1111' : '0000' }, 's-code');
@@ -245,6 +245,21 @@ describe('2. only the owner, after confirming with password + phone code, can ch
       for (let j = 0; j < 3; j++) await call('sue', 'POST', '/api/seller-staff/step-up/confirm', { code: wrong }, 's-lock');
     }
     expect((await call('sue', 'POST', '/api/seller-staff/step-up/start', { password: PW }, 's-lock')).body.code).toBe('LOCKED');
+    await q(`UPDATE seller_step_up_challenges SET created_at = created_at - interval '2 hours' WHERE user_id = $1`, [U.sue.id]);
+  });
+  test('five wrong passwords lock the step-up for an hour', async () => {
+    for (let i = 0; i < 5; i++) expect((await call('sue', 'POST', '/api/seller-staff/step-up/start', { password: 'nope' }, 's-pwlock')).body.code).toBe('PASSWORD_INCORRECT');
+    expect((await call('sue', 'POST', '/api/seller-staff/step-up/start', { password: PW }, 's-pwlock')).body.code).toBe('LOCKED');
+    await q(`UPDATE seller_step_up_challenges SET created_at = created_at - interval '2 hours' WHERE user_id = $1`, [U.sue.id]);
+  });
+  test('parallel guesses cannot exceed three attempts for one code', async () => {
+    await q(`UPDATE seller_step_up_challenges SET created_at = created_at - interval '2 hours' WHERE user_id = $1`, [U.sue.id]);
+    await call('sue', 'POST', '/api/seller-staff/step-up/start', { password: PW }, 's-par');
+    const wrong = mockCodes[PHONE.sue] === '0000' ? '1111' : '0000';
+    await Promise.all(Array.from({ length: 8 }, () => call('sue', 'POST', '/api/seller-staff/step-up/confirm', { code: wrong }, 's-par')));
+    const c = await one(`SELECT attempts, status FROM seller_step_up_challenges WHERE session_sid = 's-par' ORDER BY created_at DESC LIMIT 1`);
+    expect(c.attempts).toBeLessThanOrEqual(3); expect(c.status).toBe('failed');
+    expect((await call('sue', 'POST', '/api/seller-staff/step-up/confirm', { code: mockCodes[PHONE.sue] }, 's-par')).status).not.toBe(200);
     await q(`UPDATE seller_step_up_challenges SET created_at = created_at - interval '2 hours' WHERE user_id = $1`, [U.sue.id]);
   });
   test('without a verified phone the step-up fails closed', async () => {
@@ -285,20 +300,28 @@ describe('3. invitations: single use, the invited email only, one company per pe
     expect(inv.email).toBe('otto@test.example');
     const wrong = await call('bea', 'POST', '/api/seller-staff/invitations/accept', { token: inv._token });
     expect(wrong.body.code).toBe('EMAIL_MISMATCH');
-    expect((await call('bea', 'GET', '/api/seller-staff/invitations/preview?token=' + inv._token)).body.data.email_matches).toBe(false);
+    expect((await call('bea', 'POST', '/api/seller-staff/invitations/preview', { token: inv._token })).body.data.email_matches).toBe(false);
     expect((await call('otto', 'POST', '/api/seller-staff/invitations/accept', { token: inv._token })).status).toBe(200);
     expect((await call('otto', 'POST', '/api/seller-staff/invitations/accept', { token: inv._token })).body.code).toBe('INVITE_NOT_FOUND');
     expect((await call('otto', 'POST', '/api/seller-staff/invitations/accept', { token: 'x'.repeat(43) })).body.code).toBe('INVITE_NOT_FOUND');
   });
-  test('a person already on one company cannot join another; a company owner cannot become staff', async () => {
+  test('a person already on one company cannot join another; a company owner cannot become staff; inviting reveals neither', async () => {
     const sueOwner = { sellerId: SP.sue, userId: U.sue.id, role: 'owner', staff: false };
-    await expect(staffSvc.invite(sueOwner, { email: U.fred.email, role: 'fulfillment' })).rejects.toMatchObject({ code: 'ALREADY_STAFF' });
-    await expect(staffSvc.invite(sueOwner, { email: U.nora.email, role: 'finance' })).rejects.toMatchObject({ code: 'INVITEE_IS_OWNER' });
+    // Sending the invitation tells Sue nothing about Fred or Nora (same answer as for anyone); acceptance is what refuses.
+    const toFred = await staffSvc.invite(sueOwner, { email: U.fred.email, role: 'fulfillment' }, { returnToken: true });
+    const toNora = await staffSvc.invite(sueOwner, { email: U.nora.email, role: 'finance' }, { returnToken: true });
+    expect(Object.keys(toFred).sort()).toEqual(Object.keys(toNora).sort());
+    expect(toFred.status).toBe('invited'); expect(toNora.status).toBe('invited');
+    expect((await call('fred', 'POST', '/api/seller-staff/invitations/accept', { token: toFred._token })).body.code).toBe('ALREADY_STAFF');
+    expect((await call('nora', 'POST', '/api/seller-staff/invitations/accept', { token: toNora._token })).body.code).toBe('INVITEE_IS_OWNER');
+    // the database also refuses making an active staff account a company owner
+    const e = await rejects(`INSERT INTO seller_profiles (user_id, seller_type) VALUES ($1, 'auction_house')`, [U.fred.id]);
+    expect(e.message).toMatch(/staff of a seller company/);
     // invited before joining elsewhere → refused at acceptance
     const early = await staffSvc.invite(sueOwner, { email: 'late@test.example', role: 'finance' }, { returnToken: true });
     U.late = await one(`INSERT INTO users (email, role) VALUES ('late@test.example', 'buyer') RETURNING *`);
-    const toNora = await staffSvc.invite(owner(), { email: 'late@test.example', role: 'finance' }, { returnToken: true });
-    expect((await call('late', 'POST', '/api/seller-staff/invitations/accept', { token: toNora._token })).status).toBe(200);
+    const lateToNora = await staffSvc.invite(owner(), { email: 'late@test.example', role: 'finance' }, { returnToken: true });
+    expect((await call('late', 'POST', '/api/seller-staff/invitations/accept', { token: lateToNora._token })).status).toBe(200);
     expect((await call('late', 'POST', '/api/seller-staff/invitations/accept', { token: early._token })).body.code).toBe('ALREADY_STAFF');
   });
   test('an expired invitation cannot be accepted; a revoked one neither', async () => {
@@ -331,6 +354,10 @@ describe('4. staff act for their own company only, within their role', () => {
     expect((await one('SELECT price_cents FROM marketplace_items WHERE id = $1', [sue.id])).price_cents).toBe(5000);
     const list = (await call('ivy', 'GET', '/api/seller-storefront/items')).body.data;
     expect(list.every((x) => x.seller_id === SP.nora)).toBe(true);
+    // staff see the pickup city/state, never the private street address
+    expect(JSON.stringify(list)).not.toMatch(/1 Nora St|77001/);
+    expect(list[0].location.address).toEqual({ city: 'Houston', state: 'TX' });
+    expect(JSON.stringify((await call('nora', 'GET', '/api/seller-storefront/items')).body.data)).toMatch(/1 Nora St/);
   });
   test('Inventory Manager: no storefront settings, no street address, no inquiries, no fulfilment, no buyer contact or fees', async () => {
     const cfg = (await call('ivy', 'GET', '/api/seller-storefront/config')).body.data;
@@ -378,6 +405,13 @@ describe('4. staff act for their own company only, within their role', () => {
     expect(JSON.stringify(seen)).not.toMatch(/bea@test|BEA Person/);
     expect((await call('fina', 'POST', `/api/marketplace/seller/orders/${o.id}/fulfillment`, { action: 'picked_up' })).status).toBe(403);
     expect((await call('fina', 'PATCH', '/api/seller-storefront/items/' + o.marketplace_item_id, { price_cents: 1 })).status).toBe(403);
+    // a buyer's issue text can carry their phone or address: Finance sees the issue, not the words
+    const issues = require('../src/services/marketplaceOrderIssueService');
+    await issues.openIssue(o.id, U.bea.id, { category: 'pickup_problem', message: 'Call me at 713-555-0199, I live at 5 Buyer Rd' });
+    const fi = (await call('fina', 'GET', '/api/marketplace/seller/issues')).body.data.find((x) => x.order_id === o.id);
+    expect(fi.category).toBe('pickup_problem'); expect(fi.message).toBeNull();
+    const ni = (await call('nora', 'GET', '/api/marketplace/seller/issues')).body.data.find((x) => x.order_id === o.id);
+    expect(ni.message).toMatch(/5 Buyer Rd/);
   });
   test('only the owner and Fulfillment-free roles are refused buyer-issue responses; staff never reach admin tools', async () => {
     for (const who of ['ivy', 'fred', 'fina']) {
@@ -434,6 +468,7 @@ describe('6. the database keeps memberships attributable', () => {
     expect(fk.message).toMatch(/foreign key/i);
     const byStaff = await rejects(`INSERT INTO seller_staff_members (seller_id, invited_email, role, invited_by) VALUES ($1, 'a@test.example', 'finance', $2)`, [SP.nora, U.ivy.id]);
     expect(byStaff.message).toMatch(/only the company owner/);
+    await q(`UPDATE seller_staff_members SET status = 'revoked' WHERE seller_id = $1 AND status = 'invited'`, [SP.sue]);   // earlier tests' open invitations
     const m = await one(`INSERT INTO seller_staff_members (seller_id, invited_email, role, invited_by) VALUES ($1, 'ivy@test.example', 'finance', $2) RETURNING id`, [SP.sue, U.sue.id]);
     const two = await rejects(`UPDATE seller_staff_members SET user_id = $2, status = 'active' WHERE id = $1`, [m.id, U.ivy.id]);
     expect(two.message).toMatch(/unique|duplicate/i);

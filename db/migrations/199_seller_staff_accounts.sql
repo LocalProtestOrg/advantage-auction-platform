@@ -103,10 +103,10 @@ CREATE TABLE IF NOT EXISTS seller_step_up_challenges (
   seller_id      UUID NOT NULL REFERENCES seller_profiles(id),
   session_sid    TEXT NOT NULL,
   phone_last4    TEXT,
-  provider       TEXT NOT NULL CHECK (provider IN ('twilio_verify','local_test')),
+  provider       TEXT CHECK (provider IN ('twilio_verify','local_test')),          -- NULL for a wrong-password record
   provider_ref   TEXT,
   code_hash      TEXT,
-  status         TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('sent','approved','failed','expired','superseded','send_failed')),
+  status         TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('sent','approved','failed','expired','superseded','send_failed','password_failed')),
   attempts       INTEGER NOT NULL DEFAULT 0,
   max_attempts   INTEGER NOT NULL DEFAULT 3,
   expires_at     TIMESTAMPTZ NOT NULL,
@@ -115,3 +115,17 @@ CREATE TABLE IF NOT EXISTS seller_step_up_challenges (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_seller_step_up_user ON seller_step_up_challenges (user_id, created_at DESC);
+
+-- ── A staff member cannot also become a company owner ────────────────────────────────────────────────
+-- (the membership side is checked when an invitation is accepted; this covers a seller profile created or reassigned later).
+CREATE OR REPLACE FUNCTION seller_profiles_not_staff_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.user_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.user_id IS DISTINCT FROM OLD.user_id)
+     AND EXISTS (SELECT 1 FROM seller_staff_members m WHERE m.user_id = NEW.user_id AND m.status IN ('active','suspended')) THEN
+    RAISE EXCEPTION 'this account is staff of a seller company; remove the membership before making it a company owner' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_seller_profiles_not_staff ON seller_profiles;
+CREATE TRIGGER trg_seller_profiles_not_staff BEFORE INSERT OR UPDATE OF user_id ON seller_profiles
+  FOR EACH ROW EXECUTE FUNCTION seller_profiles_not_staff_guard();

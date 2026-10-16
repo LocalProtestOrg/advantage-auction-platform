@@ -43,7 +43,7 @@ router.put('/pickup-location', seller('company.storefront.manage'), async (req, 
 router.get('/items', sellerRead('company.inventory.view'), asyncRoute(async (req, res) => {
   const s = req.sellerCtx && await items.sellerForUser(req.sellerCtx);
   if (!s) return res.json({ success: true, data: [] });
-  return res.json({ success: true, data: await items.listForSeller(s.id) });
+  return res.json({ success: true, data: await items.listForSeller(s.id, undefined, { streetAddress: !req.sellerCtx.staff }) });
 }));
 router.post('/items', seller('company.inventory.edit'), async (req, res, next) => {
   try { return res.status(201).json({ success: true, data: await items.createDirectListing(req.sellerCtx, req.body || {}) }); }

@@ -10,8 +10,8 @@
  *   isFresh(userId, sid)                → is there an approved, unexpired step-up for this person and session?
  *
  * Fails closed: no verified phone, no code sender, or no session id → the sensitive action is refused. Codes are never
- * stored (HMAC or the provider's reference only). Controls: 5-minute codes, 3 attempts each, 3 codes per 30 minutes,
- * one-hour lockout after two exhausted codes, single use.
+ * stored (HMAC or the provider's reference only). Controls: 5-minute codes, 3 attempts each (counted atomically), 3 codes per
+ * 30 minutes, one-hour lockout after two exhausted codes or 5 wrong passwords, single use.
  */
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -21,7 +21,7 @@ const { last4 } = require('../lib/phoneNumber');
 const phone = require('./accountPhoneService');
 const { writeAuditLog } = require('../lib/auditLog');
 
-const TTL_MIN = 5; const MAX_ATTEMPTS = 3; const SENDS_PER_30 = 3; const LOCK_MIN = 60; const GRANT_MIN = 10;
+const TTL_MIN = 5; const MAX_ATTEMPTS = 3; const SENDS_PER_30 = 3; const LOCK_MIN = 60; const GRANT_MIN = 10; const MAX_PASSWORD_FAILS = 5;
 
 class StepUpError extends Error { constructor(code, message, status = 403, extra = {}) { super(message); this.code = code; this.status = status; Object.assign(this, extra); } }
 
@@ -34,7 +34,11 @@ async function start(ctx, { password } = {}, { sid } = {}, deps = {}) {
   if (!sid) throw new StepUpError('SIGN_IN_AGAIN', 'Please sign out and sign in again, then retry.', 401);
   const u = (await db.query(`SELECT id, password_hash, phone, phone_verified_at, phone_verified_e164, COALESCE(is_active, true) active FROM users WHERE id = $1`, [ctx.userId])).rows[0];
   if (!u || !u.active) throw new StepUpError('NO_USER', 'Account not available.');
+  const failedPw = Number((await db.query(`SELECT count(*)::int n FROM seller_step_up_challenges WHERE user_id = $1 AND status = 'password_failed' AND created_at > now() - interval '${LOCK_MIN} minutes'`, [ctx.userId])).rows[0].n);
+  if (failedPw >= MAX_PASSWORD_FAILS) throw new StepUpError('LOCKED', 'Too many incorrect attempts. Please wait an hour and try again.', 429);
   if (!u.password_hash || !password || !(await bcrypt.compare(String(password), u.password_hash))) {
+    await db.query(`INSERT INTO seller_step_up_challenges (user_id, seller_id, session_sid, status, expires_at) VALUES ($1,$2,$3,'password_failed', now())`,
+      [ctx.userId, ctx.sellerId, String(sid)]);
     await writeAuditLog({ event_type: 'seller.step_up_password_failed', entity_type: 'user', entity_id: ctx.userId, actor_id: ctx.userId,
       metadata: { seller_id: ctx.sellerId } }).catch(() => {});
     throw new StepUpError('PASSWORD_INCORRECT', 'That password is not correct.');
@@ -46,7 +50,7 @@ async function start(ctx, { password } = {}, { sid } = {}, deps = {}) {
   if (await n(`SELECT coalesce(sum(attempts), 0)::int n FROM seller_step_up_challenges WHERE user_id = $1 AND status <> 'approved' AND created_at > now() - interval '${LOCK_MIN} minutes'`, [ctx.userId]) >= 2 * MAX_ATTEMPTS) {
     throw new StepUpError('LOCKED', 'Too many incorrect codes. Please wait an hour and try again.', 429);
   }
-  if (await n(`SELECT count(*)::int n FROM seller_step_up_challenges WHERE user_id = $1 AND created_at > now() - interval '30 minutes'`, [ctx.userId]) >= SENDS_PER_30) {
+  if (await n(`SELECT count(*)::int n FROM seller_step_up_challenges WHERE user_id = $1 AND status <> 'password_failed' AND created_at > now() - interval '30 minutes'`, [ctx.userId]) >= SENDS_PER_30) {
     throw new StepUpError('RATE_LIMITED', 'Too many codes requested. Please wait a few minutes and try again.', 429);
   }
   await db.query(`UPDATE seller_step_up_challenges SET status = 'superseded' WHERE user_id = $1 AND status = 'sent'`, [ctx.userId]);
@@ -75,7 +79,11 @@ async function confirm(ctx, { code } = {}, { sid } = {}, deps = {}) {
     await db.query(`UPDATE seller_step_up_challenges SET status = 'expired' WHERE id = $1`, [v.id]);
     throw new StepUpError('EXPIRED', 'That code has expired. Request a new one.', 400);
   }
-  const attempts = v.attempts + 1;
+  // Count the attempt FIRST, atomically, so parallel guesses can never exceed the limit.
+  const counted = (await db.query(
+    `UPDATE seller_step_up_challenges SET attempts = attempts + 1 WHERE id = $1 AND status = 'sent' AND attempts < max_attempts RETURNING attempts`, [v.id])).rows[0];
+  if (!counted) throw new StepUpError('TOO_MANY_ATTEMPTS', 'Too many incorrect codes. Request a new code.', 400, { attempts_left: 0 });
+  const attempts = counted.attempts;
   let ok = false;
   if (code4.CODE_RE.test(String(code || ''))) {
     if (v.provider === 'local_test') ok = code4.matches(v.code_hash, v.id, code);
@@ -86,13 +94,13 @@ async function confirm(ctx, { code } = {}, { sid } = {}, deps = {}) {
   }
   if (!ok) {
     const exhausted = attempts >= v.max_attempts;
-    await db.query(`UPDATE seller_step_up_challenges SET attempts = $2, status = CASE WHEN $3 THEN 'failed' ELSE status END WHERE id = $1`, [v.id, attempts, exhausted]);
+    if (exhausted) await db.query(`UPDATE seller_step_up_challenges SET status = 'failed' WHERE id = $1 AND status = 'sent'`, [v.id]);
     throw new StepUpError(exhausted ? 'TOO_MANY_ATTEMPTS' : 'WRONG_CODE', exhausted ? 'Too many incorrect codes. Request a new code.' : 'That code is not correct.', 400,
       { attempts_left: Math.max(0, v.max_attempts - attempts) });
   }
   const claimed = await db.query(
-    `UPDATE seller_step_up_challenges SET status = 'approved', attempts = $2, approved_at = now(), granted_until = now() + interval '${GRANT_MIN} minutes'
-      WHERE id = $1 AND status = 'sent' RETURNING granted_until`, [v.id, attempts]);
+    `UPDATE seller_step_up_challenges SET status = 'approved', approved_at = now(), granted_until = now() + interval '${GRANT_MIN} minutes'
+      WHERE id = $1 AND status = 'sent' RETURNING granted_until`, [v.id]);
   if (!claimed.rowCount) throw new StepUpError('NO_CODE', 'Request a new code first.', 400);
   await writeAuditLog({ event_type: 'seller.step_up_verified', entity_type: 'seller_profile', entity_id: ctx.sellerId, actor_id: ctx.userId, metadata: {} }).catch(() => {});
   return { verified: true, valid_until: claimed.rows[0].granted_until };

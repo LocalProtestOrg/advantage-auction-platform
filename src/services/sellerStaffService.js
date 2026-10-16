@@ -88,15 +88,8 @@ async function invite(ctx, { email, role } = {}, deps = {}) {
     if (recent >= INVITES_PER_DAY) throw err(429, 'RATE_LIMITED', 'Too many invitations today. Please try again tomorrow.');
     const owner = (await client.query(`SELECT lower(email) AS email FROM users WHERE id = $1`, [ctx.userId])).rows[0];
     if (owner && owner.email === addr) throw err(409, 'INVITEE_IS_OWNER', 'You already own this company.');
-    const existing = (await client.query('SELECT id, COALESCE(is_active, true) AS active FROM users WHERE lower(email) = $1', [addr])).rows[0];
-    if (existing) {
-      if ((await client.query('SELECT 1 FROM seller_profiles WHERE user_id = $1', [existing.id])).rowCount) {
-        throw err(409, 'INVITEE_IS_OWNER', 'That person already owns a seller company, so they cannot be added as staff.');
-      }
-      if ((await client.query(`SELECT 1 FROM seller_staff_members WHERE user_id = $1 AND status IN ('active','suspended')`, [existing.id])).rowCount) {
-        throw err(409, 'ALREADY_STAFF', 'That person is already staff for a seller company.');
-      }
-    }
+    // Deliberately NO check here of whether that email owns a seller company or is staff elsewhere: the answer would
+    // tell an owner something private about another account. Those rules are enforced when the invitation is accepted.
     if ((await client.query(`SELECT 1 FROM seller_staff_members WHERE seller_id = $1 AND invited_email = $2 AND status = 'invited'`, [ctx.sellerId, addr])).rowCount) {
       throw err(409, 'ALREADY_INVITED', 'That email already has an open invitation. Revoke it to send a new one.');
     }
@@ -108,7 +101,8 @@ async function invite(ctx, { email, role } = {}, deps = {}) {
     return m;
   });
   const company = await companyName(ctx.sellerId);
-  const link = `${base()}/seller-staff-invite.html?token=${encodeURIComponent(token)}`;
+  // The token travels in the URL fragment, which browsers never send to a server (no access logs, analytics or redirects).
+  const link = `${base()}/seller-staff-invite.html#token=${encodeURIComponent(token)}`;
   try {
     const mail = deps.emailService || require('./emailService');
     await mail.sendEmail({ to: addr, subject: `You're invited to help manage ${company} on Advantage.Bid`,
@@ -206,9 +200,15 @@ async function acceptInvite(userId, token, deps = {}) {
     if ((await client.query(`SELECT 1 FROM seller_staff_members WHERE user_id = $1 AND status IN ('active','suspended')`, [userId])).rowCount) {
       throw err(409, 'ALREADY_STAFF', 'Your account is already staff for a seller company.');
     }
-    const a = (await client.query(
-      `UPDATE seller_staff_members SET user_id = $2, status = 'active', accepted_at = now(), invite_token_hash = NULL, updated_at = now()
-        WHERE id = $1 RETURNING *`, [m.id, userId])).rows[0];
+    let a;
+    try {
+      a = (await client.query(
+        `UPDATE seller_staff_members SET user_id = $2, status = 'active', accepted_at = now(), invite_token_hash = NULL, updated_at = now()
+          WHERE id = $1 RETURNING *`, [m.id, userId])).rows[0];
+    } catch (e) {
+      if (e.code === '23505') throw err(409, 'ALREADY_STAFF', 'Your account is already staff for a seller company.');   // a simultaneous acceptance elsewhere
+      throw e;
+    }
     await event(client, m, 'accepted', userId, 'staff', { role: m.role });
     return { member: a };
   });

@@ -6,7 +6,7 @@
  * Owner:   GET /team · POST /step-up/start · POST /step-up/confirm
  *          POST /invitations · POST /members/:id/revoke · POST /members/:id/role · POST /members/:id/{suspend,reinstate,remove}
  *          (every change needs company.staff.manage AND a fresh step-up: password + phone code, this session, 10 minutes)
- * Invitee: GET /invitations/preview?token= · POST /invitations/accept
+ * Invitee: POST /invitations/preview · POST /invitations/accept (the invitation code is sent in the body, never a URL)
  * Anyone signed in: GET /me (which company and role they act for, if any)
  * The company always comes from the session (seller checkpoint), never from the request.
  */
@@ -58,7 +58,8 @@ for (const action of ['suspend', 'reinstate', 'remove']) {
 }
 
 // ── Invitee ──
-router.get('/invitations/preview', h(async (req, res) => res.json({ success: true, data: await staff.previewInvite(req.user.id, req.query.token) })));
+// POST (not GET) so the invitation code never appears in a URL or an access log.
+router.post('/invitations/preview', h(async (req, res) => res.json({ success: true, data: await staff.previewInvite(req.user.id, (req.body || {}).token) })));
 router.post('/invitations/accept', h(async (req, res) => res.json({ success: true, data: await staff.acceptInvite(req.user.id, (req.body || {}).token) })));
 
 module.exports = router;

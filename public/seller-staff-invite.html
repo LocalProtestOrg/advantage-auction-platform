@@ -23,12 +23,15 @@
   <div class="wrap"><div class="card" id="box"><p class="meta">Loading your invitation…</p></div></div>
   <script>
     var token=localStorage.getItem('token')||'';
-    var invite=new URLSearchParams(location.search).get('token')||'';
-    if(!token){location.href='/login.html?next='+encodeURIComponent('/seller-staff-invite.html?token='+invite);}
+    // The invitation code arrives in the URL fragment (never sent to a server). Keep it in this tab only, drop it from the
+    // address bar, and never put it in a sign-in redirect.
+    var invite=''; try{invite=new URLSearchParams((location.hash||'').replace(/^#/,'')).get('token')||sessionStorage.getItem('staffInvite')||'';
+      if(invite)sessionStorage.setItem('staffInvite',invite); if(location.hash)history.replaceState(null,'',location.pathname);}catch(e){}
+    if(!token){location.href='/login.html?next='+encodeURIComponent('/seller-staff-invite.html');}
     function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
     var box=document.getElementById('box');
     function api(m,u,b){var o={method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};if(b)o.body=JSON.stringify(b);return fetch(u,o).then(function(r){return r.json();});}
-    api('GET','/api/seller-staff/invitations/preview?token='+encodeURIComponent(invite)).then(function(r){
+    api('POST','/api/seller-staff/invitations/preview',{token:invite}).then(function(r){
       if(!r.success){box.innerHTML='<h1>Invitation</h1><p class="err">'+esc(r.message||'This invitation is no longer valid.')+'</p>';return;}
       var d=r.data;
       box.innerHTML='<h1>Join '+esc(d.company)+'</h1><p>You have been invited to help manage <b>'+esc(d.company)+'</b> on Advantage.Bid as <b>'+esc(d.role_label)+'</b>.</p>'+
@@ -39,6 +42,7 @@
       b.addEventListener('click',function(){b.disabled=true;
         api('POST','/api/seller-staff/invitations/accept',{token:invite}).then(function(x){
           if(!x.success){b.disabled=false;box.insertAdjacentHTML('beforeend','<p class="err">'+esc(x.message||'Could not accept.')+'</p>');return;}
+          try{sessionStorage.removeItem('staffInvite');}catch(e){}
           var next=x.data.role==='inventory_manager'?'/seller-storefront.html?tab=market':'/seller-orders.html';
           box.innerHTML='<h1>Welcome to the team</h1><p>You now have '+esc(x.data.role_label)+' access to '+esc(x.data.company)+'.</p><a class="btn" href="'+next+'">Get started</a>';
         });
