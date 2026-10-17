@@ -66,12 +66,12 @@ function renderSalePaid(o) {
       </table>
       <p style="margin:8px 0"><b>Fulfillment:</b> ${method}</p>
       <p style="margin:8px 0">${esc(action)}</p>
-      <p style="color:#555;font-size:13px;margin:8px 0">Final amounts appear in your settlement statement. Sign in to see this order.</p>
+      <p style="color:#555;font-size:13px;margin:8px 0">Estimated proceeds are not your final deposit: the amount paid to you is confirmed in your settlement statement after fulfillment and any refunds or adjustments. Sign in to see this order.</p>
       <p><a href="${link}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Manage this order</a></p>
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
   const text = [`You sold ${title}${inv ? ' (inventory #' + inv + ')' : ''} — order ${o.order_number}, payment confirmed.`,
-    `Sale price ${money(o.item_price_cents)}; Advantage.Bid fee ${money(o.platform_fee_cents)} (${pct}% of the item price); estimated proceeds ${money(o.seller_proceeds_cents)}.`,
+    `Sale price ${money(o.item_price_cents)}; Advantage.Bid fee ${money(o.platform_fee_cents)} (${pct}% of the item price); estimated proceeds ${money(o.seller_proceeds_cents)} (not your final deposit; confirmed in your settlement statement).`,
     `Fulfillment: ${method}. ${action}`, `Manage: ${link}`].join('\n');
   return { subject, html, text };
 }

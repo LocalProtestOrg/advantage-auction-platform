@@ -48,7 +48,8 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Staff one-company pilot | LIVE (010eb01, 2026-10-16); general switch off, pilot list empty — no company enabled until the owner confirms the authorised account and phone verification |
 | EIN / taxpayer-ID minimisation (migration 202) + seller sale email without buyer contact | LIVE (5e2a4f7, 2026-10-16), verified in production |
 | Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | LIVE (6383329, 2026-10-16), verified in production (rolled-back DB check `scripts/prod-verify-203.js` PASS) |
-| **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | Built + tested on `feat/inventory-and-sale-notifications`; awaiting security review fixes and deploy approval |
+| **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | LIVE (0c069e6, 2026-10-16), verified in production (`scripts/prod-verify-204.js` rolled-back PASS; no email sent) |
+| **Next milestone Q: secure item-specific buyer-to-seller messaging** (§9) | Scope defined below; not built; stays OFF until security + privacy tests pass |
 | Item questions / messaging, anti-circumvention, widget header, search & filters (§9–§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built; messaging stays off until security + privacy testing |
 | Sale notifications, inventory numbers, bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
@@ -426,6 +427,28 @@ fulfilment and payout controls; seller followers and authorised follower notific
 marketing only when features are genuinely ready.
 
 ## 9. TODO — Ask the seller a question / on-platform messaging / anti-circumvention (owner requirements 2026-10-16, permanent)
+
+### Milestone Q (next) — secure item-specific buyer-to-seller messaging
+- **Purpose:** buyers can ask a seller about a specific item on Advantage.Bid without either side exchanging personal
+  contact details, so item questions no longer leave the platform.
+- **Scope:** (1) item-bound conversations (buyer ↔ the item's seller company; signed-in buyers only in this milestone),
+  append-only messages, access for the buyer, the seller owner (and staff with a messages permission once staff are on),
+  and logged Advantage.Bid support; (2) layered detection L1–L4 from the design (explicit and disguised contact details
+  masked; off-platform payment, "Google my business / call me", "find me on Facebook", "contact the store for a better
+  price", "5% off in person", external checkout links held for human review, with a polite rephrase option);
+  (3) a review queue tab in the moderation dashboard with decisions and an appeal note, all audited; (4) notification
+  events `message_to_seller` / `message_to_buyer` on the existing outbox (no contact details, secure reply link);
+  (5) item page "Ask the seller a question" behind a feature flag (OFF), seller and buyer inbox pages; (6) per-buyer,
+  per-seller and per-IP rate limits and duplicate suppression.
+- **Out of scope (roadmap):** guest (email-verified) askers, attachments, L5 cross-conversation scoring, in-app/push,
+  replacing the storefront consultation form (only item pages switch to the new button when the flag is turned on).
+- **Acceptance tests:** cross-seller and cross-buyer reads/writes refused (database + API); every L1–L4 example from the
+  owner's list masked or held as specified, and a set of legitimate questions (condition, measurements, photos,
+  authenticity, shipping cost/destination, pickup/delivery, inspection appointment, on-platform price change) delivered
+  untouched; held messages never silently deleted; no automatic penalty path exists; notifications contain no contact
+  details; rate limits; append-only history.
+- **Completion criteria:** full gate green; security + privacy review with findings fixed; production pre-check +
+  rolled-back verification; owner approval to deploy; feature flag stays OFF until the owner approves turning it on.
 
 Design: `storefront-messaging-and-widget-design-2026-10-16.md` §1–§4, milestones Q1–Q2.
 - Every eligible Professional item page gets "Ask the seller a question" (signed-in buyer or verified guest). The thread is

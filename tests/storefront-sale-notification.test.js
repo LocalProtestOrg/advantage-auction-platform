@@ -25,7 +25,8 @@ describe('seller "Item sold" notice', () => {
     const m = renderSalePaid(ROW);
     const all = m.subject + m.html + m.text;
     for (const s of ['Walnut Sideboard', 'HH-1042', 'MO-000123', '$450.00', '11% of the item price', '$49.50', '$425.50', 'Shipping',
-      'record the carrier and tracking number', '/seller-orders.html', 'https://img.example/sideboard.jpg', 'Solid walnut', 'Estimated proceeds']) {
+      'record the carrier and tracking number', '/seller-orders.html', 'https://img.example/sideboard.jpg', 'Solid walnut', 'Estimated proceeds',
+      'not your final deposit']) {
       expect(all).toContain(s);
     }
     for (const bad of [/bea\.private/, /Bea Buyerton/, /Secret Lane/, /78701/]) expect(all).not.toMatch(bad);
