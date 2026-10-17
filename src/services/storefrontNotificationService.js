@@ -7,6 +7,7 @@
  *                                     (order, event, recipient). Never for a started, pending or failed checkout.
  *   tick()                          — delivers due rows: lease → render → send → record; back-off retries; after the
  *                                     last attempt the row is 'failed' and the owner is alerted. A stale lease is reclaimed.
+ *                                     Delivery is at-least-once (see tick).
  *   start()                         — runs tick() on an interval (in-process).
  *
  * Content (owner rules 2026-10-16): the sold item (title, description excerpt, real https thumbnail when available), the
@@ -30,8 +31,8 @@ const backoffMinutes = (attempts) => Math.min(240, 2 ** attempts);   // 2, 4, 8,
 // Inside the paid transaction. The recipient is the order's OWN seller company owner (from the order row, never a caller).
 async function enqueueSalePaid(client, orderId) {
   await client.query(
-    `INSERT INTO storefront_notifications (seller_id, order_id, event, recipient_user_id, recipient_email, is_demo)
-     SELECT o.seller_id, o.id, 'sale_paid', u.id, lower(u.email), o.is_demo
+    `INSERT INTO storefront_notifications (seller_id, order_id, event, recipient_user_id, recipient_email)
+     SELECT o.seller_id, o.id, 'sale_paid', u.id, lower(u.email)
        FROM marketplace_orders o JOIN seller_profiles sp ON sp.id = o.seller_id JOIN users u ON u.id = sp.user_id
       WHERE o.id = $1 AND o.payment_status = 'paid' AND u.email IS NOT NULL
      ON CONFLICT (order_id, event, recipient_email) DO NOTHING`, [orderId]);
@@ -80,19 +81,19 @@ async function deliverOne(row, deps) {
     `SELECT o.id, o.seller_id, o.order_number, o.item_snapshot, o.item_price_cents, o.shipping_cents, o.platform_fee_bps, o.platform_fee_cents,
             o.seller_proceeds_cents, o.fulfillment_method, o.payment_status
        FROM marketplace_orders o WHERE o.id = $1 AND o.seller_id = $2`, [row.order_id, row.seller_id])).rows[0];
-  if (!o || !['paid', 'refunded'].includes(o.payment_status)) {
-    await db.query(`UPDATE storefront_notifications SET status = 'skipped', last_error = 'order not paid', locked_at = NULL WHERE id = $1`, [row.id]);
+  // Only a still-paid order is announced (a sale refunded before delivery is not "You sold an item").
+  if (!o || o.payment_status !== 'paid') {
+    await db.query(`UPDATE storefront_notifications SET status = 'skipped', last_error = $2, locked_at = NULL WHERE id = $1`,
+      [row.id, o ? 'order ' + o.payment_status : 'order not found']);
     return 'skipped';
   }
   const msg = renderSalePaid(o);
   const mail = deps.emailService || require('./emailService');
+  let r;
   try {
-    const r = await mail.sendEmail({ to: row.recipient_email, subject: msg.subject, html: msg.html, text: msg.text });
-    await db.query(`UPDATE storefront_notifications SET status = 'sent', sent_at = now(), locked_at = NULL, attempts = attempts + 1, provider_message_id = $2, last_error = NULL
-      WHERE id = $1`, [row.id, (r && (r.messageId || r.MessageId)) || null]);
-    return 'sent';
+    r = await mail.sendEmail({ to: row.recipient_email, subject: msg.subject, html: msg.html, text: msg.text });
   } catch (e) {
-    const attempts = row.attempts + 1;
+    const attempts = row.attempts;   // counted when the row was leased
     const final = attempts >= MAX_ATTEMPTS;
     await db.query(`UPDATE storefront_notifications SET status = $2, attempts = $3, last_error = $4, locked_at = NULL,
       next_attempt_at = now() + ($5 || ' minutes')::interval WHERE id = $1`,
@@ -107,14 +108,22 @@ async function deliverOne(row, deps) {
     }
     return final ? 'failed' : 'retry';
   }
+  // Recorded outside the send's try: a database hiccup here never turns a delivered notice back into 'pending'.
+  await db.query(`UPDATE storefront_notifications SET status = 'sent', sent_at = now(), locked_at = NULL, provider_message_id = $2, last_error = NULL
+    WHERE id = $1`, [row.id, (r && (r.messageId || r.MessageId)) || null]);
+  return 'sent';
 }
 
-// One delivery pass. Leases due rows with SKIP LOCKED so two processes never send the same notice.
+// One delivery pass. Leases due rows with SKIP LOCKED, so two processes never pick the same row at the same time.
+// Delivery is AT-LEAST-ONCE: if a process dies after the email is handed over but before it is recorded, the lease is
+// reclaimed after LEASE_SEC and the notice may be sent once more (rare duplicate, never a lost notice). Each lease counts
+// as an attempt, so a notice that keeps crashing the sender still reaches 'failed' and alerts the owner.
 async function tick(deps = {}) {
-  await db.query(`UPDATE storefront_notifications SET status = 'pending', locked_at = NULL
+  await db.query(`UPDATE storefront_notifications SET status = CASE WHEN attempts >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'pending' END, locked_at = NULL,
+      last_error = COALESCE(last_error, 'delivery interrupted')
     WHERE status = 'processing' AND locked_at < now() - interval '${LEASE_SEC} seconds'`);
   const rows = (await db.query(
-    `UPDATE storefront_notifications SET status = 'processing', locked_at = now()
+    `UPDATE storefront_notifications SET status = 'processing', locked_at = now(), attempts = attempts + 1
       WHERE id IN (SELECT id FROM storefront_notifications WHERE status = 'pending' AND next_attempt_at <= now()
                     ORDER BY next_attempt_at LIMIT ${BATCH} FOR UPDATE SKIP LOCKED)
       RETURNING *`)).rows;

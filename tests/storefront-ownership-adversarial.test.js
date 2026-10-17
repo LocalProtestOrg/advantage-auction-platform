@@ -1201,3 +1201,46 @@ describe('milestone N: reliable paid-sale notifications', () => {
     expect(e2.message).toMatch(/stays sent/);
   });
 });
+
+describe('milestone N: review fixes', () => {
+  const notify = require('../src/services/storefrontNotificationService');
+  const mail = require('../src/services/emailService');
+  beforeEach(async () => { await notify.tick(); mail.sendEmail.mockClear(); });
+  test('a sale refunded before delivery is not announced as sold (skipped, kept as a record)', async () => {
+    const o = await beaBuys(await noraItem({ title: 'Refunded before notice' }));
+    await orders.refundOrder(o.id, { adminId: U.admin.id, reason: 'Refunded before the notice went out' });
+    await notify.tick();
+    expect(await one('SELECT status, last_error FROM storefront_notifications WHERE order_id = $1', [o.id])).toEqual({ status: 'skipped', last_error: 'order refunded' });
+    expect(mail.sendEmail.mock.calls.filter((x) => /Refunded before notice/.test(x[0].subject))).toHaveLength(0);
+  });
+  test('demo status always comes from the order and can never be changed (so a real record cannot be made deletable)', async () => {
+    const o = await beaBuys(await noraItem({ title: 'Real notice record' }));
+    const n = await one('SELECT id, is_demo FROM storefront_notifications WHERE order_id = $1', [o.id]);
+    expect(n.is_demo).toBe(false);
+    const e = await rejects(`UPDATE storefront_notifications SET is_demo = true WHERE id = $1`, [n.id]);
+    expect(e.message).toMatch(/keeps its seller/);
+    const o2 = await beaBuys(await noraItem({ title: 'Forged demo flag' }));
+    await q(`DELETE FROM storefront_notifications WHERE order_id = $1`, [o2.id]).catch(() => {});
+    await q(`INSERT INTO storefront_notifications (seller_id, order_id, event, recipient_email, is_demo) VALUES ($1, $2, 'sale_paid', 'x@test.example', true)`, [SP.nora, o2.id]);
+    expect((await one(`SELECT is_demo FROM storefront_notifications WHERE order_id = $1 AND recipient_email = 'x@test.example'`, [o2.id])).is_demo).toBe(false);
+  });
+  test('a notice that keeps interrupting delivery still ends as failed (each lease counts as an attempt)', async () => {
+    const o = await beaBuys(await noraItem({ title: 'Crashing notice' }));
+    await q(`UPDATE storefront_notifications SET status = 'processing', locked_at = now() - interval '1 hour', attempts = $2 WHERE order_id = $1`, [o.id, notify.MAX_ATTEMPTS]);
+    await notify.tick();
+    expect(await one('SELECT status, last_error FROM storefront_notifications WHERE order_id = $1', [o.id])).toEqual({ status: 'failed', last_error: 'delivery interrupted' });
+  });
+  test('relisting an item whose inventory number is now used by another live listing gives a clear message', async () => {
+    const a = await noraItem({ title: 'Relist A', inventory_number: 'RL-1' });
+    await call('nora', 'PATCH', '/api/seller-storefront/items/' + a.id, { status: 'removed' });
+    await noraItem({ title: 'Relist B', inventory_number: 'RL-1' });
+    const r = await call('nora', 'POST', '/api/marketplace/seller/items/' + a.id + '/relist');
+    expect(r.status).toBe(409); expect(r.body.code).toBe('INVENTORY_NUMBER_TAKEN');
+    const nb = await one(`SELECT status FROM marketplace_items WHERE id = $1`, [a.id]);
+    expect(nb.status).toBe('removed');
+  });
+  test('invisible characters are removed from inventory numbers', async () => {
+    const it = await noraItem({ title: 'Zero width', inventory_number: 'ZW​-9﻿' });
+    expect(it.inventory_number).toBe('ZW-9');
+  });
+});

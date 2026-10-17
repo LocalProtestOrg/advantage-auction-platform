@@ -3,7 +3,7 @@
    inventory numbers, unique per seller among live items; storefront notification outbox with guards). Additive; moves no
    money; changes no existing row (every inventory number starts empty; the outbox starts empty).
 
-   --check  READ-ONLY: 202 applied, 203 not recorded, table absent, no live (pending/processing) orders.
+   --check  READ-ONLY: 203 applied, 204 not recorded, outbox table absent, no live (pending/processing) orders.
    (none)   applies in one transaction, then verifies the objects and that orders, items, seller profiles, payments,
             invoices, payouts and accounts are unchanged.
    Usage: railway run node scripts/prod-migrate-204.js [--check] */

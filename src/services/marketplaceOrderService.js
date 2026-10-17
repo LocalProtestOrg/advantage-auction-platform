@@ -852,7 +852,12 @@ async function relistItem(itemId, sellerActorRef) {
     if (live && live.n > 0) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     const upd = (await client.query(
       `UPDATE marketplace_items SET status = 'active', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
-        WHERE id = $1 RETURNING *`, [itemId])).rows[0];
+        WHERE id = $1 RETURNING *`, [itemId]).catch((e) => {
+      if (e && e.code === '23505' && /inventory_number/.test(String(e.constraint || e.message || ''))) {
+        throw err(409, 'INVENTORY_NUMBER_TAKEN', 'Another live listing uses this inventory number. Change one of them, then relist.');
+      }
+      throw e;
+    })).rows[0];
     return upd;
   });
 }

@@ -62,7 +62,7 @@ function pickupValues(loc, source) {
 // seller's live items (database); another seller may use the same number.
 function normalizeInventoryNumber(v) {
   if (v === undefined || v === null) return null;
-  const s = String(v).replace(/[\u0000-\u001f\u007f]+/g, '').trim();
+  const s = String(v).replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029\u2060\ufeff]+/g, '').trim();
   if (!s) return null;
   if (s.length > 64) throw err(422, 'INVENTORY_NUMBER_INVALID', 'Inventory numbers can be up to 64 characters.');
   return s;

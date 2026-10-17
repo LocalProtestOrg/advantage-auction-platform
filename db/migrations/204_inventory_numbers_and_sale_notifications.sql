@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS storefront_notifications (
   seller_id           UUID NOT NULL,
   order_id            UUID NOT NULL,
   event               TEXT NOT NULL CHECK (event IN ('sale_paid')),
-  recipient_user_id   UUID REFERENCES users(id),
+  recipient_user_id   UUID REFERENCES users(id) ON DELETE SET NULL,   -- the email address stays the delivery record
   recipient_email     TEXT NOT NULL CHECK (length(recipient_email) BETWEEN 3 AND 320),
   status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','sent','failed','skipped')),
   attempts            INTEGER NOT NULL DEFAULT 0,
@@ -42,12 +42,18 @@ CREATE INDEX IF NOT EXISTS idx_storefront_notifications_processing ON storefront
 -- A notice keeps its seller, order, event and recipient; it is never deleted (except demo rows used for testing).
 CREATE OR REPLACE FUNCTION storefront_notifications_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- demo status always comes from the order itself, never from the writer
+    NEW.is_demo := COALESCE((SELECT o.is_demo FROM marketplace_orders o WHERE o.id = NEW.order_id), false);
+    RETURN NEW;
+  END IF;
   IF TG_OP = 'DELETE' THEN
     IF OLD.is_demo THEN RETURN OLD; END IF;
     RAISE EXCEPTION 'storefront notifications are kept as delivery records' USING ERRCODE = 'check_violation';
   END IF;
   IF NEW.seller_id IS DISTINCT FROM OLD.seller_id OR NEW.order_id IS DISTINCT FROM OLD.order_id OR NEW.event IS DISTINCT FROM OLD.event
-     OR NEW.recipient_email IS DISTINCT FROM OLD.recipient_email OR NEW.recipient_user_id IS DISTINCT FROM OLD.recipient_user_id
+     OR NEW.recipient_email IS DISTINCT FROM OLD.recipient_email OR NEW.is_demo IS DISTINCT FROM OLD.is_demo
+     OR (NEW.recipient_user_id IS DISTINCT FROM OLD.recipient_user_id AND NEW.recipient_user_id IS NOT NULL)
      OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
     RAISE EXCEPTION 'a storefront notification keeps its seller, order, event and recipient' USING ERRCODE = 'check_violation';
   END IF;
@@ -57,5 +63,5 @@ BEGIN
   RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS trg_storefront_notifications_guard ON storefront_notifications;
-CREATE TRIGGER trg_storefront_notifications_guard BEFORE UPDATE OR DELETE ON storefront_notifications
+CREATE TRIGGER trg_storefront_notifications_guard BEFORE INSERT OR UPDATE OR DELETE ON storefront_notifications
   FOR EACH ROW EXECUTE FUNCTION storefront_notifications_guard();
