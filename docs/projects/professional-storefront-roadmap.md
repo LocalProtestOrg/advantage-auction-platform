@@ -33,7 +33,7 @@ stay in this roadmap and are not built early.
 **Safety switches.** Live checkout (`MARKETPLACE_CHECKOUT_ENABLED`), payouts, external merchant feeds, paid shopping ads and
 public marketing of unfinished features stay OFF until the readiness checks in §6 pass and the owner approves.
 
-## 1. Status (production checkpoint 2026-10-26: main = `0c069e6`, migrations through 204)
+## 1. Status (production checkpoint 2026-10-26: main = `2ff6bf9`, migrations through 205; messaging OFF)
 
 | Milestone | Status |
 |---|---|
@@ -50,7 +50,7 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | LIVE (6383329, 2026-10-16), verified in production (rolled-back DB check `scripts/prod-verify-203.js` PASS) |
 | **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | LIVE (0c069e6, 2026-10-16), verified in production (`scripts/prod-verify-204.js` rolled-back PASS; no email sent) |
 | Estimated-proceeds wording in the sale email, known-issues log (MI-1), milestone Q scope, `prod-verify-204.js` | Built on `feat/item-messaging` (`c80dcfc`); not deployed |
-| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | Built on `feat/item-messaging` (`c8ec6f9`, `146d665`, `27ac6c6`); two independent review rounds, findings fixed; gate green; migration 205 APPLIED + verified in production 2026-10-26 (prod-verify-205 rolled-back PASS); flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
+| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | LIVE (code `27ac6c6`, deployed with docs at `2ff6bf9`, 2026-10-26); two independent review rounds, findings fixed; gate green; migration 205 applied + verified (prod-verify-205 rolled-back PASS); flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
 | Widget header, search & filters (§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built |
 | Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Storefront website widget (§7.5–7.6) | Requirements recorded 2026-10-16; not built |

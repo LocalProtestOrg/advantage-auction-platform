@@ -1,7 +1,7 @@
 # Professional Storefront — launch-readiness checklist (2026-10-26)
 
 Companion to `professional-storefront-roadmap.md` (canonical TODO, §11 lists every deferred requirement). Production
-checkpoint: main = `0c069e6`, migrations through 204. Live checkout (`MARKETPLACE_CHECKOUT_ENABLED`), payouts, external
+checkpoint: main = `2ff6bf9`, migrations through 205 (item messaging deployed, OFF). Live checkout (`MARKETPLACE_CHECKOUT_ENABLED`), payouts, external
 shopping feeds, tax filing and remittance are **off** and stay off until the owner explicitly approves each one.
 
 ## 1. Complete and deployed (production)
@@ -15,7 +15,7 @@ shopping feeds, tax filing and remittance are **off** and stay off until the own
 - Seller Store Terms + Shipping & Pickup Policy, storefront tabs, checkout acknowledgment, immutable order snapshots (203).
 - Seller inventory numbers + reliable paid-sale seller notices (queue, retries, failure alert, no buyer data) (204).
 
-## 2. Built but not deployed (branch `feat/item-messaging`)
+## 2. Deployed 2026-10-26 but switched OFF (previously "built but not deployed")
 - `c80dcfc` — clearer "estimated proceeds are not your final deposit" wording in the sale email; known-issues log;
   `prod-verify-204.js`.
 - Milestone Q — item questions between signed-in buyers and the seller company, contact details hidden, diversion and
@@ -51,7 +51,7 @@ attachments and cross-conversation scoring; consultation-form relabelling; categ
 marketing (launch only once the above is genuinely ready); red SOLD banner on sold item images (roadmap §12.1, P1); Past Merchandise tab (§12.2, P2); Phone Sasha timing test (MI-1).
 
 ## 5. Decisions and approvals needed from the owner
-1. Deploy approval for `feat/item-messaging` (migration 205 + code), after the independent review fixes and gate.
+1. (Done 2026-10-26) Milestone Q deployed; messaging stays OFF.
 2. When to turn item messaging on (suggested: demo seller check first, then the first real seller).
 3. Message retention period; which staff roles may read and answer item questions once staff are on; whether
    reviewers may hide an already-delivered abusive message (append-only "hidden" state).
