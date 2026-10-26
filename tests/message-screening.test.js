@@ -19,6 +19,8 @@ describe('L1 + L2: contact details are hidden in the delivered text', () => {
     // found by the independent review (2026-10-26)
     ['555-1234567', 'phone'], ['(555)1234567', 'phone'], ['555 l23 4567', 'phone'], ['555 12O 4567', 'phone'], ['s m i t h @ g m a i l', 'email'],
     ['myshop .com', 'link'], ['smithantiques dotcom', 'link'], ['bob dot smith at gmail dot com', 'email'],
+    // second review round
+    ['smith at g-mail', 'email'], ['smithantiques d0t com', 'link'], ['555-123-45-67', 'phone'],
   ])('%s → %s hidden', (contact, kind) => {
     const r = screen('Hi, reach me: ' + contact + ' thanks');
     expect(r.masked).toContain(kind);
@@ -56,6 +58,7 @@ describe('L3 + L4: payment-off-platform and diversion requests are held for a pe
     'Search for our company name online', 'Message us on Instagram', 'Follow me @nora_estate on insta', '10 percent discount if you pay cash at our store',
     // found by the independent review (2026-10-26)
     'search Smith Antiques Houston on Facebook', 'FB: Smith Antiques Houston', 'I will take $20 off if you pay in person', 'also listed on my etsy shop', 'insta smithantiques',
+    'my insta is smithantiques', 'Smith Antiques Houston - google it', 'twenty dollars off if cash', 'v3nmo me', 'I accept cash', 'Can I pay with Chime?',
   ])('%s → held', (msg) => {
     const r = screen(msg);
     expect(r.hold.length).toBeGreaterThan(0);
@@ -77,6 +80,9 @@ describe('ordinary item questions pass exactly as written', () => {
     'Does the clock still chime?', 'Does the lamp need new wire?', 'Is this a messenger bag?', 'Is the ETH Zurich print signed?',
     'I would like to see it in person, would you take a better price?', 'Any discount for local pickup in person?', 'Is the snap closure original?',
     'Can I pick it up in person on Saturday?', 'Would you take $20 off the listed price?',
+    // wrongly hidden after the first fixes (second review round)
+    'Is it 2 x 4 at 6 x 8 feet?', 'is the frame 3 x 5 at 1 x 2?', 'estate of A B at C D street', 'Available in sizes 10 12 14 16 18?',
+    'Sizes 10, 12, 14, 16, 18', 'Made between 1920 1930 40', 'Can I pick up at mail drop?', 'polka dot co-ordinated set', 'Is it live edge walnut?',
   ])('%s', (msg) => {
     const r = screen(msg);
     expect(r).toMatchObject({ text: msg, masked: [], hold: [] });

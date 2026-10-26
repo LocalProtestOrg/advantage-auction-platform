@@ -475,8 +475,13 @@ marketing only when features are genuinely ready.
   ordinary antique questions wrongly held ("chime", "new wire", "messenger bag", "ETH Zurich", "see it in person"), a
   notice that could be lost while another was sending, a client-rotatable network limit, removed staff acting on old
   messages, a release/new-message race, an unkeyed network-address hash, and editable decline/delivery/appeal fields.
-  Accepted as known: ambiguous mentions such as "I saw this on Facebook" are held for a person; long digit lists and
-  10-digit model numbers are hidden as phone numbers; parallel requests can slightly exceed the per-buyer limits.
+  Re-review of the fixes: all fixed; its new false masks (measurements "2 x 4 at 6 x 8", size and year lists, "mail
+  drop", "polka dot co-") and further bypasses ("my insta is …", "g-mail", "d0t com", "v3nmo", "google it", "I accept
+  cash", "twenty dollars off") were fixed in rule version msg-screen-2026-10-26.3.
+  Accepted as known: ambiguous mentions such as "I saw this on Facebook / eBay" are held for a person (review-queue
+  volume); a single unbroken 10-digit model number is hidden as a phone number; parallel requests can slightly exceed
+  the per-buyer limits; a message delivered at the instant its thread's waiting notice starts sending can be covered by
+  that email without its own; generic phrasing such as "search Smith Antiques Houston" or split words ("zel le") passes.
 - **Open owner decisions for Q:** whether reviewers may later hide an already-delivered abusive message (an append-only
   "hidden by Advantage.Bid" state; today a delivered message cannot be pulled back); which staff roles get message access once staff are on; message retention period;
   seller-agreement clause against diverting Advantage.Bid sales (legal wording); when to turn the flag on (suggested:

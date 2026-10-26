@@ -56,10 +56,11 @@ function noteOf(v, code, msg) {
   if (n.length < 5) throw err(422, code, msg);
   return n;
 }
+const PROCESS_KEY = crypto.randomBytes(32).toString('hex');
 // Keyed hash (a plain hash of an IPv4 address could be reversed by trying every address). Used only for rate limiting.
 function ipHashOf(ip) {
   if (!ip) return null;
-  const key = process.env.MESSAGE_RATE_LIMIT_SECRET || process.env.JWT_SECRET || 'storefront-messages';
+  const key = process.env.MESSAGE_RATE_LIMIT_SECRET || process.env.JWT_SECRET || PROCESS_KEY;   // never a fixed, guessable key
   return crypto.createHmac('sha256', key).update('sfm:' + ip).digest('hex').slice(0, 32);
 }
 
