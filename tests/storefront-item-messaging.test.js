@@ -180,6 +180,69 @@ describe('controlled activation (pilot): one company, named askers, everyone els
     expect((await items.getPublicItem(sueIt.id, undefined, { viewerUserId: U.bea.id })).questions_enabled).toBe(false);
     expect((await call('bea', 'GET', '/api/marketplace/config')).body.data.messaging_enabled).toBe(false);
   });
+  test('non-pilot conversations cannot be listed, read, withdrawn, appealed or reported (adversarial)', async () => {
+    // Conversations created while the general switch was on (as if left over from before the pilot).
+    setFlag(true);
+    const noraIt = await item('nora'); const sueIt = await item('sue'); const sueIt2 = await item('sue'); const sueIt3 = await item('sue');
+    const pilotConv = (await ask('bea', noraIt.id, 'Pilot thread: is the drawer original?')).body.data.conversation_id;
+    const pilotReply = (await call('nora', 'POST', '/api/storefront-messages/seller/' + pilotConv + '/messages', { body: 'Yes, all original.' })).body.data.message;
+    const benConv = (await ask('ben', noraIt.id, 'Ben asks Nora: any chips?')).body.data.conversation_id;
+    const benReply = (await call('nora', 'POST', '/api/storefront-messages/seller/' + benConv + '/messages', { body: 'No chips at all.' })).body.data.message;
+    const sueConv = (await ask('bea', sueIt.id, 'Sue thread: what wood is it?')).body.data.conversation_id;
+    const sueReply = (await call('sue', 'POST', '/api/storefront-messages/seller/' + sueConv + '/messages', { body: 'It is walnut.' })).body.data.message;
+    const beaToSue = (await call('bea', 'GET', '/api/storefront-messages/mine/' + sueConv)).body.data.messages.find((x) => x.from === 'you');
+    const heldToSue = (await ask('bea', sueIt2.id, 'I will give you 5% off if you sell it to me in person')).body.data;
+    expect(heldToSue.message.status).toBe('held');
+    const declinedToSue = (await ask('bea', sueIt3.id, 'I will give you 5% off if you sell it to me in person')).body.data;
+    expect((await call('admin', 'POST', '/api/admin/storefront/messages/' + declinedToSue.message.id + '/review', { decision: 'decline', note: 'Please keep the sale on Advantage.Bid.' })).body.data.status).toBe('declined');
+    const sueHeld = (await call('sue', 'POST', '/api/storefront-messages/seller/' + sueConv + '/messages', { body: 'Google my business name and call me' })).body.data.message;
+    expect(sueHeld.status).toBe('held');
+
+    // Pilot: Nora's company only, Bea the only asker.
+    setFlag(false);
+    process.env.STOREFRONT_MESSAGING_PILOT_SELLER_IDS = SP.nora;
+    process.env.STOREFRONT_MESSAGING_PILOT_USER_IDS = U.bea.id;
+    const oa = require('../src/services/ownerAlertService');
+    oa.notifyAdminActionRequired.mockClear();
+    const snapshot = async () => q(`SELECT id, status, appealed_at, hidden_at FROM storefront_messages WHERE conversation_id = ANY($1::uuid[]) ORDER BY id`,
+      [[sueConv, heldToSue.conversation_id, declinedToSue.conversation_id, benConv]]);
+    const before = await snapshot();
+    const reviewsBefore = (await one('SELECT count(*)::int n FROM storefront_message_reviews')).n;
+
+    // listForBuyer: only the pilot company's thread; getForBuyer: non-pilot threads are "not found"
+    const mine = (await call('bea', 'GET', '/api/storefront-messages/mine')).body.data.map((c) => c.id);
+    expect(mine).toContain(pilotConv);
+    for (const c of [sueConv, heldToSue.conversation_id, declinedToSue.conversation_id]) {
+      expect(mine).not.toContain(c);
+      expect((await call('bea', 'GET', '/api/storefront-messages/mine/' + c)).status).toBe(404);
+    }
+    // an asker outside the listed askers cannot see even a pilot company's thread
+    expect((await call('ben', 'GET', '/api/storefront-messages/mine')).body.data).toEqual([]);
+    expect((await call('ben', 'GET', '/api/storefront-messages/mine/' + benConv)).status).toBe(404);
+    // withdraw / appeal / report on a non-pilot company's messages: refused, nothing changes
+    expect((await call('bea', 'POST', '/api/storefront-messages/messages/' + heldToSue.message.id + '/withdraw')).body.code).toBe('MESSAGING_OFF');
+    expect((await call('bea', 'POST', '/api/storefront-messages/messages/' + declinedToSue.message.id + '/appeal', { note: 'Please deliver it after all.' })).body.code).toBe('MESSAGING_OFF');
+    expect((await call('bea', 'POST', '/api/storefront-messages/messages/' + sueReply.id + '/report', { reason: 'Report outside the pilot' })).body.code).toBe('MESSAGING_OFF');
+    // the non-pilot company cannot withdraw its own held message or report the buyer's message
+    expect((await call('sue', 'POST', '/api/storefront-messages/messages/' + sueHeld.id + '/withdraw')).body.code).toBe('MESSAGING_OFF');
+    expect((await call('sue', 'POST', '/api/storefront-messages/messages/' + beaToSue.id + '/report', { reason: 'Seller report outside pilot' })).body.code).toBe('MESSAGING_OFF');
+    // a pilot company's message, reported by an asker who is not listed: refused
+    expect((await call('ben', 'POST', '/api/storefront-messages/messages/' + benReply.id + '/report', { reason: 'Ben is not in the pilot' })).body.code).toBe('MESSAGING_OFF');
+    expect(await snapshot()).toEqual(before);
+    expect((await one('SELECT count(*)::int n FROM storefront_message_reviews')).n).toBe(reviewsBefore);
+    expect(oa.notifyAdminActionRequired).not.toHaveBeenCalled();
+
+    // positive control: inside the pilot, the listed asker can still read and report the pilot company's reply
+    expect((await call('bea', 'GET', '/api/storefront-messages/mine/' + pilotConv)).status).toBe(200);
+    expect((await call('bea', 'POST', '/api/storefront-messages/messages/' + pilotReply.id + '/report', { reason: 'Pilot report works' })).body.data.reported).toBe(true);
+    // seller-side positive control: the pilot company is checked as a SELLER (the asker list does not apply to it), so it
+    // can report a buyer's message and withdraw its own held message (would fail if these used the buyer side)
+    const pilotBuyerMsg = (await call('nora', 'GET', '/api/storefront-messages/seller/' + pilotConv)).body.data.messages.find((x) => x.from === 'buyer');
+    expect((await call('nora', 'POST', '/api/storefront-messages/messages/' + pilotBuyerMsg.id + '/report', { reason: 'Seller report in pilot' })).body.data.reported).toBe(true);
+    const noraHeld = (await call('nora', 'POST', '/api/storefront-messages/seller/' + pilotConv + '/messages', { body: 'Find our shop on Facebook and call us directly' })).body.data.message;
+    expect(noraHeld.status).toBe('held');
+    expect((await call('nora', 'POST', '/api/storefront-messages/messages/' + noraHeld.id + '/withdraw')).body.data.status).toBe('withdrawn');
+  });
   test('with no pilot company and the switch off, everything is off', async () => {
     setFlag(false);
     const it = await item();
@@ -615,7 +678,30 @@ describe('reports and moderator hiding (owner decisions 2026-10-26)', () => {
     expect((await one('SELECT is_active FROM users WHERE id = $1', [U.nora.id])).is_active).toBe(true);
   });
 
-  test('a hidden message is never emailed', async () => {
+  test('reasons and notes are counted in characters like the database: short emoji reasons get a 422, long ones are kept, never a 500', async () => {
+    const it = await item();
+    const conv = (await ask('bea', it.id, 'Is the mirror original?')).body.data.conversation_id;
+    const reply = (await call('nora', 'POST', '/api/storefront-messages/seller/' + conv + '/messages', { body: 'Yes, original glass.' })).body.data.message;
+    const short = '\u{1F600}\u{1F600}x';            // 5 UTF-16 code units, but 3 characters (the database minimum is 5)
+    const rep = await call('bea', 'POST', '/api/storefront-messages/messages/' + reply.id + '/report', { reason: short });
+    expect(rep.status).toBe(422); expect(rep.body.code).toBe('REASON_REQUIRED');
+    const hide = await call('admin', 'POST', '/api/admin/storefront/messages/' + reply.id + '/hide', { reason: short });
+    expect(hide.status).toBe(422); expect(hide.body.code).toBe('REASON_REQUIRED');
+    const it2 = await item();
+    const held = (await ask('bea', it2.id, 'Pay me in cash and I will give you 5% off the mirror')).body.data.message;
+    expect(held.status).toBe('held');
+    const dec = await call('admin', 'POST', '/api/admin/storefront/messages/' + held.id + '/review', { decision: 'decline', note: short });
+    expect(dec.status).toBe(422);
+    // the longest allowed: 1000 characters of emoji (2000 code units) is accepted; more is cut to 1000 characters
+    const long = '\u{1F600}'.repeat(1200);
+    const ok = await call('admin', 'POST', '/api/admin/storefront/messages/' + reply.id + '/hide', { reason: long });
+    expect(ok.status).toBe(200);
+    expect((await one('SELECT length(hidden_reason)::int AS n FROM storefront_messages WHERE id = $1', [reply.id])).n).toBe(1000);
+    // five real characters are enough
+    expect((await call('admin', 'POST', '/api/admin/storefront/messages/' + held.id + '/review', { decision: 'decline', note: '\u{1F600}\u{1F600}\u{1F600}ab' })).status).toBe(200);
+  });
+
+  test('hiding skips a queued, not-yet-sent notice for that message (an email already sent cannot be retracted)', async () => {
     await notify.tick(); mail.sendEmail.mockClear();
     const it = await item();
     const conv = (await ask('ben', it.id, 'Is the drawer pull brass?')).body.data.conversation_id;

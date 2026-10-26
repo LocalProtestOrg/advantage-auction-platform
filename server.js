@@ -527,7 +527,8 @@ app.get(['/shop/item/:id', '/shop/item/:id/:slug'], async (req, res) => {
     const { publicBaseUrl } = require('./src/lib/publicUrls');
     const r = await require('./src/services/productPageService').render(req.params.id, req.params.slug, publicBaseUrl());
     if (r.redirect) return res.redirect(301, r.redirect);
-    if (r.html) { res.set('Cache-Control', 'public, max-age=60'); return res.status(r.status).send(r.html); }
+    // A priced page is revalidated on every view so it can never be served after the item sells (§12.3).
+    if (r.html) { res.set('Cache-Control', r.cacheControl || 'public, max-age=60'); return res.status(r.status).send(r.html); }
   } catch (e) { console.error('[product-page] render failed:', e.message); }
   return res.sendFile(path.join(__dirname, 'public', 'item.html'));
 });

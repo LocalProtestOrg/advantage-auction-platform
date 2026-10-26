@@ -215,6 +215,47 @@ describe('a sold item never shows its price publicly', () => {
     expect(product.offers.shippingDetails).toBeUndefined();
   });
 
+  test('caching: a priced page or API answer is revalidated on every view, so no cached copy outlives the sale', async () => {
+    const it = await noraItem({ title: 'Cache check lamp ' + Math.random().toString(36).slice(2, 7), price_cents: PRICE });
+    const slug = pdata().slugify(it.title);
+    // before the sale: the price is shown, and the page / API must be revalidated (no shared or browser reuse)
+    const activePage = await pages().render(it.id, slug, 'https://bid.example');
+    expect(activePage.status).toBe(200);
+    expect(priceLeak(activePage.html)).toBe(true);
+    expect(activePage.cacheControl).toBe('no-cache');
+    const activeApi = await anon('/api/public/storefront/item/' + it.id);
+    expect(activeApi.body.data.price_cents).toBe(PRICE);
+    expect(activeApi.headers.get('cache-control')).toBe('no-cache');
+    // the sale happens; the very next view carries no price
+    await beaBuys(it);
+    const soldPage = await pages().render(it.id, slug, 'https://bid.example');
+    expect(priceLeak(soldPage.html)).toBe(false);
+    // a sold page still shows "more from this seller" cards with prices, and any of those can sell: revalidated too
+    expect(soldPage.cacheControl).toBe('no-cache');
+    const sibling = await noraItem({ title: 'Cache check sibling ' + Math.random().toString(36).slice(2, 7), price_cents: 7777 });
+    const soldWithSibling = await pages().render(it.id, slug, 'https://bid.example');
+    expect(soldWithSibling.html).toContain('$77.77');
+    expect(soldWithSibling.cacheControl).toBe('no-cache');
+    await beaBuys(sibling);
+    expect((await pages().render(it.id, slug, 'https://bid.example')).html).not.toContain('$77.77');
+    // the storefront's public item list (prices of active items) is revalidated as well (data stubbed: this harness does
+    // not migrate every storefront table; the real route sets the header)
+    const sfSvc = require('../src/services/storefrontService');
+    const spy = jest.spyOn(sfSvc, 'getPublicData').mockResolvedValue({ storefront: {}, marketplace: [] });
+    try { expect((await anon('/api/public/storefront/nora')).headers.get('cache-control')).toBe('no-cache'); } finally { spy.mockRestore(); }
+    const soldApi = await anon('/api/public/storefront/item/' + it.id);
+    expect(priceLeak(JSON.stringify(soldApi.body))).toBe(false);
+    expect(String(soldApi.headers.get('cache-control') || '')).not.toMatch(/max-age=[1-9]/);
+    // a checkout in progress still shows the price, so it is revalidated too
+    const pend = await noraItem({ title: 'Cache check pending ' + Math.random().toString(36).slice(2, 7), price_cents: 4321 });
+    await orders.createOrder(pend.id, U.ben.id, { policiesAcknowledged: true });
+    expect(pages().cacheControlFor({ status: 'pending_purchase' })).toBe('no-cache');
+    expect((await anon('/api/public/storefront/item/' + pend.id)).headers.get('cache-control')).toBe('no-cache');
+    // the server route uses the page's own cache policy (not a fixed 60-second cache)
+    const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    expect(server).toMatch(/res\.set\('Cache-Control', r\.cacheControl \|\| 'public, max-age=60'\)/);
+  });
+
   test('a pending checkout is not a sale: the price stays visible', async () => {
     const it = await noraItem({ title: 'Brass lamp pending', price_cents: 4321 });
     await orders.createOrder(it.id, U.ben.id, { policiesAcknowledged: true });
@@ -264,6 +305,18 @@ describe('member disclosure is the seller\'s choice, off by default', () => {
     expect((await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { show_realized_price_to_members: 'yes' })).status).toBe(422);
     expect((await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { show_realized_price_to_members: true, price_cents: 1 })).body.code).toBe('ITEM_SOLD');
     expect((await one('SELECT show_realized_price_to_members AS v, price_cents FROM marketplace_items WHERE id = $1', [it.id]))).toEqual({ v: false, price_cents: PRICE });
+  });
+
+  test('staff of the company cannot change it (server), and the seller page does not offer it to staff', async () => {
+    const { it } = await soldItem();
+    const staffCtx = { sellerId: SP.nora, sellerType: 'estate_sale_company', role: 'inventory_manager', userId: U.ben.id, staff: true };
+    await expect(items.updateItem(it.id, staffCtx, { show_realized_price_to_members: true })).rejects.toMatchObject({ status: 403, code: 'OWNER_ONLY' });
+    expect((await one('SELECT show_realized_price_to_members AS v FROM marketplace_items WHERE id = $1', [it.id])).v).toBe(false);
+    const ownerCtx = { sellerId: SP.nora, sellerType: 'estate_sale_company', role: 'owner', userId: U.nora.id, staff: false };
+    await items.updateItem(it.id, ownerCtx, { show_realized_price_to_members: true });
+    expect((await one('SELECT show_realized_price_to_members AS v FROM marketplace_items WHERE id = $1', [it.id])).v).toBe(true);
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'seller-storefront.html'), 'utf8');
+    expect(html).toMatch(/if\(m\.status==='sold'&&!\(CFG&&CFG\.staff\)\)acts=/);
   });
 
   test('a refunded sale has no realized price and no SOLD page', async () => {

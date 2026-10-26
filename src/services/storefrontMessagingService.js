@@ -54,9 +54,12 @@ function bodyOf(v) {
   if (b.length > LIMITS.BODY_MAX) throw err(422, 'MESSAGE_TOO_LONG', `Messages can be up to ${LIMITS.BODY_MAX} characters.`);
   return b;
 }
+// Counted in characters (code points), the way the database CHECK counts them (5-1000), so a note that passes here never
+// fails in the database (an emoji is one character, not two).
 function noteOf(v, code, msg) {
-  const n = (v == null ? '' : String(v)).replace(/[\u0000-\u0008\u000b-\u001f]+/g, ' ').trim().slice(0, 1000);
-  if (n.length < 5) throw err(422, code, msg);
+  const clean = (v == null ? '' : String(v)).replace(/[\u0000-\u0008\u000b-\u001f]+/g, ' ').trim();
+  const n = Array.from(clean).slice(0, 1000).join('').trim();
+  if (Array.from(n).length < 5) throw err(422, code, msg);
   return n;
 }
 const PROCESS_KEY = crypto.randomBytes(32).toString('hex');
@@ -244,7 +247,9 @@ async function listForBuyer(buyerUserId) {
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
        FROM storefront_conversations c JOIN marketplace_items mi ON mi.id = c.item_id JOIN seller_profiles sp ON sp.id = c.seller_id
       WHERE c.buyer_user_id = $1 ORDER BY c.last_message_at DESC LIMIT 200`, [buyerUserId]);
-  return rows.map((c) => conversationHead(c, 'buyer'));
+  // In a pilot, only conversations with a listed company (and, when askers are listed, only for a listed asker).
+  return rows.filter((c) => guards.storefrontMessagingAllowed({ sellerId: c.seller_id, userId: buyerUserId, side: 'buyer' }))
+    .map((c) => conversationHead(c, 'buyer'));
 }
 
 async function loadThread(runner, convId, side) {
@@ -261,6 +266,7 @@ async function getForBuyer(convId, buyerUserId) {
        FROM storefront_conversations c JOIN marketplace_items mi ON mi.id = c.item_id JOIN seller_profiles sp ON sp.id = c.seller_id
       WHERE c.id = $1 AND c.buyer_user_id = $2`, [convId, buyerUserId])).rows[0];
   if (!c) return null;
+  if (!guards.storefrontMessagingAllowed({ sellerId: c.seller_id, userId: buyerUserId, side: 'buyer' })) return null;
   return { ...conversationHead(c, 'buyer'), messages: await loadThread(db, c.id, 'buyer') };
 }
 
@@ -327,6 +333,8 @@ async function ownSentMessage(client, messageId, userId) {
     const ctx = await resolveSellerContext(userId, client);
     if (!ctx || ctx.sellerId !== m.seller_id || !hasSellerPermission(ctx, 'company.messages.respond')) return null;
   }
+  // Messaging must still be on for this conversation's company (and, in a pilot, for this asker).
+  requireAllowed(m.seller_id, userId, m.sender_role === 'seller' ? 'seller' : 'buyer');
   return m;
 }
 
@@ -415,6 +423,8 @@ async function reportMessage(messageId, userId, { reason } = {}) {
       recipient = !!ctx && ctx.sellerId === m.seller_id && hasSellerPermission(ctx, 'company.messages.view');
     }
     if (!recipient) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+    // The reporter is the recipient: the buyer for a seller message, the seller company for a buyer message.
+    requireAllowed(m.seller_id, userId, m.sender_role === 'seller' ? 'buyer' : 'seller');
     const r = (await client.query(
       `INSERT INTO storefront_message_reviews (message_id, seller_id, action, actor_user_id, note) VALUES ($1, $2, 'reported', $3, $4)
        ON CONFLICT (message_id, actor_user_id) WHERE action = 'reported' DO NOTHING RETURNING id`, [m.id, m.seller_id, userId, why])).rows[0];

@@ -28,7 +28,10 @@ shopping feeds, tax filing and remittance are **off** and stay off until the own
   or shipping charge (SOLD + `SoldOut`). Per-item "show the sale price to signed-in members" setting, default OFF,
   company owner only; members recognised only by a server-confirmed current session.
 - Message reporting (recipient only, review work only, its own admin alert) and moderator hiding (once, with a reason,
-  record kept, never emailed).
+  record kept; stops any notice not yet sent, but cannot retract an email already delivered).
+- Pilot checks on every messaging path (including buyer inbox, withdraw, appeal and report); item pages (sold ones
+  included, which list other items' prices), unsold item answers and the storefront item list are revalidated on every
+  view, so a cached copy never shows a price after a sale.
 - Controlled pilot: `STOREFRONT_MESSAGING_PILOT_SELLER_IDS` / `STOREFRONT_MESSAGING_PILOT_USER_IDS`, both empty, general
   switch unset, so messaging stays OFF for everyone (documented in `.env.example`).
 - Remaining before deploy: owner review, commit, independent review, gate green, owner approval, then

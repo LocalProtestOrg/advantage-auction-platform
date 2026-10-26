@@ -150,7 +150,15 @@ async function render(id, slug, base, runner = db) {
     .replace('<!-- SSR-JSONLD -->', () => json)
     .replace(/<!-- SSR-BODY:START -->[\s\S]*?<!-- SSR-BODY:END -->/, () => body)
     .replace('<!-- SSR-MORE -->', () => moreBlock);
-  return { status: 200, html };
+  return { status: 200, html, cacheControl: cacheControlFor(item) };
+}
+
+// Cache policy (§12.3 sold-price privacy): every rendered item page shows a price somewhere (its own while unsold, and
+// the "more from this seller" cards on every page, sold ones included), and any of those items can sell at any moment,
+// so browsers and shared caches revalidate the page on every view (a cheap 304 via the ETag). No priced copy can be
+// served after a sale.
+function cacheControlFor() {
+  return 'no-cache';
 }
 
 // Canonical path for an id (for the legacy /item.html?id= redirect). Null when the item is not public.
@@ -192,4 +200,4 @@ async function sitemapEntries(runner = db) {
   return out;
 }
 
-module.exports = { render, notFoundPage, canonicalPathFor, sitemapEntries, loadItem, _resetTemplate: () => { _tpl = null; } };
+module.exports = { render, notFoundPage, canonicalPathFor, sitemapEntries, loadItem, cacheControlFor, _resetTemplate: () => { _tpl = null; } };

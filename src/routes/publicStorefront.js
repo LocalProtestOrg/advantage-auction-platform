@@ -41,13 +41,16 @@ router.get('/item/:id', async (req, res, next) => {
     if (!it) return res.status(404).json({ success: false, message: 'Item not found.' });
     res.set('Vary', 'Authorization, Cookie');
     if (viewerUserId || it.realized_price_cents != null) res.set('Cache-Control', 'private, no-store');
+    // A priced (unsold) item is revalidated on every request so a cached copy never outlives a sale (§12.3).
+    else if (it.price_cents != null) res.set('Cache-Control', 'no-cache');
     return res.json({ success: true, data: it });
   } catch (e) { next(e); }
 });
 
 // Storefront data by slug.
 router.get('/:slug', async (req, res, next) => {
-  try { return res.json({ success: true, data: await storefront.getPublicData(req.params.slug) }); }
+  // Lists priced active items, any of which can sell at any moment: revalidated on every request (§12.3).
+  try { const data = await storefront.getPublicData(req.params.slug); res.set('Cache-Control', 'no-cache'); return res.json({ success: true, data }); }
   catch (e) { if (e.status === 404) return res.status(404).json({ success: false, message: e.message }); next(e); }
 });
 

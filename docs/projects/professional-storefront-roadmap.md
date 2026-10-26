@@ -534,21 +534,32 @@ additive and idempotent; moves no money; changes no existing value). Branch `fea
 - **Moderator hiding:** an administrator hides a delivered message once, with a required reason (5-1000 characters);
   the recipient sees "A message was removed by Advantage.Bid", the sender sees the reason, and the original words, the
   delivered text and the review history are kept. The database guard enforces: only a delivered message can be hidden,
-  once, with who and why; it can never be unhidden, rewritten or created hidden. A hidden message is never emailed and
-  is not counted as waiting for the seller. Moderators never write as the seller (no route exists). Every moderator
+  once, with who and why; it can never be unhidden, rewritten or created hidden. Hiding stops any notice for that
+  message that has not been sent yet (a queued notice is skipped), but it cannot retract an email that was already
+  delivered: the message notice is queued when the message is delivered, so a recipient who reports a message has
+  usually already received its email. A hidden message is not counted as waiting for the seller. Moderators never write as the seller (no route exists). Every moderator
   read and hide is in the conversation access log. Review queue filters: "Reported by the recipient", "Hidden by
   Advantage.Bid".
 - **Controlled pilot (all OFF by default):** `STOREFRONT_MESSAGING_ENABLED` (general switch) stays unset.
   `STOREFRONT_MESSAGING_PILOT_SELLER_IDS` (seller_profiles UUIDs) enables item questions for those companies only;
   `STOREFRONT_MESSAGING_PILOT_USER_IDS` (optional users UUIDs) limits who may ask them. Non-UUID values are ignored. With
   both pilot lists empty and the switch unset, every messaging route returns 404 and item pages are unchanged. The
-  service re-checks the item's company (and, in a pilot, the asker) on every ask, reply and seller read, so listing one
-  company never opens another. Documented in `.env.example`.
+  service re-checks the conversation's company (and, in a pilot, the asker) on every path: ask, buyer and seller
+  replies, buyer inbox and thread reads (non-pilot threads are hidden / "not found"), seller inbox and thread reads,
+  withdraw, appeal and report, so listing one company never opens another, including conversations left over from a
+  time messaging was on. Documented in `.env.example`.
 - **Acceptance tests (`tests/storefront-item-messaging.test.js`):** pilot company + named askers only, everyone else
   off; no pilot + switch off = everything off; only the recipient can report, once, review work only, correct alert
-  wording and type, no second alert on a repeat; hide rules (recipient view, sender view, record kept, never
-  unhidden/rewritten, held messages cannot be hidden); a hidden message is never emailed; moderators never write as the
-  seller.
+  wording and type, no second alert on a repeat; non-pilot conversations cannot be listed, read, withdrawn, appealed or
+  reported (adversarial, nothing changes and no alert); hide rules (recipient view, sender view, record kept, never
+  unhidden/rewritten, held messages cannot be hidden); a queued notice for a hidden message is skipped; reasons counted
+  in characters like the database (short emoji reasons get a validation answer, never a server error); moderators
+  never write as the seller.
+- **Sold-page caching:** every server-rendered item page, the public item answer for an unsold item and the
+  storefront's public item list are sent `Cache-Control: no-cache` (revalidated on every view; cheap 304 via the
+  ETag), so no cached copy can show a price after an item sells. This includes SOLD pages, because their "more from
+  this seller" cards show other items' prices (`productPageService.cacheControlFor`). Member answers stay
+  `private, no-store`; the not-found page keeps its short public cache (it shows no price).
 - **Completion criteria:** full jest gate green; independent security review with findings fixed; production
   `scripts/prod-migrate-206.js --check`, apply and `scripts/prod-verify-206.js` (rolled back) only after owner approval;
   pilot company named by the owner before any pilot setting is filled.
