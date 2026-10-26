@@ -10,7 +10,8 @@
  * The session is then bound to the ticket's CallSid (the setup message must match) and menu choice.
  *
  * One RelaySession per socket drives the existing PhoneCall (verification, scoped session, redaction, tools, budgets,
- * audit, escalation). sasha.phone.session_max_minutes ends the call politely. Closing the socket ends the call.
+ * audit, escalation). sasha.phone.session_max_minutes ends the call politely, and a silent caller is checked on and then
+ * disconnected (silenceWatch.js). Closing the socket ends the call.
  * Payload limit 64 KB; malformed messages are ignored. Nothing about the caller's words is logged here.
  */
 
@@ -19,6 +20,7 @@ const phoneSettings = require('./phoneSettings');
 const line = require('./voiceLine');
 const signature = require('../../../lib/twilioSignature');
 const { RelaySession } = require('./adapters/conversationRelay');
+const { SilenceWatch, fromSettings } = require('./silenceWatch');
 
 const PATHS = new Set(['/api/voice/relay', '/api/voice/relay/']);
 
@@ -66,9 +68,11 @@ function withTurnLimit(p, ms, onLimit) {
 /** Wire one accepted socket to a RelaySession. */
 async function bind(ws, ticket, deps = {}) {
   const s = await phoneSettings.load();
-  const send = (obj) => { const m = toTwilio(obj); if (m && ws.readyState === 1) ws.send(JSON.stringify(m)); };
+  let spokenChars = 0;   // what Sasha said during the current turn (for the silence clock's playback estimate)
+  const send = (obj) => { const m = toTwilio(obj); if (m && m.type === 'text' && m.token) spokenChars += m.token.length; if (m && ws.readyState === 1) ws.send(JSON.stringify(m)); };
   const limitMs = deps.turnLimitMs || TURN_LIMIT_MS;
   const relay = new RelaySession(send, { provider: 'twilio_cr', routingReason: ticket.reason, expectCallSid: ticket.callSid, providerGreeting: true, deps: deps.callDeps || {} });
+  const watch = new SilenceWatch(relay, fromSettings(s, deps.silence));
   let queue = Promise.resolve();
   const timer = setTimeout(() => { queue = queue.then(() => relay.timeLimit()).catch((e) => console.error('[voice-relay] time limit', e.message)); },
     s.session_max_minutes * 60 * 1000);
@@ -76,17 +80,22 @@ async function bind(ws, ticket, deps = {}) {
   ws.on('message', (data) => {
     let msg; try { msg = JSON.parse(String(data)); } catch (_e) { return; }
     // Interruptions act immediately; everything else is handled in order.
-    if (msg && msg.type === 'interrupt') { relay.onMessage(msg).catch(() => {}); return; }
+    if (msg && msg.type === 'interrupt') { watch.activity(); relay.onMessage(msg).catch(() => {}); return; }
+    if (msg && msg.type === 'prompt' && msg.last === false) watch.activity();   // the caller is mid-sentence
     // A new final caller turn supersedes the answer still being generated: stop it now, so the new turn is not
     // queued behind obsolete speech.
     if (msg && msg.type === 'prompt' && msg.last !== false && relay.call && relay.call.busy) relay.call.interrupt({ source: 'new_prompt' });
-    const turn = msg && (msg.type === 'prompt' || msg.type === 'dtmf');
+    const turn = msg && ((msg.type === 'prompt' && msg.last !== false) || msg.type === 'dtmf');
+    if (turn) { spokenChars = 0; watch.turnStarted(msg.type === 'prompt' ? String(msg.voicePrompt || '') : null); }
     queue = queue.then(() => (turn ? withTurnLimit(relay.onMessage(msg), limitMs, () => relay.recoverTurn('turn limit')) : relay.onMessage(msg)))
-      .catch((e) => { console.error('[voice-relay] message failed', e.message); if (turn) relay.recoverTurn('error'); });
+      .catch((e) => { console.error('[voice-relay] message failed', e.message); if (turn) relay.recoverTurn('error'); })
+      // The silence clock starts once Sasha has finished: after Twilio's greeting, or after her answer.
+      .then(() => { if (turn) watch.turnFinished(spokenChars); else if (msg && msg.type === 'setup' && relay.call) watch.waiting(String(s.greeting || '').length); });
   });
   // A hang-up ends the call at once (it never waits behind a running turn): end() stops any turn still generating.
-  ws.on('close', () => { clearTimeout(timer); relay.close('caller_hung_up').catch((e) => console.error('[voice-relay] close failed', e.message)); });
+  ws.on('close', () => { clearTimeout(timer); watch.stop(); relay.close('caller_hung_up').catch((e) => console.error('[voice-relay] close failed', e.message)); });
   ws.on('error', () => { /* close follows */ });
+  relay.silence = watch;
   return relay;
 }
 

@@ -977,3 +977,53 @@ describe('spoken brand and Professional Seller premium (owner corrections 2026-1
     expect(engine.systemPrompt({ channel: 'phone' })).toMatch(/Individual Seller auctions have an 18% buyer's premium; Professional Sellers set their own, so never state a minimum, maximum, typical range or default/);
   });
 });
+
+// ── silence (owner request 2026-10-26) ────────────────────────────────────────────────────────────────────────
+describe('a silent caller on the live socket is checked on, then disconnected', () => {
+  const { CHECK_IN, DISCONNECT } = require('../../src/services/sasha/phone/silenceWatch');
+  const FAST = { silence: { checkMs: 300, hangupMs: 300, holdMs: 1500, msPerChar: 0 } };
+  beforeAll(async () => { await lineOn(); });
+  afterAll(async () => { await lineOn(false); });
+  const ends = (got) => got.filter((g) => g.msg.type === 'end').map((g) => JSON.parse(g.msg.handoffData));
+
+  test('no answer: "Are you still there?", the disconnect line, then the session ends (reason silence, no model request)', async () => {
+    const m = model([]);
+    const s = await liveSession(m, 'buyer', FAST);
+    try {
+      expect(await waitFor(() => spokenTokens(s.got).includes(CHECK_IN), 3000)).toBe(true);
+      expect(await waitFor(() => ends(s.got).length > 0, 3000)).toBe(true);
+      const said = spokenTokens(s.got);
+      expect(said.indexOf(DISCONNECT)).toBeGreaterThan(said.indexOf(CHECK_IN));
+      expect(ends(s.got)).toEqual([{ action: 'goodbye', reason: 'silence' }]);
+      const row = await s.callRow();
+      expect(row.status).toBe('completed');
+      expect(row.end_reason).toBe('silence');
+      expect(m.calls.length).toBe(0);
+      const msgs = (await q(`SELECT body_text AS body FROM cs_messages WHERE conversation_id = $1 ORDER BY created_at`, [row.conversation_id])).map((x) => x.body);
+      expect(msgs).toEqual(expect.arrayContaining([CHECK_IN, DISCONNECT]));
+    } finally { await s.close(); }
+  });
+
+  test('answering the check-in keeps the call: the question is answered and the call is not ended', async () => {
+    const m = model([{ text: 'Pickup is in the published window.' }]);
+    const s = await liveSession(m, 'buyer', { silence: { checkMs: 300, hangupMs: 5000, holdMs: 5000, msPerChar: 0 } });
+    try {
+      expect(await waitFor(() => spokenTokens(s.got).includes(CHECK_IN), 3000)).toBe(true);
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Yes. When is pickup?', last: true }));
+      expect(await waitFor(() => spokenTokens(s.got).some((t) => /published window/.test(t)), 4000)).toBe(true);
+      await sleep(200);
+      expect(ends(s.got)).toEqual([]);
+      expect((await s.callRow()).status).toBe('in_progress');
+    } finally { await s.close(); }
+    expect((await s.callRow()).end_reason).toBe('caller_hung_up');
+  });
+
+  test('turned off (silence_check_seconds 0): a quiet caller is never prompted or disconnected', async () => {
+    const s = await liveSession(model([]), 'buyer', { silence: { checkMs: 0 } });
+    try {
+      await sleep(900);
+      expect(spokenTokens(s.got)).not.toContain(CHECK_IN);
+      expect(ends(s.got)).toEqual([]);
+    } finally { await s.close(); }
+  });
+});

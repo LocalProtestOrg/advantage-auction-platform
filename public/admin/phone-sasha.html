@@ -232,7 +232,8 @@
   var TEXTS={greeting:1,menu_text:1,call_notice:1};
   var LABELS={greeting:'Sasha\'s greeting',menu_text:'Routing menu (one spoken line per row)',call_notice:'Optional notice before the menu (empty = none)',max_concurrent_calls:'Calls at once',daily_budget_usd:'Phone daily budget ($)',per_call_budget_usd:'Per-call budget ($)',
     transcript_retention_days:'Transcript retention (days)',code_ttl_minutes:'Code lifetime (min)',code_max_attempts:'Wrong codes allowed',code_max_sends_per_30min:'Codes per account / 30 min',
-    lockout_minutes:'Lockout (min)',session_max_minutes:'Verified session (min)'};
+    lockout_minutes:'Lockout (min)',session_max_minutes:'Verified session (min)',
+    silence_check_seconds:'Silence before "Are you still there?" (sec, 0 = off)',silence_hangup_seconds:'Then hang up after (sec)',silence_hold_seconds:'Wait when the caller asks for a moment (sec)'};
   function loadSettings(){ api('GET',BASE+'/settings').then(function(j){
     if(!j.success){ $('line').className='banner warn'; $('line').textContent=j.message||'Not allowed.'; return; }
     var d=j.data, s=d.settings;

@@ -235,7 +235,7 @@ router.post('/settings', superAdminOnly, wrap(async (req, res) => {
 const phoneSettings = require('../services/sasha/phone/phoneSettings');
 // The opening disclosure is no longer spoken (owner direction 2026-10-08); the menu, greeting and optional notice replace it.
 const PHONE_EDITABLE = ['greeting', 'menu_text', 'call_notice', 'access_mode', 'max_concurrent_calls', 'daily_budget_usd', 'per_call_budget_usd', 'transcript_retention_days',
-  'code_ttl_minutes', 'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'voice', 'menu_voice'];
+  'code_ttl_minutes', 'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'silence_check_seconds', 'silence_hangup_seconds', 'silence_hold_seconds', 'voice', 'menu_voice'];
 const PHONE_TEXT_LIMITS = { greeting: [10, 300], menu_text: [20, 1200], call_notice: [0, 400] };
 router.get('/phone/settings', wrap(async (req, res) => {
   phoneSettings.clear();

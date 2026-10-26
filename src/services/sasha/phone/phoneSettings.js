@@ -27,6 +27,9 @@ const DEFAULTS = {
   disclosure_text: "You've reached Advantage.Bid. This call is answered by Sasha, our virtual assistant, and is transcribed for customer support.",
   max_concurrent_calls: 10, daily_budget_usd: 10, per_call_budget_usd: 0.75, transcript_retention_days: 90,
   code_ttl_minutes: 10, code_max_attempts: 5, code_max_sends_per_30min: 3, lockout_minutes: 60, session_max_minutes: 20,
+  // Silence on a live call (silenceWatch.js): check in after this many quiet seconds (0 = off), disconnect after this many
+  // more, and wait this long instead when the caller asked for a moment ("hold on").
+  silence_check_seconds: 45, silence_hangup_seconds: 30, silence_hold_seconds: 120,
   // Adult female, neutral American. Used for the menu (<Say>) and for Sasha (ConversationRelay); editable by Super Admin.
   voice: { tts_provider: 'Google', voice: 'en-US-Chirp3-HD-Aoede', language: 'en-US' },
   // The routing menu and short call messages (<Say>): a polished British female voice, deliberately different from Sasha.
@@ -34,7 +37,8 @@ const DEFAULTS = {
 };
 const ACCESS_MODES = ['staff_only', 'public'];
 const NUM = { max_concurrent_calls: [1, 200], daily_budget_usd: [0, 1000], per_call_budget_usd: [0, 25], transcript_retention_days: [1, 3650],
-  code_ttl_minutes: [2, 30], code_max_attempts: [1, 10], code_max_sends_per_30min: [1, 10], lockout_minutes: [5, 1440], session_max_minutes: [2, 60] };
+  code_ttl_minutes: [2, 30], code_max_attempts: [1, 10], code_max_sends_per_30min: [1, 10], lockout_minutes: [5, 1440], session_max_minutes: [2, 60],
+  silence_check_seconds: [0, 600], silence_hangup_seconds: [10, 300], silence_hold_seconds: [30, 600] };
 const PROVIDERS = ['none', 'twilio_cr', 'retell'];
 const VERIFY_PROVIDERS = ['none', 'twilio_verify'];
 const TTL_MS = 15000;

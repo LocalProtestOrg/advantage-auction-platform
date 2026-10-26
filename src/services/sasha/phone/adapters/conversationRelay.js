@@ -115,6 +115,24 @@ class RelaySession {
     return r;
   }
 
+  /** A fixed line from the silence watch ("Are you still there?"): spoken (interruptible) and kept in the transcript. */
+  async sayLine(text) {
+    if (!this.call || this.ended) return null;
+    this.send({ type: 'text', token: spokenBrand(text) + ' ', last: false, interruptible: true });
+    this.send({ type: 'text', token: '', last: true });
+    await this.call.addReply(text).catch((e) => console.error('[voice-relay] silence line not saved', e.message));
+    return true;
+  }
+
+  /** The caller stayed silent after the check-in and the disconnect line: end the session (Twilio says goodbye, hangs up). */
+  async silenceEnd() {
+    if (!this.call || this.ended) return null;
+    this.ended = true;
+    const r = await this.call.end('silence');
+    this.send({ type: 'end', handoffData: JSON.stringify({ action: 'goodbye', reason: 'silence' }) });
+    return r;
+  }
+
   /** Caller hung up / socket closed. */
   async close(reason = 'caller_hung_up') {
     if (this.call && !this.ended) { this.ended = true; return this.call.end(reason); }
