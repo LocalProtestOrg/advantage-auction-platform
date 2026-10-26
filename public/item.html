@@ -69,7 +69,7 @@
     function authHdr(){return token?{Authorization:'Bearer '+token}:{}; }
 
     Promise.all([
-      fetch('/api/public/storefront/item/'+encodeURIComponent(ID)).then(function(r){return r.json();}),
+      fetch('/api/public/storefront/item/'+encodeURIComponent(ID),{headers:authHdr()}).then(function(r){return r.json();}),
       fetch('/api/marketplace/config',{headers:authHdr()}).then(function(r){return r.json();}).catch(function(){return {};})
     ]).then(function(a){
       var res=a[0]; if(a[1]&&a[1].data)CFG=a[1].data;
@@ -99,7 +99,7 @@
 
       var status=it.status||'active';
       // Item questions (on-platform, when enabled) replace the storefront contact form on item pages.
-      var ask=CFG.messaging_enabled?'<button class="btn btn-ghost" id="askBtn">Ask the seller a question</button>':
+      var ask=(CFG.messaging_enabled||it.questions_enabled)?'<button class="btn btn-ghost" id="askBtn">Ask the seller a question</button>':
         (it.storefront_slug?'<a class="btn btn-ghost" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'');
       var buyBox;
       if(status==='sold'){
@@ -110,7 +110,7 @@
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Buy this item</div>'+
           '<p class="meta" style="margin:0 0 12px">Secure checkout through Advantage.Bid. '+(it.shippable?'Shipping or local pickup.':'Local pickup.')+'</p>'+
           '<button class="btn btn-primary" id="buyNow">Buy Now · '+money(it.price_cents)+'</button> '+ask+'</div>';
-      } else if(CFG.messaging_enabled){
+      } else if(CFG.messaging_enabled||it.questions_enabled){
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Ask '+esc(it.seller_name||'the seller')+' a question here on Advantage.Bid.</p><button class="btn btn-primary" id="askBtn">Ask the seller a question</button></div>';
       } else {
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+(it.storefront_slug?'<a class="btn btn-primary" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>';
@@ -120,7 +120,8 @@
         '<div class="crumb"><a href="/">Advantage.Bid</a> › Marketplace › '+sellerLink+'</div>'+
         '<div class="grid"><div class="gallery">'+main+thumbs+'</div>'+
         '<div><h1>'+esc(it.title)+'</h1><div class="meta">Sold by '+sellerLink+'</div>'+
-        '<div class="price">'+money(it.price_cents)+'</div>'+
+        // A sold item's price is never sent to the public; a signed-in member sees the realized price only when the seller allows it.
+        '<div class="price">'+(status==='sold'?(it.realized_price_cents!=null?money(it.realized_price_cents)+' <span class="meta" style="font-size:14px">sold · fixed-price sale</span>':'<span class="pill pill-sold">SOLD</span>'):money(it.price_cents))+'</div>'+
         '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.is_oversized?'<span class="pill">Oversized item</span>':'')+(it.is_fragile?'<span class="pill">Fragile</span>':'')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
         (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
         '<div class="meta"><b>Shipping &amp; pickup:</b> '+esc((it.shipping&&it.shipping.summary)||'Local pickup available')+((it.shipping&&it.shipping.notes)?' — '+esc(it.shipping.notes):'')+'</div>'+
@@ -274,7 +275,7 @@
         .then(function(r){return r.json();}).then(function(res){
           if(!res.success){
             // The seller changed its policies (or price) since this page loaded: refresh the item so the buyer reviews the current ones.
-            if(res.code==='POLICIES_CHANGED'||res.code==='PRICE_CHANGED'){fetch('/api/public/storefront/item/'+encodeURIComponent(ID)).then(function(r){return r.json();}).then(function(x){if(x&&x.success){ITEM=x.data;}}).catch(function(){});}
+            if(res.code==='POLICIES_CHANGED'||res.code==='PRICE_CHANGED'){fetch('/api/public/storefront/item/'+encodeURIComponent(ID),{headers:authHdr()}).then(function(r){return r.json();}).then(function(x){if(x&&x.success){ITEM=x.data;}}).catch(function(){});}
             throw new Error(res.message||'Could not start payment.');
           }
           ORDER=res.data.order; ORDER_KEY=key; return ORDER;

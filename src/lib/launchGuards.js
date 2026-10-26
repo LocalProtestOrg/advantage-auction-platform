@@ -79,5 +79,21 @@ function sellerStaffAvailableAnywhere(env = process.env) { return sellerStaffEna
 function storefrontMessagingEnabled(env = process.env) {
   return !!(env && env.STOREFRONT_MESSAGING_ENABLED === 'true');
 }
+// Controlled activation (owner 2026-10-26): while STOREFRONT_MESSAGING_ENABLED is off, item questions work ONLY for the
+// seller companies listed in STOREFRONT_MESSAGING_PILOT_SELLER_IDS, and — when STOREFRONT_MESSAGING_PILOT_USER_IDS is set —
+// only for those signed-in askers (e.g. the demo seller and named test accounts). Everyone else sees messaging as off.
+const idList = (v) => String(v || '').split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter((s) => UUID_RE.test(s));
+function storefrontMessagingPilotSellerIds(env = process.env) { return idList(env && env.STOREFRONT_MESSAGING_PILOT_SELLER_IDS); }
+function storefrontMessagingPilotUserIds(env = process.env) { return idList(env && env.STOREFRONT_MESSAGING_PILOT_USER_IDS); }
+function storefrontMessagingAvailable(env = process.env) { return storefrontMessagingEnabled(env) || storefrontMessagingPilotSellerIds(env).length > 0; }
+// side 'buyer': a signed-in asker (userId) writing to sellerId; side 'seller': the seller company itself.
+function storefrontMessagingAllowed({ sellerId, userId = null, side = 'buyer' } = {}, env = process.env) {
+  if (storefrontMessagingEnabled(env)) return true;
+  if (!sellerId || !storefrontMessagingPilotSellerIds(env).includes(String(sellerId).toLowerCase())) return false;
+  if (side === 'seller') return true;
+  const users = storefrontMessagingPilotUserIds(env);
+  return users.length === 0 || (!!userId && users.includes(String(userId).toLowerCase()));
+}
 
-module.exports = { storefrontMessagingEnabled, sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };
+module.exports = { storefrontMessagingEnabled, storefrontMessagingAvailable, storefrontMessagingAllowed, storefrontMessagingPilotSellerIds,
+  storefrontMessagingPilotUserIds, sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };

@@ -65,6 +65,8 @@ const ALERT_TYPES = {
   SETTLEMENT_EXCEPTION: 'settlement_exception',
   STOREFRONT_NOTIFICATION_FAILED: 'storefront_notification_failed',
   STOREFRONT_MESSAGE_HELD: 'storefront_message_held',
+  // The recipient reported a delivered item message (one alert per message; no message text or customer details).
+  STOREFRONT_MESSAGE_REPORTED: 'storefront_message_reported',
   COMPLIANCE_ESCALATION: 'compliance_escalation',
   // Sasha info@ mailbox reader health (login rejected, polling stopped, mailbox renumbered, no mail for 24h).
   SASHA_IMAP_HEALTH: 'sasha_imap_health',

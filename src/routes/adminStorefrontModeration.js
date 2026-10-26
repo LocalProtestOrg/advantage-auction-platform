@@ -43,6 +43,7 @@ router.get('/conversations/:id', async (req, res, next) => {
 });
 router.post('/messages/:id/review', h((req) => require('../services/storefrontMessagingService').review(req.params.id, req.user.id,
   { decision: (req.body || {}).decision, note: (req.body || {}).note })));
+router.post('/messages/:id/hide', h((req) => require('../services/storefrontMessagingService').hideMessage(req.params.id, req.user.id, { reason: (req.body || {}).reason })));
 router.get('/issues', h((req) => issues.listForAdmin({ status: req.query.status })));
 router.post('/issues/:id/resolve', h((req) => {
   const b = req.body || {};

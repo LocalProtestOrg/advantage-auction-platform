@@ -47,11 +47,16 @@
 
     function bubble(m) {
       var mine = m.from === 'you';
+      if (m.hidden && !mine) return '<div class="msg them"><i>A message was removed by Advantage.Bid.</i><span class="when">' + esc(when(m.created_at)) + '</span></div>';
       var extra = '';
       if (mine && m.status && m.status !== 'delivered') {
         extra = '<span class="state">' + esc(STATE[m.status] || '') + (m.decline_reason ? ' ' + esc(m.decline_reason) : '') + '</span>';
         if (m.can_withdraw) extra += '<button class="btn btn-ghost" data-withdraw="' + esc(m.id) + '">Withdraw and rephrase</button>';
         if (m.status === 'declined' && m.can_appeal) extra += '<button class="btn btn-ghost" data-appeal="' + esc(m.id) + '">Ask for another review</button>';
+      } else if (mine && m.hidden) {
+        extra = '<span class="state">Removed by Advantage.Bid: ' + esc(m.hidden_reason || '') + '</span>';
+      } else if (!mine) {
+        extra = '<button class="btn btn-ghost" data-report="' + esc(m.id) + '" style="font-size:11px;padding:3px 8px">Report</button>';
       } else if (mine && m.delivered_body && m.delivered_body !== m.body) {
         extra = '<span class="state">Delivered with contact details hidden: ' + esc(m.delivered_body) + '</span>';
       }
@@ -84,7 +89,12 @@
       });
     }
     threadEl.addEventListener('click', function (e) {
-      var w = e.target.closest('[data-withdraw]'), a = e.target.closest('[data-appeal]');
+      var w = e.target.closest('[data-withdraw]'), a = e.target.closest('[data-appeal]'), rp = e.target.closest('[data-report]');
+      if (rp) {
+        var why = window.prompt('What is wrong with this message? Our team will review it.');
+        if (why) api('POST', '/api/storefront-messages/messages/' + encodeURIComponent(rp.getAttribute('data-report')) + '/report', { reason: why })
+          .then(function (r) { window.alert(r.success ? 'Thank you. Our team will review this message.' : (r.message || 'Could not send the report.')); });
+      }
       if (w) api('POST', '/api/storefront-messages/messages/' + encodeURIComponent(w.getAttribute('data-withdraw')) + '/withdraw').then(function () { loadThread(current); });
       if (a) {
         var note = window.prompt('Tell us briefly why this message should be delivered:');

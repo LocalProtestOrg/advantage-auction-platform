@@ -35,10 +35,10 @@ jest.mock('../src/db/index', () => mockAdapter());
 jest.mock('../src/services/auditService', () => ({ logEvent: jest.fn(async () => {}) }));
 jest.mock('../src/services/ownerAlertService', () => ({ notifyAdminActionRequired: jest.fn(async () => {}),
   ALERT_TYPES: { STOREFRONT_MESSAGE_HELD: 'storefront_message_held', STOREFRONT_NOTIFICATION_FAILED: 'storefront_notification_failed',
-    STOREFRONT_ITEM_REPORT: 'storefront_item_report' } }));
+    STOREFRONT_ITEM_REPORT: 'storefront_item_report', STOREFRONT_MESSAGE_REPORTED: 'storefront_message_reported' } }));
 jest.mock('../src/services/emailService', () => ({ sendEmail: jest.fn(async () => ({ messageId: 'm' })), isConfigured: () => true }));
-let mockMessagingOn = true;
-jest.mock('../src/lib/launchGuards', () => ({ ...jest.requireActual('../src/lib/launchGuards'), storefrontMessagingEnabled: () => mockMessagingOn }));
+// The real switches are read from the environment on every request (STOREFRONT_MESSAGING_ENABLED / _PILOT_*).
+const setFlag = (on) => { process.env.STOREFRONT_MESSAGING_ENABLED = on ? 'true' : ''; };
 jest.mock('../src/middleware/authMiddleware', () => (req, res, next) => {
   const u = global.__USERS && global.__USERS[req.get('x-test-user')];
   if (!u) return res.status(401).json({ error: 'Unauthorized' });
@@ -89,10 +89,12 @@ beforeAll(async () => {
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
-    '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql']) {
+    '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
+    '206_sold_price_privacy_and_message_moderation.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('205_storefront_item_messaging.sql'));   // idempotent
+  await global.__PG.exec(mig('206_sold_price_privacy_and_message_moderation.sql'));   // idempotent; restores the 206 guard after re-running 205
   for (const [name, role, staff] of [['nora', 'seller'], ['sue', 'seller'], ['bea', 'buyer'], ['ben', 'buyer'], ['admin', 'admin', 'super_admin'], ['priv', 'seller']]) {
     U[name] = await one(`INSERT INTO users (email, full_name, role, staff_role) VALUES ($1, $2, $3, $4) RETURNING *`, [name + '@test.example', name.toUpperCase() + ' Person', role, staff || null]);
   }
@@ -122,7 +124,8 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => { if (server) await new Promise((r) => server.close(r)); if (global.__PG) await global.__PG.close(); });
-beforeEach(() => { mockMessagingOn = true; });
+beforeEach(() => { setFlag(true); delete process.env.STOREFRONT_MESSAGING_PILOT_SELLER_IDS; delete process.env.STOREFRONT_MESSAGING_PILOT_USER_IDS; });
+afterAll(() => { setFlag(false); });
 
 let seq = 0;
 async function item(owner = 'nora', extra = {}) {
@@ -135,7 +138,7 @@ const ask = (user, itemId, body) => call(user, 'POST', '/api/storefront-messages
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════
 describe('feature switch', () => {
   test('while off, every buyer and seller messaging route answers 404 and nothing is stored', async () => {
-    mockMessagingOn = false;
+    setFlag(false);
     const it = await item();
     const before = await one('SELECT count(*)::int n FROM storefront_messages');
     for (const [u, m, url, b] of [['bea', 'POST', '/api/storefront-messages/items/' + it.id + '/ask', { body: 'Is it solid wood?' }],
@@ -147,6 +150,41 @@ describe('feature switch', () => {
     expect((await one('SELECT count(*)::int n FROM storefront_messages')).n).toBe(before.n);
     const cfg = await call('bea', 'GET', '/api/marketplace/config');
     expect(cfg.body.data.messaging_enabled).toBe(false);
+  });
+});
+
+describe('controlled activation (pilot): one company, named askers, everyone else off', () => {
+  test('with the general switch off, only the listed company and listed askers can use messaging', async () => {
+    const noraIt = await item('nora'); const sueIt = await item('sue');
+    setFlag(false);
+    process.env.STOREFRONT_MESSAGING_PILOT_SELLER_IDS = SP.nora;
+    process.env.STOREFRONT_MESSAGING_PILOT_USER_IDS = U.bea.id;
+    // listed asker → listed company: works
+    const ok = await ask('bea', noraIt.id, 'Pilot question: is the top solid?');
+    expect(ok.status).toBe(201);
+    // listed asker → a company not in the pilot: off
+    const other = await ask('bea', sueIt.id, 'Pilot question to Sue?');
+    expect(other.status).toBe(404); expect(other.body.code).toBe('MESSAGING_OFF');
+    // an asker not in the list → the pilot company: off
+    const ben = await ask('ben', noraIt.id, 'Not in the pilot?');
+    expect(ben.status).toBe(404); expect(ben.body.code).toBe('MESSAGING_OFF');
+    // the pilot company can read and answer; another company cannot use messaging at all
+    expect((await call('nora', 'GET', '/api/storefront-messages/seller')).status).toBe(200);
+    expect((await call('nora', 'POST', '/api/storefront-messages/seller/' + ok.body.data.conversation_id + '/messages', { body: 'Yes, solid oak.' })).status).toBe(201);
+    expect((await call('sue', 'GET', '/api/storefront-messages/seller')).body.code).toBe('MESSAGING_OFF');
+    // the item page offers the button only to a listed asker on a pilot company's item; the public config stays off
+    const items = require('../src/services/marketplaceItemService');
+    expect((await items.getPublicItem(noraIt.id, undefined, { viewerUserId: U.bea.id })).questions_enabled).toBe(true);
+    expect((await items.getPublicItem(noraIt.id, undefined, { viewerUserId: U.ben.id })).questions_enabled).toBe(false);
+    expect((await items.getPublicItem(noraIt.id)).questions_enabled).toBe(false);
+    expect((await items.getPublicItem(sueIt.id, undefined, { viewerUserId: U.bea.id })).questions_enabled).toBe(false);
+    expect((await call('bea', 'GET', '/api/marketplace/config')).body.data.messaging_enabled).toBe(false);
+  });
+  test('with no pilot company and the switch off, everything is off', async () => {
+    setFlag(false);
+    const it = await item();
+    expect((await ask('bea', it.id, 'Anyone there?')).body.code).toBe('MESSAGING_OFF');
+    expect((await call('bea', 'GET', '/api/storefront-messages/mine')).body.code).toBe('MESSAGING_OFF');
   });
 });
 
@@ -520,6 +558,81 @@ describe('review fixes (independent security review 2026-10-26)', () => {
     expect((await rejects(`UPDATE storefront_messages SET appeal_note = 'sneaky' WHERE id = $1`, [d.message.id])).code).toBe('23514');
     const ok = (await ask('bea', it.id, 'Is the frame solid oak?')).body.data;
     expect((await rejects(`UPDATE storefront_messages SET delivered_at = now() - interval '1 day' WHERE id = $1`, [ok.message.id])).code).toBe('23514');
+  });
+});
+
+describe('reports and moderator hiding (owner decisions 2026-10-26)', () => {
+  test('only the recipient can report a delivered message; once per person; it creates review work, nothing else', async () => {
+    const it = await item();
+    const conv = (await ask('bea', it.id, 'Is the hinge original?')).body.data.conversation_id;
+    const rep = (await call('nora', 'POST', '/api/storefront-messages/seller/' + conv + '/messages', { body: 'Stop wasting my time, idiot.' })).body.data.message;
+    expect(rep.status).toBe('delivered');
+    // the sender, another buyer and another company cannot report it
+    for (const u of ['nora', 'ben', 'sue']) expect((await call(u, 'POST', '/api/storefront-messages/messages/' + rep.id + '/report', { reason: 'Rude reply here' })).status).toBe(404);
+    expect((await call('bea', 'POST', '/api/storefront-messages/messages/' + rep.id + '/report', { reason: '' })).body.code).toBe('REASON_REQUIRED');
+    const oa = require('../src/services/ownerAlertService');
+    oa.notifyAdminActionRequired.mockClear();
+    const r1 = await call('bea', 'POST', '/api/storefront-messages/messages/' + rep.id + '/report', { reason: 'The seller insulted me.' });
+    expect(r1.body.data).toEqual({ reported: true, already_reported: false });
+    // the admin alert says "reported" (never "held by the safety rules"), is keyed to the message, and carries no message text
+    expect(oa.notifyAdminActionRequired).toHaveBeenCalledTimes(1);
+    const alert = oa.notifyAdminActionRequired.mock.calls[0][0];
+    expect(alert).toMatchObject({ actionType: 'storefront_message_reported', entityType: 'storefront_message', entityId: rep.id, headline: 'Item message reported' });
+    expect(JSON.stringify(alert)).not.toMatch(/held by the safety rules|insulted|idiot/i);
+    expect((await call('bea', 'POST', '/api/storefront-messages/messages/' + rep.id + '/report', { reason: 'Again, insulted.' })).body.data.already_reported).toBe(true);
+    expect(oa.notifyAdminActionRequired).toHaveBeenCalledTimes(1);   // a repeat report sends no second alert
+    const q1 = await call('admin', 'GET', '/api/admin/storefront/messages?status=reported');
+    const row = q1.body.data.find((x) => x.id === rep.id);
+    expect(row.reports).toEqual(['The seller insulted me.']);
+    // a report alone changes nothing for anyone
+    expect((await one('SELECT hidden_at FROM storefront_messages WHERE id = $1', [rep.id])).hidden_at).toBe(null);
+    expect((await call('bea', 'GET', '/api/storefront-messages/mine/' + conv)).body.data.messages.find((x) => x.id === rep.id).body).toBe('Stop wasting my time, idiot.');
+  });
+
+  test('a moderator hides an abusive message: the recipient sees a removal note, the sender sees why, the record is kept', async () => {
+    const it = await item();
+    const conv = (await ask('bea', it.id, 'Do you deliver?')).body.data.conversation_id;
+    const msg = (await call('nora', 'POST', '/api/storefront-messages/seller/' + conv + '/messages', { body: 'Abusive words here.' })).body.data.message;
+    expect((await call('nora', 'POST', '/api/admin/storefront/messages/' + msg.id + '/hide', { reason: 'Abusive' })).status).toBe(403);
+    expect((await call('admin', 'POST', '/api/admin/storefront/messages/' + msg.id + '/hide', {})).body.code).toBe('REASON_REQUIRED');
+    const h = await call('admin', 'POST', '/api/admin/storefront/messages/' + msg.id + '/hide', { reason: 'Abusive language toward the buyer.' });
+    expect(h.body.data).toEqual({ id: msg.id, hidden: true });
+    const b = (await call('bea', 'GET', '/api/storefront-messages/mine/' + conv)).body.data.messages.find((x) => x.id === msg.id);
+    expect(b).toEqual({ id: msg.id, from: 'seller', created_at: expect.any(String), hidden: true, body: null });
+    const s = (await call('nora', 'GET', '/api/storefront-messages/seller/' + conv)).body.data.messages.find((x) => x.id === msg.id);
+    expect(s).toMatchObject({ hidden: true, hidden_reason: 'Abusive language toward the buyer.', body: 'Abusive words here.' });
+    expect((await call('admin', 'POST', '/api/admin/storefront/messages/' + msg.id + '/hide', { reason: 'Second time' })).body.code).toBe('ALREADY_HIDDEN');
+    expect((await one(`SELECT body FROM storefront_messages WHERE id = $1`, [msg.id])).body).toBe('Abusive words here.');
+    expect((await q(`SELECT action FROM storefront_message_reviews WHERE message_id = $1`, [msg.id])).map((x) => x.action)).toEqual(['hidden']);
+    // database: never unhidden, rewritten, or hidden without a reason; a held message cannot be "hidden"
+    expect((await rejects(`UPDATE storefront_messages SET hidden_at = NULL, hidden_by = NULL, hidden_reason = NULL WHERE id = $1`, [msg.id])).code).toBe('23514');
+    expect((await rejects(`UPDATE storefront_messages SET hidden_reason = 'changed reason' WHERE id = $1`, [msg.id])).code).toBe('23514');
+    const held = (await ask('bea', it.id, 'Can I Zelle you?')).body.data.message;
+    expect((await call('admin', 'POST', '/api/admin/storefront/messages/' + held.id + '/hide', { reason: 'Not delivered yet' })).body.code).toBe('NOT_DELIVERED');
+    const ok = (await ask('bea', it.id, 'Thanks, what about Tuesday?')).body.data.message;
+    expect((await rejects(`UPDATE storefront_messages SET hidden_at = now() WHERE id = $1`, [ok.id])).code).toBe('23514');
+    // no automatic penalty: both accounts are unchanged
+    expect((await one('SELECT is_active FROM users WHERE id = $1', [U.nora.id])).is_active).toBe(true);
+  });
+
+  test('a hidden message is never emailed', async () => {
+    await notify.tick(); mail.sendEmail.mockClear();
+    const it = await item();
+    const conv = (await ask('ben', it.id, 'Is the drawer pull brass?')).body.data.conversation_id;
+    await notify.tick(); mail.sendEmail.mockClear();
+    const msg = (await call('nora', 'POST', '/api/storefront-messages/seller/' + conv + '/messages', { body: 'Hateful reply.' })).body.data.message;
+    await call('admin', 'POST', '/api/admin/storefront/messages/' + msg.id + '/hide', { reason: 'Hateful content.' });
+    await notify.tick();
+    expect(mail.sendEmail.mock.calls.filter((c) => c[0].to === 'ben@test.example')).toHaveLength(0);
+    expect((await one(`SELECT status, last_error FROM storefront_notifications WHERE message_id = $1`, [msg.id]))).toEqual({ status: 'skipped', last_error: 'message hidden by Advantage.Bid' });
+  });
+
+  test('moderators never write as the seller', async () => {
+    const it = await item();
+    const conv = (await ask('bea', it.id, 'Any chips on the marble?')).body.data.conversation_id;
+    const r = await call('admin', 'POST', '/api/storefront-messages/seller/' + conv + '/messages', { body: 'Reply from support pretending to be the seller' });
+    expect(r.status).toBe(403);
+    expect((await one(`SELECT count(*)::int n FROM storefront_messages WHERE conversation_id = $1 AND sender_role = 'seller'`, [conv])).n).toBe(0);
   });
 });
 

@@ -70,7 +70,7 @@
       reports: '<select id="f"><option value="open">Open</option><option value="actioned">Actioned</option><option value="dismissed">Dismissed</option></select><button id="go">Refresh</button>',
       items: '<select id="f"><option value="">All statuses</option><option value="active">Active</option><option value="sold">Sold</option><option value="removed">Removed</option><option value="draft">Draft</option></select><select id="m"><option value="">Any moderation</option><option value="taken_down">Taken down</option></select><select id="r"><option value="">Any reports</option><option value="open">Has open reports</option></select><input id="q" placeholder="Title or seller"><button id="go">Search</button>',
     };
-    BARS.messages = '<select id="f"><option value="held">Waiting for review</option><option value="declined">Declined</option><option value="delivered">Delivered with details hidden</option><option value="withdrawn">Withdrawn by sender</option></select><button id="go">Refresh</button>';
+    BARS.messages = '<select id="f"><option value="held">Waiting for review</option><option value="declined">Declined</option><option value="reported">Reported by the recipient</option><option value="delivered">Delivered with details hidden</option><option value="hidden">Hidden by Advantage.Bid</option><option value="withdrawn">Withdrawn by sender</option></select><button id="go">Refresh</button>';
     const HEADS = {
       messages: '<tr><th>Item / seller</th><th>From</th><th>What they wrote</th><th>What the other side would see</th><th>Rules</th><th>Decision</th></tr>',
       issues: '<tr><th>Order</th><th>Seller</th><th>Problem</th><th>Seller response</th><th>Status</th><th>Decision</th></tr>',
@@ -117,11 +117,13 @@
         const act = m.status === 'held'
           ? reasonBox(m.id, 'Decision note (required; a decline reason is shown to the sender)') +
             '<button class="btn btn-ok" data-act="msg-release" data-id="'+esc(m.id)+'">Release (details stay hidden)</button><button class="btn btn-danger" data-act="msg-decline" data-id="'+esc(m.id)+'">Decline</button>'
-          : '<div class="small">'+label(m.status)+(m.decline_reason ? ': '+esc(m.decline_reason) : '')+'</div>';
+          : (m.status === 'delivered' && !m.hidden_at)
+            ? reasonBox(m.id, 'Why hide this message from the recipient? (required; the sender sees it)') + '<button class="btn btn-danger" data-act="msg-hide" data-id="'+esc(m.id)+'">Hide from recipient</button>'
+            : '<div class="small">'+(m.hidden_at ? 'Hidden: '+esc(m.hidden_reason||'') : label(m.status)+(m.decline_reason ? ': '+esc(m.decline_reason) : ''))+'</div>';
         return '<tr><td><b>'+esc(m.item_title||'Item')+'</b>'+(m.inventory_number?' <span class="small">#'+esc(m.inventory_number)+'</span>':'')+(m.is_demo?' <span class="badge neutral">demo</span>':'')+
             '<div class="small">'+esc(m.seller_name||'')+'</div><button class="btn btn-mut" data-act="msg-conv" data-id="'+esc(m.conversation_id)+'">Open conversation</button><div id="conv-'+esc(m.conversation_id)+'-'+esc(m.id)+'"></div></td>'+
           '<td>'+label(m.sender_role)+'<div class="small">'+esc(fmtDate(m.created_at))+'</div></td>'+
-          '<td><div class="quote">'+esc(m.body)+'</div>'+(m.appeal_note?'<div class="small"><b>Appeal:</b> '+esc(m.appeal_note)+'</div>':'')+'</td>'+
+          '<td><div class="quote">'+esc(m.body)+'</div>'+((m.reports||[]).length?'<div class="small"><b>Reports:</b> '+(m.reports||[]).map(esc).join(' · ')+'</div>':'')+(m.appeal_note?'<div class="small"><b>Appeal:</b> '+esc(m.appeal_note)+'</div>':'')+'</td>'+
           '<td>'+(m.delivered_preview!=null?'<div class="quote">'+esc(m.delivered_preview)+'</div>':'<span class="small">-</span>')+'</td>'+
           '<td>'+(sc.hold||[]).map(r => '<span class="badge warn">'+esc(r)+'</span>').join('')+(sc.masked||[]).map(r => '<span class="badge neutral">hidden: '+esc(r)+'</span>').join('')+'<div class="small">'+esc(sc.version||'')+'</div></td>'+
           '<td>'+act+'<div class="msg" id="m-'+esc(m.id)+'"></div></td></tr>';
@@ -182,6 +184,7 @@
       let call;
       if (act === 'resolve' || act === 'close') call = api('POST', '/api/admin/storefront/issues/' + encodeURIComponent(id) + '/resolve',
         { status: act === 'close' ? 'closed' : 'resolved', resolution_note: why, release_hold: !!(document.getElementById('rel-' + id) || {}).checked });
+      else if (act === 'msg-hide') call = api('POST', '/api/admin/storefront/messages/' + encodeURIComponent(id) + '/hide', { reason: why });
       else if (act === 'msg-release' || act === 'msg-decline') call = api('POST', '/api/admin/storefront/messages/' + encodeURIComponent(id) + '/review',
         { decision: act === 'msg-release' ? 'release' : 'decline', note: why });
       else if (act === 'report-takedown' || act === 'report-dismiss') call = api('POST', '/api/admin/storefront/reports/' + encodeURIComponent(id) + '/review',

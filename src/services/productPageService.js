@@ -68,8 +68,9 @@ function headHtml(item, base, { noindex }) {
     `<meta property="og:description" content="${esc(desc)}">`,
     `<meta property="og:url" content="${esc(url)}">`,
     img ? `<meta property="og:image" content="${esc(img)}">` : '',
-    `<meta property="product:price:amount" content="${esc(productData.priceString(item.price_cents))}">`,
-    '<meta property="product:price:currency" content="USD">',
+    item.price_cents != null ? `<meta property="product:price:amount" content="${esc(productData.priceString(item.price_cents))}">` : '',
+    item.price_cents != null ? '<meta property="product:price:currency" content="USD">' : '',
+    item.status === 'sold' ? '<meta property="product:availability" content="out of stock">' : '',
     '<meta name="twitter:card" content="summary_large_image">',
   ].filter(Boolean).join('\n  ');
 }
@@ -91,7 +92,7 @@ function bodyHtml(item) {
   return `<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › ${seller ? seller + ' › ' : ''}<span>${esc(item.title)}</span></nav>
 <div class="grid"><div class="gallery">${imgs.map((u, i) => `<img src="${esc(u)}" alt="${esc(alts[i])}"${i === 0 ? ' id="main"' : ' width="72" height="72" loading="lazy"'}>`).join('')}</div>
 <div><h1>${esc(item.title)}</h1>${seller ? `<div class="meta">Sold by ${seller}</div>` : ''}
-<div class="price">${money(item.price_cents)}</div>
+<div class="price">${item.status === 'sold' ? '<span class="pill pill-sold">SOLD</span>' : money(item.price_cents)}</div>
 <div class="meta">${esc(AVAIL_TEXT[item.status] || '')}</div>
 <div style="margin:8px 0">${pills}</div>${place ? `<div class="meta">${esc(place)}</div>` : ''}
 <div class="meta" id="ship-summary"><b>Shipping &amp; pickup:</b> ${esc(sh.summary)}${sh.notes ? ' — ' + esc(sh.notes) : ''}</div>

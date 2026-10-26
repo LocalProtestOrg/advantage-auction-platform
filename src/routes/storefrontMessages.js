@@ -14,9 +14,11 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const seller = require('../middleware/requireSellerPermission');
 const messaging = require('../services/storefrontMessagingService');
-const { storefrontMessagingEnabled } = require('../lib/launchGuards');
+const { storefrontMessagingAvailable } = require('../lib/launchGuards');
 
-router.use((req, res, next) => (storefrontMessagingEnabled()
+// Off for everyone unless the general switch is on or a pilot company is listed; the service then checks each
+// conversation's company (and, in a pilot, the asker) — see launchGuards.storefrontMessagingAllowed.
+router.use((req, res, next) => (storefrontMessagingAvailable()
   ? next() : res.status(404).json({ success: false, code: 'MESSAGING_OFF', message: 'Item questions are not available yet.' })));
 router.use(authMiddleware);
 
@@ -60,6 +62,10 @@ router.post('/seller/:id/messages', seller('company.messages.respond'), async (r
 // ── The sender of a message (buyer or seller) ─────────────────────────────────────────────────────────
 router.post('/messages/:id/withdraw', async (req, res, next) => {
   try { return res.json({ success: true, data: await messaging.withdraw(req.params.id, req.user.id) }); }
+  catch (e) { return fail(res, e, next); }
+});
+router.post('/messages/:id/report', async (req, res, next) => {
+  try { return res.json({ success: true, data: await messaging.reportMessage(req.params.id, req.user.id, { reason: (req.body || {}).reason }) }); }
   catch (e) { return fail(res, e, next); }
 });
 router.post('/messages/:id/appeal', async (req, res, next) => {

@@ -123,13 +123,13 @@ async function recordFailure(row, e, deps, headline) {
 
 async function deliverMessageNotice(row, deps) {
   const m = (await db.query(
-    `SELECT m.id, m.conversation_id, m.delivered_body, m.status, c.subject_snapshot, sp.show_branding_to_buyers,
+    `SELECT m.id, m.conversation_id, m.delivered_body, m.status, m.hidden_at, c.subject_snapshot, sp.show_branding_to_buyers,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
        FROM storefront_messages m JOIN storefront_conversations c ON c.id = m.conversation_id JOIN seller_profiles sp ON sp.id = c.seller_id
       WHERE m.id = $1 AND m.seller_id = $2`, [row.message_id, row.seller_id])).rows[0];
-  if (!m || m.status !== 'delivered') {
+  if (!m || m.status !== 'delivered' || m.hidden_at) {
     await db.query(`UPDATE storefront_notifications SET status = 'skipped', last_error = $2, locked_at = NULL WHERE id = $1`,
-      [row.id, m ? 'message ' + m.status : 'message not found']);
+      [row.id, !m ? 'message not found' : m.hidden_at ? 'message hidden by Advantage.Bid' : 'message ' + m.status]);
     return 'skipped';
   }
   const msg = renderMessageNotice({ ...m, event: row.event });

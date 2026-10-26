@@ -11,6 +11,20 @@ const crypto = require('crypto');
 const db = require('../db');
 const storefront = require('../services/storefrontService');
 const items = require('../services/marketplaceItemService');
+// The signed-in member viewing an item page, for the seller-allowed realized sale price (§12.3) only. Stricter than
+// the shared optional sign-in middleware: a member is recognised ONLY when the server confirms the session is current (state 'ok');
+// a missing, invalid, expired, revoked, suspended or unverifiable session, or any error, is the public view. Read-only:
+// never rejects, renews or sets a cookie, and never attaches a user to the request; this router trusts no user for anything else.
+async function confirmedViewerId(req) {
+  try {
+    const { resolveSession, identityFrom } = require('../lib/sessionAuth');
+    const resolved = resolveSession(req);
+    const identity = identityFrom(resolved.decoded);
+    if (!identity) return null;
+    const check = await require('../lib/sessionTokens').checkSession(resolved.decoded, resolved.token);
+    return check && check.state === 'ok' ? identity.id : null;
+  } catch (_) { return null; }
+}
 
 const clean = (v, n) => storefront.clean(v, n);
 function ipHash(req) {
@@ -19,10 +33,14 @@ function ipHash(req) {
 }
 
 // Item detail (declared before /:slug so "item" is not captured as a slug).
+// Signed-in members may see a sold item's realized price when the seller allows it; a member's answer is never cached.
 router.get('/item/:id', async (req, res, next) => {
   try {
-    const it = await items.getPublicItem(req.params.id);
+    const viewerUserId = await confirmedViewerId(req);
+    const it = await items.getPublicItem(req.params.id, undefined, { viewerUserId });
     if (!it) return res.status(404).json({ success: false, message: 'Item not found.' });
+    res.set('Vary', 'Authorization, Cookie');
+    if (viewerUserId || it.realized_price_cents != null) res.set('Cache-Control', 'private, no-store');
     return res.json({ success: true, data: it });
   } catch (e) { next(e); }
 });

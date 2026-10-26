@@ -30,6 +30,9 @@ const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const screening = require('../lib/messageScreening');
 const { resolveSellerContext } = require('../middleware/requireSellerPermission');
 const { hasSellerPermission } = require('../lib/sellerRbac');
+const guards = require('../lib/launchGuards');
+const OFF = () => err(404, 'MESSAGING_OFF', 'Item questions are not available yet.');
+function requireAllowed(sellerId, userId, side) { if (!guards.storefrontMessagingAllowed({ sellerId, userId, side })) throw OFF(); }
 
 const LIMITS = {
   BODY_MAX: 2000,
@@ -75,6 +78,12 @@ const NOTICE = {
 function messageFor(m, viewerSide) {
   const mine = m.sender_role === viewerSide;
   const out = { id: m.id, from: mine ? 'you' : m.sender_role, created_at: m.created_at };
+  // Hidden by an Advantage.Bid moderator: the recipient sees only that a message was removed; the sender sees why.
+  if (m.hidden_at) {
+    out.hidden = true;
+    if (!mine) { out.body = null; return out; }
+    out.hidden_reason = m.hidden_reason;
+  }
   if (mine) {
     out.status = m.status;                     // delivered / held / declined / withdrawn
     out.body = m.body;                         // what you wrote
@@ -153,6 +162,16 @@ async function alertHeld(conv) {
       adminPath: '/admin/storefront-moderation.html', adminId: 'messages', adminParam: 'tab', actionLabel: 'Review' });
   } catch (e) { console.error('[messaging] review alert failed:', e.message); }
 }
+// A recipient's report: its own alert type, keyed to the reported MESSAGE, so it is never absorbed by an earlier
+// held-message alert for the same conversation.
+async function alertReported(messageId) {
+  try {
+    const oa = require('./ownerAlertService');
+    await oa.notifyAdminActionRequired({ actionType: oa.ALERT_TYPES.STOREFRONT_MESSAGE_REPORTED || 'storefront_message_reported', entityType: 'storefront_message',
+      entityId: messageId, headline: 'Item message reported', context: 'The recipient of a delivered storefront item message reported it for review.',
+      adminPath: '/admin/storefront-moderation.html', adminId: 'messages', adminParam: 'tab', actionLabel: 'Review' });
+  } catch (e) { console.error('[messaging] report alert failed:', e.message); }
+}
 
 // Insert one message from `side` into a locked conversation row. Returns { message, duplicate }.
 async function insertMessage(client, conv, side, userId, rawBody, ip) {
@@ -194,6 +213,7 @@ async function askAboutItem(itemId, buyerUserId, { body, ip } = {}) {
         WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase') AND COALESCE(mi.moderation_status, 'none') = 'none'
           AND sp.seller_type = ANY($2::text[])`, [itemId, PROFESSIONAL_SELLER_TYPES])).rows[0];
     if (!it) throw err(404, 'ITEM_NOT_FOUND', 'This item is not available for questions.');
+    requireAllowed(it.seller_id, buyerUserId, 'buyer');
     if (it.owner_user_id === buyerUserId) throw err(409, 'OWN_ITEM', 'This is your own company\'s item.');
     const staff = (await client.query(
       `SELECT 1 FROM seller_staff_members WHERE seller_id = $1 AND user_id = $2 AND status IN ('active','suspended')`, [it.seller_id, buyerUserId])).rows[0];
@@ -251,6 +271,7 @@ async function replyAsBuyer(convId, buyerUserId, { body, ip } = {}) {
   const out = await withTransaction(async (client) => {
     const conv = (await client.query('SELECT * FROM storefront_conversations WHERE id = $1 AND buyer_user_id = $2 FOR UPDATE', [convId, buyerUserId])).rows[0];
     if (!conv) throw err(404, 'CONVERSATION_NOT_FOUND', 'Conversation not found.');
+    requireAllowed(conv.seller_id, buyerUserId, 'buyer');
     const r = await insertMessage(client, conv, 'buyer', buyerUserId, body, ip);
     if (r.held) heldConv = conv;
     return sendResult(conv, r, 'buyer');
@@ -261,16 +282,18 @@ async function replyAsBuyer(convId, buyerUserId, { body, ip } = {}) {
 
 // ── Seller company (ctx from requireSellerPermission: the company comes from the session) ─────────────────
 async function listForSeller(ctx) {
+  requireAllowed(ctx.sellerId, ctx.userId, 'seller');
   const { rows } = await db.query(
     `SELECT c.*, mi.status AS item_status, mi.title AS item_title,
             (SELECT count(*)::int FROM storefront_messages m WHERE m.conversation_id = c.id AND m.sender_role = 'buyer' AND m.status = 'delivered'
-                AND m.created_at > COALESCE((SELECT max(s.created_at) FROM storefront_messages s WHERE s.conversation_id = c.id AND s.sender_role = 'seller'), '-infinity'::timestamptz)) AS waiting_count
+                AND m.hidden_at IS NULL AND m.created_at > COALESCE((SELECT max(s.created_at) FROM storefront_messages s WHERE s.conversation_id = c.id AND s.sender_role = 'seller'), '-infinity'::timestamptz)) AS waiting_count
        FROM storefront_conversations c JOIN marketplace_items mi ON mi.id = c.item_id
       WHERE c.seller_id = $1 ORDER BY c.last_message_at DESC LIMIT 500`, [ctx.sellerId]);
   return rows.map((c) => conversationHead(c, 'seller'));
 }
 
 async function getForSeller(convId, ctx) {
+  requireAllowed(ctx.sellerId, ctx.userId, 'seller');
   if (!isUuid(convId)) return null;
   const c = (await db.query(
     `SELECT c.*, mi.status AS item_status, mi.title AS item_title FROM storefront_conversations c JOIN marketplace_items mi ON mi.id = c.item_id
@@ -280,6 +303,7 @@ async function getForSeller(convId, ctx) {
 }
 
 async function replyAsSeller(convId, ctx, { body, ip } = {}) {
+  requireAllowed(ctx.sellerId, ctx.userId, 'seller');
   if (!isUuid(convId)) throw err(404, 'CONVERSATION_NOT_FOUND', 'Conversation not found.');
   bodyOf(body);
   let heldConv = null;
@@ -342,14 +366,18 @@ async function logAccess(runner, convs, adminId, purpose) {
 }
 
 async function listForReview({ status } = {}, adminId) {
-  const st = ['held', 'declined', 'delivered', 'withdrawn'].includes(status) ? status : 'held';
+  const st = ['held', 'declined', 'delivered', 'withdrawn', 'reported', 'hidden'].includes(status) ? status : 'held';
+  const where = st === 'reported' ? `m.status = 'delivered' AND m.hidden_at IS NULL AND EXISTS (SELECT 1 FROM storefront_message_reviews r WHERE r.message_id = m.id AND r.action = 'reported')`
+    : st === 'hidden' ? 'm.hidden_at IS NOT NULL'
+      : st === 'delivered' ? `m.status = 'delivered' AND m.hidden_at IS NULL AND m.screening->'masked' <> '[]'::jsonb` : 'm.status = $1';
   const { rows } = await db.query(
-    `SELECT m.id, m.conversation_id, m.seller_id, m.sender_role, m.body, m.status, m.screening, m.decline_reason, m.appeal_note, m.appealed_at,
-            m.created_at, c.item_id, c.subject_snapshot, c.is_demo,
+    `SELECT m.id, m.conversation_id, m.seller_id, m.sender_role, m.body, m.delivered_body, m.status, m.screening, m.decline_reason, m.appeal_note, m.appealed_at,
+            m.hidden_at, m.hidden_reason, m.created_at, c.item_id, c.subject_snapshot, c.is_demo,
+            (SELECT json_agg(r.note ORDER BY r.created_at) FROM storefront_message_reviews r WHERE r.message_id = m.id AND r.action = 'reported') AS reports,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
        FROM storefront_messages m JOIN storefront_conversations c ON c.id = m.conversation_id JOIN seller_profiles sp ON sp.id = m.seller_id
-      WHERE m.status = $1 ${st === 'delivered' ? "AND m.screening->'masked' <> '[]'::jsonb" : ''}
-      ORDER BY m.created_at ${st === 'held' ? 'ASC' : 'DESC'} LIMIT 200`, [st]);
+      WHERE ${where}
+      ORDER BY m.created_at ${st === 'held' || st === 'reported' ? 'ASC' : 'DESC'} LIMIT 200`, where.includes('$1') ? [st] : []);
   const seen = new Map(); rows.forEach((r) => seen.set(r.conversation_id, r));
   await logAccess(db, [...seen.values()], adminId, 'review_queue');
   return rows.map((r) => ({ ...r, delivered_preview: r.status === 'held' ? screening.screen(r.body).text : undefined,
@@ -363,11 +391,56 @@ async function conversationForReview(convId, adminId) {
        FROM storefront_conversations c JOIN seller_profiles sp ON sp.id = c.seller_id WHERE c.id = $1`, [convId])).rows[0];
   if (!c) return null;
   await logAccess(db, [c], adminId, 'conversation_view');
-  const messages = (await db.query(`SELECT id, sender_role, body, delivered_body, status, screening, decline_reason, appeal_note, created_at
+  const messages = (await db.query(`SELECT id, sender_role, body, delivered_body, status, screening, decline_reason, appeal_note, hidden_at, hidden_reason, created_at
     FROM storefront_messages WHERE conversation_id = $1 ORDER BY created_at ASC, id ASC`, [c.id])).rows;
   const reviews = (await db.query(`SELECT r.message_id, r.action, r.note, r.created_at FROM storefront_message_reviews r
     JOIN storefront_messages m ON m.id = r.message_id WHERE m.conversation_id = $1 ORDER BY r.created_at ASC`, [c.id])).rows;
   return { id: c.id, item_id: c.item_id, seller_name: c.seller_name, subject: c.subject_snapshot, is_demo: c.is_demo, created_at: c.created_at, messages, reviews };
+}
+
+// ── Reports and hiding (abusive delivered messages) ─────────────────────────────────────────────────────
+// The RECIPIENT of a delivered message (the conversation's buyer for a seller message; the seller company for a buyer
+// message) may report it. A report creates review work only — it never hides or penalises anything by itself.
+async function reportMessage(messageId, userId, { reason } = {}) {
+  if (!isUuid(messageId)) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+  const why = noteOf(reason, 'REASON_REQUIRED', 'Tell us briefly what is wrong with this message.');
+  const out = await withTransaction(async (client) => {
+    const m = (await client.query(
+      `SELECT m.*, c.buyer_user_id FROM storefront_messages m JOIN storefront_conversations c ON c.id = m.conversation_id WHERE m.id = $1`, [messageId])).rows[0];
+    if (!m || m.status !== 'delivered' || m.hidden_at) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+    let recipient = false;
+    if (m.sender_role === 'seller') recipient = m.buyer_user_id === userId;
+    else {
+      const ctx = await resolveSellerContext(userId, client);
+      recipient = !!ctx && ctx.sellerId === m.seller_id && hasSellerPermission(ctx, 'company.messages.view');
+    }
+    if (!recipient) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+    const r = (await client.query(
+      `INSERT INTO storefront_message_reviews (message_id, seller_id, action, actor_user_id, note) VALUES ($1, $2, 'reported', $3, $4)
+       ON CONFLICT (message_id, actor_user_id) WHERE action = 'reported' DO NOTHING RETURNING id`, [m.id, m.seller_id, userId, why])).rows[0];
+    return { message_id: m.id, already_reported: !r };
+  });
+  if (!out.already_reported) await alertReported(out.message_id);
+  return { reported: true, already_reported: out.already_reported };
+}
+
+// A moderator hides a delivered message from the recipient, once, with a reason. The words and the record are kept;
+// nothing happens to either account. Moderators never write as the seller (there is no route for it).
+async function hideMessage(messageId, adminId, { reason } = {}) {
+  if (!adminId) throw err(403, 'ADMIN_REQUIRED', 'Only an administrator can do this.');
+  if (!isUuid(messageId)) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+  const why = noteOf(reason, 'REASON_REQUIRED', 'Give a short reason (kept in the review history; the sender sees it).');
+  return withTransaction(async (client) => {
+    const m = (await client.query('SELECT * FROM storefront_messages WHERE id = $1 FOR UPDATE', [messageId])).rows[0];
+    if (!m) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+    if (m.status !== 'delivered') throw err(409, 'NOT_DELIVERED', 'Only a delivered message can be hidden.');
+    if (m.hidden_at) throw err(409, 'ALREADY_HIDDEN', 'This message is already hidden.');
+    await client.query(`UPDATE storefront_messages SET hidden_at = now(), hidden_by = $2, hidden_reason = $3 WHERE id = $1`, [m.id, adminId, why]);
+    await client.query(`INSERT INTO storefront_message_reviews (message_id, seller_id, action, actor_user_id, note) VALUES ($1, $2, 'hidden', $3, $4)`,
+      [m.id, m.seller_id, adminId, why]);
+    await logAccess(client, [m], adminId, 'conversation_view');
+    return { id: m.id, hidden: true };
+  });
 }
 
 // decision 'release' (delivered with contact details hidden) or 'decline' (the note is shown to the sender).
@@ -401,4 +474,4 @@ async function review(messageId, adminId, { decision, note } = {}) {
 
 // insertMessage takes the caller's transaction client (used by the rolled-back production verification script).
 module.exports = { LIMITS, NOTICE, insertMessage, askAboutItem, listForBuyer, getForBuyer, replyAsBuyer, listForSeller, getForSeller, replyAsSeller,
-  withdraw, appeal, listForReview, conversationForReview, review };
+  withdraw, appeal, reportMessage, hideMessage, listForReview, conversationForReview, review };

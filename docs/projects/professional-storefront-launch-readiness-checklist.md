@@ -22,6 +22,18 @@ shopping feeds, tax filing and remittance are **off** and stay off until the own
   off-platform-payment requests held for human review, review queue, message notices (migration 205). Flag
   `STOREFRONT_MESSAGING_ENABLED` unset = every route 404s and item pages are unchanged.
 
+## 2a. Built 2026-10-26, NOT committed or deployed: Milestone 206 (roadmap §9.1, §12.3)
+- Migration 206 (additive, idempotent; not applied anywhere in production).
+- Sold-item price privacy: once an item is sold, the public JSON API, page, meta tags and structured data carry no price
+  or shipping charge (SOLD + `SoldOut`). Per-item "show the sale price to signed-in members" setting, default OFF,
+  company owner only; members recognised only by a server-confirmed current session.
+- Message reporting (recipient only, review work only, its own admin alert) and moderator hiding (once, with a reason,
+  record kept, never emailed).
+- Controlled pilot: `STOREFRONT_MESSAGING_PILOT_SELLER_IDS` / `STOREFRONT_MESSAGING_PILOT_USER_IDS`, both empty, general
+  switch unset, so messaging stays OFF for everyone (documented in `.env.example`).
+- Remaining before deploy: owner review, commit, independent review, gate green, owner approval, then
+  `prod-migrate-206.js --check`, apply, `prod-verify-206.js` (rolled back).
+
 ## 3. Must be finished before the first real Professional Storefront sale
 1. **A real Professional Seller** onboarded and verified (production has none today), with Stripe Connect payout
    details, their own Store Terms and Shipping & Pickup Policy published, and real listings (photos, prices, pickup or
@@ -36,10 +48,12 @@ shopping feeds, tax filing and remittance are **off** and stay off until the own
 5. **One authorised live checkout test** on a real item (small amount, refunded), confirming payment, tax, order record,
    seller notice email, fulfilment steps and refund — billable, needs owner approval first.
 6. **Item contact path decision.** Today, with checkout on, item pages still link to the storefront contact form, which
-   hands the buyer's contact details to the seller. Recommended: deploy milestone Q and turn messaging on for the
-   storefront before (or with) checkout so item questions stay on Advantage.Bid.
-7. **Sold-page price rule** (roadmap §12.3 P0 decision): today a sold storefront page shows the listed price publicly,
-   which reveals the sale price; decide the rule and enforce it server-side before the first real sale.
+   hands the buyer's contact details to the seller. Recommended: deploy Milestone 206, run the controlled messaging
+   pilot (demo seller and named test accounts, then the first real seller), and turn messaging on before (or with)
+   checkout so item questions stay on Advantage.Bid.
+7. **Sold-page price privacy** (roadmap §12.3 P0): DECIDED 2026-10-26 (a sold item's price is never public) and built in
+   Milestone 206. Still required: deploy and verify 206 in production before the first real sale (production today
+   still shows the listed price on a sold page; there are no real storefront sales yet).
 8. Owner approval to set `MARKETPLACE_CHECKOUT_ENABLED=true` (production deploy rules apply).
 
 ## 4. Can safely stay on the post-launch TODO list
@@ -49,12 +63,20 @@ builder and any network submission; full settlement statements and reconciliatio
 approved for launch); tax-time reports; compliance-profile fields (only if a requirement is verified); guest questions,
 attachments and cross-conversation scoring; consultation-form relabelling; category pages; public Professional Seller
 marketing (launch only once the above is genuinely ready); red SOLD banner on sold item images (roadmap §12.1, P1); Past Merchandise tab (§12.2, P2); Phone Sasha timing test (MI-1).
+Roadmap-only Professional Seller requirements recorded 2026-10-26 (roadmap §13, not part of 206): self-serve setup
+before approval with a verification gate for checkout, payments and payouts (§13.A; note the storefront checkout path
+does not yet check seller verification itself, so this gate must exist before checkout is switched on for an
+unverified seller); owner/staff registration and verification notifications (§13.B); secure seller document upload
+and staff review (§13.C); item percentage discount editor (§13.D); storewide Sales & Promotions (§13.E); search and
+answer-engine discoverability that respects sold-price privacy (§13.F).
 
 ## 5. Decisions and approvals needed from the owner
 1. (Done 2026-10-26) Milestone Q deployed; messaging stays OFF.
-2. When to turn item messaging on (suggested: demo seller check first, then the first real seller).
-3. Message retention period; which staff roles may read and answer item questions once staff are on; whether
-   reviewers may hide an already-delivered abusive message (append-only "hidden" state).
+1a. (Decided 2026-10-26) Sold-item price privacy, recipient reports and moderator hiding, controlled pilot: built in
+    Milestone 206. Next: owner review of 206, then commit and deploy approval.
+2. When to start the messaging pilot and which company / test accounts (suggested: demo seller and named test accounts
+   first, then the first real seller), and later when to turn the general switch on.
+3. Message retention period; which staff roles may read and answer item questions once staff are on.
 4. Seller-agreement clause against diverting Advantage.Bid sales (legal wording to approve).
 5. Which Professional Seller is the first real storefront seller (also the staff pilot account, if the same).
 6. Buyer Terms coverage of storefront purchases (approve wording; the draft is never deployed without approval).

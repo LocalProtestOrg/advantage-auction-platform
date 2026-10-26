@@ -51,6 +51,7 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | LIVE (0c069e6, 2026-10-16), verified in production (`scripts/prod-verify-204.js` rolled-back PASS; no email sent) |
 | Estimated-proceeds wording in the sale email, known-issues log (MI-1), milestone Q scope, `prod-verify-204.js` | Built on `feat/item-messaging` (`c80dcfc`); not deployed |
 | **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | LIVE (code `27ac6c6`, deployed with docs at `2ff6bf9`, 2026-10-26); two independent review rounds, findings fixed; gate green; migration 205 applied + verified (prod-verify-205 rolled-back PASS); flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
+| **Milestone 206: sold-item price privacy + message reporting, moderator hiding and controlled messaging pilot** (§9.1, §12.3, migration 206) | Built 2026-10-26 on `feat/sold-price-privacy`; not committed, not deployed; migration 206 NOT applied; messaging and pilot stay OFF (all three settings unset). Waiting for owner review, then commit, independent review and the production gate |
 | Widget header, search & filters (§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built |
 | Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Storefront website widget (§7.5–7.6) | Requirements recorded 2026-10-16; not built |
@@ -63,7 +64,8 @@ first real sale, post-launch, and the owner decisions still open). Technical mai
 
 Done: staff accounts + one-company pilot framework (LIVE, off), product SEO (LIVE), existing-item editing (LIVE),
 shipping controls (LIVE), EIN protection (LIVE), seller policies + snapshots (LIVE), inventory numbers + sale-notification
-queue (LIVE). Item questions (6) built, awaiting review and deploy approval.
+queue (LIVE). Item questions (6) LIVE and OFF (Milestone Q); Milestone 206 (sold-item price privacy, message
+reporting/hiding, controlled pilot) built, awaiting owner review, commit and deploy approval.
 
 1. **Staff pilot verification** — owner confirms the authorised pilot account and verifies its phone; then one company
    is added to `SELLER_STAFF_PILOT_SELLER_IDS` and the owner runs invite + step-up; then "Your Team" rollout.
@@ -482,10 +484,14 @@ marketing only when features are genuinely ready.
   volume); a single unbroken 10-digit model number is hidden as a phone number; parallel requests can slightly exceed
   the per-buyer limits; a message delivered at the instant its thread's waiting notice starts sending can be covered by
   that email without its own; generic phrasing such as "search Smith Antiques Houston" or split words ("zel le") passes.
-- **Open owner decisions for Q:** whether reviewers may later hide an already-delivered abusive message (an append-only
-  "hidden by Advantage.Bid" state; today a delivered message cannot be pulled back); which staff roles get message access once staff are on; message retention period;
-  seller-agreement clause against diverting Advantage.Bid sales (legal wording); when to turn the flag on (suggested:
-  demo seller first, then the first real Professional Seller); whether consultation requests later move on-platform.
+- **Owner decisions 2026-10-26 (built in Milestone 206, §9.1):** (a) the recipient of a delivered message may report it,
+  and an Advantage.Bid moderator may hide an abusive delivered message (append-only "hidden by Advantage.Bid" state);
+  (b) activation is controlled: a pilot for named seller companies (and optionally named asker accounts) before the
+  general switch.
+- **Still open for Q:** which staff roles get message access once staff are on; message retention period;
+  seller-agreement clause against diverting Advantage.Bid sales (legal wording); when to turn the pilot and then the
+  general switch on (suggested: demo seller and named test accounts first, then the first real Professional Seller);
+  whether consultation requests later move on-platform.
 
 Design: `storefront-messaging-and-widget-design-2026-10-16.md` §1–§4, milestones Q1–Q2.
 - Every eligible Professional item page gets "Ask the seller a question" (signed-in buyer or verified guest). The thread is
@@ -514,6 +520,41 @@ Design: `storefront-messaging-and-widget-design-2026-10-16.md` §1–§4, milest
 - Today: the storefront "Contact" form (`seller_inquiries`) gives the visitor's name, email and phone directly to the
   seller and is linked from item pages while checkout is off — to be replaced on item pages by the on-platform thread
   (kept only for service consultations, clearly labelled). Messaging stays off until security and privacy testing pass.
+
+### 9.1 Milestone 206: message reporting, moderator hiding and controlled pilot (owner decisions 2026-10-26)
+Built together with sold-item price privacy (§12.3) under migration 206 (`206_sold_price_privacy_and_message_moderation.sql`,
+additive and idempotent; moves no money; changes no existing value). Branch `feat/sold-price-privacy`; not deployed.
+- **Purpose:** let the person who received an abusive message flag it, and let Advantage.Bid remove it from view
+  without deleting anything; allow messaging to be tried with one company before anyone else.
+- **Reporting:** only the recipient of a DELIVERED message may report it (the conversation's buyer for a seller message;
+  the seller company, with `company.messages.view`, for a buyer message); the sender, other buyers and other companies
+  get "not found". A reason is required; one report per person per message (database unique index); a report creates
+  review work and one admin alert (`storefront_message_reported`, keyed to the message, no message text or customer
+  details) and changes nothing else: never an automatic hide, penalty or suspension.
+- **Moderator hiding:** an administrator hides a delivered message once, with a required reason (5-1000 characters);
+  the recipient sees "A message was removed by Advantage.Bid", the sender sees the reason, and the original words, the
+  delivered text and the review history are kept. The database guard enforces: only a delivered message can be hidden,
+  once, with who and why; it can never be unhidden, rewritten or created hidden. A hidden message is never emailed and
+  is not counted as waiting for the seller. Moderators never write as the seller (no route exists). Every moderator
+  read and hide is in the conversation access log. Review queue filters: "Reported by the recipient", "Hidden by
+  Advantage.Bid".
+- **Controlled pilot (all OFF by default):** `STOREFRONT_MESSAGING_ENABLED` (general switch) stays unset.
+  `STOREFRONT_MESSAGING_PILOT_SELLER_IDS` (seller_profiles UUIDs) enables item questions for those companies only;
+  `STOREFRONT_MESSAGING_PILOT_USER_IDS` (optional users UUIDs) limits who may ask them. Non-UUID values are ignored. With
+  both pilot lists empty and the switch unset, every messaging route returns 404 and item pages are unchanged. The
+  service re-checks the item's company (and, in a pilot, the asker) on every ask, reply and seller read, so listing one
+  company never opens another. Documented in `.env.example`.
+- **Acceptance tests (`tests/storefront-item-messaging.test.js`):** pilot company + named askers only, everyone else
+  off; no pilot + switch off = everything off; only the recipient can report, once, review work only, correct alert
+  wording and type, no second alert on a repeat; hide rules (recipient view, sender view, record kept, never
+  unhidden/rewritten, held messages cannot be hidden); a hidden message is never emailed; moderators never write as the
+  seller.
+- **Completion criteria:** full jest gate green; independent security review with findings fixed; production
+  `scripts/prod-migrate-206.js --check`, apply and `scripts/prod-verify-206.js` (rolled back) only after owner approval;
+  pilot company named by the owner before any pilot setting is filled.
+- **Known, not changed in 206 (from 205):** the held-message alert is sent once per conversation, so a later held
+  message or an appeal in the same conversation adds to the review queue without a second alert. Review-queue
+  visibility is unaffected; consider a per-message alert key in a later maintenance item.
 
 ## 10. TODO — Branded widget header, search, filters and sorting (owner requirements 2026-10-16, permanent)
 
@@ -544,7 +585,7 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 3 | Storefront seller settlement: approved manual procedure, or M3 ledger + statements (transfers off) | P0 | not built | every paid storefront order appears in a settlement view with fee, proceeds, holds; reconciles to Stripe; no money moves without approval | §8.4 |
 | 4 | First real Professional Seller onboarded (verified, Connect payout details, own policies, real listings) | P0 | none in production | seller verified; policies published; listings pass SEO/shipping checks | checklist §3 |
 | 5 | One authorised live, refunded checkout test | P0 | not run (billable — needs approval) | payment, tax, order record, seller notice, fulfilment and refund all verified on one real item | checklist §3 |
-| 6 | Item messaging activation (flag on) | P0 (recommended) | built; deploy approved; OFF | owner decisions below answered; demo-seller activation test passes; then one real seller | §9 |
+| 6 | Item messaging activation (pilot, then flag on) | P0 (recommended) | Q LIVE and OFF; reporting, hiding and the controlled pilot built in Milestone 206 (not deployed); all settings unset | 206 deployed and verified; owner names the pilot company (and test askers); pilot passes on the demo seller; then one real seller; then the general switch | §9, §9.1 |
 | 7 | **Red SOLD banner on sold item images** | P1 | not built | see §12.1 | §12.1 |
 | 8 | Staff pilot (one company), then "Your Team" rollout and `SELLER_STAFF_ENABLED` | P1 | waiting for the owner to name the pilot account and verify its phone | invite + step-up verified in production for one company; isolation tests pass | §2.1, §4 |
 | 9 | Notification preferences and staff recipients; refund / dispute / pickup / shipping-deadline / payout notices | P1 | not built | one notice per event/recipient; no buyer contact; preferences respected; staff only by permission | §8.1 |
@@ -554,8 +595,8 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 13 | Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | P1 | not built | key bound to one seller; no private/unpublished data; canonical links; noindex frames; safe nav URLs; attribution kept | §7.5–7.6, §10.1 |
 | 14 | Bulk spreadsheet import + image migration (drafts only) | P1 | not built | seller-scoped; drafts only; shipping off unless confirmed; Past Merchandise off; duplicate detection; error report | §8.3 |
 | 15 | **Past Merchandise tab** | P2 | not built | see §12.2 | §12.2 |
-| 15a | **Sold storefront item pages: asking-price display decision** (part of §12.3) | P0 (decision only) | not decided; today a sold page shows the listed price publicly (page + structured data) | owner decides whether sold pages show the asking price publicly, hide it, or follow the §12.3 member rule; implemented server-side before the first real sale creates a public sold page | §12.3 |
-| 15b | **Historical sold-price visibility + member research access** | P2 | not built (auction realized-price gate already LIVE) | see §12.3 | §12.3 |
+| 15a | **Sold storefront item pages: price privacy** (part of §12.3) | P0 | DECIDED 2026-10-26: a sold item's price is never public; built in Milestone 206 (not deployed; production still shows the listed price on sold pages, and production has no real storefront sale yet) | 206 deployed and verified before the first real sale; signed-out JSON API, page, meta tags and structured data carry no price or shipping charge for a sold item | §12.3 |
+| 15b | **Historical sold-price visibility + member research access** | P2 | per-item "show realized sale price to members" setting built in Milestone 206 (default OFF); Past Merchandise, widget "View Sold Price", research archive and auction labelling not built (auction realized-price gate already LIVE) | see §12.3 | §12.3 |
 | 16 | Guest (email-verified) questions, attachments, cross-conversation (L5) scoring, in-app / push notices | P2 | not built | guest email verified before delivery; attachments scanned and seller-scoped; L5 only flags for review | §9 |
 | 17 | Shopping-feed builder + Google Merchant Center mapper (no submission without approval) | P2 | not built | feed values = database; sold/removed never advertised; no invented identifiers; validated internally | §4.4 |
 | 18 | Tax-time reports (exports only; no filing) | P2 | not built | per-period exports reconcile to the ledger; no filing or remittance features | §8.7 |
@@ -564,6 +605,12 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 21 | Admin read-access logging beyond messaging | P2 | not built | every admin read of private seller/buyer data logged | §6 |
 | 22 | Public Professional Seller marketing launch | P2 | prepared only | launch only after P0 items and owner approval; seller-benefit wording | §3 |
 | 23 | Phone Sasha timing test (MI-1) | maintenance | separate task | deterministic test; no production-path timing bug masked | `../operations/known-issues.md` |
+| 24 | Professional Seller self-serve setup before approval; verification gate for live checkout, payments and payouts | P1 | roadmap only | see §13.A | §13.A |
+| 25 | Owner and staff notifications for seller registration and verification work (email + SMS) | P1 | roadmap only | see §13.B | §13.B |
+| 26 | Secure seller document upload and authorized staff review | P1 | roadmap only (existing verification documents system to be extended) | see §13.C | §13.C |
+| 27 | Individual-item percentage discount editor | P2 | roadmap only | see §13.D | §13.D |
+| 28 | Storewide Sales & Promotions dashboard | P2 | roadmap only | see §13.E | §13.E |
+| 29 | Search and answer-engine discoverability that respects sold-price privacy | P1 | roadmap only (product SEO foundation LIVE; sold-price redaction built in 206) | see §13.F | §13.F |
 
 ## 12. TODO — Sold presentation and Past Merchandise (owner requirements 2026-10-26, permanent)
 
@@ -633,11 +680,22 @@ Hammer price, buyer's premium and total purchase price are always labelled separ
 - Never shown: buyer identity, private transaction terms, shipping charges, sales tax, order numbers or other order data.
 - Storefront prices are labelled as **fixed-price sales**, never as auction results. The original asking price is kept
   separate from the realized sale price (realized = the paid order's item price; a refunded order has no realized price).
-- **P0 decision (before the first real sale):** today a sold storefront page still shows the listed price publicly and
-  in its `Offer` structured data. Because a fixed-price item sells at its listed price, that discloses the sale price
-  regardless of the new default. The owner decides the sold-page rule (e.g. hide the price on sold pages for signed-out
-  visitors and in structured data/feeds, or show the asking price as "Listed at", never as "Sold for"); it is then
-  enforced server-side.
+- **P0 decision: DECIDED 2026-10-26, built in Milestone 206 (not deployed).** A fixed-price item sells at its listed
+  price, so showing it on a sold page would disclose the sale price. Rule: once an item is SOLD (paid order), no public
+  output carries its price or shipping charge: the public JSON API returns `price_cents: null` and `price_hidden: true`;
+  the server-rendered page shows "SOLD"; `product:price` meta tags are omitted and `product:availability` is
+  "out of stock"; the `Offer` structured data is `SoldOut` with no price or shipping rate; a generated meta description
+  says "(sold)" instead of a price. A pending checkout is not a sale and keeps its price. The seller's own tools and orders keep the full
+  record. Enforced server-side in `marketplaceItemService.publicItem` (the allow-list every public surface is built
+  from), `productData` and `productPageService`.
+- **Member disclosure (built in 206):** `marketplace_items.show_realized_price_to_members` (default false for every item,
+  including converted and imported ones). Only the company owner can change it (never a staff role), at any time,
+  including after the sale. When ON, a signed-in member sees the realized item price (the paid, never-refunded order's
+  item price, never shipping, tax or fees), labelled "Fixed-price sale". A member is recognised only when the server
+  confirms the session is current: missing, invalid, forged, expired, revoked, suspended or unverifiable sessions get
+  the public view (`publicStorefront.confirmedViewerId`). A member's answer is `Cache-Control: private, no-store` with
+  `Vary: Authorization, Cookie`; the crawlable page is always the public version. A refund removes the realized price.
+  Tests: `tests/storefront-sold-price-privacy.test.js`.
 
 **C. Seller website widgets.** Sellers keep their own branding; Past Merchandise later works in the embedded storefront
 widget (§7.5). Visitors browse historical merchandise without an account. Where the seller allows price disclosure, an
@@ -670,4 +728,76 @@ server-side redaction helper used by every surface (like `realizedPrice.js` for 
 
 **Dependencies:** §12.1 and §12.2; the sold-page price decision above (P0, decision only); member sign-in (live);
 widget (§7.5) for C; search (§10.2) for D's research archive; sold-item retention decision (§4).
-**Status:** not built; post-launch, except the P0 sold-page price decision. Not part of Milestone Q.
+**Status:** the P0 sold-page rule and the per-item member-disclosure setting are built in Milestone 206 (not deployed).
+Everything else in §12.3 (Past Merchandise display, widget "View Sold Price", research archive, auction labelling
+checks) is not built and stays post-launch. Not part of Milestone Q.
+
+## 13. TODO — Professional Seller onboarding, compliance, promotions and discoverability (previously approved owner requirements, recorded 2026-10-26; ROADMAP ONLY)
+
+None of these is part of Milestone 206 and none is to be built until it is scheduled as its own milestone with a
+purpose, scope, acceptance tests and completion criteria (§0 data-minimisation and focused-development standard).
+Each extends an existing system; none adds a second one.
+
+### 13.A Self-serve storefront setup before approval; verification gate for money movement (P1)
+- **Requirement:** a Professional Seller can register and immediately set up their storefront and add or edit
+  inventory without waiting for manual staff approval. Live checkout, payments and payouts activate only after the
+  required verification and compliance checks pass.
+- **Existing basis:** owner rule (`CLAUDE.md`): unapproved professionals may build before approval; the first sale is
+  gated by the existing `verificationService.publicationGate`, not a second system. Today storefront setup and item
+  editing do not require approval, and checkout is off platform-wide (`MARKETPLACE_CHECKOUT_ENABLED`). Gap to close
+  when built: the storefront checkout path does not itself check the seller's verification or Stripe Connect status.
+- **Acceptance criteria:** an unverified Professional Seller can create and edit a storefront and draft or list items;
+  no item of an unverified or non-Connect-ready seller can be bought (server-side, not only hidden in the UI); payouts
+  never run for an unverified seller; verification status changes take effect at once; admin override preserved;
+  adversarial tests across sellers.
+
+### 13.B Owner and staff notifications for seller registration and verification (P1)
+- **Requirement:** use the existing Advantage.Bid email and SMS systems (`emailService`, `ownerAlertService`,
+  `PROFESSIONAL_SELLER_VERIFICATION_PENDING` family) to notify the owner and designated staff of new seller
+  registrations, missing required documents, uploaded forms needing review and verification readiness.
+- **Rules:** recipients configurable by an admin, each verified before use (email confirmation; phone code for SMS);
+  SMS is opt-in only; one notice per event and recipient (idempotent); notices contain no taxpayer numbers, document
+  contents, full addresses or other sensitive data, only the seller's display name, the event and a secure admin link.
+- **Acceptance criteria:** each event type produces exactly one notice per verified recipient; unverified or removed
+  recipients receive nothing; content scan proves no sensitive fields; failures are logged and retried without
+  duplicates.
+
+### 13.C Secure seller document upload and authorized staff review (P1)
+- **Requirement:** secure document upload and staff review for Professional Storefront sellers and auction-house
+  resellers, extending the existing verification documents system (migrations 071, 107; `verify-documents.html`).
+- **Rules:** collect only documents with a verified legal, processor or operational basis (documented per document
+  type and jurisdiction); prefer Stripe Connect for KYC and taxpayer details and never duplicate them (migration 202);
+  access limited to the document's own seller and authorised staff by permission; every view, download and decision
+  in an append-only audit history; review statuses (e.g. submitted, needs changes, approved, rejected, expired);
+  retention period defined and applied; files private, never public URLs.
+- **Acceptance criteria:** cross-seller and unauthorised staff access refused (API + storage); every access logged;
+  retention job removes expired documents; no taxpayer number captured where Stripe holds it.
+
+### 13.D Individual-item percentage discount editor (P2)
+- **Requirement:** on a single item, the seller enters a percentage discount and sees the original price, the
+  percentage and the resulting sale price before an explicit **Save**; nothing changes until Save.
+- **Rules:** server recomputes and validates the sale price (whole cents, sensible bounds); sold or pending items
+  cannot be discounted; checkout charges the saved sale price; the original price is kept; seller-owner (or permitted
+  staff) only; audit record of each change.
+- **Acceptance criteria:** preview equals the saved and charged price; no change without Save; another seller cannot
+  change it; order snapshot records original price, discount and charged price.
+
+### 13.E Storewide Sales & Promotions dashboard (P2)
+- **Requirement:** a storewide promotions dashboard with optional start/end scheduling and item exclusions.
+- **Rules:** one effective discount per item: a defined precedence prevents unintended stacking of item and storewide
+  discounts; schedules use the platform timezone handling; fees and taxes are calculated on the actual transaction
+  price, including the existing flat 11% storefront seller fee (`STOREFRONT_FEE_BPS`); the price shown is the price
+  charged; ending a promotion restores prices at once; sold items unaffected.
+- **Acceptance criteria:** stacking scenarios produce exactly the documented price; 11% fee and tax computed on the
+  discounted item price; schedule boundaries tested; exclusions honoured; audit trail.
+
+### 13.F Search and answer-engine discoverability that respects sold-price privacy (P1)
+- **Requirement:** keep eligible storefronts, products and historical listings discoverable by traditional search and
+  by answer engines and other automated search tools, through structured data, canonical URLs and correct indexing.
+- **Rules:** only public, eligible items (Professional Seller, not taken down, not demo on real pages); canonical
+  bid.advantage.bid URLs; sold items keep `SoldOut` structured data and never carry a price in any machine-readable
+  output (page, meta, JSON-LD, sitemap, feeds), per §12.3 and Milestone 206; sitemap inclusion follows the sold-item
+  retention decision (§4); shopping feeds never list sold or removed items (§4.4).
+- **Acceptance criteria:** automated checks over the page, structured data, sitemap and any feed show no sold-item
+  price; canonical and robots tags correct for each state; Marketplace Integrity Suite coverage for any new public
+  listing surface.

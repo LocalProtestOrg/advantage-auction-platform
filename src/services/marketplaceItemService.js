@@ -278,7 +278,8 @@ async function updateItem(id, actingUserId, patch = {}) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     }
   }
-  if ((item.status === 'sold' || orders.paid > 0) && Object.keys(patch).some((k) => k !== 'status' && patch[k] !== undefined)) {
+  // The seller's choice to show a sold item's realized price to signed-in members may be changed at any time.
+  if ((item.status === 'sold' || orders.paid > 0) && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {
     throw err(409, 'ITEM_SOLD', 'This item has been sold, so its details are kept as they were at the sale.');
   }
   const sets = []; const vals = [id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
@@ -293,6 +294,12 @@ async function updateItem(id, actingUserId, patch = {}) {
   if (patch.status != null) add('status', patch.status);
   for (const [k, v] of Object.entries(productData.normalizeProductFields(patch))) add(k, k === 'image_alt' ? JSON.stringify(v) : v);
   if (patch.inventory_number !== undefined) add('inventory_number', normalizeInventoryNumber(patch.inventory_number));
+  if (patch.show_realized_price_to_members !== undefined) {
+    // Disclosing a sale price is the company owner's decision, never a staff role's.
+    if (actingUserId && typeof actingUserId === 'object' && actingUserId.staff) throw err(403, 'OWNER_ONLY', 'Only the company owner can change who sees sale prices.');
+    if (typeof patch.show_realized_price_to_members !== 'boolean') throw err(422, 'INVALID_SETTING', 'Choose whether to show the sale price.');
+    add('show_realized_price_to_members', patch.show_realized_price_to_members);
+  }
   // Location changes affect THIS item only — never the seller's default or any other item.
   let eff = saleLocation.forItem({ ...seller, ...item });
   const locationChanged = hasPickupInput(patch) || patch.use_storefront_location === true;
@@ -373,7 +380,9 @@ async function listPublicForSeller(sellerId, limit = 200, runner = db) {
     return { ...rest, shippable: shipping.shippingOffer(r).available };
   });
 }
-async function getPublicItem(id, runner = db) {
+// opts.viewerUserId: the signed-in Advantage.Bid member viewing the page (null = public). A sold item's realized price is
+// added ONLY for a signed-in member AND only when the seller chose to show it (show_realized_price_to_members).
+async function getPublicItem(id, runner = db, { viewerUserId = null } = {}) {
   // Public statuses: 'active' (purchasable), 'pending_purchase' (temporarily held during a checkout),
   // and 'sold' (shown as SOLD). 'draft'/'removed' remain non-public (404). The item page reads status
   // to decide Buy Now vs. SOLD vs. temporarily-unavailable.
@@ -384,7 +393,23 @@ async function getPublicItem(id, runner = db) {
             (SELECT json_object_agg(v.kind, v.version) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_versions
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
-  return rows[0] ? publicItem(rows[0]) : null;
+  if (!rows[0]) return null;
+  const out = publicItem(rows[0]);
+  // Whether "Ask the seller a question" is offered on this item to this viewer (general switch, or the controlled pilot).
+  out.questions_enabled = ['active', 'pending_purchase'].includes(out.status)
+    && require('../lib/launchGuards').storefrontMessagingAllowed({ sellerId: rows[0].seller_id, userId: viewerUserId, side: 'buyer' });
+  if (out.status === 'sold' && viewerUserId && rows[0].show_realized_price_to_members === true) {
+    const realized = await realizedSalePrice(rows[0].id, runner);
+    if (realized != null) { out.realized_price_cents = realized; out.realized_price_label = 'Fixed-price sale'; }
+  }
+  return out;
+}
+// The item price actually paid on the item's paid, never-refunded order (never shipping, tax or fees). Null otherwise.
+async function realizedSalePrice(itemId, runner = db) {
+  const r = (await runner.query(
+    `SELECT item_price_cents FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status = 'paid' AND refund_status = 'none'
+      ORDER BY paid_at DESC NULLS LAST LIMIT 1`, [itemId])).rows[0];
+  return r ? Number(r.item_price_cents) : null;
 }
 // Public shape of an item — an ALLOW-LIST, so a column added later is private until someone deliberately publishes it.
 // Location: city/state only (never the pickup street, unit, ZIP or the seller's default location). No internal ids
@@ -412,6 +437,17 @@ function publicItem(row) {
   out.policies = { store_terms: kinds.includes('store_terms'), shipping_pickup: kinds.includes('shipping_pickup') };
   const vers = branded && row.published_policy_versions && typeof row.published_policy_versions === 'object' ? row.published_policy_versions : {};
   out.policy_versions = { store_terms: vers.store_terms || null, shipping_pickup: vers.shipping_pickup || null };
+  // Sold-item price privacy (owner decision 2026-10-26, roadmap §12.3): once an item has SOLD, no public output carries
+  // its price or shipping charge — a fixed-price item sells at its listed price, so showing it would disclose the sale
+  // price. Every public surface (JSON API, server-rendered page, structured data) is built from this shape. The seller's
+  // own tools read the full record; signed-in members may see the realized price only by the seller's choice
+  // (getPublicItem). A pending checkout is not a sale and keeps its price.
+  if (out.status === 'sold') {
+    out.price_cents = null; out.shipping_cost_cents = null; out.shipping_price_mode = null;
+    out.shipping = { pickup: false, pickup_only: false, shipping: null, summary: 'This item has sold.', oversized: out.shipping.oversized, fragile: out.shipping.fragile };
+    out.shippable = false;
+    out.price_hidden = true;
+  }
   return out;
 }
 // For the closed-lot "now in Marketplace" banner.
@@ -422,6 +458,6 @@ async function listingForLot(lotId, runner = db) {
 
 module.exports = {
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
-  listForSeller, listPublicForSeller, getPublicItem, listingForLot, defaultPrice, UNSOLD_JOIN,
+  listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, defaultPrice, UNSOLD_JOIN,
   publicItem, PICKUP_COLUMNS, staffItemView,
 };

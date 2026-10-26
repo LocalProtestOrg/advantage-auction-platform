@@ -323,6 +323,9 @@
           +(loc.source!=='default'&&DEFLOC?'<button class="btn b-ghost" onclick="useDefault(\''+m.id+'\',this)">Use storefront location</button> ':'')):'';
         var editable=m.status!=='sold'&&m.status!=='pending_purchase';
         if(editable)acts='<button class="btn b-ghost" onclick="editDetails(\''+m.id+'\')">Edit details</button> '+acts;
+        // Sold items: the public never sees the sale price; the seller may let signed-in Advantage.Bid members see it.
+        if(m.status==='sold')acts='<label class="hint" style="display:block;margin:0 0 6px"><input type="checkbox"'+(m.show_realized_price_to_members?' checked':'')
+          +' onchange="setPriceShare(\''+m.id+'\',this)"> Show the sale price to signed-in Advantage.Bid members (off by default; the public never sees it)</label>'+acts;
         return '<tr><td>'+esc(m.title)+(m.inventory_number?'<div class="hint">#'+esc(m.inventory_number)+'</div>':'')+'<div id="pk-'+m.id+'"></div><div id="ed-'+m.id+'"></div></td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+where+'</td><td>'
           +acts+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
       }).join(''):'<tr><td colspan="5" class="hint">No items yet. Use “Add an Item” above to list your first piece for sale.</td></tr>';
@@ -448,6 +451,8 @@
       }catch(e){msg('Error');}
       if(btn){btn.disabled=false;btn.textContent='Add Item';}
     }
+    async function setPriceShare(id,box){box.disabled=true;var r=await api('PATCH','/api/seller-storefront/items/'+id,{show_realized_price_to_members:!!box.checked});
+      box.disabled=false;if(r.success){msg(box.checked?'Signed-in members can now see this sale price.':'This sale price is private again.',true);}else{box.checked=!box.checked;msg(r.message||'Could not save');}}
     async function removeItem(id){if(!confirm('Remove this listing?'))return;await api('PATCH','/api/seller-storefront/items/'+id,{status:'removed'});loadItems();}
     async function loadUnsold(){
       var r=await api('GET','/api/seller-storefront/unsold-lots');var rows=r.data||[];

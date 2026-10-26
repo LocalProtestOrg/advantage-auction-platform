@@ -101,7 +101,8 @@ function metaDescription(item) {
   if (d) bits.push(d);
   else {
     const place = [item.city, item.state].filter(Boolean).join(', ');
-    bits.push(`${item.title} for $${priceString(item.price_cents)}${item.seller_name ? ' from ' + item.seller_name : ''}${place ? ' in ' + place : ''}.`);
+    const pricePart = item.price_cents == null ? (item.status === 'sold' ? ' (sold)' : '') : ` for $${priceString(item.price_cents)}`;
+    bits.push(`${item.title}${pricePart}${item.seller_name ? ' from ' + item.seller_name : ''}${place ? ' in ' + place : ''}.`);
   }
   const s = bits.join(' ');
   return s.length > 160 ? s.slice(0, 157).replace(/\s+\S*$/, '') + '…' : s;
@@ -129,10 +130,12 @@ function productJsonLd(item, base) {
   if (item.era_or_period) props.push({ '@type': 'PropertyValue', name: 'Era or period', value: item.era_or_period });
   if (item.condition) props.push({ '@type': 'PropertyValue', name: 'Condition details', value: text(item.condition, 200) });
   if (props.length) p.additionalProperty = props;
-  const offer = { '@type': 'Offer', url, price: priceString(item.price_cents), priceCurrency: 'USD',
-    availability: SCHEMA_AVAILABILITY[item.status] || 'https://schema.org/OutOfStock' };
+  const offer = { '@type': 'Offer', url, availability: SCHEMA_AVAILABILITY[item.status] || 'https://schema.org/OutOfStock' };
+  // A sold item's price is private (§12.3): SoldOut with no price or shipping rate.
+  const priced = item.status !== 'sold' && item.price_cents != null;
+  if (priced) { offer.price = priceString(item.price_cents); offer.priceCurrency = 'USD'; }
   if (p.itemCondition) offer.itemCondition = p.itemCondition;
-  const ship = require('./storefrontShipping').shippingDetailsJsonLd(item);
+  const ship = priced ? require('./storefrontShipping').shippingDetailsJsonLd(item) : undefined;
   if (ship) offer.shippingDetails = ship;
   offer.seller = item.seller_name ? { '@type': 'Organization', name: item.seller_name, ...(item.storefront_slug ? { url: String(base).replace(/\/+$/, '') + '/pro/' + item.storefront_slug } : {}) }
     : { '@type': 'Organization', name: 'Advantage.Bid' };
