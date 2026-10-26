@@ -21,7 +21,8 @@ router.use((req, res, next) => (storefrontMessagingEnabled()
 router.use(authMiddleware);
 
 const fail = (res, e, next) => (e && e.status ? res.status(e.status).json({ success: false, code: e.code, message: e.message }) : next(e));
-const clientIp = (req) => (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
+// req.ip honours the app's 'trust proxy' setting (the address the platform proxy saw), so a client cannot rotate it.
+const clientIp = (req) => req.ip || '';
 const notFound = (res) => res.status(404).json({ success: false, code: 'CONVERSATION_NOT_FOUND', message: 'Conversation not found.' });
 
 // ── Buyer ─────────────────────────────────────────────────────────────────────────────────────────────

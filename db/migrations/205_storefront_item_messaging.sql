@@ -129,8 +129,16 @@ BEGIN
     IF OLD.delivered_body IS NOT NULL AND NEW.delivered_body IS DISTINCT FROM OLD.delivered_body THEN
       RAISE EXCEPTION 'a delivered message is never rewritten' USING ERRCODE = 'check_violation';
     END IF;
-    IF OLD.appealed_at IS NOT NULL AND (NEW.appealed_at IS DISTINCT FROM OLD.appealed_at OR NEW.appeal_note IS DISTINCT FROM OLD.appeal_note) THEN
-      RAISE EXCEPTION 'a message can be appealed once' USING ERRCODE = 'check_violation';
+    IF OLD.delivered_at IS NOT NULL AND NEW.delivered_at IS DISTINCT FROM OLD.delivered_at THEN
+      RAISE EXCEPTION 'a delivered message keeps its delivery time' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.appealed_at IS DISTINCT FROM OLD.appealed_at OR NEW.appeal_note IS DISTINCT FROM OLD.appeal_note THEN
+      IF NOT (OLD.appealed_at IS NULL AND NEW.appealed_at IS NOT NULL AND NEW.appeal_note IS NOT NULL AND OLD.status = 'declined' AND NEW.status = 'held') THEN
+        RAISE EXCEPTION 'a message can be appealed once, after a decline' USING ERRCODE = 'check_violation';
+      END IF;
+    END IF;
+    IF NEW.decline_reason IS DISTINCT FROM OLD.decline_reason AND NOT (OLD.status = 'held' AND NEW.status = 'declined' AND NEW.decline_reason IS NOT NULL) THEN
+      RAISE EXCEPTION 'a decline reason is written only with the decision' USING ERRCODE = 'check_violation';
     END IF;
     IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
          (OLD.status = 'held' AND NEW.status IN ('delivered','declined','withdrawn'))

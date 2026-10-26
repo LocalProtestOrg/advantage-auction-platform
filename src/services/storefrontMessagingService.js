@@ -28,6 +28,8 @@ const db = require('../db');
 const { withTransaction } = require('../utils/withTransaction');
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const screening = require('../lib/messageScreening');
+const { resolveSellerContext } = require('../middleware/requireSellerPermission');
+const { hasSellerPermission } = require('../lib/sellerRbac');
 
 const LIMITS = {
   BODY_MAX: 2000,
@@ -54,7 +56,12 @@ function noteOf(v, code, msg) {
   if (n.length < 5) throw err(422, code, msg);
   return n;
 }
-function ipHashOf(ip) { return ip ? crypto.createHash('sha256').update('sfm:' + ip).digest('hex').slice(0, 32) : null; }
+// Keyed hash (a plain hash of an IPv4 address could be reversed by trying every address). Used only for rate limiting.
+function ipHashOf(ip) {
+  if (!ip) return null;
+  const key = process.env.MESSAGE_RATE_LIMIT_SECRET || process.env.JWT_SECRET || 'storefront-messages';
+  return crypto.createHmac('sha256', key).update('sfm:' + ip).digest('hex').slice(0, 32);
+}
 
 // What the sender is told after sending (polite; never an accusation).
 const NOTICE = {
@@ -121,7 +128,8 @@ async function checkLimits(client, conv, side, userId, sellerId, body, ipHash) {
   return null;
 }
 
-// One waiting notice per conversation and recipient (a busy thread does not send an email per message).
+// One waiting notice per conversation and recipient (a busy thread does not send an email per message). Only a notice that
+// has not started sending absorbs a new message; once one is being sent, the next message gets its own notice.
 async function enqueueNotice(client, msg) {
   const event = msg.sender_role === 'buyer' ? 'message_to_seller' : 'message_to_buyer';
   await client.query(
@@ -132,7 +140,7 @@ async function enqueueNotice(client, msg) {
        JOIN users u ON u.id = CASE WHEN $2::text = 'message_to_seller' THEN sp.user_id ELSE c.buyer_user_id END
       WHERE m.id = $1 AND m.status = 'delivered' AND u.email IS NOT NULL AND COALESCE(u.is_active, true)
         AND NOT EXISTS (SELECT 1 FROM storefront_notifications n JOIN storefront_messages m2 ON m2.id = n.message_id
-                         WHERE m2.conversation_id = m.conversation_id AND n.event = $2::text AND n.status IN ('pending','processing'))
+                         WHERE m2.conversation_id = m.conversation_id AND n.event = $2::text AND n.status = 'pending')
      ON CONFLICT (message_id, event, recipient_email) WHERE message_id IS NOT NULL DO NOTHING`, [msg.id, event]);
 }
 
@@ -286,10 +294,21 @@ async function replyAsSeller(convId, ctx, { body, ip } = {}) {
 }
 
 // ── Sender: withdraw a held message, or appeal a decline once ─────────────────────────────────────────────
+// A seller-side sender must still act for that company with permission to answer (a removed staff member cannot).
+async function ownSentMessage(client, messageId, userId) {
+  const m = (await client.query('SELECT * FROM storefront_messages WHERE id = $1 AND sender_user_id = $2 FOR UPDATE', [messageId, userId])).rows[0];
+  if (!m) return null;
+  if (m.sender_role === 'seller') {
+    const ctx = await resolveSellerContext(userId, client);
+    if (!ctx || ctx.sellerId !== m.seller_id || !hasSellerPermission(ctx, 'company.messages.respond')) return null;
+  }
+  return m;
+}
+
 async function withdraw(messageId, userId) {
   if (!isUuid(messageId)) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
   return withTransaction(async (client) => {
-    const m = (await client.query('SELECT * FROM storefront_messages WHERE id = $1 AND sender_user_id = $2 FOR UPDATE', [messageId, userId])).rows[0];
+    const m = await ownSentMessage(client, messageId, userId);
     if (!m) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
     if (m.status !== 'held') throw err(409, 'NOT_HELD', 'Only a message waiting for review can be withdrawn.');
     await client.query(`UPDATE storefront_messages SET status = 'withdrawn' WHERE id = $1`, [m.id]);
@@ -302,7 +321,7 @@ async function appeal(messageId, userId, { note } = {}) {
   if (!isUuid(messageId)) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
   const why = noteOf(note, 'NOTE_REQUIRED', 'Tell us briefly why this message should be delivered.');
   const out = await withTransaction(async (client) => {
-    const m = (await client.query('SELECT * FROM storefront_messages WHERE id = $1 AND sender_user_id = $2 FOR UPDATE', [messageId, userId])).rows[0];
+    const m = await ownSentMessage(client, messageId, userId);
     if (!m) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
     if (m.status !== 'declined' || m.appealed_at) throw err(409, 'CANNOT_APPEAL', 'Only a declined message can be appealed, once.');
     await client.query(`UPDATE storefront_messages SET status = 'held', appeal_note = $2, appealed_at = now() WHERE id = $1`, [m.id, why]);
@@ -358,8 +377,11 @@ async function review(messageId, adminId, { decision, note } = {}) {
   const why = noteOf(note, 'NOTE_REQUIRED', decision === 'decline'
     ? 'Write a short, polite reason (the sender will see it).' : 'Write a short note (kept in the review history).');
   return withTransaction(async (client) => {
+    // Lock the conversation first (same order as sending), so a release and a new message cannot both queue a notice.
+    const ref = (await client.query('SELECT conversation_id FROM storefront_messages WHERE id = $1', [messageId])).rows[0];
+    if (!ref) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
+    await client.query('SELECT id FROM storefront_conversations WHERE id = $1 FOR UPDATE', [ref.conversation_id]);
     const m = (await client.query('SELECT * FROM storefront_messages WHERE id = $1 FOR UPDATE', [messageId])).rows[0];
-    if (!m) throw err(404, 'MESSAGE_NOT_FOUND', 'Message not found.');
     if (m.status !== 'held') throw err(409, 'ALREADY_REVIEWED', 'This message is not waiting for review.');
     if (decision === 'release') {
       await client.query(`UPDATE storefront_messages SET status = 'delivered', delivered_body = $2, delivered_at = now() WHERE id = $1`,
@@ -376,5 +398,6 @@ async function review(messageId, adminId, { decision, note } = {}) {
   });
 }
 
-module.exports = { LIMITS, NOTICE, askAboutItem, listForBuyer, getForBuyer, replyAsBuyer, listForSeller, getForSeller, replyAsSeller,
+// insertMessage takes the caller's transaction client (used by the rolled-back production verification script).
+module.exports = { LIMITS, NOTICE, insertMessage, askAboutItem, listForBuyer, getForBuyer, replyAsBuyer, listForSeller, getForSeller, replyAsSeller,
   withdraw, appeal, listForReview, conversationForReview, review };

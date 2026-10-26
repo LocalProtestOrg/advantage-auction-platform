@@ -33,7 +33,7 @@ stay in this roadmap and are not built early.
 **Safety switches.** Live checkout (`MARKETPLACE_CHECKOUT_ENABLED`), payouts, external merchant feeds, paid shopping ads and
 public marketing of unfinished features stay OFF until the readiness checks in §6 pass and the owner approves.
 
-## 1. Status (2026-10-16)
+## 1. Status (production checkpoint 2026-10-26: main = `0c069e6`, migrations through 204)
 
 | Milestone | Status |
 |---|---|
@@ -49,16 +49,21 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | EIN / taxpayer-ID minimisation (migration 202) + seller sale email without buyer contact | LIVE (5e2a4f7, 2026-10-16), verified in production |
 | Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | LIVE (6383329, 2026-10-16), verified in production (rolled-back DB check `scripts/prod-verify-203.js` PASS) |
 | **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | LIVE (0c069e6, 2026-10-16), verified in production (`scripts/prod-verify-204.js` rolled-back PASS; no email sent) |
-| **Next milestone Q: secure item-specific buyer-to-seller messaging** (§9) | Scope defined below; not built; stays OFF until security + privacy tests pass |
-| Item questions / messaging, anti-circumvention, widget header, search & filters (§9–§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built; messaging stays off until security + privacy testing |
-| Sale notifications, inventory numbers, bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
-| Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
-| M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
+| Estimated-proceeds wording in the sale email, known-issues log (MI-1), milestone Q scope, `prod-verify-204.js` | Built on `feat/item-messaging` (`c80dcfc`); not deployed |
+| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | Built + tested on `feat/item-messaging` (`c8ec6f9` and later); independent security review in progress; NOT deployed; flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
+| Widget header, search & filters (§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built |
+| Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
+| Storefront website widget (§7.5–7.6) | Requirements recorded 2026-10-16; not built |
+| M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money; storefront orders are not yet in any settlement or payout report |
+
+Launch readiness: `professional-storefront-launch-readiness-checklist.md` (what is live, built, required before the
+first real sale, post-launch, and the owner decisions still open). Technical maintenance: `../operations/known-issues.md`.
 
 ## 2. Development sequence (owner priorities 2026-10-16, dependency-ordered)
 
 Done: staff accounts + one-company pilot framework (LIVE, off), product SEO (LIVE), existing-item editing (LIVE),
-shipping controls (LIVE).
+shipping controls (LIVE), EIN protection (LIVE), seller policies + snapshots (LIVE), inventory numbers + sale-notification
+queue (LIVE). Item questions (6) built, awaiting review and deploy approval.
 
 1. **Staff pilot verification** — owner confirms the authorised pilot account and verifies its phone; then one company
    is added to `SELLER_STAFF_PILOT_SELLER_IDS` and the owner runs invite + step-up; then "Your Team" rollout.
@@ -190,13 +195,15 @@ public output.
 - Stripe production payments + webhooks verified (owner Dashboard check).
 - Stripe Connect onboarding + payout account verification.
 - Stripe Tax configuration and registrations (test-mode head office known missing).
-- Seller and buyer ownership protections (done: 197/198) and seller staff permissions (built: 199, not deployed).
+- Seller and buyer ownership protections (done: 197/198) and seller staff permissions (LIVE: 199, switched off).
 - Fulfilment and delivery verification (M3), refund and chargeback handling (partly done), reconciliation and payout holds (M3).
 - Administrative oversight and audit logs (admin read access is not yet logged).
-- Paid-sale seller notifications queued, idempotent and monitored (§8.1, N1) — required before live checkout.
-- Seller policies + purchase snapshots (§7.2–7.4); storefront ledger, statements and reconciliation (§8.4, M3a/M3b).
+- Paid-sale seller notifications queued, idempotent and monitored (§8.1, N1) — DONE (LIVE 0c069e6).
+- Seller policies + purchase snapshots (§7.2–7.4) — DONE (LIVE 6383329); storefront ledger, statements and reconciliation (§8.4, M3a/M3b) — not built.
+- Advantage.Bid Buyer Terms cover fixed-price storefront purchases (the live terms do not mention them; the v4 draft is
+  unapproved and is never deployed without owner approval).
 - Sales tax remitting party determined per jurisdiction after qualified review (§8.5); undetermined → tax held.
-- Seller compliance data encrypted with logged access (§8.6), including the existing plain-text EIN field.
+- Seller compliance data minimised with logged access (§8.6): EIN field retired (LIVE 202, no EINs stored).
 
 ## 7. TODO — Shipping, seller policies, storefront tabs, checkout acknowledgment and storefront widget (owner requirements 2026-10-16, permanent)
 
@@ -226,7 +233,7 @@ explicitly marks shipping free; (b) converting an auction lot copies the lot's s
 Migration needed: yes (store shipping defaults on the seller organization; item shipping method/handling/area/size/
 restriction fields and an explicit free-shipping flag; database checks that shipping cannot be offered without a set price).
 
-**Built (migration 201, branch `feat/storefront-shipping`, not deployed):** `src/lib/storefrontShipping.js` is the single
+**Built (migration 201) — LIVE 7ccd039:** `src/lib/storefrontShipping.js` is the single
 authority (checkout, item page, structured data, storefront grid; later the widget and feeds). Pickup only by default;
 converted lots always start pickup only; shipping needs method + destinations (contiguous US / all US / listed states) +
 a set price or explicit free shipping, enforced in the service and by a database trigger that fires only on shipping
@@ -349,11 +356,13 @@ photo, confirmed sale price, order number, shipping or pickup, the next fulfilme
 management, and a labelled estimated proceeds amount if reliable. Queued, idempotent (one per order/event/recipient),
 retried, monitored, audited; never another seller's order, never payment credentials or unnecessary buyer data.
 Separate notices planned for cancellation, refund, dispute, pickup confirmation, shipping deadline, payout completion.
-Today: an inline "Item sold" email to the owner exists (no retry, no staff, no thumbnail/inventory number).
+LIVE (0c069e6): queued outbox, owner recipient, retries + failure alert, thumbnail and inventory number. Still to do:
+staff recipients and preferences, and the other event types listed above.
 
 ### 8.2 Seller inventory numbers / SKU
 Per item, seller-scoped (sellers may reuse each other's numbers), searchable in the dashboard, carried into orders,
-notices, settlement reports and exports, preserved through imports, edits, sales, refunds and reporting. Today: none.
+notices, settlement reports and exports, preserved through imports, edits, sales, refunds and reporting. LIVE (0c069e6): per-item, seller-scoped, searchable, in order snapshots and sale notices. Still to do: settlement
+reports, exports and imports.
 
 ### 8.3 Bulk inventory import and image migration (major committed deliverable)
 CSV/spreadsheet; multiple images; image URLs + authorised image migration; inventory number/SKU mapping; flexible column
@@ -449,6 +458,29 @@ marketing only when features are genuinely ready.
   details; rate limits; append-only history.
 - **Completion criteria:** full gate green; security + privacy review with findings fixed; production pre-check +
   rolled-back verification; owner approval to deploy; feature flag stays OFF until the owner approves turning it on.
+- **Built (2026-10-26, branch `feat/item-messaging`, not deployed):** migration 205 (`storefront_conversations`,
+  append-only `storefront_messages` with original and delivered text, `storefront_message_reviews`,
+  `storefront_conversation_access_log`; outbox events `message_to_seller` / `message_to_buyer`); screening rules
+  `src/lib/messageScreening.js` (versioned); service `storefrontMessagingService.js`; routes `/api/storefront-messages`
+  (all 404 while the flag is off) and `/api/admin/storefront/messages|conversations` (marketplace.moderate); pages
+  `/my-questions.html`, `/seller-messages.html`, an "Item messages" tab in Storefront Moderation, the item-page button
+  (only when the flag is on, replacing the contact-form link on item pages). Seller permissions
+  `company.messages.view|respond` are granted to the owner only. Tests: `tests/storefront-item-messaging.test.js`,
+  `tests/message-screening.test.js`. Production scripts: `scripts/prod-migrate-205.js` (`--check`) and
+  `scripts/prod-verify-205.js` (rolled back, no email).
+- **Independent security review (2026-10-26):** no cross-seller or cross-buyer access path, no identity or contact leak,
+  all text escaped, migration safe for production. Fixed: common phone formats not hidden (555-1234567, letters for
+  digits), disguised emails and domains ("s m i t h @ g m a i l", "myshop .com", "dotcom", "bob dot smith at …"),
+  diversion via social networks / other marketplaces ("FB: …", "on my etsy shop", "$20 off if you pay in person"),
+  ordinary antique questions wrongly held ("chime", "new wire", "messenger bag", "ETH Zurich", "see it in person"), a
+  notice that could be lost while another was sending, a client-rotatable network limit, removed staff acting on old
+  messages, a release/new-message race, an unkeyed network-address hash, and editable decline/delivery/appeal fields.
+  Accepted as known: ambiguous mentions such as "I saw this on Facebook" are held for a person; long digit lists and
+  10-digit model numbers are hidden as phone numbers; parallel requests can slightly exceed the per-buyer limits.
+- **Open owner decisions for Q:** whether reviewers may later hide an already-delivered abusive message (an append-only
+  "hidden by Advantage.Bid" state; today a delivered message cannot be pulled back); which staff roles get message access once staff are on; message retention period;
+  seller-agreement clause against diverting Advantage.Bid sales (legal wording); when to turn the flag on (suggested:
+  demo seller first, then the first real Professional Seller); whether consultation requests later move on-platform.
 
 Design: `storefront-messaging-and-widget-design-2026-10-16.md` §1–§4, milestones Q1–Q2.
 - Every eligible Professional item page gets "Ask the seller a question" (signed-in buyer or verified guest). The thread is
@@ -494,4 +526,27 @@ price high→low, category/alphabetical, relevance. Desktop and mobile, includin
 hidden. Authoritative Advantage.Bid inventory and search APIs; every eligible item stays on the marketplace; widget
 inventory synchronised automatically; purchases go to Advantage.Bid checkout; product SEO, canonical URLs, availability
 and seller attribution preserved.
+
+## 11. Deferred requirements index (checked 2026-10-26 — every approved item that is not live, with its home section)
+
+| Requirement (owner-approved) | Section | State |
+|---|---|---|
+| Staff pilot (one company), then "Your Team" rollout and `SELLER_STAFF_ENABLED` | §2.1, §4 Next | waiting for the owner to name the pilot account and verify its phone |
+| Notification preferences and staff recipients; refund / dispute / pickup / shipping-deadline / payout notices | §8.1 | not built |
+| Item questions + anti-circumvention (milestone Q) | §9 | built, not deployed, flag off |
+| Guest (email-verified) questions, attachments, cross-conversation (L5) scoring, in-app / push notices | §9 Q out of scope | not built |
+| Seller-agreement clause against sale diversion | §9 | needs legal wording + owner approval |
+| Storefront consultation form relabelled "Request a consultation" (services only), screened by the same rules | §9 / design §3.4 | not built (item pages switch when the flag is on) |
+| Storefront ledger, settlement statements, reconciliation (M3a/M3b; transfers off) | §8.4 | not built |
+| Sales-tax remitting-party determination (qualified review) | §8.5 | not started (owner / advisor) |
+| Compliance profile — only fields with a verified requirement | §8.6 | scope rule recorded; nothing to build until a requirement is verified |
+| Tax-time reports (exports only; no filing) | §8.7 | not built |
+| Search, filters (~10) and sorting, shared by marketplace and widget | §10.2, §5 | not built |
+| Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | §7.5–7.6, §10.1 | not built |
+| Bulk spreadsheet import + image migration (drafts only) | §8.3, §5 | not built |
+| Shopping-feed builder + Google Merchant Center mapper (no submission without approval) | §4.4 | not built |
+| Category pages; sold-item index retention period | §4 | not built / owner decision |
+| Public Professional Seller marketing launch | §3 | prepared only; launch after readiness + approval |
+| Admin read-access logging beyond messaging | §6 | not built |
+| Phone Sasha timing test (MI-1) | `../operations/known-issues.md` | separate maintenance task |
 

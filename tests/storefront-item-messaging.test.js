@@ -76,8 +76,8 @@ const U = {}; const SP = {};
 const q = async (sql, p) => (await global.__PG.query(sql, p || [])).rows;
 const one = async (sql, p) => (await q(sql, p))[0];
 const rejects = async (sql, p) => { try { await global.__PG.query(sql, p || []); } catch (e) { return e; } throw new Error('expected the database to reject: ' + sql); };
-async function call(user, method, url, body) {
-  const r = await fetch(base + url, { method, headers: { 'content-type': 'application/json', 'x-test-user': user, 'x-forwarded-for': '203.0.113.' + (user.length) },
+async function call(user, method, url, body, xff) {
+  const r = await fetch(base + url, { method, headers: { 'content-type': 'application/json', 'x-test-user': user, 'x-forwarded-for': xff || '203.0.113.' + (user.length) },
     body: body ? JSON.stringify(body) : undefined });
   let json = null; try { json = await r.json(); } catch (_) { /* empty */ }
   return { status: r.status, body: json };
@@ -112,7 +112,7 @@ beforeAll(async () => {
 
   const express = require('express');
   const app = express();
-  app.set('trust proxy', true);
+  app.set('trust proxy', 1);   // as in production: the last address is the one the platform proxy appended
   app.use(express.json());
   app.use('/api/storefront-messages', require('../src/routes/storefrontMessages'));
   app.use('/api/admin/storefront', require('../src/routes/adminStorefrontModeration'));
@@ -475,6 +475,51 @@ describe('abuse controls', () => {
     const it = await item();
     expect((await ask('bea', it.id, '   ')).body.code).toBe('MESSAGE_REQUIRED');
     expect((await ask('bea', it.id, 'x'.repeat(2001))).body.code).toBe('MESSAGE_TOO_LONG');
+  });
+});
+
+describe('review fixes (independent security review 2026-10-26)', () => {
+  test('a message delivered while the previous notice is being sent still gets its own notice', async () => {
+    await notify.tick();
+    const it = await item();
+    const a = (await ask('bea', it.id, 'First question about the legs')).body.data;
+    await q(`UPDATE storefront_notifications SET status = 'processing', locked_at = now() WHERE message_id = $1`, [a.message.id]);
+    const b = (await ask('bea', it.id, 'Second question about the top')).body.data;
+    expect((await one(`SELECT count(*)::int n FROM storefront_notifications WHERE message_id = $1`, [b.message.id])).n).toBe(1);
+    await q(`UPDATE storefront_notifications SET status = 'pending', locked_at = NULL WHERE message_id = $1`, [a.message.id]);
+  });
+
+  test('the network limit uses the address the platform proxy saw; a client cannot rotate it', async () => {
+    const it = await item();
+    const saved = { ...messaging.LIMITS };
+    try {
+      messaging.LIMITS.MESSAGES_PER_HOUR_IP = 2;
+      const eve = await one(`INSERT INTO users (email, full_name, role) VALUES ('eve@test.example', 'Eve', 'buyer') RETURNING *`); U.eve = eve;
+      const send = (n) => call('eve', 'POST', '/api/storefront-messages/items/' + it.id + '/ask', { body: 'Question ' + n }, '10.0.0.' + n + ', 198.51.100.77');
+      expect((await send(1)).status).toBe(201);
+      expect((await send(2)).status).toBe(201);
+      const third = await send(3);
+      expect(third.status).toBe(429); expect(third.body.code).toBe('TOO_MANY_MESSAGES');
+    } finally { Object.assign(messaging.LIMITS, saved); }
+  });
+
+  test('only the sender can withdraw a seller reply waiting for review; another company cannot', async () => {
+    const it = await item();
+    const conv = (await ask('bea', it.id, 'Is the mirror original?')).body.data.conversation_id;
+    const r = (await call('nora', 'POST', '/api/storefront-messages/seller/' + conv + '/messages', { body: 'Pay me directly by Zelle please.' })).body.data;
+    expect(r.message.status).toBe('held');
+    expect((await call('sue', 'POST', '/api/storefront-messages/messages/' + r.message.id + '/withdraw')).status).toBe(404);
+    expect((await call('nora', 'POST', '/api/storefront-messages/messages/' + r.message.id + '/withdraw')).body.data.status).toBe('withdrawn');
+  });
+
+  test('database: a decline reason, delivery time and appeal note are written only with their decision', async () => {
+    const it = await item();
+    const d = (await ask('bea', it.id, 'Cash only if you come by?')).body.data;
+    await call('admin', 'POST', '/api/admin/storefront/messages/' + d.message.id + '/review', { decision: 'decline', note: 'Please pay through Advantage.Bid.' });
+    expect((await rejects(`UPDATE storefront_messages SET decline_reason = 'rewritten reason' WHERE id = $1`, [d.message.id])).code).toBe('23514');
+    expect((await rejects(`UPDATE storefront_messages SET appeal_note = 'sneaky' WHERE id = $1`, [d.message.id])).code).toBe('23514');
+    const ok = (await ask('bea', it.id, 'Is the frame solid oak?')).body.data;
+    expect((await rejects(`UPDATE storefront_messages SET delivered_at = now() - interval '1 day' WHERE id = $1`, [ok.message.id])).code).toBe('23514');
   });
 });
 

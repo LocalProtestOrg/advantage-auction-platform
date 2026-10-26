@@ -16,6 +16,9 @@ describe('L1 + L2: contact details are hidden in the delivered text', () => {
     ['bоb@gmаil.com', 'email'],     // Cyrillic look-alike letters
     ['www.myshop.com', 'link'], ['https://myshop.com/items', 'link'], ['myshop dot com', 'link'], ['noraestates.net', 'link'], ['facebook.com/nora.estates', 'link'],
     ['@nora_estate', 'handle'],
+    // found by the independent review (2026-10-26)
+    ['555-1234567', 'phone'], ['(555)1234567', 'phone'], ['555 l23 4567', 'phone'], ['555 12O 4567', 'phone'], ['s m i t h @ g m a i l', 'email'],
+    ['myshop .com', 'link'], ['smithantiques dotcom', 'link'], ['bob dot smith at gmail dot com', 'email'],
   ])('%s → %s hidden', (contact, kind) => {
     const r = screen('Hi, reach me: ' + contact + ' thanks');
     expect(r.masked).toContain(kind);
@@ -23,6 +26,9 @@ describe('L1 + L2: contact details are hidden in the delivered text', () => {
     for (const piece of ['0199', 'gmail', 'myshop', 'nora_estate', 'noraestates', 'yahoo']) {
       if (contact.toLowerCase().includes(piece)) expect(r.text.toLowerCase()).not.toContain(piece);
     }
+  });
+  test('the whole of a disguised email is hidden (nothing of the address is left behind)', () => {
+    expect(screen('write to bob dot smith at gmail dot com please').text).toBe('write to [email hidden] please');
   });
   test('invisible characters cannot split a contact detail past the rules', () => {
     const r = screen('Call 7​1​3 5​5​5 0​1​9​9');
@@ -48,6 +54,8 @@ describe('L3 + L4: payment-off-platform and diversion requests are held for a pe
     // other ways of leaving the platform
     'Text me when you are free', 'WhatsApp me', 'Let\'s deal directly and skip the fee', 'We can do this outside the site',
     'Search for our company name online', 'Message us on Instagram', 'Follow me @nora_estate on insta', '10 percent discount if you pay cash at our store',
+    // found by the independent review (2026-10-26)
+    'search Smith Antiques Houston on Facebook', 'FB: Smith Antiques Houston', 'I will take $20 off if you pay in person', 'also listed on my etsy shop', 'insta smithantiques',
   ])('%s → held', (msg) => {
     const r = screen(msg);
     expect(r.hold.length).toBeGreaterThan(0);
@@ -65,6 +73,10 @@ describe('ordinary item questions pass exactly as written', () => {
     'Our inventory number is HH-1042, serial 12345678.', 'Does it come apart for moving? We need two people to carry it.',
     'Thanks! I will look at the photos again tonight.', 'Someone said it is one of a kind — is that right?',
     'Is local delivery available within 20 miles?', 'Is there any damage to the veneer? Any repairs?', 'Lot 12 of 30 from the 1962 estate.',
+    // wrongly held before the independent review (2026-10-26)
+    'Does the clock still chime?', 'Does the lamp need new wire?', 'Is this a messenger bag?', 'Is the ETH Zurich print signed?',
+    'I would like to see it in person, would you take a better price?', 'Any discount for local pickup in person?', 'Is the snap closure original?',
+    'Can I pick it up in person on Saturday?', 'Would you take $20 off the listed price?',
   ])('%s', (msg) => {
     const r = screen(msg);
     expect(r).toMatchObject({ text: msg, masked: [], hold: [] });
