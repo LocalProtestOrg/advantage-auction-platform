@@ -21,13 +21,14 @@ const issues = require('../services/marketplaceOrderIssueService');
 const moderation = require('../services/marketplaceModerationService');
 // Seller routes pass through one checkpoint that resolves the seller company from the session (never the request).
 const seller = require('../middleware/requireSellerPermission');
-const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
+const { marketplaceCheckoutEnabled, storefrontMessagingEnabled } = require('../lib/launchGuards');
 
 // PUBLIC (no login): the buyer UI reads this to decide whether to show Buy Now to every visitor, including
 // logged-out ones. It exposes only the checkout flag and the publishable (browser-safe) key. Registered BEFORE
 // the auth middleware; every other route below keeps its auth unchanged.
 router.get('/config', (req, res) => res.json({ success: true, data: {
   checkout_enabled: marketplaceCheckoutEnabled(),
+  messaging_enabled: storefrontMessagingEnabled(),
   stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
 } }));
 

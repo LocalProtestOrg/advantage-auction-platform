@@ -21,6 +21,7 @@ const SELLER_PERMISSIONS = [
   'company.orders.view',              // the company's orders (no buyer contact)
   'company.orders.fulfil',            // paid orders needing fulfilment + the buyer contact needed to ship or arrange pickup
   'company.issues.view', 'company.issues.respond',               // buyer issues on the company's own orders
+  'company.messages.view', 'company.messages.respond',           // buyer questions about the company's items (owner only until the owner assigns staff roles)
   'company.finance.view',             // fees, proceeds, settlement reports
   'company.payout.manage',            // payout destination — additionally requires step-up verification (never a plain role grant)
 ];

@@ -234,12 +234,12 @@ describe('/api/marketplace routes auth', () => {
   });
   afterAll((done) => { server.close(done); });
 
-  test('GET /config works without login and exposes only flag + publishable key', async () => {
+  test('GET /config works without login and exposes only the flags + publishable key', async () => {
     process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_dummy';
     const r = await fetch(base + '/api/marketplace/config');
     expect(r.status).toBe(200);
     const body = await r.json();
-    expect(body).toEqual({ success: true, data: { checkout_enabled: true, stripe_publishable_key: 'pk_test_dummy' } });
+    expect(body).toEqual({ success: true, data: { checkout_enabled: true, messaging_enabled: false, stripe_publishable_key: 'pk_test_dummy' } });
   });
   test.each([
     ['post', '/orders/quote'], ['post', '/orders'], ['post', '/orders/0000000a-0000-4000-8000-000000000001/pay'], ['get', '/orders/mine'],

@@ -41,6 +41,7 @@
       <button class="tab on" data-tab="issues">Order issues</button>
       <button class="tab" data-tab="reports">Listing reports</button>
       <button class="tab" data-tab="items">All listings</button>
+      <button class="tab" data-tab="messages">Item messages</button>
     </div>
     <div class="bar" id="bar"></div>
     <div class="msg" id="listmsg"></div>
@@ -62,14 +63,16 @@
     function label(s){ return esc(String(s||'').replace(/_/g,' ')); }
     let TAB = 'issues';
     const qs = new URLSearchParams(location.search);
-    if (qs.get('item')) TAB = 'items'; else if (qs.get('report')) TAB = 'reports';
+    if (qs.get('item')) TAB = 'items'; else if (qs.get('report')) TAB = 'reports'; else if (qs.get('tab') === 'messages') TAB = 'messages';
 
     const BARS = {
       issues: '<select id="f"><option value="open">Open</option><option value="seller_responded">Seller responded</option><option value="resolved">Resolved</option><option value="closed">Closed</option><option value="">All</option></select><button id="go">Refresh</button>',
       reports: '<select id="f"><option value="open">Open</option><option value="actioned">Actioned</option><option value="dismissed">Dismissed</option></select><button id="go">Refresh</button>',
       items: '<select id="f"><option value="">All statuses</option><option value="active">Active</option><option value="sold">Sold</option><option value="removed">Removed</option><option value="draft">Draft</option></select><select id="m"><option value="">Any moderation</option><option value="taken_down">Taken down</option></select><select id="r"><option value="">Any reports</option><option value="open">Has open reports</option></select><input id="q" placeholder="Title or seller"><button id="go">Search</button>',
     };
+    BARS.messages = '<select id="f"><option value="held">Waiting for review</option><option value="declined">Declined</option><option value="delivered">Delivered with details hidden</option><option value="withdrawn">Withdrawn by sender</option></select><button id="go">Refresh</button>';
     const HEADS = {
+      messages: '<tr><th>Item / seller</th><th>From</th><th>What they wrote</th><th>What the other side would see</th><th>Rules</th><th>Decision</th></tr>',
       issues: '<tr><th>Order</th><th>Seller</th><th>Problem</th><th>Seller response</th><th>Status</th><th>Decision</th></tr>',
       reports: '<tr><th>Listing</th><th>Seller</th><th>Report</th><th>Status</th><th>Decision</th></tr>',
       items: '<tr><th>Listing</th><th>Seller</th><th>Price</th><th>Status</th><th>Reports / orders</th><th>Action</th></tr>',
@@ -91,6 +94,7 @@
       let url;
       if (TAB === 'issues') url = '/api/admin/storefront/issues' + (val('f') ? '?status=' + encodeURIComponent(val('f')) : '');
       else if (TAB === 'reports') url = '/api/admin/storefront/reports?status=' + encodeURIComponent(val('f') || 'open');
+      else if (TAB === 'messages') url = '/api/admin/storefront/messages?status=' + encodeURIComponent(val('f') || 'held');
       else {
         const p = new URLSearchParams();
         if (val('f')) p.set('status', val('f')); if (val('m')) p.set('moderation', val('m')); if (val('r')) p.set('reported', val('r')); if (val('q')) p.set('q', val('q'));
@@ -106,6 +110,22 @@
 
     const reasonBox = (id, ph) => '<textarea class="reason" id="why-'+esc(id)+'" maxlength="1000" placeholder="'+esc(ph)+'" aria-label="'+esc(ph)+'"></textarea>';
     const ROW = {
+      // Item messages held by the safety rules. Opening a conversation is recorded in the access log. Releasing keeps
+      // contact details hidden; a decline reason is shown to the sender, who may ask for one more review.
+      messages: (m) => {
+        const sc = m.screening || {};
+        const act = m.status === 'held'
+          ? reasonBox(m.id, 'Decision note (required; a decline reason is shown to the sender)') +
+            '<button class="btn btn-ok" data-act="msg-release" data-id="'+esc(m.id)+'">Release (details stay hidden)</button><button class="btn btn-danger" data-act="msg-decline" data-id="'+esc(m.id)+'">Decline</button>'
+          : '<div class="small">'+label(m.status)+(m.decline_reason ? ': '+esc(m.decline_reason) : '')+'</div>';
+        return '<tr><td><b>'+esc(m.item_title||'Item')+'</b>'+(m.inventory_number?' <span class="small">#'+esc(m.inventory_number)+'</span>':'')+(m.is_demo?' <span class="badge neutral">demo</span>':'')+
+            '<div class="small">'+esc(m.seller_name||'')+'</div><button class="btn btn-mut" data-act="msg-conv" data-id="'+esc(m.conversation_id)+'">Open conversation</button><div id="conv-'+esc(m.conversation_id)+'-'+esc(m.id)+'"></div></td>'+
+          '<td>'+label(m.sender_role)+'<div class="small">'+esc(fmtDate(m.created_at))+'</div></td>'+
+          '<td><div class="quote">'+esc(m.body)+'</div>'+(m.appeal_note?'<div class="small"><b>Appeal:</b> '+esc(m.appeal_note)+'</div>':'')+'</td>'+
+          '<td>'+(m.delivered_preview!=null?'<div class="quote">'+esc(m.delivered_preview)+'</div>':'<span class="small">-</span>')+'</td>'+
+          '<td>'+(sc.hold||[]).map(r => '<span class="badge warn">'+esc(r)+'</span>').join('')+(sc.masked||[]).map(r => '<span class="badge neutral">hidden: '+esc(r)+'</span>').join('')+'<div class="small">'+esc(sc.version||'')+'</div></td>'+
+          '<td>'+act+'<div class="msg" id="m-'+esc(m.id)+'"></div></td></tr>';
+      },
       issues: (i) => {
         const open = i.status === 'open' || i.status === 'seller_responded';
         const act = open
@@ -147,12 +167,23 @@
     document.getElementById('rows').addEventListener('click', (ev) => {
       const b = ev.target.closest('button[data-act]'); if (!b) return;
       const id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
+      if (act === 'msg-conv') {
+        const box = b.nextElementSibling;
+        api('GET', '/api/admin/storefront/conversations/' + encodeURIComponent(id)).then(res => {
+          if (!res.success){ box.textContent = res.message || 'Could not load.'; return; }
+          box.innerHTML = (res.data.messages || []).map(x => '<div class="quote"><b>'+label(x.sender_role)+'</b> · '+label(x.status)+' · '+esc(fmtDate(x.created_at))+'<br>'+esc(x.body)+'</div>').join('') +
+            '<div class="small">Opening this conversation was recorded.</div>';
+        });
+        return;
+      }
       const why = (document.getElementById('why-' + id) || {}).value || '';
       const m = document.getElementById('m-' + id);
       if (why.trim().length < 5){ if (m) m.textContent = 'Write a short reason first.'; return; }
       let call;
       if (act === 'resolve' || act === 'close') call = api('POST', '/api/admin/storefront/issues/' + encodeURIComponent(id) + '/resolve',
         { status: act === 'close' ? 'closed' : 'resolved', resolution_note: why, release_hold: !!(document.getElementById('rel-' + id) || {}).checked });
+      else if (act === 'msg-release' || act === 'msg-decline') call = api('POST', '/api/admin/storefront/messages/' + encodeURIComponent(id) + '/review',
+        { decision: act === 'msg-release' ? 'release' : 'decline', note: why });
       else if (act === 'report-takedown' || act === 'report-dismiss') call = api('POST', '/api/admin/storefront/reports/' + encodeURIComponent(id) + '/review',
         { action: act === 'report-takedown' ? 'takedown' : 'dismiss', note: why });
       else call = api('POST', '/api/admin/storefront/items/' + encodeURIComponent(id) + '/' + act, { reason: why });

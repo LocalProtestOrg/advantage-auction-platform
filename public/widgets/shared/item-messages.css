@@ -1,0 +1,29 @@
+/* Item questions inbox (buyer My Questions + seller Item Questions). */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,-apple-system,sans-serif;color:#0f172a;background:#f6f8fb}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px}
+a{color:#2563eb;text-decoration:none}
+h1{font-family:Fraunces,serif;font-size:26px;margin-bottom:4px}
+.sub{color:#64748b;font-size:14px;margin-bottom:18px}
+.meta{color:#64748b;font-size:13px;margin:3px 0}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+@media (max-width:760px){.layout{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column;gap:8px}
+.conv{display:flex;gap:10px;background:#fff;border:1px solid #e6eaef;border-radius:12px;padding:10px;cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.conv.on{border-color:#2563eb;box-shadow:0 0 0 2px #dbeafe}
+.conv img{width:48px;height:48px;object-fit:cover;border-radius:8px;flex:none;background:#eef2f7}
+.conv .t{font-weight:700;font-size:14px;overflow-wrap:anywhere}
+.badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;margin-left:4px}
+.thread{background:#fff;border:1px solid #e6eaef;border-radius:14px;padding:16px;min-height:200px}
+.head{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.head img{width:64px;height:64px;object-fit:cover;border-radius:10px;background:#eef2f7}
+.msg{max-width:82%;margin:8px 0;padding:10px 12px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.45}
+.msg.them{background:#f1f5f9}
+.msg.you{background:#eff6ff;margin-left:auto}
+.msg .when{display:block;color:#64748b;font-size:11px;margin-top:4px}
+.state{display:block;font-size:12px;color:#92400e;margin-top:6px}
+.compose textarea{width:100%;padding:10px;border:1px solid #d7dde5;border-radius:10px;font-family:inherit;font-size:14px;margin-top:12px}
+.btn{border:none;border-radius:9px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;background:#2563eb;color:#fff;margin:8px 6px 0 0}
+.btn-ghost{background:#fff;color:#0f172a;border:1px solid #e6eaef}
+.err{color:#b91c1c;font-size:13px;margin-top:6px}
+.note{color:#475569;font-size:12px;margin-top:8px}

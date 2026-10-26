@@ -98,6 +98,9 @@
       // Product structured data is rendered once, by the server, on the canonical page (one product record per item).
 
       var status=it.status||'active';
+      // Item questions (on-platform, when enabled) replace the storefront contact form on item pages.
+      var ask=CFG.messaging_enabled?'<button class="btn btn-ghost" id="askBtn">Ask the seller a question</button>':
+        (it.storefront_slug?'<a class="btn btn-ghost" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'');
       var buyBox;
       if(status==='sold'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
@@ -106,8 +109,9 @@
       } else if(CFG.checkout_enabled){
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Buy this item</div>'+
           '<p class="meta" style="margin:0 0 12px">Secure checkout through Advantage.Bid. '+(it.shippable?'Shipping or local pickup.':'Local pickup.')+'</p>'+
-          '<button class="btn btn-primary" id="buyNow">Buy Now · '+money(it.price_cents)+'</button>'+
-          (it.storefront_slug?' <a class="btn btn-ghost" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>';
+          '<button class="btn btn-primary" id="buyNow">Buy Now · '+money(it.price_cents)+'</button> '+ask+'</div>';
+      } else if(CFG.messaging_enabled){
+        buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Ask '+esc(it.seller_name||'the seller')+' a question here on Advantage.Bid.</p><button class="btn btn-primary" id="askBtn">Ask the seller a question</button></div>';
       } else {
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+(it.storefront_slug?'<a class="btn btn-primary" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>';
       }
@@ -127,6 +131,7 @@
         '</div></div>';
       var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
       var rl=document.getElementById('reportLink'); if(rl)rl.addEventListener('click',function(e){e.preventDefault();openReport();});
+      var ab=document.getElementById('askBtn'); if(ab)ab.addEventListener('click',openAsk);
     }
 
     // Report a listing (signed-in). Our team reviews every report; a report is not a finding against the seller.
@@ -149,6 +154,29 @@
             openModal('<h3>Thank you</h3><p class="meta">'+(res.data&&res.data.already_reported?'You already reported this listing. Our team will review it.':'Your report was sent. Our team will review it.')+'</p><div style="margin-top:16px"><button class="btn btn-primary" id="rDone">Close</button></div>');
             document.getElementById('rDone').addEventListener('click',closeModal);
           }).catch(function(){btn.disabled=false;document.getElementById('rErr').textContent='Network error.';});
+      });
+    }
+
+    // Ask the seller a question (signed-in). The conversation stays on Advantage.Bid; contact details are hidden.
+    function openAsk(){
+      if(!token){location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search);return;}
+      openModal('<h3>Ask the seller a question</h3><div class="meta">About: '+esc(ITEM.title)+'. Replies arrive in <a href="/my-questions.html">My Questions</a> and by email.</div>'+
+        '<label for="aq">Your question</label><textarea id="aq" rows="5" maxlength="2000" style="width:100%;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit"></textarea>'+
+        '<p class="meta" style="margin-top:8px">For your safety, keep questions and payments on Advantage.Bid. Phone numbers, email addresses and links are hidden from the seller.</p>'+
+        '<div class="err" id="aErr"></div>'+
+        '<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-primary" id="aSend">Send question</button><button class="btn btn-ghost" id="aCancel">Cancel</button></div>');
+      document.getElementById('aCancel').addEventListener('click',closeModal);
+      document.getElementById('aSend').addEventListener('click',function(){
+        var btn=this; btn.disabled=true;
+        fetch('/api/storefront-messages/items/'+encodeURIComponent(ID)+'/ask',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),
+          body:JSON.stringify({body:document.getElementById('aq').value})})
+          .then(function(r){return r.json();}).then(function(res){
+            if(!res.success){btn.disabled=false;document.getElementById('aErr').textContent=res.message||'Could not send your question.';return;}
+            var d=res.data||{}, held=d.message&&d.message.status==='held';
+            openModal('<h3>'+(held?'Waiting for a quick review':'Question sent')+'</h3><p class="meta">'+esc(d.notice||'The seller will reply here on Advantage.Bid. We will email you when they do.')+'</p>'+
+              '<div style="margin-top:16px;display:flex;gap:8px"><a class="btn btn-primary" href="/my-questions.html?c='+encodeURIComponent(d.conversation_id||'')+'">View conversation</a><button class="btn btn-ghost" id="aDone">Close</button></div>');
+            document.getElementById('aDone').addEventListener('click',closeModal);
+          }).catch(function(){btn.disabled=false;document.getElementById('aErr').textContent='Network error.';});
       });
     }
 

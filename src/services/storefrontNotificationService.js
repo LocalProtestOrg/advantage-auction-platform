@@ -15,6 +15,10 @@
  * estimated proceeds, and a link to the authenticated seller order page. NEVER the buyer's name, email, phone or address,
  * and never payment data. Rendered from the order's own fixed purchase snapshot, so it describes exactly what was sold.
  * Recipient: the company owner's account email (staff recipients and preferences are a later milestone).
+ *
+ * Item messages (milestone Q, migration 205): events message_to_seller / message_to_buyer reference a delivered message.
+ * The email names the item and carries an excerpt of the DELIVERED text (contact details already hidden) and a link to
+ * reply on Advantage.Bid — never the other party's name, email, phone or address. Replying by email is not supported.
  */
 const db = require('../db');
 const company = require('../lib/companyContact');
@@ -76,7 +80,73 @@ function renderSalePaid(o) {
   return { subject, html, text };
 }
 
+function renderMessageNotice(m) {
+  const toSeller = m.event === 'message_to_seller';
+  const snap = m.subject_snapshot && typeof m.subject_snapshot === 'object' ? m.subject_snapshot : {};
+  const title = snap.title || 'your item';
+  const inv = toSeller ? (snap.inventory_number || null) : null;            // the inventory number is the seller's own
+  const thumb = snap.thumbnail_url && /^https:\/\//i.test(snap.thumbnail_url) ? snap.thumbnail_url : null;
+  const from = toSeller ? 'A buyer' : (m.show_branding_to_buyers === false ? 'The seller' : (m.seller_name || 'The seller'));
+  const excerpt = String(m.delivered_body || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  const link = `${APP_BASE}/${toSeller ? 'seller-messages.html' : 'my-questions.html'}?c=${encodeURIComponent(m.conversation_id)}`;
+  const subject = toSeller ? `New question about ${title}${inv ? ' (#' + inv + ')' : ''}` : `${from} replied about ${title}`;
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;color:#222">
+      <h2 style="margin:0 0 4px">${toSeller ? 'You have a new question' : 'You have a reply'}</h2>
+      <p style="color:#555;margin:0 0 16px">${esc(from)} wrote about <b>${esc(title)}</b>${inv ? ` (your inventory number <b>${esc(inv)}</b>)` : ''}</p>
+      ${thumb ? `<p style="margin:0 0 12px"><img src="${esc(thumb)}" alt="${esc(title)}" width="120" style="border-radius:8px;max-width:120px"></p>` : ''}
+      <blockquote style="margin:0 0 16px;padding:10px 14px;background:#f5f7fa;border-left:3px solid #1d4ed8;border-radius:4px;white-space:pre-wrap">${esc(excerpt)}</blockquote>
+      <p><a href="${link}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Read and reply on Advantage.Bid</a></p>
+      <p style="color:#555;font-size:13px;margin:12px 0">Replies to this email are not delivered. For everyone's safety, keep questions and payments on Advantage.Bid.</p>
+      <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
+    </div>`;
+  const text = [`${from} wrote about ${title}${inv ? ' (inventory #' + inv + ')' : ''}:`, excerpt, '',
+    `Read and reply on Advantage.Bid: ${link}`, 'Replies to this email are not delivered. Keep questions and payments on Advantage.Bid.'].join('\n');
+  return { subject, html, text };
+}
+
+async function recordFailure(row, e, deps, headline) {
+  const attempts = row.attempts;   // counted when the row was leased
+  const final = attempts >= MAX_ATTEMPTS;
+  await db.query(`UPDATE storefront_notifications SET status = $2, attempts = $3, last_error = $4, locked_at = NULL,
+    next_attempt_at = now() + ($5 || ' minutes')::interval WHERE id = $1`,
+    [row.id, final ? 'failed' : 'pending', attempts, String(e.message || e).slice(0, 500), String(backoffMinutes(attempts))]);
+  if (final) {
+    try {
+      const alerts = deps.ownerAlertService || require('./ownerAlertService');
+      await alerts.notifyAdminActionRequired({ actionType: alerts.ALERT_TYPES.STOREFRONT_NOTIFICATION_FAILED || 'storefront_notification_failed',
+        entityType: 'storefront_notification', entityId: row.id, headline,
+        context: `${MAX_ATTEMPTS} attempts failed.`, adminPath: '/admin/marketplace-orders.html' });
+    } catch (_e) { /* the alert is best-effort; the row stays 'failed' for review */ }
+  }
+  return final ? 'failed' : 'retry';
+}
+
+async function deliverMessageNotice(row, deps) {
+  const m = (await db.query(
+    `SELECT m.id, m.conversation_id, m.delivered_body, m.status, c.subject_snapshot, sp.show_branding_to_buyers,
+            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
+       FROM storefront_messages m JOIN storefront_conversations c ON c.id = m.conversation_id JOIN seller_profiles sp ON sp.id = c.seller_id
+      WHERE m.id = $1 AND m.seller_id = $2`, [row.message_id, row.seller_id])).rows[0];
+  if (!m || m.status !== 'delivered') {
+    await db.query(`UPDATE storefront_notifications SET status = 'skipped', last_error = $2, locked_at = NULL WHERE id = $1`,
+      [row.id, m ? 'message ' + m.status : 'message not found']);
+    return 'skipped';
+  }
+  const msg = renderMessageNotice({ ...m, event: row.event });
+  const mail = deps.emailService || require('./emailService');
+  let r;
+  try {
+    r = await mail.sendEmail({ to: row.recipient_email, subject: msg.subject, html: msg.html, text: msg.text });
+  } catch (e) {
+    return recordFailure(row, e, deps, 'An item message notice could not be delivered');
+  }
+  await db.query(`UPDATE storefront_notifications SET status = 'sent', sent_at = now(), locked_at = NULL, provider_message_id = $2, last_error = NULL
+    WHERE id = $1`, [row.id, (r && (r.messageId || r.MessageId)) || null]);
+  return 'sent';
+}
+
 async function deliverOne(row, deps) {
+  if (row.event === 'message_to_seller' || row.event === 'message_to_buyer') return deliverMessageNotice(row, deps);
   const o = (await db.query(
     `SELECT o.id, o.seller_id, o.order_number, o.item_snapshot, o.item_price_cents, o.shipping_cents, o.platform_fee_bps, o.platform_fee_cents,
             o.seller_proceeds_cents, o.fulfillment_method, o.payment_status
@@ -93,20 +163,7 @@ async function deliverOne(row, deps) {
   try {
     r = await mail.sendEmail({ to: row.recipient_email, subject: msg.subject, html: msg.html, text: msg.text });
   } catch (e) {
-    const attempts = row.attempts;   // counted when the row was leased
-    const final = attempts >= MAX_ATTEMPTS;
-    await db.query(`UPDATE storefront_notifications SET status = $2, attempts = $3, last_error = $4, locked_at = NULL,
-      next_attempt_at = now() + ($5 || ' minutes')::interval WHERE id = $1`,
-      [row.id, final ? 'failed' : 'pending', attempts, String(e.message || e).slice(0, 500), String(backoffMinutes(attempts))]);
-    if (final) {
-      try {
-        const alerts = deps.ownerAlertService || require('./ownerAlertService');
-        await alerts.notifyAdminActionRequired({ actionType: alerts.ALERT_TYPES.STOREFRONT_NOTIFICATION_FAILED || 'storefront_notification_failed',
-          entityType: 'storefront_notification', entityId: row.id, headline: `Seller sale notice for order ${o.order_number} could not be delivered`,
-          context: `${MAX_ATTEMPTS} attempts failed. Contact the seller about this sale.`, adminPath: '/admin/marketplace-orders.html' });
-      } catch (_e) { /* the alert is best-effort; the row stays 'failed' for review */ }
-    }
-    return final ? 'failed' : 'retry';
+    return recordFailure(row, e, deps, `Seller sale notice for order ${o.order_number} could not be delivered. Contact the seller about this sale.`);
   }
   // Recorded outside the send's try: a database hiccup here never turns a delivered notice back into 'pending'.
   await db.query(`UPDATE storefront_notifications SET status = 'sent', sent_at = now(), locked_at = NULL, provider_message_id = $2, last_error = NULL
@@ -139,4 +196,4 @@ function start() {
   if (timer.unref) timer.unref();
 }
 
-module.exports = { enqueueSalePaid, renderSalePaid, tick, start, MAX_ATTEMPTS, backoffMinutes };
+module.exports = { enqueueSalePaid, renderSalePaid, renderMessageNotice, tick, start, MAX_ATTEMPTS, backoffMinutes };

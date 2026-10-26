@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>My Questions · Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/widgets/shared/item-messages.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>My Questions</h1>
+    <div class="sub">Your questions to sellers about their items. Conversations stay on Advantage.Bid; contact details are never shared.</div>
+    <div class="layout"><div id="list" class="list"><p class="meta">Loading…</p></div><div id="thread" class="thread"></div></div>
+  </div>
+  <script src="/widgets/shared/item-messages.js"></script>
+  <script>AdvItemMessages.start({ side: 'buyer', listUrl: '/api/storefront-messages/mine', threadUrl: function(id){ return '/api/storefront-messages/mine/' + encodeURIComponent(id); },
+    replyUrl: function(id){ return '/api/storefront-messages/mine/' + encodeURIComponent(id) + '/messages'; }, page: '/my-questions.html' });</script>
+</body>
+</html>

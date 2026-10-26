@@ -64,6 +64,7 @@ const ALERT_TYPES = {
   PAYOUT_RELEASE_PENDING: 'payout_release_pending',
   SETTLEMENT_EXCEPTION: 'settlement_exception',
   STOREFRONT_NOTIFICATION_FAILED: 'storefront_notification_failed',
+  STOREFRONT_MESSAGE_HELD: 'storefront_message_held',
   COMPLIANCE_ESCALATION: 'compliance_escalation',
   // Sasha info@ mailbox reader health (login rejected, polling stopped, mailbox renumbered, no mail for 24h).
   SASHA_IMAP_HEALTH: 'sasha_imap_health',

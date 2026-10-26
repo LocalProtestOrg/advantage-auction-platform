@@ -73,4 +73,11 @@ function sellerStaffEnabledFor(sellerId, env = process.env) {
 // Whether staff accounts can be in use anywhere (general switch on, or a pilot company configured).
 function sellerStaffAvailableAnywhere(env = process.env) { return sellerStaffEnabled(env) || sellerStaffPilotIds(env).length > 0; }
 
-module.exports = { sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };
+// Item questions / buyer-to-seller messaging (milestone Q, migration 205) are OFF unless STOREFRONT_MESSAGING_ENABLED is
+// exactly 'true'. Default (unset) = disabled: every buyer and seller messaging route answers 404 and item pages keep their
+// current buttons. Turning it on needs owner approval after the security and privacy review.
+function storefrontMessagingEnabled(env = process.env) {
+  return !!(env && env.STOREFRONT_MESSAGING_ENABLED === 'true');
+}
+
+module.exports = { storefrontMessagingEnabled, sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };
