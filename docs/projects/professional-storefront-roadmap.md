@@ -50,7 +50,7 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | LIVE (6383329, 2026-10-16), verified in production (rolled-back DB check `scripts/prod-verify-203.js` PASS) |
 | **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | LIVE (0c069e6, 2026-10-16), verified in production (`scripts/prod-verify-204.js` rolled-back PASS; no email sent) |
 | Estimated-proceeds wording in the sale email, known-issues log (MI-1), milestone Q scope, `prod-verify-204.js` | Built on `feat/item-messaging` (`c80dcfc`); not deployed |
-| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | Built + tested on `feat/item-messaging` (`c8ec6f9` and later); independent security review in progress; NOT deployed; flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
+| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | Built on `feat/item-messaging` (`c8ec6f9`, `146d665`, `27ac6c6`); two independent review rounds, findings fixed; gate green; deploy approved 2026-10-26; flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
 | Widget header, search & filters (§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built |
 | Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Storefront website widget (§7.5–7.6) | Requirements recorded 2026-10-16; not built |
@@ -532,26 +532,82 @@ hidden. Authoritative Advantage.Bid inventory and search APIs; every eligible it
 inventory synchronised automatically; purchases go to Advantage.Bid checkout; product SEO, canonical URLs, availability
 and seller attribution preserved.
 
-## 11. Deferred requirements index (checked 2026-10-26 — every approved item that is not live, with its home section)
+## 11. Deferred requirements index (updated 2026-10-26 — every approved item that is not live)
 
-| Requirement (owner-approved) | Section | State |
-|---|---|---|
-| Staff pilot (one company), then "Your Team" rollout and `SELLER_STAFF_ENABLED` | §2.1, §4 Next | waiting for the owner to name the pilot account and verify its phone |
-| Notification preferences and staff recipients; refund / dispute / pickup / shipping-deadline / payout notices | §8.1 | not built |
-| Item questions + anti-circumvention (milestone Q) | §9 | built, not deployed, flag off |
-| Guest (email-verified) questions, attachments, cross-conversation (L5) scoring, in-app / push notices | §9 Q out of scope | not built |
-| Seller-agreement clause against sale diversion | §9 | needs legal wording + owner approval |
-| Storefront consultation form relabelled "Request a consultation" (services only), screened by the same rules | §9 / design §3.4 | not built (item pages switch when the flag is on) |
-| Storefront ledger, settlement statements, reconciliation (M3a/M3b; transfers off) | §8.4 | not built |
-| Sales-tax remitting-party determination (qualified review) | §8.5 | not started (owner / advisor) |
-| Compliance profile — only fields with a verified requirement | §8.6 | scope rule recorded; nothing to build until a requirement is verified |
-| Tax-time reports (exports only; no filing) | §8.7 | not built |
-| Search, filters (~10) and sorting, shared by marketplace and widget | §10.2, §5 | not built |
-| Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | §7.5–7.6, §10.1 | not built |
-| Bulk spreadsheet import + image migration (drafts only) | §8.3, §5 | not built |
-| Shopping-feed builder + Google Merchant Center mapper (no submission without approval) | §4.4 | not built |
-| Category pages; sold-item index retention period | §4 | not built / owner decision |
-| Public Professional Seller marketing launch | §3 | prepared only; launch after readiness + approval |
-| Admin read-access logging beyond messaging | §6 | not built |
-| Phone Sasha timing test (MI-1) | `../operations/known-issues.md` | separate maintenance task |
+Priority: **P0** = required before the first real Professional Storefront sale; **P1** = next after launch-critical
+work; **P2** = approved, later. Acceptance criteria are summarised here; full criteria live in the home section.
 
+| # | Requirement (owner-approved) | Priority | Status | Acceptance criteria (summary) | Home |
+|---|---|---|---|---|---|
+| 1 | Buyer Terms that cover fixed-price storefront purchases | P0 | live terms silent; v4 draft unapproved | owner/legal-approved wording published; checkout acknowledgment links to it; draft never deployed without approval | §6 |
+| 2 | Sales-tax remitting-party determination + Stripe Tax confirmed for storefront orders | P0 | not started (owner / advisor) | documented conclusion per jurisdiction; undetermined → tax held; live storefront tax calculation verified | §8.5 |
+| 3 | Storefront seller settlement: approved manual procedure, or M3 ledger + statements (transfers off) | P0 | not built | every paid storefront order appears in a settlement view with fee, proceeds, holds; reconciles to Stripe; no money moves without approval | §8.4 |
+| 4 | First real Professional Seller onboarded (verified, Connect payout details, own policies, real listings) | P0 | none in production | seller verified; policies published; listings pass SEO/shipping checks | checklist §3 |
+| 5 | One authorised live, refunded checkout test | P0 | not run (billable — needs approval) | payment, tax, order record, seller notice, fulfilment and refund all verified on one real item | checklist §3 |
+| 6 | Item messaging activation (flag on) | P0 (recommended) | built; deploy approved; OFF | owner decisions below answered; demo-seller activation test passes; then one real seller | §9 |
+| 7 | **Red SOLD banner on sold item images** | P1 | not built | see §12.1 | §12.1 |
+| 8 | Staff pilot (one company), then "Your Team" rollout and `SELLER_STAFF_ENABLED` | P1 | waiting for the owner to name the pilot account and verify its phone | invite + step-up verified in production for one company; isolation tests pass | §2.1, §4 |
+| 9 | Notification preferences and staff recipients; refund / dispute / pickup / shipping-deadline / payout notices | P1 | not built | one notice per event/recipient; no buyer contact; preferences respected; staff only by permission | §8.1 |
+| 10 | Seller-agreement clause against sale diversion | P1 | needs legal wording + owner approval | approved wording in the seller agreement; referenced in messaging notices | §9 |
+| 11 | Consultation form relabelled "Request a consultation" (services only), screened by the same rules | P1 | not built | not linked from items/widgets/emails; item-specific requests redirected to item questions | §9, design §3.4 |
+| 12 | Search, filters (~10) and sorting, shared by marketplace and widget | P1 | not built | same results for marketplace/widget scopes; no other seller's items in a widget; sold/removed excluded unless "include sold"; zero-data facets hidden | §10.2 |
+| 13 | Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | P1 | not built | key bound to one seller; no private/unpublished data; canonical links; noindex frames; safe nav URLs; attribution kept | §7.5–7.6, §10.1 |
+| 14 | Bulk spreadsheet import + image migration (drafts only) | P1 | not built | seller-scoped; drafts only; shipping off unless confirmed; Past Merchandise off; duplicate detection; error report | §8.3 |
+| 15 | **Past Merchandise tab** | P2 | not built | see §12.2 | §12.2 |
+| 16 | Guest (email-verified) questions, attachments, cross-conversation (L5) scoring, in-app / push notices | P2 | not built | guest email verified before delivery; attachments scanned and seller-scoped; L5 only flags for review | §9 |
+| 17 | Shopping-feed builder + Google Merchant Center mapper (no submission without approval) | P2 | not built | feed values = database; sold/removed never advertised; no invented identifiers; validated internally | §4.4 |
+| 18 | Tax-time reports (exports only; no filing) | P2 | not built | per-period exports reconcile to the ledger; no filing or remittance features | §8.7 |
+| 19 | Compliance profile — only fields with a verified requirement | P2 | scope rule recorded | each field has a documented legal/processor basis before collection | §8.6 |
+| 20 | Category pages; sold-item index retention period | P2 | not built / owner decision | category pages list only public items; retention rule applied to sitemap | §4 |
+| 21 | Admin read-access logging beyond messaging | P2 | not built | every admin read of private seller/buyer data logged | §6 |
+| 22 | Public Professional Seller marketing launch | P2 | prepared only | launch only after P0 items and owner approval; seller-benefit wording | §3 |
+| 23 | Phone Sasha timing test (MI-1) | maintenance | separate task | deterministic test; no production-path timing bug masked | `../operations/known-issues.md` |
+
+## 12. TODO — Sold presentation and Past Merchandise (owner requirements 2026-10-26, permanent)
+
+### 12.1 Red SOLD banner (P1)
+- **Requirement:** when a Professional Storefront item has actually sold, its main product image shows a prominent
+  **red** banner or corner ribbon at the **top right** reading **"SOLD"** in clear white lettering — on the product page,
+  storefront item cards, search results, Past Merchandise and (later) the seller's website widget, wherever a sold item
+  appears.
+- **Source of truth:** the item's real sale state (`marketplace_items.status = 'sold'`, set only when a paid order exists).
+  A pending checkout (`pending_purchase`) is **not** sold: it keeps its "Sale in progress" treatment and no SOLD banner.
+- **Rules:** sold items are never purchasable (no Buy Now, no checkout — already enforced server-side); a refund,
+  cancellation or relist that returns the item to sale removes the banner at once because it is rendered from live
+  status, never stored on the image; the banner is an overlay (the seller's original photo is never altered); accessible
+  text ("Sold") for screen readers; works on mobile and narrow widget embeds.
+- **Today:** the product page shows a small "SOLD" pill in the buy box and `SoldOut` structured data; there is no image
+  banner; storefront grids do not show sold items.
+- **Acceptance tests:** sold item → banner on page, card, search and gallery renderings; `pending_purchase` → no banner;
+  refund + relist → no banner and purchasable again only through the normal relist rules; no purchase control on any
+  sold rendering; one shared rendering helper used by every surface (server-rendered page and client cards).
+- **Dependencies:** none for the product page and storefront cards; search results need §10.2; the widget needs §7.5.
+
+### 12.2 Past Merchandise tab (P2)
+- **Requirement:** an optional public storefront tab **"Past Merchandise"** — a gallery of previously sold items the
+  shop owner chooses to showcase, to show the type and quality of merchandise the business has handled.
+- **Rules:**
+  - each item has a seller-controlled **"Show in Past Merchandise"** toggle, default **OFF** for every item, including
+    imported inventory and converted auction lots; the seller may turn it on or off at any time;
+  - only items that have **actually sold** (paid order, not refunded) **and** were explicitly selected appear; the
+    toggle can be set in advance but has no effect until the item is sold;
+  - gallery items show the original photo, title and the red SOLD banner (§12.1), are clearly unavailable and can never
+    be purchased again; the gallery is separate from active inventory (never mixed into Shop Items or counts);
+  - the tab is hidden (or shows a friendly empty state) when nothing is selected;
+  - seller ownership enforced server-side (the item's real seller only, from the session); only items that are otherwise
+    public (not taken down, not demo-only on real pages, Professional seller, branding rules respected); no buyer
+    identity, sale price history beyond what the item page shows, order or transaction data;
+  - historical product pages stay reachable where appropriate for SEO with `SoldOut` availability and no purchase
+    controls; they stay out of shopping feeds; sitemap inclusion follows the sold-item retention decision (§4);
+  - relisting, refunds, cancellations, takedowns and other status changes immediately remove an item from the gallery
+    (rendered from live status + toggle, never a stored copy);
+  - the same behaviour later in the seller-branded storefront widget (§7.5).
+- **Data:** one boolean on `marketplace_items` (e.g. `show_in_past_merchandise`, default false) set only through the
+  seller's own edit path; no new copy of the item.
+- **Acceptance tests:** default off (new, imported, converted items); a sold + selected item appears; an unsold, pending,
+  refunded, relisted, removed or taken-down item never appears; another seller cannot set the toggle or see the gallery
+  data; gallery items have no purchase controls and carry SOLD + `SoldOut`; empty state / hidden tab; widget parity once
+  §7.5 exists.
+- **Dependencies:** §12.1 (shared SOLD rendering); storefront tabs (§7.3, live); sold-item retention decision (§4);
+  bulk import (§8.3) must default the toggle off; widget (§7.5) for widget parity.
+- **Not started until** Milestone Q is deployed and the P0 launch-critical items are handled, per owner instruction.

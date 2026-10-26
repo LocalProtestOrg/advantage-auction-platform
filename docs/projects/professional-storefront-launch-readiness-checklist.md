@@ -46,7 +46,7 @@ filters and sorting; storefront website widget and branded header; bulk import a
 builder and any network submission; full settlement statements and reconciliation automation (if a manual procedure is
 approved for launch); tax-time reports; compliance-profile fields (only if a requirement is verified); guest questions,
 attachments and cross-conversation scoring; consultation-form relabelling; category pages; public Professional Seller
-marketing (launch only once the above is genuinely ready); Phone Sasha timing test (MI-1).
+marketing (launch only once the above is genuinely ready); red SOLD banner on sold item images (roadmap §12.1, P1); Past Merchandise tab (§12.2, P2); Phone Sasha timing test (MI-1).
 
 ## 5. Decisions and approvals needed from the owner
 1. Deploy approval for `feat/item-messaging` (migration 205 + code), after the independent review fixes and gate.
