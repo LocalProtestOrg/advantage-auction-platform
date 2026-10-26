@@ -76,3 +76,6 @@ creative-engine/runtime/cache/
 
 # Phone Sasha certification run output (contains only fictional fixture data)
 certification/sasha-phone/reports/
+
+# Personal Claude Code approvals (shared rules live in .claude/settings.json)
+.claude/settings.local.json
