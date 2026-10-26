@@ -47,6 +47,7 @@
         <button id="t-market" onclick="tab('market')">Items for Sale</button>
         <button id="t-unsold" onclick="tab('unsold')">From Auctions</button>
         <button id="t-leads" onclick="tab('leads')">Inquiries</button>
+        <button id="t-widget" onclick="tab('widget')">My Website Widget</button>
       </div>
       <div class="msg" id="msg"></div>
 
@@ -140,6 +141,34 @@
       <div id="pane-leads" style="display:none">
         <div class="card"><h3 style="margin-bottom:.5rem">Consultation inquiries</h3><table><thead><tr><th>Received</th><th>From</th><th>Contact</th><th>Service</th><th>Status</th></tr></thead><tbody id="leadsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
       </div>
+
+      <!-- My Website Widget (roadmap 7.5): automatic for every Professional Seller; nothing to request. -->
+      <div id="pane-widget" style="display:none">
+        <div class="card">
+          <h3 style="margin-bottom:.4rem">Show your items on your own website</h3>
+          <p class="hint" style="margin-bottom:.6rem">Your website widget shows the items you have for sale on Advantage.Bid. It updates by itself when you add, change, sell or remove an item. Every item opens its own Advantage.Bid page, where buyers can see the details and buy securely. Your items also stay listed on Advantage.Bid.</p>
+          <div id="w-status" class="msg"></div>
+          <label for="w-code">Embed code (paste into your website)</label>
+          <textarea id="w-code" rows="5" readonly style="font-family:ui-monospace,Consolas,monospace;font-size:.78rem"></textarea>
+          <div style="margin-top:.5rem"><button class="btn b-blue" id="w-copy-code" type="button">Copy Embed Code</button> <span class="hint" id="w-code-msg"></span></div>
+          <label for="w-link">Storefront link (for websites that cannot embed)</label>
+          <input id="w-link" readonly>
+          <div style="margin-top:.5rem"><button class="btn b-ghost" id="w-copy-link" type="button">Copy Storefront Link</button> <span class="hint" id="w-link-msg"></span></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:.4rem">How to add it to your website</h3>
+          <ol style="margin:.2rem 0 .2rem 1.2rem;font-size:.88rem;line-height:1.6">
+            <li>Click <b>Copy Embed Code</b>.</li>
+            <li>In your website editor, add a block for custom HTML or embed code (WordPress: "Custom HTML" block; Squarespace: "Code" block; Wix: "Embed HTML" or "Embed a site"; Brilliant Directories: a custom HTML widget or content area).</li>
+            <li>Paste the code, save, and publish your page.</li>
+            <li>If your website does not allow embed code, use <b>Copy Storefront Link</b> and add it as a link or button instead.</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:.4rem">Preview</h3>
+          <div id="w-preview-wrap" class="hint">The preview appears once your storefront is published.</div>
+        </div>
+      </div>
     </div>
   </div>
   <script>
@@ -149,7 +178,31 @@
     function money(c){return '$'+((c||0)/100).toLocaleString();}
     async function api(m,u,b){var o={method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};if(b)o.body=JSON.stringify(b);var r=await fetch(u,o);if(r.status===401){location.href='/login.html';throw new Error('auth');}return r.json();}
     function msg(t,ok){var e=document.getElementById('msg');e.textContent=t;e.style.color=ok?'#166534':'#b91c1c';}
-    function tab(n){['store','market','unsold','leads'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});if(n==='market')loadItems();if(n==='unsold')loadUnsold();if(n==='leads')loadLeads();}
+    function tab(n){['store','market','unsold','leads','widget'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});if(n==='market')loadItems();if(n==='unsold')loadUnsold();if(n==='leads')loadLeads();if(n==='widget')loadWidget();}
+    // My Website Widget: the server builds the embed code and link for THIS company (from the session).
+    function copyText(id,msgId){var el=document.getElementById(id),m=document.getElementById(msgId);var v=el.value;if(!v)return;
+      function done(ok){m.textContent=ok?'Copied.':'Select the text and copy it.';setTimeout(function(){m.textContent='';},2500);}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v).then(function(){done(true);},function(){el.select();done(false);});}
+      else{el.select();try{done(document.execCommand('copy'));}catch(e){done(false);}}}
+    async function loadWidget(){
+      var st=document.getElementById('w-status');st.textContent='Loading...';st.style.color='#64748b';
+      var r=await api('GET','/api/seller-storefront/widget');
+      if(!r.success){st.textContent=r.message||'Your website widget is not available.';st.style.color='#b91c1c';return;}
+      var d=r.data;
+      document.getElementById('w-code').value=d.embed_code||'';
+      document.getElementById('w-link').value=d.storefront_url||'';
+      document.getElementById('w-copy-code').disabled=!d.embed_code;document.getElementById('w-copy-link').disabled=!d.storefront_url;
+      if(!d.eligible){st.textContent='The website widget is available to Professional Sellers.';st.style.color='#b91c1c';}
+      else if(!d.storefront_url){st.textContent='Choose your storefront address on the Storefront tab to get your widget.';st.style.color='#92400e';}
+      else if(!d.active){st.textContent='Publish your storefront (Storefront tab) to turn on your widget. Until then it shows "not available" on your website.';st.style.color='#92400e';}
+      else if(d.shop_hidden){st.textContent='Your Shop section is hidden on your storefront, so your widget shows no items. Turn the Shop section back on (Storefront tab) to show them.';st.style.color='#92400e';}
+      else{st.textContent='Your widget is on and showing '+d.item_count+' item'+(d.item_count===1?'':'s')+'.';st.style.color='#166534';}
+      var pw=document.getElementById('w-preview-wrap');
+      if(d.active){pw.className='';pw.innerHTML='<iframe src="'+esc(d.embed_url)+'" title="Website widget preview" style="border:0;width:100%;height:640px;background:#fff;border-radius:8px"></iframe>';}
+      else{pw.className='hint';pw.textContent='The preview appears once your storefront is published.';}
+    }
+    document.getElementById('w-copy-code').addEventListener('click',function(){copyText('w-code','w-code-msg');});
+    document.getElementById('w-copy-link').addEventListener('click',function(){copyText('w-link','w-link-msg');});
 
     var CFG=null;
     // ── Shipping controls (src/lib/storefrontShipping.js is the authority; this only collects the seller's choices) ──
@@ -250,7 +303,7 @@
       if(!d.staff)loadPolicies();
       if(d.staff){
         // Staff (Inventory Manager): items only. Storefront settings, the private pickup address and inquiries stay with the owner.
-        ['t-store','t-leads','pane-store','pane-leads','loc-card'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+        ['t-store','t-leads','t-widget','pane-store','pane-leads','pane-widget','loc-card'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
         var sb=document.createElement('div');sb.className='sub';sb.style.margin='0 0 12px';sb.textContent='Working for '+(d.name||'your company')+' as staff.';
         var ct=document.getElementById('content');ct.insertBefore(sb,ct.firstChild);
         renderDefaultLoc();tab('market');return;

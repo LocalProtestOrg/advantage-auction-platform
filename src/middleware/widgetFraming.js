@@ -36,6 +36,9 @@ function widgetFraming(req, res, next) {
   } else if (req.path && req.path.startsWith('/embed/')) {
     res.removeHeader('X-Frame-Options');            // white-label host: embeddable on any company site
     res.setHeader('Content-Security-Policy', EMBED_FRAME_ANCESTORS);
+    // Embedded displays are never indexed (their links may be followed): search engines index the canonical Advantage.Bid
+    // pages they link to, so an embed never competes with them as duplicate content.
+    res.setHeader('X-Robots-Tag', 'noindex');
   }
   next();
 }

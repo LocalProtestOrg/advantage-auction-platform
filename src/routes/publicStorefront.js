@@ -47,6 +47,20 @@ router.get('/item/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Website widget data for ONE seller (by the seller's stable id; declared before /:slug). Public inventory only, the
+// same for every visitor (no session is read). Revalidated on every request so a sold item drops out at once.
+router.get('/widget/:sellerId', async (req, res, next) => {
+  // Only a seller id selects a widget; anything else (e.g. /widget/policies for a storefront whose slug is "widget")
+  // continues to the storefront routes below.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(req.params.sellerId || ''))) return next();
+  try {
+    const feed = await require('../services/storefrontWidgetService').publicFeed(req.params.sellerId);
+    res.set('Cache-Control', 'no-cache');
+    if (!feed) return res.status(404).json({ success: false, code: 'WIDGET_NOT_AVAILABLE', message: 'This shop is not available right now.' });
+    return res.json({ success: true, data: feed });
+  } catch (e) { next(e); }
+});
+
 // Storefront data by slug.
 router.get('/:slug', async (req, res, next) => {
   // Lists priced active items, any of which can sell at any moment: revalidated on every request (§12.3).

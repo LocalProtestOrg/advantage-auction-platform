@@ -48,6 +48,12 @@ router.post('/policies/:kind/publish', seller('company.storefront.manage'), asyn
   try { return res.json({ success: true, data: await policies.publish(req.sellerCtx, req.params.kind) }); } catch (e) { fail(res, e, next); }
 });
 
+// ── My Website Widget (owner; roadmap §7.5): the seller's own embed code and storefront link. Automatic: every
+// Professional Seller has one, tied to their seller id; nothing to request or create.
+router.get('/widget', seller('company.storefront.manage'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/storefrontWidgetService').forOwner(req.sellerCtx) }); } catch (e) { fail(res, e, next); }
+});
+
 // Store-wide shipping default for NEW items (owner). Saving it never changes an existing listing.
 router.put('/shipping-defaults', seller('company.storefront.manage'), async (req, res, next) => {
   try { return res.json({ success: true, data: await storefront.setShippingDefaults(req.user.id, req.body || {}) }); }

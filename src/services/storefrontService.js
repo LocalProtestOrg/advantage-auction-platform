@@ -259,8 +259,30 @@ async function ssrMeta(slug) {
     ...(cfg.website || Object.keys(cfg.socials || {}).length ? { sameAs: [cfg.website, ...Object.values(cfg.socials || {})].filter(Boolean) } : {}),
     ...(loc ? { areaServed: loc } : {}),
   };
-  return { title, description: desc, canonical, image, jsonld, noindex: !!sp.is_demo, name, loc };
+  // Crawlable item links (the storefront grid itself is drawn in the browser): the same active items as the page,
+  // each pointing at its canonical product URL, so discovery never depends on client-side code.
+  // Fail-safe: if the list cannot be read, the page still renders its metadata (no links rather than no page).
+  let items = [];
+  if (!((sp.storefront || {}).section_visibility && sp.storefront.section_visibility.marketplace === false)) {
+    try {
+      items = ((await marketplaceItems.listPublicForSeller(sp.id, 100)) || []).map((m) => ({
+        title: m.title, price_cents: m.status === 'active' ? m.price_cents : null, path: require('../lib/productData').canonicalPath(m) }));
+    } catch (e) { items = []; }
+  }
+  return { title, description: desc, canonical, image, jsonld, noindex: !!sp.is_demo, name, loc, items };
+}
+
+// Server-rendered list of the storefront's items for /pro/:slug: plain links to each item's canonical product page, so
+// search engines find every item without running the page's script (the script replaces this with the full storefront).
+function ssrItemsHtml(meta) {
+  const list = (meta && meta.items) || [];
+  if (!list.length) return '';
+  const h = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const money = (c) => '$' + (Number(c) / 100).toLocaleString('en-US', { minimumFractionDigits: Number(c) % 100 ? 2 : 0, maximumFractionDigits: 2 });
+  return `<section class="wrap" id="ssr-shop" aria-label="Items for sale"><h2>Shop ${h(meta.name)}</h2><ul>`
+    + list.map((m) => `<li><a href="${h(m.path)}">${h(m.title)}</a>${m.price_cents != null ? ' ' + h(money(m.price_cents)) : ''}</li>`).join('')
+    + '</ul></section>';
 }
 
 module.exports = { getStaffConfig, setShippingDefaults,
-  isPublicStorefront, sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };
+  isPublicStorefront, sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean, APP_BASE, ssrItemsHtml };

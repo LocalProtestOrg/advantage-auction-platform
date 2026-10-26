@@ -501,8 +501,14 @@ app.get('/pro/:slug', async (req, res, next) => {
       `<meta name="twitter:card" content="summary_large_image">`,
     ].filter(Boolean).join('');
     const jsonld = `<script type="application/ld+json">${JSON.stringify(meta.jsonld).replace(/</g, '\\u003c')}</script>`;
-    // Strip the static <title> so the SSR one is the ONLY title crawlers see, then inject meta + JSON-LD.
-    const html = tpl.replace(/<title>[\s\S]*?<\/title>/i, '').replace('<!-- SSR-META -->', head).replace('<!-- SSR-JSONLD -->', jsonld);
+    // Crawlable links to every listed item's canonical product page (the browser replaces this with the full storefront).
+    const itemsHtml = require('./src/services/storefrontService').ssrItemsHtml(meta);
+    // The page lists item prices, and any item can sell at any moment: revalidated on every view (§12.3).
+    res.set('Cache-Control', 'no-cache');
+    // Strip the static <title> so the SSR one is the ONLY title crawlers see, then inject meta + JSON-LD + item links.
+    // Function replacements: seller text is inserted literally ("$&" or "$'" in a name never acts as a pattern).
+    const html = tpl.replace(/<title>[\s\S]*?<\/title>/i, () => '').replace('<!-- SSR-META -->', () => head)
+      .replace('<!-- SSR-JSONLD -->', () => jsonld).replace('<!-- SSR-ITEMS -->', () => itemsHtml);
     return res.send(html);
   } catch (e) { return res.send(tpl); } // fail-open
 });

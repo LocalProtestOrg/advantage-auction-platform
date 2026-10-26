@@ -54,7 +54,7 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | **Milestone 206: sold-item price privacy + message reporting, moderator hiding and controlled messaging pilot** (§9.1, §12.3, migration 206) | Built 2026-10-26 on `feat/sold-price-privacy`; not committed, not deployed; migration 206 NOT applied; messaging and pilot stay OFF (all three settings unset). Waiting for owner review, then commit, independent review and the production gate |
 | Widget header, search & filters (§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built |
 | Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
-| Storefront website widget (§7.5–7.6) | Requirements recorded 2026-10-16; not built |
+| Storefront website widget (§7.5–7.6) | Basic release built 2026-10-26 (branch `feat/storefront-website-widget`, no migration; not deployed): My Website Widget tab, embed + storefront link, live public inventory, canonical item links, crawlable storefront item links; branding/filters/policy tabs deferred (§7.5) |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money; storefront orders are not yet in any settlement or payout report |
 
 Launch readiness: `professional-storefront-launch-readiness-checklist.md` (what is live, built, required before the
@@ -301,7 +301,42 @@ default. Tests in `tests/storefront-ownership-adversarial.test.js` ("shipping:" 
   unpublished inventory, pickup street addresses, financial records or another seller's policies.
 - SEO: the widget never creates competing indexable product pages (product links point to the canonical
   `/shop/item/<id>/<slug>` URL; widget frames are noindex), so the deployed product SEO foundation is preserved.
-- Today: no storefront widget. Migration needed: yes (widget settings/keys per seller).
+- **Basic release BUILT 2026-10-26 (branch `feat/storefront-website-widget`, not deployed; no migration):**
+  - "My Website Widget" tab in the seller's storefront dashboard (`/seller-storefront.html`, owner only, hidden from
+    staff): Copy Embed Code, Copy Storefront Link, install steps (WordPress, Squarespace, Wix, Brilliant Directories),
+    live preview, and status ("publish your storefront to turn on your widget"). Automatic for every Professional
+    Seller; nothing to request or create. Owner API `GET /api/seller-storefront/widget` (`company.storefront.manage`;
+    the company comes from the session).
+  - Embed: `/embed/storefront.html?seller=<seller id>` reads `GET /api/public/storefront/widget/:sellerId`
+    (`storefrontWidgetService.publicFeed`). The snippet is a plain iframe (no script, so site builders keep it) plus a
+    plain link to the canonical storefront.
+  - Same eligibility as the storefront page (published + Professional) and the same data path
+    (`listPublicForSeller`: active items only), so sold, pending, draft, removed and taken-down items never appear and
+    a sold price cannot be shown; a hidden Shop section shows no items; demo-flagged items only on a demo seller;
+    no session is read (never a member price); allow-listed fields only; every item
+    links to its canonical `/shop/item/<id>/<slug>` page (new tab); "Shop securely on Advantage.Bid" attribution;
+    answers `no-cache`.
+  - Frame: `/embed/*` is embeddable on any site (`frame-ancestors *`, existing) and now also `X-Robots-Tag: noindex`;
+    every other page keeps `SAMEORIGIN`.
+  - SEO: item pages are the indexed, canonical, server-rendered product pages (title, description, content, Product +
+    Offer + BreadcrumbList JSON-LD, images, seller), in the sitemap; `/pro/:slug` now also server-renders crawlable
+    links to every listed item (`storefrontService.ssrItemsHtml`), so discovery never depends on the page script or
+    the iframe.
+  - Marketplace Integrity Suite: `widget:storefront-items` (one published, non-demo Professional storefront's widget
+    count equals its canonical live-item count) and `widget:canonical-links`.
+  - Tests: `tests/storefront-website-widget.test.js`.
+- **Decision for the basic release (owner instruction 2026-10-26: avoid unnecessary database changes):** the widget is
+  identified by the seller's stable public seller id (already public in the storefront API) instead of a separate
+  widget key. The id only selects WHICH seller's public storefront to show; nothing private or writable depends on it,
+  and the server never accepts any other seller selection. Trade-off: it cannot be rotated or revoked per embed (a
+  seller stops the widget by unpublishing the storefront). A rotatable server-issued key (migration) stays available as
+  a later enhancement if per-embed revocation is wanted.
+- **Deferred to later releases (recorded, not built):** seller logo and branding customization; accent colors, themes
+  and layout options; advanced preview and installation wizard; automatic height and more sophisticated responsive
+  embed controls (the basic snippet uses a fixed 900px height with internal scrolling); search, filters and sorting
+  inside the widget (§10.2); Store Terms / Shipping & Pickup tabs and the branded navigation header (§10.1); widget
+  analytics and conversion reporting; additional design and merchandising options; restricting embeds to the seller's
+  verified domains; Past Merchandise and "View Sold Price" in the widget (§12.2, §12.3).
 
 ### 7.6 Mandatory dual distribution
 - Every eligible Professional Seller fixed-price listing is published on the Advantage.Bid marketplace; the widget may also
@@ -603,7 +638,7 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 10 | Seller-agreement clause against sale diversion | P1 | needs legal wording + owner approval | approved wording in the seller agreement; referenced in messaging notices | §9 |
 | 11 | Consultation form relabelled "Request a consultation" (services only), screened by the same rules | P1 | not built | not linked from items/widgets/emails; item-specific requests redirected to item questions | §9, design §3.4 |
 | 12 | Search, filters (~10) and sorting, shared by marketplace and widget | P1 | not built | same results for marketplace/widget scopes; no other seller's items in a widget; sold/removed excluded unless "include sold"; zero-data facets hidden | §10.2 |
-| 13 | Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | P1 | not built | key bound to one seller; no private/unpublished data; canonical links; noindex frames; safe nav URLs; attribution kept | §7.5–7.6, §10.1 |
+| 13 | Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | P1 | basic release built 2026-10-26 (not deployed); policy tabs, branded header, branding and filters deferred (§7.5) | key bound to one seller; no private/unpublished data; canonical links; noindex frames; safe nav URLs; attribution kept | §7.5–7.6, §10.1 |
 | 14 | Bulk spreadsheet import + image migration (drafts only) | P1 | not built | seller-scoped; drafts only; shipping off unless confirmed; Past Merchandise off; duplicate detection; error report | §8.3 |
 | 15 | **Past Merchandise tab** | P2 | not built | see §12.2 | §12.2 |
 | 15a | **Sold storefront item pages: price privacy** (part of §12.3) | P0 | DECIDED 2026-10-26: a sold item's price is never public; built in Milestone 206 (not deployed; production still shows the listed price on sold pages, and production has no real storefront sale yet) | 206 deployed and verified before the first real sale; signed-out JSON API, page, meta tags and structured data carry no price or shipping charge for a sold item | §12.3 |

@@ -365,13 +365,15 @@ function staffItemView(row) {
 }
 
 // Public active listings for a seller (storefront + feed).
-async function listPublicForSeller(sellerId, limit = 200, runner = db) {
+// opts.excludeDemoItems: also leave out demo-flagged items (the website widget for a real seller, so it matches the
+// canonical live-item rule in marketplaceVisibility.activeMarketplaceItemSql).
+async function listPublicForSeller(sellerId, limit = 200, runner = db, { excludeDemoItems = false } = {}) {
   const { rows } = await runner.query(
     `SELECT mi.id, mi.seller_id, mi.title, mi.price_cents, mi.thumbnail_url, mi.images, mi.city, mi.state, mi.shippable, mi.pickup_group,
             mi.category, mi.condition, mi.status, mi.source_lot_id, mi.created_at,
             mi.shipping_method, mi.shipping_price_mode, mi.shipping_cost_cents, mi.shipping_destinations, mi.shipping_states
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.seller_id = $1 AND mi.status = 'active' AND sp.seller_type = ANY($3::text[])
+      WHERE mi.seller_id = $1 AND mi.status = 'active' AND sp.seller_type = ANY($3::text[])${excludeDemoItems ? ' AND mi.is_demo IS NOT TRUE' : ''}
       ORDER BY mi.created_at DESC LIMIT $2`,
     [sellerId, limit, PROFESSIONAL_SELLER_TYPES]);
   // "Ships" only when shipping can actually be bought (complete terms); the shipping terms themselves stay on the item page.

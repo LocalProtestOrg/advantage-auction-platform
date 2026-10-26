@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Shop</title>
+<style>
+  /* Professional Seller website widget (roadmap 7.5). Public inventory only; every item opens its canonical
+     Advantage.Bid product page, where checkout happens. Embedded displays are noindex; the product pages are indexed. */
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;background:transparent}
+  .sw-wrap{max-width:1100px;margin:0 auto;padding:8px}
+  .sw-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin:4px 4px 12px}
+  .sw-co{font-size:1.05rem;font-weight:800;color:#111827;margin:0}
+  .sw-count{font-size:.8rem;color:#6b7280}
+  .sw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .sw-card{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column;text-decoration:none;color:inherit}
+  .sw-card:hover,.sw-card:focus{border-color:#9ca3af;outline:none}
+  .sw-card:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+  .sw-img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#f3f4f6;display:block}
+  .sw-noimg{width:100%;aspect-ratio:1/1;background:#f3f4f6;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:.8rem}
+  .sw-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+  .sw-title{font-weight:700;font-size:.92rem;line-height:1.3;color:#111827;margin:0}
+  .sw-price{font-weight:800;font-size:1rem;color:#111827}
+  .sw-meta{font-size:.78rem;color:#6b7280;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .sw-pill{display:inline-block;font-size:.68rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#f3f4f6;color:#374151}
+  .sw-cta{margin-top:auto;font-size:.82rem;font-weight:700;color:#1d4ed8}
+  .sw-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:.9rem}
+  .sw-foot{margin:16px 4px 4px;font-size:.8rem;color:#6b7280;text-align:center}
+  .sw-foot a{color:#1d4ed8;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="sw-wrap"><div id="sw-root"><div class="sw-empty">Loading items...</div></div></div>
+<script>
+(function () {
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  // Only links to this platform are ever rendered (the server builds them; this is a second check).
+  function safeUrl(u){u=String(u||'');return /^https?:\/\//i.test(u)?u:'#';}
+  function money(c){if(c==null)return '';var n=Number(c)/100;return '$'+n.toLocaleString('en-US',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});}
+  var root=document.getElementById('sw-root');
+  var SELLER='';try{SELLER=new URLSearchParams(location.search).get('seller')||'';}catch(e){}
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(SELLER)){root.innerHTML='<div class="sw-empty">This shop is not available right now.</div>';return;}
+
+  function card(it){
+    var loc=[it.city,it.state].filter(Boolean).map(esc).join(', ');
+    var img=it.image?'<img class="sw-img" src="'+esc(it.image)+'" alt="'+esc(it.image_alt||it.title)+'" loading="lazy" decoding="async">':'<div class="sw-noimg">No photo</div>';
+    return '<a class="sw-card" href="'+esc(safeUrl(it.url))+'" target="_blank" rel="noopener">'+img
+      +'<div class="sw-body"><p class="sw-title">'+esc(it.title)+'</p>'
+      +(it.price_cents!=null?'<div class="sw-price">'+esc(money(it.price_cents))+'</div>':'')
+      +'<div class="sw-meta">'+(loc?'<span>'+loc+'</span>':'')+'<span class="sw-pill">'+(it.shippable?'Shipping available':'Local pickup')+'</span></div>'
+      +'<span class="sw-cta">View details</span></div></a>';
+  }
+  function render(d){
+    var s=d.seller||{},list=d.items||[],att=d.attribution||{};
+    document.title=(s.name||'Shop')+' | Shop';
+    var foot='<p class="sw-foot"><a href="'+esc(safeUrl(att.url||s.storefront_url))+'" target="_blank" rel="noopener">'+esc(att.label||'Shop securely on Advantage.Bid')+'</a></p>';
+    var head='<div class="sw-head"><p class="sw-co">'+esc(s.name||'Shop')+'</p><span class="sw-count">'+list.length+' item'+(list.length===1?'':'s')+' available</span></div>';
+    root.innerHTML=head+(list.length?'<div class="sw-grid">'+list.map(card).join('')+'</div>':'<div class="sw-empty">No items are available right now. Please check back soon.</div>')+foot;
+  }
+  fetch('/api/public/storefront/widget/'+encodeURIComponent(SELLER),{credentials:'omit'}).then(function(r){return r.json();}).then(function(res){
+    if(!res||!res.success){root.innerHTML='<div class="sw-empty">This shop is not available right now.</div>';return;}
+    render(res.data);
+  }).catch(function(){root.innerHTML='<div class="sw-empty">Items could not be loaded. Please try again later.</div>';});
+})();
+</script>
+</body>
+</html>

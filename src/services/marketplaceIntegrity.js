@@ -17,7 +17,22 @@
  * gate never fails on a transient network blip, but a definitively-broken surface FAILS.
  */
 
-const { canonicalCounts } = require('../lib/marketplaceVisibility');
+const { canonicalCounts, activeMarketplaceItemSql } = require('../lib/marketplaceVisibility');
+const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
+
+// One published, non-demo Professional storefront (the one with the most live items) and its canonical live-item count,
+// to hold the seller website widget to. Null when there is none.
+async function widgetSample(db) {
+  try {
+    const r = (await db.query(
+      `SELECT sp.id, (SELECT count(*)::int FROM marketplace_items m WHERE m.seller_id = sp.id AND ${activeMarketplaceItemSql('m')}) AS n
+         FROM seller_profiles sp
+        WHERE sp.storefront_published = true AND COALESCE(sp.is_demo, false) = false AND sp.seller_type = ANY($1::text[])
+          AND COALESCE(sp.storefront->'section_visibility'->>'marketplace', 'true') <> 'false'
+        ORDER BY n DESC, sp.id LIMIT 1`, [PROFESSIONAL_SELLER_TYPES])).rows[0];
+    return r && r.id ? { id: r.id, n: Number(r.n) } : null;
+  } catch (e) { return null; }
+}
 
 const PASS = 'PASS', WARN = 'WARNING', FAIL = 'FAIL';
 const rank = { PASS: 0, WARNING: 1, FAIL: 2 };
@@ -107,6 +122,19 @@ async function verify({ db, baseUrl, fetchImpl, live = true } = {}) {
       const leak = (p1.json.data || []).some((x) => x.type && x.type !== 'auction' && x.type !== 'estate_sale');
       checks.push({ surface: 'feed:classification', category: 'schema', expected: 'auction|estate_sale only',
         actual: leak ? 'unknown type present' : 'ok', status: leak ? FAIL : PASS, detail: leak ? 'unexpected item type' : 'canonical types only' });
+    }
+
+    // ── Seller website widget parity: a storefront's widget lists exactly that seller's canonical live items ──
+    const ws = await widgetSample(db);
+    if (ws) {
+      const w = await safeFetch(`${base}/api/public/storefront/widget/${ws.id}`, fetchImpl);
+      const wItems = w.json && w.json.data && Array.isArray(w.json.data.items) ? w.json.data.items : null;
+      const foreign = wItems ? wItems.some((x) => !x.url || !/\/shop\/item\//.test(x.url)) : false;
+      checks.push(countCheck('widget:storefront-items', Math.min(ws.n, 100), w.ok && wItems ? wItems.length : null));
+      checks.push({ surface: 'widget:canonical-links', category: 'seo', expected: 'every item links to its canonical product page',
+        actual: wItems ? (foreign ? 'non-canonical link present' : 'ok') : `HTTP ${w.status}`,
+        status: wItems ? (foreign ? FAIL : PASS) : (w.status === 0 ? WARN : FAIL),
+        detail: wItems ? (foreign ? 'a widget item does not link to /shop/item/' : 'canonical links intact') : 'widget data unavailable' });
     }
 
     // ── SEO / structured data: sitemap present, an event detail page carries canonical + Event JSON-LD ──
