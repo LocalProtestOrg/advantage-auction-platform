@@ -50,7 +50,7 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | LIVE (6383329, 2026-10-16), verified in production (rolled-back DB check `scripts/prod-verify-203.js` PASS) |
 | **Milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2, migration 204) | LIVE (0c069e6, 2026-10-16), verified in production (`scripts/prod-verify-204.js` rolled-back PASS; no email sent) |
 | Estimated-proceeds wording in the sale email, known-issues log (MI-1), milestone Q scope, `prod-verify-204.js` | Built on `feat/item-messaging` (`c80dcfc`); not deployed |
-| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | Built on `feat/item-messaging` (`c8ec6f9`, `146d665`, `27ac6c6`); two independent review rounds, findings fixed; gate green; deploy approved 2026-10-26; flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
+| **Milestone Q: secure item-specific buyer-to-seller messaging** (§9, migration 205) | Built on `feat/item-messaging` (`c8ec6f9`, `146d665`, `27ac6c6`); two independent review rounds, findings fixed; gate green; migration 205 APPLIED + verified in production 2026-10-26 (prod-verify-205 rolled-back PASS); flag `STOREFRONT_MESSAGING_ENABLED` stays unset (off) until the owner approves |
 | Widget header, search & filters (§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built |
 | Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Storefront website widget (§7.5–7.6) | Requirements recorded 2026-10-16; not built |
@@ -554,6 +554,8 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 13 | Storefront website widget (live inventory, policies, Advantage.Bid checkout only) + branded header / navigation | P1 | not built | key bound to one seller; no private/unpublished data; canonical links; noindex frames; safe nav URLs; attribution kept | §7.5–7.6, §10.1 |
 | 14 | Bulk spreadsheet import + image migration (drafts only) | P1 | not built | seller-scoped; drafts only; shipping off unless confirmed; Past Merchandise off; duplicate detection; error report | §8.3 |
 | 15 | **Past Merchandise tab** | P2 | not built | see §12.2 | §12.2 |
+| 15a | **Sold storefront item pages: asking-price display decision** (part of §12.3) | P0 (decision only) | not decided; today a sold page shows the listed price publicly (page + structured data) | owner decides whether sold pages show the asking price publicly, hide it, or follow the §12.3 member rule; implemented server-side before the first real sale creates a public sold page | §12.3 |
+| 15b | **Historical sold-price visibility + member research access** | P2 | not built (auction realized-price gate already LIVE) | see §12.3 | §12.3 |
 | 16 | Guest (email-verified) questions, attachments, cross-conversation (L5) scoring, in-app / push notices | P2 | not built | guest email verified before delivery; attachments scanned and seller-scoped; L5 only flags for review | §9 |
 | 17 | Shopping-feed builder + Google Merchant Center mapper (no submission without approval) | P2 | not built | feed values = database; sold/removed never advertised; no invented identifiers; validated internally | §4.4 |
 | 18 | Tax-time reports (exports only; no filing) | P2 | not built | per-period exports reconcile to the ledger; no filing or remittance features | §8.7 |
@@ -611,3 +613,61 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 - **Dependencies:** §12.1 (shared SOLD rendering); storefront tabs (§7.3, live); sold-item retention decision (§4);
   bulk import (§8.3) must default the toggle off; widget (§7.5) for widget parity.
 - **Not started until** Milestone Q is deployed and the P0 launch-critical items are handled, per owner instruction.
+
+### 12.3 Historical Sold-Price Visibility and Advantage.Bid Member Research Access (owner decisions 2026-10-26; P2, one P0 decision)
+Linked to §12.1 (SOLD banner) and §12.2 (Past Merchandise); their approved defaults are unchanged (Past Merchandise
+toggle OFF for every item; red SOLD banner top-right on the main image of every sold item shown).
+
+**A. Auction results.** Realized prices of auctions run on Advantage.Bid follow the established member-access policy:
+public visitors can discover historical auction items and descriptions; realized prices are shown to signed-in members.
+Hammer price, buyer's premium and total purchase price are always labelled separately and never presented as equal.
+- Today (LIVE): `src/lib/realizedPrice.js` hides a closed lot's winning amount / final bid from signed-out callers.
+  Gap to check when this is built: every place that shows a realized price labels it as the hammer price, and premium /
+  total are shown only where computed from the auction's own terms.
+
+**B. Professional Storefront Past Merchandise.**
+- Separate per-item setting **"Show Realized Sale Price to Advantage.Bid Members"**, default **OFF**, seller-controlled,
+  changeable later; independent of the Past Merchandise toggle.
+- ON: signed-in members may see the actual realized item sale price. OFF: the realized price stays private to the seller
+  and authorised Advantage.Bid personnel.
+- Never shown: buyer identity, private transaction terms, shipping charges, sales tax, order numbers or other order data.
+- Storefront prices are labelled as **fixed-price sales**, never as auction results. The original asking price is kept
+  separate from the realized sale price (realized = the paid order's item price; a refunded order has no realized price).
+- **P0 decision (before the first real sale):** today a sold storefront page still shows the listed price publicly and
+  in its `Offer` structured data. Because a fixed-price item sells at its listed price, that discloses the sale price
+  regardless of the new default. The owner decides the sold-page rule (e.g. hide the price on sold pages for signed-out
+  visitors and in structured data/feeds, or show the asking price as "Listed at", never as "Sold for"); it is then
+  enforced server-side.
+
+**C. Seller website widgets.** Sellers keep their own branding; Past Merchandise later works in the embedded storefront
+widget (§7.5). Visitors browse historical merchandise without an account. Where the seller allows price disclosure, an
+optional "View Sold Price" link opens Advantage.Bid to sign in or register (free). Registration is never required just
+to browse. Advantage.Bid attribution and mandatory dual distribution (§7.6) are kept.
+
+**D. Research value.** Design for a future searchable research archive (collectors, appraisers, auction houses,
+dealers): public titles, photographs, descriptions, seller attribution and SOLD status stay crawlable where appropriate
+for search discovery; confidential prices are restricted **at the server/API level** — page HTML, JSON APIs, embedded
+widgets, structured data, sitemaps, feeds and every machine-readable endpoint — never by hiding in the browser. Auction
+results and storefront transactions are separately identified in research results.
+
+**Data (when built):** one boolean on `marketplace_items` (e.g. `show_realized_price_to_members`, default false) set
+only through the seller's own edit path; the realized price read from the item's paid, non-refunded order; one shared
+server-side redaction helper used by every surface (like `realizedPrice.js` for auctions).
+
+**Acceptance criteria (measurable):**
+1. Defaults: every new, imported and converted item has both toggles OFF (database default + tests).
+2. Signed-out request to page, JSON API, widget API, structured data, sitemap and any feed: no realized storefront price
+   and no realized auction price appear (automated test over each endpoint).
+3. Signed-in member: storefront realized price appears only when the seller's toggle is ON and the order is paid and not
+   refunded; it is labelled "Fixed-price sale"; asking price is labelled separately.
+4. Auction results show hammer price, buyer's premium and total as separately labelled values; never one number
+   labelled as another.
+5. No response anywhere contains buyer identity, shipping charge, sales tax or order number for a sold item.
+6. Another seller cannot change the toggles; a refund, relist or takedown removes the realized price at once.
+7. Widget: browsing works without an account; "View Sold Price" appears only when allowed and links to Advantage.Bid
+   sign-in/registration; attribution present.
+8. Research results mark each record as "Auction result" or "Fixed-price storefront sale".
+
+**Dependencies:** §12.1 and §12.2; the sold-page price decision above (P0, decision only); member sign-in (live);
+widget (§7.5) for C; search (§10.2) for D's research archive; sold-item retention decision (§4).
+**Status:** not built; post-launch, except the P0 sold-page price decision. Not part of Milestone Q.

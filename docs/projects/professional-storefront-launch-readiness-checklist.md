@@ -38,7 +38,9 @@ shopping feeds, tax filing and remittance are **off** and stay off until the own
 6. **Item contact path decision.** Today, with checkout on, item pages still link to the storefront contact form, which
    hands the buyer's contact details to the seller. Recommended: deploy milestone Q and turn messaging on for the
    storefront before (or with) checkout so item questions stay on Advantage.Bid.
-7. Owner approval to set `MARKETPLACE_CHECKOUT_ENABLED=true` (production deploy rules apply).
+7. **Sold-page price rule** (roadmap §12.3 P0 decision): today a sold storefront page shows the listed price publicly,
+   which reveals the sale price; decide the rule and enforce it server-side before the first real sale.
+8. Owner approval to set `MARKETPLACE_CHECKOUT_ENABLED=true` (production deploy rules apply).
 
 ## 4. Can safely stay on the post-launch TODO list
 Staff accounts rollout and staff notification recipients; notification preferences and other notice types; search,
