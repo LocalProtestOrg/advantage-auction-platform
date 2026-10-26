@@ -622,6 +622,8 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 27 | Individual-item percentage discount editor | P2 | roadmap only | see §13.D | §13.D |
 | 28 | Storewide Sales & Promotions dashboard | P2 | roadmap only | see §13.E | §13.E |
 | 29 | Search and answer-engine discoverability that respects sold-price privacy | P1 | roadmap only (product SEO foundation LIVE; sold-price redaction built in 206) | see §13.F | §13.F |
+| 30 | Owner and Admin/Finance notification when a storefront item is confirmed paid (email + SMS) | P0 (before live storefront checkout) | roadmap only | see §13.G | §13.G |
+| 31 | Automatic Thursday seller settlements through Stripe Connect (Wednesday 11:59 PM ET cutoff) | P0 for automation; a manual procedure may cover launch (row 3) | roadmap only (design first; simulation before activation) | see §13.H | §13.H |
 
 ## 12. TODO — Sold presentation and Past Merchandise (owner requirements 2026-10-26, permanent)
 
@@ -812,3 +814,56 @@ Each extends an existing system; none adds a second one.
 - **Acceptance criteria:** automated checks over the page, structured data, sitemap and any feed show no sold-item
   price; canonical and robots tags correct for each state; Marketplace Integrity Suite coverage for any new public
   listing surface.
+
+### 13.G Owner and Admin/Finance notice when a storefront item is confirmed paid (owner requirement 2026-10-26; P0 before live storefront checkout)
+- **Requirement:** whenever a storefront order is confirmed paid (the payment processor's confirmed success, not a
+  checkout start), notify the Advantage.Bid owner and authorised Admin/Finance recipients by email and SMS.
+- **Content:** a secure admin order link, the seller, the item (title and inventory number), the sale amount (item price),
+  the flat 11% storefront fee (`STOREFRONT_FEE_BPS`) and the estimated seller proceeds, labelled as an estimate (not the
+  final deposit; refunds, chargebacks and holds can change it). No buyer contact details, card data, pickup address or
+  taxpayer information in the SMS or email body; anything more detailed stays behind the signed-in admin link.
+- **Reuse, not a second system:** the existing storefront notification outbox (`storefront_notifications`, migration
+  204: queue, retries, failure alert) and `ownerAlertService` (SMS, per-recipient idempotency) / `emailService`. The
+  paid-sale seller notice (§8.1, LIVE 0c069e6) is the model.
+- **Rules:** exactly one notice per paid order per recipient (deduplicated by order id + recipient, across retries,
+  webhook replays and restarts); recipients configurable by an admin and verified before use (email confirmation; phone
+  code for SMS; SMS opt-in); Finance recipients limited to users with the finance staff role; failures retried and,
+  after the last retry, raised as an admin alert; demo orders never notify real recipients.
+- **Acceptance criteria:** one paid order produces exactly one email and one SMS per verified recipient (replayed webhook
+  → no duplicate); fee and proceeds match the order record to the cent; content scan finds no buyer contact, card or
+  taxpayer data; unverified or removed recipients receive nothing; a send failure is retried and then alerted.
+- **Dependencies:** live storefront checkout stays OFF until this ships (it is the owner's view of real storefront sales).
+
+### 13.H Automatic Thursday seller settlements through Stripe Connect (owner requirement 2026-10-26; design first)
+- **Requirement:** design, then build, automatic weekly seller settlements paid every Thursday through Stripe Connect,
+  with an eligibility cutoff of Wednesday 11:59 PM Eastern (America/New_York, daylight saving handled).
+- **Eligibility:** a sale is eligible only when it is paid, not refunded or disputed, fulfilled (pickup completed or
+  shipment delivered/confirmed, per §8.4 and M3), past any hold window, and the seller is verified with an active,
+  payout-enabled Connect account in the current Stripe mode. Anything else is carried to a later week with a recorded
+  reason.
+- **Safeguards:**
+  - duplicate-payout protection: each eligible sale belongs to at most one settlement (database uniqueness), each
+    settlement run is idempotent (a stable run key per seller per Thursday, also used as the Stripe idempotency key),
+    and a re-run after a crash resumes instead of paying twice;
+  - reconciliation: every run reconciles transfers, balances and the ledger (§8.4) against Stripe, and any mismatch
+    stops that seller's payout and raises an exception alert;
+  - exception alerts to the owner and Finance (missing bank details, failed transfer, negative balance after refunds or
+    chargebacks, verification lapse);
+  - an emergency pause switch (one admin control, audited; paused until the owner activates automation) that stops
+    all new transfers at once without losing the run's calculations;
+  - **simulation mode first:** runs produce the full calculation, statements and alerts with no transfer, for an
+    owner-reviewed period, before activation is approved.
+- **Reuse:** the existing seller settlement and payout records (`seller_payouts`, the settlement workbench) and the
+  existing Connect integration; storefront sales join the same ledger rather than a parallel one. Production today has
+  `SELLER_SETTLEMENTS_ENABLED` and `STRIPE_CONNECT_ENABLED` on for the admin-initiated auction "Pay Seller" path;
+  automatic scheduling must be a separate, default-off switch.
+- **Acceptance criteria:** the cutoff boundary (Wednesday 11:59:59 PM ET vs Thursday 12:00 AM) is tested across
+  daylight-saving changes; ineligible sales are never paid; a crash and re-run never pays twice; refunds after a payout
+  are recovered or held per policy; reconciliation exceptions stop the affected payout; pause stops transfers
+  immediately; simulation output equals what live mode would have paid.
+- **Dependencies:** §8.4 ledger and statements (M3), fulfilment verification, §13.A verification gate, sales-tax
+  remitting-party conclusion (§8.5), owner approval of the payout policy. Until then a manual settlement procedure
+  (index row 3) covers launch.
+- **Public wording note:** Sasha's knowledge (`src/services/sasha/knowledge/platformFacts.js`) already tells customers
+  that storefront sales use a Wednesday 11:59 PM cutoff with Thursday processing. Until automation is built, that
+  must stay true through the manual procedure, or the wording must be adjusted.
