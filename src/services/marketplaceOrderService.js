@@ -138,6 +138,11 @@ async function resolveTaxLocation({ method, item, shipTo }) {
 // Shipping is decided ONLY by src/lib/storefrontShipping.js: pickup-only items cannot be shipped, incomplete shipping
 // terms refuse shipping (a blank price is never $0), and a destination the seller does not serve is refused. The seller
 // fee (computeBreakdown) stays on the item price only.
+// The seller company may receive a storefront order only when it is an active, verified Professional Seller (roadmap §13.A;
+// sellerSaleEligibility uses the same verification gate as a Professional Seller's first auction). Checked on the server
+// for every quote, order and payment; the item page and buttons are never the gate.
+const { assertSellerCanSell } = require('./sellerSaleEligibility');
+
 async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db, { shipToState, shipToCountry } = {}) {
   const row = (await runner.query(
     `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps, sp.storefront_slug, sp.show_branding_to_buyers,
@@ -149,6 +154,7 @@ async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runne
   if (!row) throw err(404, 'ITEM_NOT_FOUND', 'This item is no longer available.');
   if (!isProfessional(row.seller_type)) throw err(409, 'NOT_PROFESSIONAL', 'This item is not purchasable.');
   if (row.seller_user_id === buyerUserId) throw err(403, 'CANNOT_BUY_OWN', 'You cannot purchase your own listing.');
+  await assertSellerCanSell(row.seller_id, runner);
   if (!(Number(row.price_cents) > 0)) throw err(422, 'PRICE_INVALID', 'This item has no valid price.');
   const method = fulfillmentMethod === 'shipping' ? 'shipping' : 'pickup';
   const { shippingCents } = shipping.shippingChargeFor(row, method, shipToState, shipToCountry);
@@ -508,6 +514,8 @@ async function payOrder(orderId, buyerUserId, { paymentMethodId, idempotencyKey 
   if (o.payment_status !== 'pending' || !o.stripe_payment_intent_id) {
     throw err(409, 'ORDER_NOT_PAYABLE', 'This checkout has ended. Please start again.');
   }
+  // The seller may have been suspended or lost verification since the order was started: never charge in that case.
+  await assertSellerCanSell(o.seller_id);
   // Hold must still be ours and unexpired; extend it so card authentication can't outlive it.
   const hold = await db.query(
     `UPDATE marketplace_items

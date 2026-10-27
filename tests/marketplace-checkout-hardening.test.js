@@ -16,6 +16,9 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-storefront-harde
 
 let mockClient = null;
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
+// Seller sale eligibility (active, verified Professional) is tested against a real database in
+// storefront-checkout-seller-eligibility.test.js; these unit tests cover the order logic around it.
+jest.mock('../src/services/sellerSaleEligibility', () => ({ assertSellerCanSell: jest.fn(async () => true) }));
 jest.mock('../src/utils/withTransaction', () => ({ withTransaction: (fn) => fn(mockClient) }));
 jest.mock('../src/services/auditService', () => ({ logEvent: jest.fn(async () => {}) }));
 jest.mock('../src/lib/auditLog', () => ({ writeAuditLog: jest.fn(async () => {}) }));

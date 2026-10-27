@@ -127,9 +127,11 @@
     function reqHtml(r){
       return '<div class="doc"><div><span class="badge">'+esc(r.status)+'</span> requested: '+esc((r.categories||[]).join(', '))+'</div>'
         +'<div id="docs-'+esc(r.id)+'" class="muted">loading docs…</div>'
-        +'<div class="row"><button class="ghost" data-act="approve" data-req="'+esc(r.id)+'">Approve</button>'
+        // data-act values are the exact statuses the server accepts (approved | more_info | rejected).
+        +'<div class="row"><button class="ghost" data-act="approved" data-req="'+esc(r.id)+'">Approve</button>'
         +'<button class="ghost" data-act="more_info" data-req="'+esc(r.id)+'">Request more info</button>'
-        +'<button class="ghost" data-act="reject" data-req="'+esc(r.id)+'">Reject</button></div></div>';
+        +'<button class="ghost" data-act="rejected" data-req="'+esc(r.id)+'">Reject</button></div>'
+        +'<div class="muted" id="rev-'+esc(r.id)+'"></div></div>';
     }
     function wire(r){
       H('/api/admin/verification/requests/'+r.id).then(function(res){
@@ -141,7 +143,11 @@
         document.querySelectorAll('a[data-dl]').forEach(function(a){ a.onclick=async function(e){ e.preventDefault(); var f=await H('/api/admin/verification/documents/'+a.getAttribute('data-dl')+'/file'); if(f.ok&&f.j.url) window.open(f.j.url,'_blank'); }; });
       });
       document.querySelectorAll('button[data-req="'+r.id+'"]').forEach(function(b){
-        b.onclick=async function(){ await H('/api/admin/verification/requests/'+r.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:b.getAttribute('data-act')})}); document.getElementById('loadBtn').onclick(); };
+        b.onclick=async function(){
+          var res=await H('/api/admin/verification/requests/'+r.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:b.getAttribute('data-act')})});
+          // Show a refusal instead of silently reloading as if it had worked.
+          if(!res.ok){var m=document.getElementById('rev-'+r.id);if(m){m.style.color='#b91c1c';m.textContent='Not saved: '+((res.j&&(res.j.message||res.j.error))||'please try again.');}return;}
+          document.getElementById('loadBtn').onclick(); };
       });
     }
     if(!token){ document.querySelector('.wrap').innerHTML='<div class="card">Admin login required. <a href="/login.html">Sign in</a></div>'; }

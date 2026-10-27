@@ -331,6 +331,9 @@ default. Tests in `tests/storefront-ownership-adversarial.test.js` ("shipping:" 
   and the server never accepts any other seller selection. Trade-off: it cannot be rotated or revoked per embed (a
   seller stops the widget by unpublishing the storefront). A rotatable server-issued key (migration) stays available as
   a later enhancement if per-embed revocation is wanted.
+- **Small widget display fixes (owner-noted 2026-10-26, deferred):** a two-column card layout on phones (today one large
+  square card per row, so only about one item is visible inside the 900px frame on a phone); and the same branded
+  placeholder the storefront page uses for an item without a photo (today the widget shows a plain "No photo" box).
 - **Deferred to later releases (recorded, not built):** seller logo and branding customization; accent colors, themes
   and layout options; advanced preview and installation wizard; automatic height and more sophisticated responsive
   embed controls (the basic snippet uses a fixed 900px height with internal scrolling); search, filters and sorting
@@ -651,7 +654,7 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 21 | Admin read-access logging beyond messaging | P2 | not built | every admin read of private seller/buyer data logged | §6 |
 | 22 | Public Professional Seller marketing launch | P2 | prepared only | launch only after P0 items and owner approval; seller-benefit wording | §3 |
 | 23 | Phone Sasha timing test (MI-1) | maintenance | separate task | deterministic test; no production-path timing bug masked | `../operations/known-issues.md` |
-| 24 | Professional Seller self-serve setup before approval; verification gate for live checkout, payments and payouts | P1 | roadmap only | see §13.A | §13.A |
+| 24 | Professional Seller self-serve setup before approval; verification gate for live checkout, payments and payouts | P1 | checkout gate built 2026-10-26 (not deployed); Connect readiness + payout checks open | see §13.A | §13.A |
 | 25 | Owner and staff notifications for seller registration and verification work (email + SMS) | P1 | roadmap only | see §13.B | §13.B |
 | 26 | Secure seller document upload and authorized staff review | P1 | roadmap only (existing verification documents system to be extended) | see §13.C | §13.C |
 | 27 | Individual-item percentage discount editor | P2 | roadmap only | see §13.D | §13.D |
@@ -659,6 +662,8 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 29 | Search and answer-engine discoverability that respects sold-price privacy | P1 | roadmap only (product SEO foundation LIVE; sold-price redaction built in 206) | see §13.F | §13.F |
 | 30 | Owner and Admin/Finance notification when a storefront item is confirmed paid (email + SMS) | P0 (before live storefront checkout) | roadmap only | see §13.G | §13.G |
 | 31 | Automatic Thursday seller settlements through Stripe Connect (Wednesday 11:59 PM ET cutoff) | P0 for automation; a manual procedure may cover launch (row 3) | roadmap only (design first; simulation before activation) | see §13.H | §13.H |
+| 32 | Website widget display fixes: two-column phone layout; branded no-photo placeholder | P2 | deferred (owner-noted 2026-10-26) | phones show at least two items per row; items without photos show the storefront's placeholder | §7.5 |
+| 33 | Admin Dashboard: a clearly visible, consistently positioned "Dashboard Home" link on every Admin Dashboard subpage | P2 | deferred (owner request 2026-10-26) | every /admin/ subpage shows the link in the same place, returning to the main dashboard (/admin/); added once in the shared admin navigation (`public/widgets/shared/admin-nav.js`), not page by page | admin UX |
 
 ## 12. TODO — Sold presentation and Past Merchandise (owner requirements 2026-10-26, permanent)
 
@@ -798,6 +803,22 @@ Each extends an existing system; none adds a second one.
   no item of an unverified or non-Connect-ready seller can be bought (server-side, not only hidden in the UI); payouts
   never run for an unverified seller; verification status changes take effect at once; admin override preserved;
   adversarial tests across sellers.
+- **Checkout verification gate BUILT 2026-10-26 (branch `feat/storefront-checkout-verification-gate`, not deployed;
+  no migration):** `src/services/sellerSaleEligibility.assertSellerCanSell` runs on the server for every quote, order
+  (before the item is held and again under the item lock) and payment (before any charge). A storefront order is
+  refused unless the seller is a Professional Seller, its owner account is active (not suspended) and
+  `verificationService.publicationGate` is open (verification-required sellers need an approved verification;
+  grandfathered sellers are not required). Buyers get one answer for both refusals (`SELLER_NOT_ACCEPTING_ORDERS`), so
+  a seller's account status is never revealed. Also fixed: the admin verification page's Approve / Reject buttons sent
+  values the server rejects (so approval from the page silently failed); they now send `approved` / `rejected` and
+  show any refusal. **Open owner decision:** `publicationGate` treats a seller as verified while ANY of its
+  verification requests is approved, so rejecting one request does not withdraw an older approval; decide whether a
+  rejection should withdraw all approvals (or the gate should follow the latest request). This also affects auctions. Approval, revocation, suspension and
+  reactivation take effect immediately, including for an order already started (it is never charged). Tests:
+  `tests/storefront-checkout-seller-eligibility.test.js` (cross-seller, forged seller id, state changes, no charge).
+  **Still open in 13.A:** Stripe Connect payout readiness as a checkout condition, and the payout-side checks (§13.H).
+  Admin override: an admin approves the seller's verification (existing verification tools); there is no per-order
+  bypass.
 
 ### 13.B Owner and staff notifications for seller registration and verification (P1)
 - **Requirement:** use the existing Advantage.Bid email and SMS systems (`emailService`, `ownerAlertService`,
