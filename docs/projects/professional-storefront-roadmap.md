@@ -811,9 +811,21 @@ Each extends an existing system; none adds a second one.
   grandfathered sellers are not required). Buyers get one answer for both refusals (`SELLER_NOT_ACCEPTING_ORDERS`), so
   a seller's account status is never revealed. Also fixed: the admin verification page's Approve / Reject buttons sent
   values the server rejects (so approval from the page silently failed); they now send `approved` / `rejected` and
-  show any refusal. **Open owner decision:** `publicationGate` treats a seller as verified while ANY of its
-  verification requests is approved, so rejecting one request does not withdraw an older approval; decide whether a
-  rejection should withdraw all approvals (or the gate should follow the latest request). This also affects auctions. Approval, revocation, suspension and
+  show any refusal.
+- **Verification policy (owner decision 2026-10-27, intended):** rejecting a NEW verification request does NOT revoke a
+  seller's previously approved verification. Revocation is a separate, explicit administrator action with its own audit
+  trail. Current behaviour vs. the policy:
+  - Matches: `publicationGate` treats a seller as verified while any of its requests is approved, so rejecting a newer
+    request leaves an earlier approval in force.
+  - Needs a future correction: there is no explicit "revoke verification" action. Today an administrator can change an
+    already-approved request to `rejected` through the ordinary review endpoint (`verificationService.reviewRequest`
+    allows any status change, and the admin page shows Approve / Reject on every request, including approved ones);
+    that silently acts as a revocation, recorded only as a generic `verification_request_reviewed` audit event.
+  - Correction (not built; shared with auctions, so a separate milestone): `reviewRequest` refuses to change an
+    `approved` request; a dedicated admin "Revoke verification" action (reason required, `verification_revoked` audit
+    event, seller notified) withdraws approval; the admin page hides Approve / Reject on approved requests and offers
+    Revoke instead. The checkout eligibility test currently revokes by rejecting the approved request (today's path);
+    switch it to the new action when built. Approval, revocation, suspension and
   reactivation take effect immediately, including for an order already started (it is never charged). Tests:
   `tests/storefront-checkout-seller-eligibility.test.js` (cross-seller, forged seller id, state changes, no charge).
   **Still open in 13.A:** Stripe Connect payout readiness as a checkout condition, and the payout-side checks (§13.H).
