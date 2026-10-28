@@ -665,7 +665,8 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 32 | Website widget display fixes: two-column phone layout; branded no-photo placeholder | P2 | deferred (owner-noted 2026-10-26) | phones show at least two items per row; items without photos show the storefront's placeholder | §7.5 |
 | 33 | Admin Dashboard: a clearly visible, consistently positioned "Dashboard Home" link on every Admin Dashboard subpage | P2 | built 2026-10-28 (not deployed): the shared nav's first link now reads "Dashboard Home" on desktop and phone | every /admin/ subpage shows the link in the same place, returning to the main dashboard (/admin/); added once in the shared admin navigation (`public/widgets/shared/admin-nav.js`), not page by page | admin UX |
 | 34 | Admin Member Detail follow-ups (built 2026-10-28 without them; no migration) | P2 | roadmap only | (a) a reviewed Professional → Individual / Seller → Buyer change (storefront, fee and auction consequences); (b) separate first/last name fields (today one full name); (c) notice to the old address when an admin changes a sign-in email; (d) index `audit_log (entity_type, entity_id)` if member history becomes slow | `/admin/member.html` |
-| 35 | Bulk inventory import with photographs; inventory workspace; "paused" status | P1 | built 2026-10-28 on `feat/storefront-bulk-import` (not deployed; needs migration 207 first) | CSV/.xlsx import as drafts with preview, column mapping, row-level fixes, SKU duplicate skip, chunked retry-safe import and history; photos by SKU filename / SKU folder / ZIP; bulk publish/pause/draft/remove/category; Advantage.Bid + widget visibility per item. Follow-ups: multi-quantity items (today one item per row, quantity 1); updating existing items from a spreadsheet (today existing SKUs are skipped, never changed); .xlsx template download (CSV today); photo URLs in the spreadsheet (not supported: photos are uploaded, never fetched) | `/seller-inventory.html`, `scripts/prod-migrate-207.js` |
+| 35 | Bulk inventory import with photographs; inventory workspace; "paused" status | P1 | built 2026-10-28 on `feat/storefront-bulk-import` (not deployed; needs migration 207 first) | CSV/.xlsx import as drafts with preview, column mapping, row-level fixes, SKU duplicate skip, chunked retry-safe import and history; photos by SKU filename / SKU folder / ZIP; bulk publish/pause/draft/remove/category; Advantage.Bid + widget visibility per item. Follow-ups: multi-quantity items (row 36, §14; today one item per row, quantity 1); updating existing items from a spreadsheet (today existing SKUs are skipped, never changed); .xlsx template download (CSV today); photo URLs in the spreadsheet (not supported: photos are uploaded, never fetched) | `/seller-inventory.html`, `scripts/prod-migrate-207.js` |
+| 36 | Multi-quantity inventory: several identical units under one fixed-price listing | P0 before storefront checkout is enabled (recommended; owner decision) | roadmap only (owner requirement 2026-10-28) | see §14 | §14 |
 
 ## 12. TODO — Sold presentation and Past Merchandise (owner requirements 2026-10-26, permanent)
 
@@ -937,3 +938,54 @@ Each extends an existing system; none adds a second one.
 - **Public wording note:** Sasha's knowledge (`src/services/sasha/knowledge/platformFacts.js`) already tells customers
   that storefront sales use a Wednesday 11:59 PM cutoff with Thursday processing. Until automation is built, that
   must stay true through the manual procedure, or the wording must be adjusted.
+
+## 14. TODO — Multi-quantity inventory (owner requirement 2026-10-28, permanent; ROADMAP ONLY)
+
+**Requirement.** A Professional Seller can offer several identical units under ONE fixed-price listing (one antique
+cabinet: quantity 1; six identical dining chairs: quantity 6; fifty new lamps: quantity 50). Professional Sellers include
+antique dealers, estate liquidators, auction houses and businesses selling new and used merchandise.
+
+The design must support:
+1. Initial stock quantity.
+2. Quantity available for purchase.
+3. Quantity sold.
+4. The buyer choosing how many units to buy.
+5. Automatic stock reduction after a successful purchase.
+6. No overselling when several buyers check out at the same time (atomic, database-enforced).
+7. Stock reservations during checkout.
+8. Releasing the reservation of an expired or abandoned checkout.
+9. Cancelled orders and refunds restoring stock where appropriate (never automatically for a refund whose goods left).
+10. Sold-out status and automatic removal from purchasable inventory.
+11. Stock adjustments by the seller with an audit history (who, when, old and new quantity, reason).
+12. CSV and Excel imports with quantities above one.
+13. Bulk quantity updates through spreadsheets.
+14. Advantage.Bid and the seller's website widget always showing the same availability.
+15. Correct order totals, taxes, fees, shipping and seller settlements for the number of units bought.
+
+**Until then (current behaviour, unchanged):** every listing is one unit. The importer refuses a quantity above 1 with a
+seller-facing explanation ("list each piece on its own row with its own SKU, or contact Advantage.Bid about
+multi-quantity items"); the Inventory & Import page states "Quantity is 1 per row (each storefront item sells once)".
+
+**Architecture review (2026-10-28): no rebuild needed; the one-of-one assumptions are few and local.**
+- Where one-of-one is assumed today:
+  - `marketplace_items` has no stock columns; availability is the status (`active` / `pending_purchase` / `sold`).
+  - Checkout claims the whole item (`status = 'pending_purchase'`, `pending_order_id`, `pending_expires_at`) in
+    `marketplaceOrderService` (claim, payment, expiry sweep, conflict refund, relist).
+  - Database backstop `uq_marketplace_orders_live_item` (migration 121): one live order per item.
+  - A paid order sets the item to `sold`; a refund or conflict moves it to `removed`.
+  - `marketplace_orders` has no quantity or unit price; fee, tax and shipping are computed on one item price.
+  - The importer accepts only quantity 1.
+- None of this is in the catalog, photo, import-batch, widget or SEO layers, and migration 207 adds no new one-of-one
+  assumption (one SKU = one listing stays correct with stock; "paused" is independent of stock).
+- Additive path:
+  - `marketplace_items.quantity_total` / `quantity_available` (default 1, CHECK ≥ 0; existing rows backfill to 1).
+  - `marketplace_orders.quantity` + `unit_price_cents` (default 1 / the item price).
+  - A reservations table (item, order, units, expires_at) replacing the item-level claim, with an atomic
+    `UPDATE … SET quantity_available = quantity_available - n WHERE quantity_available >= n`.
+  - A stock-adjustment history table.
+  - Replace `uq_marketplace_orders_live_item` with the stock check.
+  - Sold out = available 0 (`sold` kept for quantity-1 history).
+  - Fees and tax are rate-based, so they scale with units; shipping needs an owner rule (per order or per unit).
+- **Sequencing recommendation:** build this BEFORE storefront checkout is enabled. Checkout is off and production has no
+  real storefront orders, so changing the claim logic now costs least; enabling checkout first would launch the
+  one-unit claim and then rewrite it.
