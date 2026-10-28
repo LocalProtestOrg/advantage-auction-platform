@@ -319,18 +319,23 @@ describe('preview and import', () => {
     expect(await items.getPublicItem(created[0].id)).toBeNull();
   });
 
-  test('repeating the import, or running it twice at once, never duplicates an item', async () => {
+  // (The test database gives every caller ONE shared connection, so truly simultaneous requests would interleave inside a
+  // single session; an overlapping second worker is therefore simulated deterministically: it has already created some rows.)
+  test('repeating the import, or an overlapping second worker, never duplicates an item', async () => {
     const r = await preview('ann', csv([HEADER, ...Array.from({ length: 30 }, (_, i) => ['R-' + i, 'Retry item ' + i, '', '', String(10 + i), '', '', ''])]), 'retry.csv');
     const id = r.body.data.batch_id;
-    const [a, b] = await Promise.all([call('ann', 'POST', `/api/seller-storefront/imports/${id}/import`), call('ann', 'POST', `/api/seller-storefront/imports/${id}/import`)]);
-    expect([a.status, b.status]).toEqual([200, 200]);
-    await importAll('ann', id); await importAll('ann', id);
+    for (const row of [2, 3, 17]) {   // another worker already created these rows (same batch row, same SKU)
+      await items.createDirectListing(U.ann.id, { title: 'Retry item ' + (row - 2), price_cents: (10 + row - 2) * 100, inventory_number: 'R-' + (row - 2), status: 'draft' },
+        { importBatchId: id, importRow: row });
+    }
+    await importAll('ann', id); await importAll('ann', id); await importAll('ann', id);
     expect((await one('SELECT count(*)::int n FROM marketplace_items WHERE import_batch_id = $1', [id])).n).toBe(30);
     expect((await one(`SELECT count(*)::int n FROM marketplace_items WHERE inventory_number LIKE 'R-%'`)).n).toBe(30);
     // Uploading the same file again: every row is now "already in inventory" and nothing is created.
     const again = await preview('ann', csv([HEADER, ...Array.from({ length: 30 }, (_, i) => ['R-' + i, 'Retry item ' + i, '', '', String(10 + i), '', '', ''])]), 'retry.csv');
     expect(again.body.data.summary).toEqual(expect.objectContaining({ ready: 0, skip: 30 }));
     expect(again.body.data.previously_imported).toEqual(expect.objectContaining({ batch_id: id, created_count: 30 }));
+    expect((await one('SELECT failed_count, created_count FROM storefront_import_batches WHERE id = $1', [id]))).toEqual({ failed_count: 0, created_count: 30 });
   });
 
   test('large files import in chunks with progress (250 rows)', async () => {
