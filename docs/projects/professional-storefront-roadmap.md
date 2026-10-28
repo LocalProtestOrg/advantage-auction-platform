@@ -666,7 +666,7 @@ work; **P2** = approved, later. Acceptance criteria are summarised here; full cr
 | 33 | Admin Dashboard: a clearly visible, consistently positioned "Dashboard Home" link on every Admin Dashboard subpage | P2 | built 2026-10-28 (not deployed): the shared nav's first link now reads "Dashboard Home" on desktop and phone | every /admin/ subpage shows the link in the same place, returning to the main dashboard (/admin/); added once in the shared admin navigation (`public/widgets/shared/admin-nav.js`), not page by page | admin UX |
 | 34 | Admin Member Detail follow-ups (built 2026-10-28 without them; no migration) | P2 | roadmap only | (a) a reviewed Professional → Individual / Seller → Buyer change (storefront, fee and auction consequences); (b) separate first/last name fields (today one full name); (c) notice to the old address when an admin changes a sign-in email; (d) index `audit_log (entity_type, entity_id)` if member history becomes slow | `/admin/member.html` |
 | 35 | Bulk inventory import with photographs; inventory workspace; "paused" status | P1 | built 2026-10-28 on `feat/storefront-bulk-import` (not deployed; needs migration 207 first) | CSV/.xlsx import as drafts with preview, column mapping, row-level fixes, SKU duplicate skip, chunked retry-safe import and history; photos by SKU filename / SKU folder / ZIP; bulk publish/pause/draft/remove/category; Advantage.Bid + widget visibility per item. Follow-ups: multi-quantity items (row 36, §14; today one item per row, quantity 1); updating existing items from a spreadsheet (today existing SKUs are skipped, never changed); .xlsx template download (CSV today); photo URLs in the spreadsheet (not supported: photos are uploaded, never fetched) | `/seller-inventory.html`, `scripts/prod-migrate-207.js` |
-| 36 | Multi-quantity inventory: several identical units under one fixed-price listing | P0 before storefront checkout is enabled (recommended; owner decision) | roadmap only (owner requirement 2026-10-28) | see §14 | §14 |
+| 36 | Multi-quantity inventory: several identical units under one fixed-price listing | P0: REQUIRED before storefront checkout is enabled (owner decision 2026-10-28) | roadmap only; next after bulk import is deployed and tested | see §14 | §14 |
 
 ## 12. TODO — Sold presentation and Past Merchandise (owner requirements 2026-10-26, permanent)
 
@@ -986,6 +986,7 @@ multi-quantity items"); the Inventory & Import page states "Quantity is 1 per ro
   - Replace `uq_marketplace_orders_live_item` with the stock check.
   - Sold out = available 0 (`sold` kept for quantity-1 history).
   - Fees and tax are rate-based, so they scale with units; shipping needs an owner rule (per order or per unit).
-- **Sequencing recommendation:** build this BEFORE storefront checkout is enabled. Checkout is off and production has no
+- **Sequencing (owner decision 2026-10-28): REQUIRED pre-checkout milestone.** Multi-quantity inventory must be built and
+  tested BEFORE fixed-price storefront checkout is enabled. Rationale: Checkout is off and production has no
   real storefront orders, so changing the claim logic now costs least; enabling checkout first would launch the
   one-unit claim and then rewrite it.
