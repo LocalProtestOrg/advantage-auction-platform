@@ -157,6 +157,7 @@
     // Detail pages belong to their parent section.
     if (href === '/admin/invoices.html' && p === '/admin/invoice-detail.html') return true;
     if (href === '/admin/events.html' && p === '/admin/event-detail.html') return true;
+    if (href === '/admin/users.html' && p === '/admin/member.html') return true;
     if (href === '/admin/moderation.html' && p === '/admin/settlement-review.html') return true;
     return false;
   }
@@ -254,7 +255,7 @@
 
   function renderLinks(header) {
     var groups = visibleGroups();
-    var desktop = '<a class="an-top' + (isActive(HOME) ? ' active' : '') + '" href="' + HOME + '"' + (isActive(HOME) ? ' aria-current="page"' : '') + '>Home</a>' +
+    var desktop = '<a class="an-top' + (isActive(HOME) ? ' active' : '') + '" href="' + HOME + '"' + (isActive(HOME) ? ' aria-current="page"' : '') + '>Dashboard Home</a>' +
       groups.map(function (x) {
         var id = 'an-menu-' + x.g.key;
         var active = x.links.some(function (l) { return isActive(l.href); });
@@ -264,7 +265,7 @@
           '<div class="an-menu" id="' + id + '" role="group" aria-label="' + esc(x.g.title) + '" hidden>' + x.links.map(linkHtml).join('') + '</div></div>';
       }).join('');
     var nav = header.querySelector('.an-links'); if (nav) nav.innerHTML = desktop;
-    var mobile = '<div class="an-sec"><a href="' + HOME + '"' + (isActive(HOME) ? ' class="active" aria-current="page"' : '') + '>Admin Home</a></div>' +
+    var mobile = '<div class="an-sec"><a href="' + HOME + '"' + (isActive(HOME) ? ' class="active" aria-current="page"' : '') + '>Dashboard Home</a></div>' +
       groups.map(function (x) { return '<div class="an-sec"><h3>' + esc(x.g.title) + '</h3>' + x.links.map(linkHtml).join('') + '</div>'; }).join('') +
       '<div class="an-sec"><a href="/logout" class="an-logout-m" data-an-logout>Log out</a></div>';
     var list = header.querySelector('.an-sheet-list'); if (list) list.innerHTML = mobile;

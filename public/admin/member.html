@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Member Detail - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1100px;margin:0 auto;padding:1rem}
+    .back{font-size:.82rem;color:#2563eb;text-decoration:none;display:inline-block;margin:.3rem 0 .6rem}
+    h1{font-size:1.3rem;margin:.2rem 0 .3rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+    .sub{font-size:.82rem;color:#64748b;margin-bottom:.9rem}
+    .tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem}
+    .tabs a{font-size:.78rem;padding:.35rem .7rem;border-radius:999px;background:#e2e8f0;color:#1e293b;text-decoration:none;font-weight:600}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem}
+    .card h2{font-size:1rem;margin-bottom:.6rem}
+    .card h3{font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;color:#475569;margin:.9rem 0 .4rem}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.6rem 1rem}
+    .f label{display:block;font-size:.72rem;color:#475569;margin-bottom:.2rem;font-weight:600}
+    .f input,.f select,.f textarea{width:100%;padding:.48rem .55rem;border:1px solid #cbd5e1;border-radius:7px;font:inherit;font-size:.86rem;background:#fff}
+    .ro{font-size:.86rem;padding:.2rem 0}
+    .pill{display:inline-block;font-size:.68rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e2e8f0;color:#334155}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}.role{background:#e0e7ff;color:#3730a3}.warnp{background:#fef3c7;color:#92400e}
+    .actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.8rem}
+    button{padding:.5rem .95rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.82rem;font-family:inherit}
+    .b-blue{background:#2563eb;color:#fff}.b-danger{background:#fee2e2;color:#991b1b}.b-ok{background:#dcfce7;color:#166534}.b-ghost{background:#e2e8f0;color:#0f172a}
+    button:disabled{opacity:.55;cursor:default}
+    .msg{font-size:.82rem}.msg.ok{color:#166534}.msg.err{color:#b91c1c}
+    .note{font-size:.8rem;color:#64748b;margin-top:.4rem;line-height:1.45}
+    .box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:.8rem;margin-top:.6rem}
+    .links a{font-size:.82rem;color:#2563eb;margin-right:1rem;display:inline-block;margin-bottom:.3rem}
+    .mini{width:100%;font-size:.8rem;border-collapse:collapse}.mini td,.mini th{padding:.35rem .45rem;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:top}
+    .mini th{color:#64748b;font-size:.68rem;text-transform:uppercase}
+    .tw{overflow-x:auto}
+    .stat{font-size:.8rem;color:#64748b}
+    .perm{display:inline-block;font-size:.7rem;background:#f1f5f9;border-radius:5px;padding:1px 6px;margin:2px}
+    .note-item{font-size:.8rem;border-left:3px solid #e2e8f0;padding:.3rem .6rem;margin-bottom:.4rem;background:#f8fafc}
+    .note-item .meta,.hist .meta{color:#94a3b8;font-size:.7rem}
+    .hist{font-size:.8rem;border-bottom:1px solid #f1f5f9;padding:.4rem 0}
+    .chg{font-size:.76rem;color:#334155}
+    @media (max-width:600px){.wrap{padding:.75rem}.card{padding:.85rem}.actions button{flex:1 1 100%}}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <script src="/widgets/shared/admin-contact-actions.js"></script>
+  <div class="wrap">
+    <a class="back" href="/admin/users.html">&larr; User Management</a>
+    <div id="page"><div class="card">Loading…</div></div>
+  </div>
+  <script>
+    const token=localStorage.getItem('token');
+    if(!token) location.href='/login.html';
+    const ID=new URLSearchParams(location.search).get('id')||'';
+    const EID=encodeURIComponent(ID);
+    const PRO_TYPES=[['auction_house','Auction House'],['estate_sale_company','Estate Sale Company'],['professional_liquidator','Professional Liquidator']];
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+    function usd(c){return c==null?'-':'$'+(Number(c)/100).toFixed(2)}
+    function fdate(s){try{return s?new Date(s).toLocaleDateString():'-'}catch(e){return '-'}}
+    function ftime(s){try{return s?new Date(s).toLocaleString():'-'}catch(e){return '-'}}
+    async function api(method,url,body){
+      const opts={method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};
+      if(body!==undefined)opts.body=JSON.stringify(body);
+      const r=await fetch(url,opts);if(r.status===401){localStorage.removeItem('token');location.href='/login.html';throw new Error('Session expired');}
+      let j={};try{j=await r.json();}catch(e){}
+      return Object.assign({ok:r.ok},j);
+    }
+    function say(id,d,okText){const m=document.getElementById(id);if(!m)return;m.className='msg '+(d.ok?'ok':'err');m.textContent=d.ok?okText:((d.message||d.error)||'Not saved. Please try again.');}
+    function tbl(rows,cols,empty){if(!rows||!rows.length)return '<div class="stat">'+empty+'</div>';
+      return '<div class="tw"><table class="mini"><thead><tr>'+cols.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody>'+
+        rows.map(r=>'<tr>'+cols.map(c=>'<td>'+c[1](r)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
+    function field(id,label,val,opt){opt=opt||{};return '<div class="f"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+(opt.type||'text')+'" value="'+esc(val||'')+'"'+(opt.max?' maxlength="'+opt.max+'"':'')+(opt.ph?' placeholder="'+esc(opt.ph)+'"':'')+' /></div>';}
+    function ro(label,html){return '<div class="f"><label>'+label+'</label><div class="ro">'+html+'</div></div>';}
+    function askReason(what){const r=prompt(what+'\n\nReason (required, saved in the audit history):','');if(r===null)return null;if(r.trim().length<5){alert('Please give a reason of at least 5 characters.');return null;}return r.trim();}
+    const v=id=>{const e=document.getElementById(id);return e?e.value:undefined;};
+    const EVENT_LABELS={'user.profile_updated':'Personal information changed','user.converted_to_professional':'Changed to Professional Seller','seller_profile.updated':'Seller profile changed',
+      'user.suspended':'Account suspended','user.reactivated':'Account reactivated','user.sessions_ended':'Signed out everywhere','user.password_reset_sent':'Password reset email sent',
+      'user.contact_updated':'Contact details changed','user.note_added':'Internal note added','seller_type_changed':'Seller type changed','seller_verification_required_auto':'Verification required before first sale',
+      'seller_risk_updated':'Risk settings changed','staff_role_changed':'Staff role changed','staff_account_created':'Staff access added','staff_password_reset':'Staff password reset'};
+
+    let D=null, B=null;
+    async function load(){
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ID)){document.getElementById('page').innerHTML='<div class="card">No member selected. <a href="/admin/users.html">Back to User Management</a></div>';return;}
+      const [a,b]=await Promise.all([api('GET','/api/admin/users/'+EID+'/account'),api('GET','/api/admin/users/'+EID)]);
+      if(!a.ok){document.getElementById('page').innerHTML='<div class="card">'+esc(a.message||'Member not found.')+' <a href="/admin/users.html">Back to User Management</a></div>';return;}
+      D=a.data;B=b.ok?b.data:null;render();
+    }
+    function render(){
+      const p=D.personal,ac=D.access,s=D.seller,st=D.status,addr=p.tax_address||{};
+      const roleLabel=ac.is_super_admin?'Super Admin':(ac.role==='admin'?'Admin':(s?(ac.professional?'Professional Seller':'Individual Seller'):'Buyer'));
+      let h='<h1>'+esc(p.full_name||p.email)+' <span class="pill role">'+esc(roleLabel)+'</span> '+(st.is_active?'<span class="pill on">Active</span>':'<span class="pill off">Suspended</span>')+(st.is_demo?' <span class="pill warnp">Demo</span>':'')+'</h1>'+
+        '<div class="sub">'+esc(p.email)+' · Member since '+fdate(st.created_at)+' · Last sign-in '+ftime(st.last_login_at)+'</div>'+
+        '<div id="quick" style="margin-bottom:.7rem"></div>'+
+        '<nav class="tabs" aria-label="Sections"><a href="#personal">Personal</a><a href="#access">Roles &amp; Permissions</a><a href="#seller">Seller Profile</a><a href="#security">Status &amp; Security</a><a href="#payments">Payments &amp; Activity</a><a href="#notes">Notes</a><a href="#history">Audit History</a></nav>';
+
+      // 1. Personal information
+      h+='<section class="card" id="personal"><h2>Personal Information</h2><div class="grid">'+
+        field('p-name','Full name',p.full_name,{max:200})+field('p-email','Email address (sign-in)',p.email,{type:'email',max:254})+field('p-phone','Phone',p.phone,{type:'tel',max:40})+
+        ro('Verification',(p.email_verified?'Email verified':'Email not verified')+' · '+(p.phone_verified?'Phone verified':'Phone not verified'))+'</div>'+
+        '<h3>Billing / tax address</h3><div class="grid">'+field('p-a1','Address line 1',addr.line1,{max:200})+field('p-a2','Address line 2',addr.line2,{max:200})+
+        field('p-city','City',addr.city,{max:120})+field('p-state','State',addr.state,{max:2,ph:'TX'})+field('p-zip','Postal code',addr.postal_code,{max:10})+field('p-country','Country',addr.country,{max:2,ph:'US'})+'</div>'+
+        '<div class="note">Changing the email changes how the member signs in and marks it unverified. A changed phone number is no longer verified. Email and address changes need a reason.</div>'+
+        '<div class="actions"><button class="b-blue" id="p-save">Save Changes</button><span class="msg" id="p-msg"></span></div></section>';
+
+      // 2. Roles & permissions
+      h+='<section class="card" id="access"><h2>Roles &amp; Permissions</h2><div class="grid">'+
+        ro('Marketplace role','<span class="pill role">'+esc(ac.role)+'</span>')+
+        ro('Can buy',ac.can_buy?'Yes (bidding, purchases, favorites)':'No (account suspended)')+
+        ro('Can sell',ac.can_sell?(ac.professional?'Yes, Professional Seller':'Yes, Individual Seller'):'No seller profile')+
+        ro('Staff access',ac.is_staff?esc(ac.staff_role||'Super Admin')+(ac.staff_active?'':' (inactive)'):'None')+'</div>'+
+        (ac.staff_permissions.length?'<h3>Effective staff permissions</h3><div>'+ac.staff_permissions.map(x=>'<span class="perm">'+esc(x)+'</span>').join('')+'</div>':'')+
+        '<div class="note">A seller keeps every buyer capability and purchase history; selling is added to the same account. Admin and staff access is granted only from <a href="/admin/staff.html">Staff &amp; Permissions</a>, which protects the last Super Admin and signs the member out when access changes.</div></section>';
+
+      // 3. Seller profile
+      h+='<section class="card" id="seller"><h2>Seller Profile</h2>';
+      if(s){
+        const ver=s.verification||{},gate=ver.gate||{},ag=s.agreement||{};
+        h+='<div class="grid">'+ro('Classification',s.classification==='professional'?'<span class="pill role">Professional</span>':'<span class="pill">Individual</span>')+
+          ro('Seller type',esc(s.seller_type_label))+
+          ro('Verification',ver.approved?'<span class="pill on">Approved</span>':(gate.blocked?'<span class="pill warnp">Required before first sale</span>':(ver.required_before_publication?'Required':'Not required')))+
+          ro('Seller Agreement',ag.dashboard_access?'<span class="pill on">'+esc(ag.reason==='signed'?'Signed':ag.reason)+'</span>':'<span class="pill warnp">Not signed yet</span>')+
+          ro('Storefront',s.storefront.published?'<span class="pill on">Published</span>':'Not published')+
+          ro('Storefront items',Object.keys(s.storefront.items_by_status||{}).length?Object.entries(s.storefront.items_by_status).map(e=>esc(e[0])+': '+e[1]).join(', '):'None')+'</div>'+
+          '<h3>Edit seller profile</h3><div class="grid">'+field('s-name','Business / display name',s.display_name,{max:200})+
+          (s.classification==='professional'?'<div class="f"><label for="s-type">Professional type</label><select id="s-type">'+PRO_TYPES.map(t=>'<option value="'+t[0]+'"'+(t[0]===s.seller_type?' selected':'')+'>'+t[1]+'</option>').join('')+'</select></div>':'')+'</div>'+
+          '<div class="actions"><button class="b-blue" id="s-save">Save Changes</button><span class="msg" id="s-msg"></span></div>'+
+          (s.business?'<h3>Business information</h3><div class="stat">Legal name: '+esc(s.business.legal_business_name||'-')+' · DBA: '+esc(s.business.dba_name||'-')+' · '+esc([s.business.address_line1,s.business.city,s.business.state,s.business.postal_code].filter(Boolean).join(', ')||'No business address')+'</div>':'')+
+          '<h3>Links</h3><div class="links">'+(s.storefront.public_url?'<a href="'+esc(s.storefront.public_url)+'" target="_blank" rel="noopener">Public storefront</a>':'')+
+          '<a href="/admin/verification.html?seller='+encodeURIComponent(s.id)+'">Verification (approve here)</a><a href="/admin/agreements.html">Agreements</a><a href="/admin/storefront-moderation.html">Storefront moderation</a><a href="/admin/marketplace-orders.html">Storefront orders</a></div>'+
+          '<div class="stat">Seller profile ID: '+esc(s.id)+(D.organization?' · Company: '+esc(D.organization.name):'')+'</div>';
+      }
+      if(!s||s.classification!=='professional'){
+        h+='<div class="box"><strong>Make Professional Seller</strong><div class="note">Adds Professional selling to this same account. Buying, bids and purchase history are kept. This does <strong>not</strong> approve verification or payout setup: the first sale and checkout stay closed until verification is approved on the Verification page. Fixed-price selling remains for Professional Sellers only.</div>'+
+          '<div class="grid" style="margin-top:.6rem">'+field('c-company','Company / business name',(s&&s.display_name)||'',{max:200})+
+          '<div class="f"><label for="c-type">Professional type</label><select id="c-type"><option value="">Choose…</option>'+PRO_TYPES.map(t=>'<option value="'+t[0]+'">'+t[1]+'</option>').join('')+'</select></div>'+
+          '<div class="f"><label for="c-reason">Reason (required)</label><input id="c-reason" type="text" maxlength="500" placeholder="e.g. Verified owner request by phone" /></div></div>'+
+          '<label class="note" style="display:flex;gap:.4rem;align-items:center"><input type="checkbox" id="c-agree" checked /> Send the Seller Agreement to the member now</label>'+
+          '<div class="actions"><button class="b-blue" id="c-go"'+(st.is_active?'':' disabled')+'>Make Professional Seller</button><span class="msg" id="c-msg"></span></div>'+(st.is_active?'':'<div class="note">Reactivate the account first.</div>')+'</div>';
+      }
+      h+='</section>';
+
+      // 4. Account status & security
+      h+='<section class="card" id="security"><h2>Account Status &amp; Security</h2><div class="grid">'+ro('Status',st.is_active?'<span class="pill on">Active</span>':'<span class="pill off">Suspended</span>')+ro('Sign-in method',esc(p.auth_source==='native'?'Email and password':p.auth_source))+'</div>'+
+        '<div class="actions">'+(st.is_active?'<button class="b-danger" id="x-susp">Suspend account</button>':'<button class="b-ok" id="x-act">Reactivate account</button>')+
+        '<button class="b-ghost" id="x-reset">Send password reset email</button><button class="b-ghost" id="x-end">Sign out everywhere</button><span class="msg" id="x-msg"></span></div>'+
+        '<div class="note">Suspending signs the member out on every device. Passwords are never shown or set here; the member receives a single-use reset link at their own email address. You cannot suspend or sign out your own account, or suspend the last active Super Admin.</div></section>';
+
+      // 5. Payments & activity (read-only)
+      const pay=D.payouts,sa=D.seller_activity,ba=B&&B.bidding_activity;
+      h+='<section class="card" id="payments"><h2>Payments &amp; Account Activity</h2><div class="note" style="margin-top:0">Read-only. Payment histories, payout banking details and completed transactions cannot be edited here.</div>';
+      if(pay)h+='<h3>Payout setup</h3><div class="grid">'+ro('Status',pay.ready?'<span class="pill on">Ready for payouts</span>':'<span class="pill warnp">'+esc(pay.connect_status.replace(/_/g,' '))+'</span>')+ro('Details submitted',pay.details_submitted?'Yes':'No')+ro('Transfers / payouts',(pay.transfers_active?'Transfers on':'Transfers off')+' · '+(pay.payouts_enabled?'Payouts on':'Payouts off'))+(pay.disabled_reason?ro('Needs attention',esc(pay.disabled_reason)):'')+'</div>';
+      if(ba)h+='<h3>Buyer activity</h3><div class="grid">'+ro('Card on file',B.card_on_file?'Yes':'No')+ro('Bids placed',ba.bids_placed)+ro('Lots won',ba.lots_won)+ro('Winning now',ba.currently_winning)+'</div>';
+      if(B){
+        h+='<h3>Auction registrations</h3>'+tbl(B.registrations,[['Auction',r=>esc(r.auction_title||'-')],['State',r=>esc(r.auction_state)],['Status',r=>esc(r.status||'-')],['Paddle',r=>esc(r.paddle_number||'-')]],'No registrations.')+
+          '<h3>Winning lots</h3>'+tbl(B.winning_lots,[['Lot',r=>esc(r.title||'-')],['Auction',r=>esc(r.auction_title||'-')],['Winning',r=>usd(r.winning_amount_cents)]],'No winning lots.')+
+          '<h3>Payments</h3>'+tbl(B.payments,[['Date',r=>fdate(r.created_at)],['Amount',r=>usd(r.amount_cents)],['Status',r=>esc(r.status)],['Refunded',r=>usd(r.refunded_amount_cents)]],'No payments.')+
+          '<h3>Invoices</h3>'+tbl(B.invoices,[['Date',r=>fdate(r.created_at)],['Lot',r=>esc(r.lot_title||'-')],['Amount',r=>usd(r.amount_cents)],['Status',r=>esc(r.status||'-')]],'No invoices.');
+      }
+      h+='<h3>Storefront purchases</h3>'+tbl(D.buyer_orders,[['Order',r=>esc(r.order_number)],['Date',r=>fdate(r.created_at)],['Total',r=>usd(r.total_charge_cents)],['Payment',r=>esc(r.payment_status)],['Fulfillment',r=>esc(r.fulfillment_status)]],'No storefront purchases.');
+      if(sa){
+        h+='<h3>Seller auctions</h3>'+tbl(sa.auctions,[['Auction',r=>esc(r.title||'-')],['State',r=>esc(r.state)],['Created',r=>fdate(r.created_at)]],'No auctions.')+
+          '<h3>Storefront listings</h3>'+tbl(sa.items,[['Item',r=>esc(r.title)],['Status',r=>esc(r.status)],['Price',r=>usd(r.price_cents)],['Created',r=>fdate(r.created_at)]],'No storefront listings.')+
+          '<h3>Storefront sales</h3>'+tbl(sa.orders,[['Order',r=>esc(r.order_number)],['Date',r=>fdate(r.created_at)],['Total',r=>usd(r.total_charge_cents)],['Payment',r=>esc(r.payment_status)],['Fulfillment',r=>esc(r.fulfillment_status)]],'No storefront sales.')+
+          '<h3>Auction settlements</h3>'+tbl(sa.settlements,[['Auction',r=>esc(r.auction_title||'-')],['Payout',r=>usd(r.seller_payout_cents)],['Status',r=>esc(r.payout_status)],['Created',r=>fdate(r.created_at)]],'No settlements.');
+      }
+      h+='<h3>Financial records</h3><div class="links"><a href="/admin/invoices.html">Invoices</a><a href="/admin/settlement-review.html">Settlement review</a><a href="/admin/marketplace-orders.html">Storefront orders</a></div></section>';
+
+      // Notes
+      const notes=(B&&B.admin_notes)||[];
+      h+='<section class="card" id="notes"><h2>Internal Admin Notes</h2>'+(notes.map(n=>'<div class="note-item">'+esc(n.note)+'<div class="meta">'+esc(n.actor_email||'admin')+' · '+ftime(n.created_at)+'</div></div>').join('')||'<div class="stat">No notes.</div>')+
+        '<div class="f" style="margin-top:.6rem"><label for="n-text">Add a note (staff only)</label><textarea id="n-text" rows="2"></textarea></div><div class="actions"><button class="b-blue" id="n-add">Add note</button><span class="msg" id="n-msg"></span></div></section>';
+
+      // 6. Audit history
+      h+='<section class="card" id="history"><h2>Administrative Audit History</h2>'+((D.history||[]).map(histHtml).join('')||'<div class="stat">No recorded changes yet.</div>')+'</section>';
+      document.getElementById('page').innerHTML=h;
+      wire();
+    }
+    function histHtml(e){
+      const m=e.metadata||{};
+      const ch=(m.changes||[]).map(c=>'<div class="chg">'+esc(c.field)+': '+esc(c.before==null?'(empty)':c.before)+' &rarr; '+esc(c.after==null?'(empty)':c.after)+'</div>').join('')
+        ||(m.before&&m.after&&typeof m.before!=='object'?'<div class="chg">'+esc(m.before)+' &rarr; '+esc(m.after)+'</div>':'');
+      return '<div class="hist"><strong>'+esc(EVENT_LABELS[e.event_type]||e.event_type)+'</strong>'+ch+(m.reason?'<div class="chg">Reason: '+esc(m.reason)+'</div>':'')+
+        '<div class="meta">'+esc(e.actor_email||(e.actor_id?'admin':'system'))+' · '+ftime(e.created_at)+'</div></div>';
+    }
+    function wire(){
+      if(window.AdminContactActions)AdminContactActions.mount(document.getElementById('quick'),{userId:ID});
+      const p=D.personal,addr=p.tax_address||{};
+      document.getElementById('p-save').onclick=async()=>{
+        const body={full_name:v('p-name'),email:v('p-email'),phone:v('p-phone'),tax_address_line1:v('p-a1'),tax_address_line2:v('p-a2'),tax_city:v('p-city'),tax_state:v('p-state'),tax_postal_code:v('p-zip'),tax_country:v('p-country')};
+        const same=(a,b)=>String(a||'').trim()===String(b||'').trim();
+        const emailChanged=!same(body.email.toLowerCase(),String(p.email||'').toLowerCase());
+        const addrChanged=!same(body.tax_address_line1,addr.line1)||!same(body.tax_address_line2,addr.line2)||!same(body.tax_city,addr.city)||!same(body.tax_state.toUpperCase(),addr.state)||!same(body.tax_postal_code,addr.postal_code)||!same(body.tax_country.toUpperCase(),addr.country);
+        if(emailChanged&&!confirm('Change the sign-in email to '+body.email+'? The member will sign in with the new address.'))return;
+        if(emailChanged||addrChanged){const r=askReason(emailChanged?'Change the sign-in email.':'Change the billing / tax address.');if(r===null)return;body.reason=r;}
+        const d=await api('PATCH','/api/admin/users/'+EID+'/personal',body);say('p-msg',d,d.data&&d.data.changed?'Saved.':'No changes.');if(d.ok&&d.data.changed)setTimeout(load,600);
+      };
+      const sSave=document.getElementById('s-save');
+      if(sSave)sSave.onclick=async()=>{
+        const body={display_name:v('s-name')};const t=v('s-type');
+        if(t!==undefined&&t!==D.seller.seller_type){const r=askReason('Change the Professional type.');if(r===null)return;body.seller_type=t;body.reason=r;}
+        const d=await api('PATCH','/api/admin/users/'+EID+'/seller-profile',body);say('s-msg',d,d.data&&d.data.changed?'Saved.':'No changes.');if(d.ok&&d.data.changed)setTimeout(load,600);
+      };
+      const cGo=document.getElementById('c-go');
+      if(cGo)cGo.onclick=async()=>{
+        const body={company_name:v('c-company'),seller_type:v('c-type'),reason:v('c-reason'),send_agreement:document.getElementById('c-agree').checked,confirm:true};
+        if(!body.seller_type){say('c-msg',{ok:false,message:'Choose a Professional type.'});return;}
+        if(!confirm('Make '+(p.full_name||p.email)+' a Professional Seller ('+body.company_name+')?\n\nVerification is NOT approved by this step. The first sale and checkout stay closed until verification is approved.'))return;
+        cGo.disabled=true;
+        let d=await api('POST','/api/admin/users/'+EID+'/convert-professional',body);
+        if(!d.ok&&d.code==='SUBMITTED_AUCTIONS'&&confirm(d.message)){body.acknowledge_submitted_auctions=true;d=await api('POST','/api/admin/users/'+EID+'/convert-professional',body);}
+        cGo.disabled=false;say('c-msg',d,'Done. Next: approve verification on the Verification page.');if(d.ok)setTimeout(load,900);
+      };
+      const susp=document.getElementById('x-susp'),act=document.getElementById('x-act');
+      if(susp)susp.onclick=async()=>{const r=askReason('Suspend this account. The member is signed out everywhere and cannot bid, buy or sell.');if(r===null)return;
+        const d=await api('POST','/api/admin/users/'+EID+'/status',{status:'suspended',reason:r});say('x-msg',d,'Suspended.');if(d.ok)setTimeout(load,600);};
+      if(act)act.onclick=async()=>{if(!confirm('Reactivate this account?'))return;const r=prompt('Reason (optional, saved in the audit history):','');if(r===null)return;
+        const d=await api('POST','/api/admin/users/'+EID+'/status',{status:'active',reason:r||null});say('x-msg',d,'Reactivated.');if(d.ok)setTimeout(load,600);};
+      document.getElementById('x-reset').onclick=async()=>{const r=askReason('Email a single-use password reset link to '+p.email+'.');if(r===null)return;
+        const d=await api('POST','/api/admin/users/'+EID+'/password-reset',{reason:r});say('x-msg',d,'Password reset email sent.');if(d.ok)setTimeout(load,600);};
+      document.getElementById('x-end').onclick=async()=>{const r=askReason('Sign this member out on every device.');if(r===null)return;
+        const d=await api('POST','/api/admin/users/'+EID+'/end-sessions',{reason:r});say('x-msg',d,'Signed out everywhere.');if(d.ok)setTimeout(load,600);};
+      document.getElementById('n-add').onclick=async()=>{const note=v('n-text').trim();if(!note)return;
+        const d=await api('POST','/api/admin/users/'+EID+'/notes',{note});say('n-msg',d,'Added.');if(d.ok)setTimeout(load,400);};
+    }
+    load();
+  </script>
+</body>
+</html>

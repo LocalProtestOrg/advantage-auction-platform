@@ -181,7 +181,7 @@ describe('every sign-in ends on', () => {
     const admin = await user('owner-a@example.com', { role: 'admin', staff_role: 'super_admin' });
     const id = await user('suspend@example.com');
     const t = await login('suspend@example.com');
-    const r = await call('POST', `/api/admin/users/${id}/status`, { token: await login('owner-a@example.com'), body: { status: 'suspended' } });
+    const r = await call('POST', `/api/admin/users/${id}/status`, { token: await login('owner-a@example.com'), body: { status: 'suspended', reason: 'session revocation test' } });
     expect(r.status).toBe(200);
     expect((await call('GET', '/api/whoami', { token: t })).status).toBe(401);
     expect((await call('POST', '/api/auth/login', { body: { email: 'suspend@example.com', password: 'Correct-horse-1' } })).status).toBe(403);

@@ -36,7 +36,7 @@ const ADDED = {
   '/admin/phone-sasha.html': null,                         // simulator API is Super Admin only
   '/admin/storefront-moderation.html': 'marketplace.moderate', // requirePermission('marketplace.moderate') (storefront milestone 2)
 };
-const DETAIL_PAGES = ['/admin/index.html', '/admin/invoice-detail.html', '/admin/event-detail.html', '/admin/settlement-review.html'];
+const DETAIL_PAGES = ['/admin/index.html', '/admin/invoice-detail.html', '/admin/event-detail.html', '/admin/settlement-review.html', '/admin/member.html'];
 
 describe('no admin destination removed, no visibility loosened', () => {
   test.each(Object.entries(PREVIOUS))('%s keeps its visibility rule', (href, perm) => {

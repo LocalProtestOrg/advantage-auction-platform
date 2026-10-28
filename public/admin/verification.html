@@ -151,6 +151,8 @@
       });
     }
     if(!token){ document.querySelector('.wrap').innerHTML='<div class="card">Admin login required. <a href="/login.html">Sign in</a></div>'; }
+    // Opened from a Member Detail page (?seller=<seller profile id>): load that seller straight away.
+    (function(){ var q=new URLSearchParams(location.search).get('seller'); if(token && q && /^[0-9a-f-]{36}$/i.test(q)){ document.getElementById('sp').value=q; document.getElementById('loadBtn').onclick(); } })();
   </script>
 </body>
 </html>

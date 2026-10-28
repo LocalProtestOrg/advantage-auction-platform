@@ -110,26 +110,33 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/admin/users/:id/status  { status: 'active'|'suspended', reason? }
-router.post('/:id/status', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const status = (req.body && req.body.status) || '';
-    if (!['active', 'suspended'].includes(status)) return res.status(400).json({ success: false, message: "status must be 'active' or 'suspended'" });
-    const active = status === 'active';
-    const before = (await db.query(`SELECT is_active FROM users WHERE id=$1`, [id])).rows[0];
-    if (!before) return res.status(404).json({ success: false, message: 'User not found' });
-    const { rows } = await db.query(`UPDATE users SET is_active=$2 WHERE id=$1 RETURNING id, email, is_active`, [id, active]);
-    require('../lib/accountStatus').invalidateAccountStatus(id); // apply on this instance now, not after the cache TTL
-    if (!active) await require('../lib/sessionTokens').endAllSessions(null, id, 'account suspended'); // signs the account out everywhere
-    await writeAuditLog({
-      event_type: active ? 'user.reactivated' : 'user.suspended',
-      entity_type: 'user', entity_id: id, actor_id: req.user.id,
-      metadata: { email: rows[0].email, previous_is_active: before.is_active, new_is_active: active, reason: (req.body && req.body.reason) || null },
-    }).catch(() => {});
-    return res.json({ success: true, data: rows[0] });
-  } catch (err) { next(err); }
-});
+// Member Detail (/admin/member.html): one service enforces every rule (src/services/adminMemberService.js).
+const members = require('../services/adminMemberService');
+const send = (fn) => async (req, res, next) => {
+  try { return res.json({ success: true, data: await fn(req) }); }
+  catch (e) {
+    if (e && e.status && e.code) return res.status(e.status).json({ success: false, code: e.code, message: e.message, ...(e.extra || {}) });
+    return next(e);
+  }
+};
+
+// GET /api/admin/users/:id/account — the full member record (personal, access, seller, payouts, activity, history).
+router.get('/:id/account', send((req) => members.getMemberAccount(req.params.id)));
+// PATCH /api/admin/users/:id/personal  { full_name?, email?, phone?, tax_address_*?, reason? }
+router.patch('/:id/personal', send((req) => members.updatePersonal(req.params.id, req.user.id, req.body || {})));
+// POST /api/admin/users/:id/convert-professional  { seller_type, company_name, reason, confirm, send_agreement?, acknowledge_submitted_auctions? }
+router.post('/:id/convert-professional', send((req) => members.convertToProfessional(req.params.id, req.user.id, req.body || {})));
+// PATCH /api/admin/users/:id/seller-profile  { display_name?, seller_type? (Professional types only), reason? }
+router.patch('/:id/seller-profile', send((req) => members.updateSellerProfile(req.params.id, req.user.id, req.body || {})));
+// POST /api/admin/users/:id/end-sessions  { reason }
+router.post('/:id/end-sessions', send((req) => members.endSessions(req.params.id, req.user.id, req.body || {})));
+// POST /api/admin/users/:id/password-reset  { reason } — emails the standard reset link to the member
+router.post('/:id/password-reset', send((req) => members.sendPasswordReset(req.params.id, req.user.id, req.body || {},
+  { ip: req.ip, baseUrl: process.env.PUBLIC_APP_URL })));
+
+// POST /api/admin/users/:id/status  { status: 'active'|'suspended', reason } — a reason is required to suspend;
+// an admin cannot suspend their own account or the last active Super Admin.
+router.post('/:id/status', send((req) => members.setStatus(req.params.id, req.user.id, req.body || {})));
 
 // POST /api/admin/users/:id/notes  { note }
 router.post('/:id/notes', async (req, res, next) => {
@@ -161,7 +168,8 @@ router.patch('/:id/contact', async (req, res, next) => {
     if (req.body && 'phone' in req.body)     { params.push(req.body.phone == null ? null : String(req.body.phone).slice(0, 40));      sets.push(`phone=$${params.length}`); }
     if (!sets.length) return res.status(400).json({ success: false, message: 'No editable contact fields supplied (full_name, phone)' });
     params.push(id);
-    const { rows } = await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id=${params.length} RETURNING id, email, full_name, phone`, params);
+    const { rows } = await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id=$${params.length} RETURNING id, email, full_name, phone`, params);
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'User not found' });
     // An admin can correct a phone number but cannot VERIFY one: a changed number is no longer verified.
     let phoneUnverified = false;
     if (req.body && 'phone' in req.body) {
