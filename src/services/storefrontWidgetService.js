@@ -94,4 +94,4 @@ async function forOwner(ctx, runner = db) {
   };
 }
 
-module.exports = { publicFeed, forOwner, embedCode, embedUrl, storefrontUrl, MAX_ITEMS };
+module.exports = { publicFeed, forOwner, embedCode, embedUrl, storefrontUrl, shopHidden, MAX_ITEMS };

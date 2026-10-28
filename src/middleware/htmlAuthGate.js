@@ -51,7 +51,7 @@ const MEMBER_PAGES = new Set([
   '/verify-phone.html', '/notifications.html', // verified mobile number + optional text-alert preferences (self only)
   // Seller company work pages also used by seller STAFF (buyer-role accounts with an active membership, mig 199); the
   // APIs resolve the company from the session and enforce each role's permissions.
-  '/seller-orders.html', '/seller-staff-invite.html', '/seller-messages.html',
+  '/seller-orders.html', '/seller-staff-invite.html', '/seller-messages.html', '/seller-inventory.html',
 ]);
 const SELLER_PAGES = new Set([
   '/seller-create.html', '/seller-dashboard.html', '/lot-builder.html',

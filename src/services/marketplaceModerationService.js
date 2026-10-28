@@ -41,7 +41,7 @@ async function logModeration(client, item, action, adminId, reason, extra = {}) 
 async function listItemsForAdmin({ status, moderation, reported, q, limit } = {}) {
   const where = []; const p = [];
   const add = (sql, v) => { p.push(v); where.push(sql.replace('$?', '$' + p.length)); };
-  if (['draft', 'active', 'pending_purchase', 'sold', 'removed'].includes(status)) add('mi.status = $?', status);
+  if (['draft', 'active', 'paused', 'pending_purchase', 'sold', 'removed'].includes(status)) add('mi.status = $?', status);
   if (moderation === 'taken_down') where.push(`mi.moderation_status = 'taken_down'`);
   if (reported === 'open') where.push(`EXISTS (SELECT 1 FROM marketplace_item_reports r WHERE r.item_id = mi.id AND r.status = 'open')`);
   if (q) add('(mi.title ILIKE $? OR COALESCE(sp.display_name, \'\') ILIKE $?)', '%' + clip(q, 80) + '%');
@@ -98,10 +98,10 @@ async function restore(itemId, adminId, { reason } = {}) {
     if (it.moderation_status !== 'taken_down') throw err(409, 'NOT_TAKEN_DOWN', 'Only a listing an administrator took down can be restored.');
     const last = (await client.query(
       `SELECT prior_status FROM marketplace_item_moderation_events WHERE item_id = $1 AND action = 'takedown' ORDER BY created_at DESC LIMIT 1`, [it.id])).rows[0];
-    let back = last && ['draft', 'active', 'sold', 'removed'].includes(last.prior_status) ? last.prior_status : 'draft';
+    let back = last && ['draft', 'active', 'paused', 'sold', 'removed'].includes(last.prior_status) ? last.prior_status : 'draft';
     // A listing that has been sold is never offered again.
     const paid = (await client.query(`SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status = 'paid'`, [it.id])).rows[0];
-    if (paid.n > 0 && back === 'active') back = 'sold';
+    if (paid.n > 0 && (back === 'active' || back === 'paused')) back = 'sold';
     const upd = (await client.query(
       `UPDATE marketplace_items SET moderation_status = 'none', status = $2, moderation_reason = NULL, moderated_by = $3, moderated_at = now(),
               updated_at = now() WHERE id = $1 RETURNING *`, [it.id, back, adminId])).rows[0];

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Inventory &amp; Import · Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f6f8fb;color:#0f172a}
+    .wrap{max-width:1160px;margin:0 auto;padding:18px}
+    h1{font-size:1.5rem;margin:.3rem 0}
+    h2{font-size:1.05rem;margin:0 0 .6rem}
+    h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#475569;margin:1rem 0 .4rem}
+    .sub{color:#64748b;font-size:.9rem;margin-bottom:1rem}
+    .tabs{display:flex;gap:6px;border-bottom:2px solid #e6eaef;margin-bottom:1rem;flex-wrap:wrap}
+    .tabs button{background:none;border:none;padding:.6rem 1rem;font-weight:700;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-size:.9rem}
+    .tabs button.active{color:#111827;border-bottom-color:#2563eb}
+    .card{background:#fff;border:1px solid #e6eaef;border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+    label.f{display:block;font-size:.7rem;text-transform:uppercase;color:#64748b;margin:.5rem 0 .2rem;font-weight:700}
+    input,select,textarea{padding:.48rem .55rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.88rem;font-family:inherit;background:#fff}
+    .btn{padding:.52rem .95rem;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:.84rem;font-family:inherit}
+    .btn:disabled{opacity:.5;cursor:default}
+    .b-blue{background:#2563eb;color:#fff}.b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e6eaef}.b-green{background:#166534;color:#fff}.b-warn{background:#fee2e2;color:#991b1b}
+    .bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+    .bar input[type=search]{flex:1;min-width:200px}
+    .msg{font-size:.85rem;margin:.5rem 0;min-height:1rem}.ok{color:#166534}.bad{color:#b91c1c}
+    .tw{overflow-x:auto}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid #f1f5f9;font-size:.82rem;vertical-align:top}
+    th{background:#f8fafc;color:#475569;font-size:.66rem;text-transform:uppercase;white-space:nowrap}
+    .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e2e8f0;color:#334155;white-space:nowrap}
+    .p-active{background:#dcfce7;color:#166534}.p-draft{background:#e0e7ff;color:#3730a3}.p-paused{background:#fef3c7;color:#92400e}.p-sold{background:#fee2e2;color:#991b1b}.p-removed{background:#f1f5f9;color:#64748b}
+    .vis{font-size:.72rem;white-space:nowrap}.vis .y{color:#166534;font-weight:700}.vis .n{color:#94a3b8}
+    .thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#f1f5f9;display:block}
+    .nophoto{width:56px;height:56px;border-radius:8px;border:2px dashed #f59e0b;color:#92400e;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center;background:#fffbeb}
+    .hint{color:#64748b;font-size:.78rem;line-height:1.45}
+    .sum{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0}.sum span{background:#f1f5f9;border-radius:8px;padding:.35rem .6rem;font-size:.8rem;font-weight:600}
+    .s-ok{background:#dcfce7!important;color:#166534}.s-skip{background:#e0e7ff!important;color:#3730a3}.s-err{background:#fee2e2!important;color:#991b1b}
+    .maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.4rem .8rem}
+    .maps select{width:100%}
+    .prog{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin:.5rem 0}.prog div{height:100%;background:#2563eb;width:0;transition:width .3s}
+    .drop{border:2px dashed #cbd5e1;border-radius:12px;padding:1.2rem;text-align:center;color:#475569;background:#f8fafc}
+    .drop.on{border-color:#2563eb;background:#eff6ff}
+    .err-l{color:#b91c1c}.warn-l{color:#92400e}
+    .ph-grid{display:flex;flex-wrap:wrap;gap:.6rem}
+    .ph{width:132px;border:1px solid #e6eaef;border-radius:10px;padding:.35rem;background:#fff;font-size:.72rem;text-align:center}
+    .ph img{width:120px;height:120px;object-fit:cover;border-radius:6px;display:block;margin-bottom:.3rem}
+    .ph .acts{display:flex;gap:2px;justify-content:center;flex-wrap:wrap}.ph .acts button{padding:.2rem .4rem;font-size:.7rem}
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;z-index:50;overflow:auto}
+    .modal.open{display:flex}.modal .card{max-width:760px;width:100%}
+    code{background:#f1f5f9;border-radius:4px;padding:0 .3rem;font-size:.8rem}
+    .denied{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1rem;color:#9a3412;display:none}
+    .show-sm{display:none}
+    @media (max-width:640px){.wrap{padding:12px}.card{padding:.85rem}.hide-sm{display:none}.show-sm{display:block;margin-top:.35rem}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="bar" style="justify-content:space-between"><h1>Inventory &amp; Import</h1><a class="btn b-ghost" href="/seller-storefront.html">Back to My Storefront</a></div>
+    <div class="sub">Import hundreds of items from a spreadsheet, add their photos in bulk, and publish when you are ready.</div>
+    <div id="denied" class="denied">Inventory import is available to <b>Professional Sellers</b>. Contact Advantage.Bid to upgrade your account.</div>
+    <div id="content" style="display:none">
+      <div class="tabs" role="tablist">
+        <button id="t-inv" class="active" onclick="tab('inv')">Inventory</button>
+        <button id="t-imp" onclick="tab('imp')">Import Spreadsheet</button>
+        <button id="t-pho" onclick="tab('pho')">Add Photos</button>
+        <button id="t-his" onclick="tab('his')">Import History</button>
+      </div>
+
+      <!-- Inventory workspace -->
+      <div id="pane-inv">
+        <div class="card">
+          <div class="bar">
+            <input type="search" id="q" placeholder="Search title or SKU" aria-label="Search title or SKU" />
+            <select id="fStatus" aria-label="Status"><option value="">All statuses</option><option value="draft">Draft</option><option value="active">Published</option><option value="paused">Paused</option><option value="sold">Sold</option><option value="removed">Removed</option></select>
+            <select id="fPhoto" aria-label="Photos"><option value="">Any photos</option><option value="none">No photo</option><option value="has">Has photos</option></select>
+            <select id="fVis" aria-label="Visibility"><option value="">Anywhere</option><option value="site">Visible on Advantage.Bid</option><option value="hidden">Not visible</option></select>
+          </div>
+          <div class="hint" id="storeNote" style="margin-top:.5rem"></div>
+          <div class="bar" style="margin-top:.7rem" id="bulkBar">
+            <span class="hint" id="selCount">0 selected</span>
+            <button class="btn b-green" onclick="bulk('publish')">Publish</button>
+            <button class="btn b-ghost" onclick="bulk('pause')">Pause</button>
+            <button class="btn b-ghost" onclick="bulk('unpublish')">Move to draft</button>
+            <button class="btn b-ghost" onclick="bulkCategory()">Set category</button>
+            <button class="btn b-warn" onclick="bulk('remove')">Remove</button>
+          </div>
+          <div class="msg" id="invMsg"></div>
+          <div class="tw"><table>
+            <thead><tr><th><input type="checkbox" id="selAll" aria-label="Select all shown" /></th><th>Photo</th><th>Item</th><th>Price</th><th>Status</th><th class="hide-sm">Visible on</th><th class="hide-sm"></th></tr></thead>
+            <tbody id="invBody"><tr><td colspan="7" class="hint">Loading…</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- Import spreadsheet -->
+      <div id="pane-imp" style="display:none">
+        <div class="card">
+          <h2>1. Get your spreadsheet ready</h2>
+          <div class="hint">Use your own spreadsheet or our template. One row per item; the first row names the columns. Items are imported as <b>drafts</b>: nothing is public until you publish it.</div>
+          <ul class="hint" style="margin:.5rem 0 .5rem 1.2rem">
+            <li><b>Required:</b> Title and Price. <b>Strongly recommended:</b> a SKU (item number) on every row; photos are matched by SKU, and a repeat import skips items you already have.</li>
+            <li>Price in dollars, for example <code>125</code> or <code>1,250.00</code>. Quantity is 1 per row (each storefront item sells once).</li>
+            <li>Ships: <code>Yes</code> uses your store shipping default; blank or <code>No</code> means pickup only. Pickup columns are optional; blank uses your storefront pickup location.</li>
+            <li>CSV or Excel (.xlsx), up to 2,000 items and 5 MB per file. Only the first worksheet is read, and formulas are imported as their saved values.</li>
+          </ul>
+          <a class="btn b-ghost" href="#" onclick="downloadTemplate(event)">Download template (CSV)</a>
+          <span class="hint">The template's example rows start with EXAMPLE-; delete them before importing.</span>
+        </div>
+        <div class="card">
+          <h2>2. Upload and check</h2>
+          <input type="file" id="sheetFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Spreadsheet file" />
+          <button class="btn b-blue" id="prevBtn" onclick="previewSheet()">Check spreadsheet</button>
+          <div class="msg" id="impMsg"></div>
+          <div id="preview"></div>
+        </div>
+      </div>
+
+      <!-- Bulk photos -->
+      <div id="pane-pho" style="display:none">
+        <div class="card">
+          <h2>Add photos by SKU</h2>
+          <div class="hint">Name each photo after the item's SKU. Photos are added to your own draft, published or paused items only, and original files are kept at full quality.</div>
+          <ul class="hint" style="margin:.5rem 0 .6rem 1.2rem">
+            <li><code>A1001.jpg</code> is the first photo of item <b>A1001</b>.</li>
+            <li><code>A1001_2.jpg</code>, <code>A1001-3.jpg</code> or <code>A1001 (4).jpg</code> are more photos of the same item, in number order.</li>
+            <li>In a ZIP file, a folder named after the SKU works too: <code>A1001/front.jpg</code>, <code>A1001/back.jpg</code>.</li>
+            <li>JPEG, PNG, GIF, WebP or HEIC, up to 10 MB each and 24 per item. A photo that matches no SKU is listed below and not uploaded. A photo already on the item is skipped.</li>
+          </ul>
+          <div class="drop" id="drop">Drop photos here, or <label style="color:#2563eb;cursor:pointer;text-decoration:underline">choose photos<input type="file" id="phFiles" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic,.heif" style="display:none" /></label>
+            <div class="hint" style="margin-top:.4rem">or <label style="color:#2563eb;cursor:pointer;text-decoration:underline">upload a ZIP file (up to 60 MB)<input type="file" id="phZip" accept=".zip,application/zip" style="display:none" /></label></div></div>
+          <div class="prog" id="phProg" hidden><div></div></div>
+          <div class="msg" id="phMsg"></div>
+          <div id="phResults"></div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div id="pane-his" style="display:none">
+        <div class="card"><h2>Import history</h2><div id="hisBody" class="hint">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="phModal" role="dialog" aria-modal="true" aria-labelledby="phTitle"><div class="card">
+    <div class="bar" style="justify-content:space-between"><h2 id="phTitle">Photos</h2><button class="btn b-ghost" onclick="closePhotos()">Close</button></div>
+    <div class="hint">The first photo is the main photo shown in listings and on your website widget.</div>
+    <div class="ph-grid" id="phGrid" style="margin:.7rem 0"></div>
+    <label class="f" for="phItemFiles">Add photos to this item</label>
+    <input type="file" id="phItemFiles" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic,.heif" />
+    <div class="msg" id="phItemMsg"></div>
+  </div></div>
+
+  <script>
+    var token=localStorage.getItem('token');
+    if(!token) location.href='/login.html?next=%2Fseller-inventory.html';
+    var ITEMS=[],SEL=new Set(),PREVIEW=null,FILE=null,PH_ITEM=null;
+    var STATUS_LABEL={draft:'Draft',active:'Published',paused:'Paused',sold:'Sold',removed:'Removed',pending_purchase:'Checkout in progress'};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function money(c){return c==null?'-':'$'+(c/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function say(id,t,ok){var e=document.getElementById(id);e.textContent=t||'';e.className='msg '+(ok?'ok':'bad');}
+    async function req(m,u,body,isForm){var o={method:m,headers:{Authorization:'Bearer '+token}};
+      if(body!==undefined){if(isForm)o.body=body;else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(body);}}
+      var r=await fetch(u,o);if(r.status===401){location.href='/login.html?next=%2Fseller-inventory.html';throw new Error('auth');}
+      var j={};try{j=await r.json();}catch(e){}j.httpStatus=r.status;return j;}
+    // A small web-sized version of a stored photo for the list (the original is untouched).
+    function small(u,w){return /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(u)&&!/\/upload\/[a-z]_/.test(u)?u.replace('/upload/','/upload/c_fill,w_'+w+',h_'+w+',f_auto,q_auto/'):u;}
+    function tab(n){['inv','imp','pho','his'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});
+      if(n==='inv')loadItems();if(n==='his')loadHistory();}
+
+    // ── Inventory ──────────────────────────────────────────────────────────────────
+    async function loadItems(){
+      var r=await req('GET','/api/seller-storefront/items');
+      if(r.httpStatus===403){document.getElementById('denied').style.display='block';document.getElementById('content').style.display='none';return;}
+      ITEMS=r.data||[];
+      document.getElementById('storeNote').textContent=r.storefront_open?'Published items appear on Advantage.Bid and on your website widget automatically.'
+        :'Published items appear on Advantage.Bid. Your website widget shows them once your storefront is published (My Storefront) and its Shop section is shown.';
+      SEL.forEach(function(id){if(!ITEMS.some(function(m){return m.id===id;}))SEL.delete(id);});
+      render();
+    }
+    function shown(){
+      var q=document.getElementById('q').value.trim().toLowerCase(),st=document.getElementById('fStatus').value,ph=document.getElementById('fPhoto').value,vis=document.getElementById('fVis').value;
+      return ITEMS.filter(function(m){
+        if(q&&(m.title||'').toLowerCase().indexOf(q)===-1&&(m.inventory_number||'').toLowerCase().indexOf(q)===-1)return false;
+        if(st&&m.status!==st)return false;
+        if(ph==='none'&&m.photo_count>0)return false;if(ph==='has'&&!m.photo_count)return false;
+        var site=m.visibility&&m.visibility.advantage_bid;if(vis==='site'&&!site)return false;if(vis==='hidden'&&site)return false;
+        return true;});
+    }
+    function render(){
+      var rows=shown();
+      document.getElementById('invBody').innerHTML=rows.length?rows.map(function(m){
+        var img=(m.images&&m.images[0])||m.thumbnail_url;var v=m.visibility||{};
+        var editable=['draft','active','paused'].indexOf(m.status)!==-1;
+        var acts=editable?'<button class="btn b-ghost" data-do="edit" data-id="'+esc(m.id)+'">Edit</button> <button class="btn b-ghost" data-do="photos" data-id="'+esc(m.id)+'">Photos ('+m.photo_count+')</button>':'';
+        return '<tr><td><input type="checkbox" data-id="'+esc(m.id)+'"'+(SEL.has(m.id)?' checked':'')+' aria-label="Select '+esc(m.title)+'"></td>'+
+          '<td>'+(img?'<img class="thumb" loading="lazy" alt="" src="'+esc(small(img,112))+'">':'<div class="nophoto">No photo</div>')+'</td>'+
+          '<td><div id="t-'+esc(m.id)+'"><b>'+esc(m.title)+'</b>'+(m.inventory_number?'<div class="hint">SKU '+esc(m.inventory_number)+'</div>':'<div class="hint">No SKU</div>')+(m.category?'<div class="hint">'+esc(m.category)+'</div>':'')+'</div>'+(acts?'<div class="show-sm">'+acts+'</div>':'')+'</td>'+
+          '<td>'+money(m.price_cents)+'</td>'+
+          '<td><span class="pill p-'+esc(m.status)+'">'+esc(STATUS_LABEL[m.status]||m.status)+'</span>'+(m.moderation_status==='taken_down'?'<div class="hint bad">Removed by Advantage.Bid</div>':'')+
+            '<div class="show-sm vis"><span class="'+(v.advantage_bid?'y':'n')+'">'+(v.advantage_bid?'Visible':'Not visible')+'</span></div></td>'+
+          '<td class="hide-sm vis"><div class="'+(v.advantage_bid?'y':'n')+'">'+(v.advantage_bid?'&#10003; Advantage.Bid':'&#10007; Not on Advantage.Bid')+'</div><div class="'+(v.widget?'y':'n')+'">'+(v.widget?'&#10003; Website widget':'&#10007; Not on widget')+'</div></td>'+
+          '<td class="hide-sm" style="white-space:nowrap">'+acts+'</td></tr>';
+      }).join(''):'<tr><td colspan="7" class="hint">'+(ITEMS.length?'No items match these filters.':'No items yet. Import a spreadsheet to add many at once.')+'</td></tr>';
+      document.querySelectorAll('#invBody input[type=checkbox]').forEach(function(c){c.onchange=function(){if(c.checked)SEL.add(c.dataset.id);else SEL.delete(c.dataset.id);count();};});
+      count();
+    }
+    function count(){document.getElementById('selCount').textContent=SEL.size+' selected';var all=shown();document.getElementById('selAll').checked=all.length>0&&all.every(function(m){return SEL.has(m.id);});}
+    document.getElementById('selAll').onchange=function(){var on=this.checked;shown().forEach(function(m){if(on)SEL.add(m.id);else SEL.delete(m.id);});render();};
+    ['q','fStatus','fPhoto','fVis'].forEach(function(id){document.getElementById(id).addEventListener(id==='q'?'input':'change',render);});
+    async function bulk(action,value){
+      if(!SEL.size){say('invMsg','Select one or more items first.');return;}
+      var ids=Array.from(SEL);var label={publish:'Publish',pause:'Pause',unpublish:'Move to draft',remove:'Remove',set_category:'Set the category of'}[action];
+      if(action==='publish'){var nophoto=ITEMS.filter(function(m){return SEL.has(m.id)&&!m.photo_count;}).length;
+        if(!confirm(label+' '+ids.length+' item(s)? They will be visible on Advantage.Bid'+(nophoto?'.\n\n'+nophoto+' of them have no photo and will show "No photo".':'.')))return;}
+      else if(!confirm(label+' '+ids.length+' item(s)?'))return;
+      say('invMsg','Working…',true);var done=0,refused=[];
+      for(var i=0;i<ids.length;i+=200){var r=await req('POST','/api/seller-storefront/items/bulk',{ids:ids.slice(i,i+200),action:action,value:value});
+        if(!r.success){say('invMsg',r.message||'Not saved. Please try again.');return;}done+=r.data.done;refused=refused.concat(r.data.results.filter(function(x){return !x.ok;}));}
+      var byId={};ITEMS.forEach(function(m){byId[m.id]=m;});
+      say('invMsg',done+' updated.'+(refused.length?' '+refused.length+' not changed: '+refused.slice(0,5).map(function(x){return '"'+((byId[x.id]||{}).title||'item')+'": '+x.message;}).join(' ')+(refused.length>5?' …':''):''),!refused.length);
+      SEL.clear();loadItems();
+    }
+    function bulkCategory(){var c=prompt('Category for the selected items:','');if(c===null)return;c=c.trim();if(!c)return;bulk('set_category',c);}
+    function quickEdit(id){var m=ITEMS.find(function(x){return x.id===id;});var box=document.getElementById('t-'+id);if(!m||!box)return;
+      box.innerHTML='<input id="qe-t-'+esc(id)+'" value="'+esc(m.title)+'" maxlength="200" style="width:100%;margin-bottom:4px" aria-label="Title">'+
+        '<div class="bar"><input id="qe-p-'+esc(id)+'" type="number" min="0.01" step="0.01" value="'+(m.price_cents/100)+'" style="width:110px" aria-label="Price">'+
+        '<input id="qe-c-'+esc(id)+'" value="'+esc(m.category||'')+'" maxlength="100" placeholder="Category" style="width:140px" aria-label="Category">'+
+        '<button class="btn b-blue" data-do="save" data-id="'+esc(id)+'">Save</button><button class="btn b-ghost" data-do="cancel">Cancel</button></div>';}
+    async function saveQuick(id){var t=document.getElementById('qe-t-'+id).value.trim(),p=Math.round(parseFloat(document.getElementById('qe-p-'+id).value)*100),c=document.getElementById('qe-c-'+id).value.trim();
+      if(!t||!(p>0)){say('invMsg','A title and a price above zero are required.');return;}
+      var body={title:t,price_cents:p};if(c)body.category=c;
+      var r=await req('PATCH','/api/seller-storefront/items/'+encodeURIComponent(id),body);
+      if(!r.success){say('invMsg',r.message||'Not saved.');return;}say('invMsg','Saved.',true);loadItems();}
+
+    // ── Photos for one item ────────────────────────────────────────────────────────
+    function openPhotos(id){PH_ITEM=ITEMS.find(function(x){return x.id===id;});if(!PH_ITEM)return;
+      document.getElementById('phTitle').textContent='Photos: '+PH_ITEM.title;say('phItemMsg','');drawPhotos();document.getElementById('phModal').classList.add('open');}
+    function closePhotos(){document.getElementById('phModal').classList.remove('open');PH_ITEM=null;loadItems();}
+    function drawPhotos(){var imgs=PH_ITEM.images||[];
+      document.getElementById('phGrid').innerHTML=imgs.length?imgs.map(function(u,i){return '<div class="ph"><img alt="" src="'+esc(small(u,240))+'">'+(i===0?'<b>Main photo</b>':'Photo '+(i+1))+
+        '<div class="acts">'+(i>0?'<button class="btn b-ghost" title="Make main photo" onclick="movePhoto('+i+',0)">Main</button><button class="btn b-ghost" aria-label="Move earlier" onclick="movePhoto('+i+','+(i-1)+')">&larr;</button>':'')+
+        (i<imgs.length-1?'<button class="btn b-ghost" aria-label="Move later" onclick="movePhoto('+i+','+(i+1)+')">&rarr;</button>':'')+
+        '<button class="btn b-warn" onclick="removePhoto('+i+')">Remove</button></div></div>';}).join(''):'<div class="nophoto" style="width:auto;height:auto;padding:1rem">This item has no photo yet.</div>';}
+    async function savePhotos(list){var r=await req('PUT','/api/seller-storefront/items/'+encodeURIComponent(PH_ITEM.id)+'/photos',{images:list});
+      if(!r.success){say('phItemMsg',r.message||'Not saved.');return;}PH_ITEM.images=r.data.images||list;drawPhotos();say('phItemMsg','Saved.',true);}
+    function movePhoto(from,to){var l=(PH_ITEM.images||[]).slice();var x=l.splice(from,1)[0];l.splice(to,0,x);savePhotos(l);}
+    function removePhoto(i){if(!confirm('Remove this photo from the item?'))return;var l=(PH_ITEM.images||[]).slice();l.splice(i,1);savePhotos(l);}
+    document.getElementById('phItemFiles').onchange=async function(){var files=Array.from(this.files||[]);this.value='';if(!files.length||!PH_ITEM)return;
+      say('phItemMsg','Uploading…',true);var att=0,notes=[];
+      for(var i=0;i<files.length;i+=10){var fd=new FormData();files.slice(i,i+10).forEach(function(f){fd.append('photos',f,f.name);});
+        var r=await req('POST','/api/seller-storefront/items/'+encodeURIComponent(PH_ITEM.id)+'/photos',fd,true);
+        if(!r.success){say('phItemMsg',r.message||'Upload failed.');return;}att+=r.data.attached;r.data.results.filter(function(x){return x.outcome!=='attached';}).forEach(function(x){notes.push(x.file+': '+x.message);});}
+      await loadItems();PH_ITEM=ITEMS.find(function(x){return x.id===PH_ITEM.id;})||PH_ITEM;drawPhotos();
+      say('phItemMsg',att+' photo(s) added.'+(notes.length?' '+notes.join(' '):''),!notes.length);};
+
+    // ── Import ─────────────────────────────────────────────────────────────────────
+    async function downloadTemplate(e){e.preventDefault();var r=await fetch('/api/seller-storefront/imports/template.csv',{headers:{Authorization:'Bearer '+token}});
+      if(!r.ok){say('impMsg','The template could not be downloaded.');return;}saveBlob(await r.blob(),'advantage-bid-inventory-template.csv');}
+    function saveBlob(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);}
+    async function previewSheet(mapping){
+      var f=document.getElementById('sheetFile').files[0]||FILE;if(!f){say('impMsg','Choose a CSV or Excel (.xlsx) file first.');return;}
+      FILE=f;var fd=new FormData();fd.append('file',f,f.name);if(mapping)fd.append('mapping',JSON.stringify(mapping));
+      var b=document.getElementById('prevBtn');b.disabled=true;say('impMsg','Checking every row…',true);
+      var r=await req('POST','/api/seller-storefront/imports/preview',fd,true);b.disabled=false;
+      if(!r.success){say('impMsg',r.message||'The spreadsheet could not be read.');document.getElementById('preview').innerHTML='';return;}
+      PREVIEW=r.data;say('impMsg','');drawPreview();
+    }
+    document.getElementById('sheetFile').onchange=function(){FILE=null;PREVIEW=null;document.getElementById('preview').innerHTML='';};
+    function drawPreview(onlyProblems){
+      var p=PREVIEW,s=p.summary;
+      var opts=function(key){return '<option value="">(not in my file)</option>'+p.headers.map(function(h,i){return '<option value="'+i+'"'+(p.mapping[key]===i?' selected':'')+'>'+esc(h||('Column '+(i+1)))+'</option>';}).join('');};
+      var h='<h3>Columns</h3><div class="hint">We matched your columns automatically. Change any choice, then check again.</div><div class="maps" style="margin-top:.4rem">'+
+        p.fields.map(function(f){return '<div><label class="f" for="map-'+f.key+'">'+esc(f.label)+(f.required?' *':'')+'</label><select id="map-'+f.key+'" data-key="'+f.key+'">'+opts(f.key)+'</select></div>';}).join('')+
+        '</div><button class="btn b-ghost" style="margin-top:.6rem" onclick="remap()">Check again with these columns</button>';
+      if(p.missing_required.length)h+='<div class="msg bad">Choose a column for: '+esc(p.missing_required.join(', '))+'.</div>';
+      if(p.previously_imported)h+='<div class="msg warn-l">You imported this same file before ('+new Date(p.previously_imported.at).toLocaleDateString()+'). Items already in your inventory are skipped, never changed.</div>';
+      h+='<h3>Results</h3><div class="sum"><span>'+s.total+' rows</span><span class="s-ok">'+s.ready+' ready to import</span><span class="s-skip">'+s.skip+' already in inventory (skipped)</span><span class="s-err">'+s.errors+' need fixing</span>'+(s.warnings?'<span>'+s.warnings+' with notes</span>':'')+'</div>'+
+        '<div class="bar"><button class="btn b-green" id="impBtn" onclick="runImport()"'+(s.ready?'':' disabled')+'>Import '+s.ready+' item'+(s.ready===1?'':'s')+' as drafts</button>'+
+        (s.errors||s.skip?'<button class="btn b-ghost" data-do="problems" data-id="'+esc(p.batch_id)+'">Download problem list</button>':'')+
+        '<label class="hint"><input type="checkbox" id="onlyProb"'+(onlyProblems?' checked':'')+'> Show only rows that need attention</label>'+
+        '<button class="btn b-ghost" onclick="cancelPreview()">Cancel</button></div>'+
+        (s.errors?'<div class="hint" style="margin-top:.4rem">Rows that need fixing are not imported. Fix them in your spreadsheet and upload it again later; the items imported now will be skipped automatically (by SKU).</div>':'')+
+        '<div class="prog" id="impProg" hidden><div></div></div><div class="msg" id="impRun"></div>'+
+        '<div class="tw"><table><thead><tr><th>Row</th><th>SKU</th><th>Title</th><th>Price</th><th>Result</th></tr></thead><tbody>'+
+        p.rows.filter(function(r){return !onlyProblems||r.action!=='create'||r.warnings.length;}).slice(0,1000).map(function(r){var v=r.values||{};
+          var res=r.action==='create'?'<span class="pill p-active">Ready</span>':r.action==='skip'?'<span class="pill p-draft">Skip</span>':'<span class="pill p-sold">Fix</span>';
+          var notes=(r.errors||[]).map(function(e){return '<div class="err-l">'+esc(e.message)+(e.suggestion?' <span class="hint">'+esc(e.suggestion)+'</span>':'')+'</div>';}).join('')+
+            (r.warnings||[]).map(function(w){return '<div class="warn-l">'+esc(w.message)+(w.suggestion?' <span class="hint">'+esc(w.suggestion)+'</span>':'')+'</div>';}).join('');
+          return '<tr><td>'+r.row+'</td><td>'+esc(v.inventory_number||'')+'</td><td>'+esc(v.title||'')+'</td><td>'+(v.price_cents?money(v.price_cents):'')+'</td><td>'+res+notes+'</td></tr>';}).join('')+
+        '</tbody></table></div>'+(p.rows.length>1000?'<div class="hint">Showing the first 1,000 rows; download the problem list for the rest.</div>':'');
+      document.getElementById('preview').innerHTML=h;
+      document.getElementById('onlyProb').onchange=function(){drawPreview(this.checked);};
+    }
+    function remap(){var m={};document.querySelectorAll('#preview select[data-key]').forEach(function(s){if(s.value!=='')m[s.dataset.key]=parseInt(s.value,10);});previewSheet(m);}
+    async function cancelPreview(){if(PREVIEW)await req('POST','/api/seller-storefront/imports/'+PREVIEW.batch_id+'/cancel');PREVIEW=null;FILE=null;document.getElementById('sheetFile').value='';document.getElementById('preview').innerHTML='';say('impMsg','Cancelled. Nothing was imported.',true);}
+    async function problems(id){var r=await fetch('/api/seller-storefront/imports/'+encodeURIComponent(id)+'/problems.csv',{headers:{Authorization:'Bearer '+token}});if(r.ok)saveBlob(await r.blob(),'import-problems.csv');}
+    async function runImport(retry){
+      var id=PREVIEW.batch_id;var b=document.getElementById('impBtn');if(b)b.disabled=true;
+      var bar=document.getElementById('impProg');bar.hidden=false;var r;
+      for(var guard=0;guard<100;guard++){
+        r=await req('POST','/api/seller-storefront/imports/'+id+(retry&&guard===0?'/retry':'/import'));
+        if(!r.success){say('impRun',(r.message||'The import stopped.')+' Your progress is saved; choose Import again to continue.');if(b)b.disabled=false;return;}
+        var d=r.data;var pct=d.ready?Math.round((d.ready-d.remaining)/d.ready*100):100;bar.firstChild.style.width=pct+'%';
+        say('impRun','Imported '+d.created+' of '+d.ready+'…',true);
+        if(d.done)break;
+      }
+      var d2=r.data;
+      document.getElementById('impRun').innerHTML='<span class="ok"><b>Done.</b> '+d2.created+' item(s) imported as drafts'+(d2.skipped?', '+d2.skipped+' skipped (already in inventory)':'')+'.</span>'+
+        (d2.failed?' <span class="bad">'+d2.failed+' could not be imported: '+esc(d2.failures.slice(0,3).map(function(x){return 'row '+x.row+': '+x.message;}).join(' '))+'</span> <button class="btn b-ghost" onclick="runImport(true)">Retry failed rows</button>':'')+
+        ' <button class="btn b-blue" onclick="tab(\'pho\')">Next: add photos</button> <button class="btn b-ghost" onclick="tab(\'inv\')">Review drafts</button>';
+    }
+
+    // ── Bulk photos ────────────────────────────────────────────────────────────────
+    var drop=document.getElementById('drop');
+    ['dragenter','dragover'].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.add('on');});});
+    ['dragleave','drop'].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.remove('on');});});
+    drop.addEventListener('drop',function(e){var fs=Array.from(e.dataTransfer.files||[]);var z=fs.filter(function(f){return /\.zip$/i.test(f.name);});
+      if(z.length)uploadZip(z[0]);else uploadPhotos(fs);});
+    document.getElementById('phFiles').onchange=function(){var fs=Array.from(this.files||[]);this.value='';uploadPhotos(fs);};
+    document.getElementById('phZip').onchange=function(){var f=this.files[0];this.value='';if(f)uploadZip(f);};
+    var PH_ALL=[];
+    function showResults(){var c={attached:0,skipped:0,unmatched:0,rejected:0};PH_ALL.forEach(function(r){c[r.outcome]=(c[r.outcome]||0)+1;});
+      var lab={attached:'Added',skipped:'Skipped',unmatched:'No matching SKU',rejected:'Not accepted'};
+      document.getElementById('phResults').innerHTML='<div class="sum"><span class="s-ok">'+c.attached+' added</span><span class="s-skip">'+c.skipped+' skipped</span><span class="s-err">'+(c.unmatched+c.rejected)+' not uploaded</span></div>'+
+        (PH_ALL.some(function(r){return r.outcome!=='attached';})?'<div class="tw"><table><thead><tr><th>File</th><th>Result</th></tr></thead><tbody>'+PH_ALL.filter(function(r){return r.outcome!=='attached';}).map(function(r){
+          return '<tr><td>'+esc(r.file)+'</td><td>'+esc(lab[r.outcome]||r.outcome)+(r.sku?' (SKU '+esc(r.sku)+')':'')+': '+esc(r.message||'')+'</td></tr>';}).join('')+'</tbody></table></div>':'');}
+    async function uploadPhotos(files){
+      files=files.filter(function(f){return !/\.zip$/i.test(f.name);});if(!files.length)return;
+      PH_ALL=[];var bar=document.getElementById('phProg');bar.hidden=false;bar.firstChild.style.width='0';
+      for(var i=0;i<files.length;i+=10){var fd=new FormData();files.slice(i,i+10).forEach(function(f){fd.append('photos',f,f.name);});
+        say('phMsg','Uploading '+Math.min(i+10,files.length)+' of '+files.length+'…',true);
+        var r=await req('POST','/api/seller-storefront/photos',fd,true);
+        if(!r.success){say('phMsg',(r.message||'Upload failed.')+' Photos already added are kept; upload the rest again.');showResults();return;}
+        PH_ALL=PH_ALL.concat(r.data.results);bar.firstChild.style.width=Math.round(Math.min(i+10,files.length)/files.length*100)+'%';showResults();}
+      say('phMsg','Finished. Review your items in Inventory.',true);
+    }
+    async function uploadZip(f){
+      if(f.size>60*1024*1024){say('phMsg','That ZIP file is larger than 60 MB. Split the photos into smaller ZIP files.');return;}
+      PH_ALL=[];var bar=document.getElementById('phProg');bar.hidden=false;bar.firstChild.style.width='30%';say('phMsg','Uploading and matching the photos in '+f.name+'. This can take a few minutes…',true);
+      var fd=new FormData();fd.append('zip',f,f.name);var r=await req('POST','/api/seller-storefront/photos/zip',fd,true);bar.firstChild.style.width='100%';
+      if(!r.success){say('phMsg',r.message||'The ZIP file could not be used.');return;}PH_ALL=r.data.results;showResults();say('phMsg','Finished. Review your items in Inventory.',true);
+    }
+
+    // ── History ────────────────────────────────────────────────────────────────────
+    var BATCH_STATUS={previewed:'Checked, not imported',importing:'Import not finished',completed:'Imported',completed_with_errors:'Imported (some rows not imported)'};
+    async function loadHistory(){var r=await req('GET','/api/seller-storefront/imports');var rows=r.data||[];
+      document.getElementById('hisBody').innerHTML=rows.length?'<div class="tw"><table><thead><tr><th>Date</th><th>File</th><th>Status</th><th>Rows</th><th>Imported</th><th>Skipped</th><th>Not imported</th><th></th></tr></thead><tbody>'+rows.map(function(b){
+        return '<tr><td>'+new Date(b.created_at).toLocaleString()+'</td><td>'+esc(b.file_name)+'</td><td>'+esc(BATCH_STATUS[b.status]||b.status)+'</td><td>'+b.total_rows+'</td><td>'+b.created_count+'</td><td>'+b.skipped_count+'</td><td>'+(b.failed_count+Math.max(0,b.error_rows))+'</td>'+
+          '<td><button class="btn b-ghost" data-do="problems" data-id="'+esc(b.id)+'">Problem list</button></td></tr>';}).join('')+'</tbody></table></div>':'No imports yet.';}
+
+    // One click handler for buttons that carry an item or import id (data attributes, never an id inside inline script).
+    document.addEventListener('click',function(e){var b=e.target.closest('[data-do]');if(!b)return;var id=b.getAttribute('data-id'),a=b.getAttribute('data-do');
+      if(a==='edit')quickEdit(id);else if(a==='photos')openPhotos(id);else if(a==='save')saveQuick(id);else if(a==='cancel')render();else if(a==='problems')problems(id);});
+    (async function init(){
+      var r=await req('GET','/api/seller-storefront/config');
+      var d=r.data||{};
+      var pro=d.eligible!==false&&r.success;
+      if(!pro){document.getElementById('denied').style.display='block';return;}
+      document.getElementById('content').style.display='';loadItems();
+    })();
+  </script>
+</body>
+</html>

@@ -188,7 +188,9 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
 }
 
 // Direct listing (never auctioned). Server-derives seller from the user.
-async function createDirectListing(actingUserId, data = {}) {
+// opts.importBatchId / opts.importRow (bulk import, migration 207): the import row that creates this item, recorded in the
+// same INSERT so a retried import can never create the item twice (unique per batch row).
+async function createDirectListing(actingUserId, data = {}, opts = {}) {
   const seller = await sellerForUser(actingUserId);
   if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile for this user.');
   if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
@@ -218,6 +220,9 @@ async function createDirectListing(actingUserId, data = {}) {
   const loc = own ? eff.address : saleLocation.normalize({});
   const pv = pickupValues(loc, own ? 'item' : 'default');
   const place = publicPlace(eff.address);
+  // Only an import names these columns (migration 207), so ordinary listings never depend on that migration.
+  const importCols = opts.importBatchId ? ', import_batch_id, import_row' : '';
+  const importVals = opts.importBatchId ? ',$42,$43' : '';
   const { rows } = await db.query(
     `INSERT INTO marketplace_items
        (seller_id, title, description, category, condition, price_cents, images, thumbnail_url, city, state, zip,
@@ -225,10 +230,10 @@ async function createDirectListing(actingUserId, data = {}) {
         pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code, pickup_country,
         pickup_location_source, pickup_location_updated_at,
         brand, manufacturer, gtin, mpn, condition_type, era_or_period, material, image_alt,
-        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile, inventory_number)
+        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile, inventory_number${importCols})
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'direct',
              $18,$19,$20,$21,$22,$23,$24,$25, $26,$27,$28,$29,$30,$31,$32,$33::jsonb,
-             $34,$35,$36,$37,$38,$39,$40,$41) RETURNING *`,
+             $34,$35,$36,$37,$38,$39,$40,$41${importVals}) RETURNING *`,
     [seller.id, title, data.description || null, data.category || null, data.condition || null, price,
      JSON.stringify(images), images[0] || null, place.city || data.city || null, place.state || data.state || null, place.zip || data.zip || null,
      sh.shippable, sh.shipping_cost_cents, sh.shipping_notes, data.pickup_group || null, status, !!seller.is_demo,
@@ -237,15 +242,17 @@ async function createDirectListing(actingUserId, data = {}) {
      pd.brand || null, pd.manufacturer || null, pd.gtin || null, pd.mpn || null, pd.condition_type || null, pd.era_or_period || null,
      pd.material || null, JSON.stringify(pd.image_alt || []),
      sh.shipping_method, sh.shipping_price_mode, sh.shipping_destinations, sh.shipping_states || [], sh.handling_days, !!sh.is_oversized, !!sh.is_fragile,
-     inventoryNumber || null]).catch(inventoryConflict);
+     inventoryNumber || null, ...(opts.importBatchId ? [opts.importBatchId, opts.importRow] : [])]).catch(inventoryConflict);
   return rows[0];
 }
 
 // Status changes a seller may make. 'pending_purchase' is set only by checkout; 'sold' may be set by the seller for an
 // item sold elsewhere (and by a paid order); a sold item may only be removed from view.
+// 'paused' (migration 207): a published item taken off sale for now; not public, details and photos kept.
 const SELLER_TRANSITIONS = {
   draft: ['draft', 'active', 'removed', 'sold'],
-  active: ['active', 'draft', 'removed', 'sold'],
+  active: ['active', 'draft', 'paused', 'removed', 'sold'],
+  paused: ['paused', 'active', 'draft', 'removed', 'sold'],
   removed: ['removed', 'draft', 'active'],
   sold: ['sold', 'removed'],
   pending_purchase: [],
@@ -268,13 +275,13 @@ async function updateItem(id, actingUserId, patch = {}) {
     throw err(409, 'ITEM_RESERVED', "A buyer is checking out this item, so it can't be changed right now. Try again in a few minutes.");
   }
   if (patch.status != null) {
-    if (!['draft', 'active', 'sold', 'removed'].includes(patch.status)) throw err(400, 'INVALID_STATUS', 'That status is not available.');
+    if (!['draft', 'active', 'paused', 'sold', 'removed'].includes(patch.status)) throw err(400, 'INVALID_STATUS', 'That status is not available.');
     // A listing an administrator took down stays down until an administrator restores it (database-enforced too).
     if (item.moderation_status === 'taken_down' && patch.status !== item.status) {
       throw err(409, 'TAKEN_DOWN', 'This listing was removed by Advantage.Bid and cannot be put back on sale. Contact support if you have questions.');
     }
     const allowed = SELLER_TRANSITIONS[item.status] || [];
-    if (!allowed.includes(patch.status) || (orders.paid > 0 && ['draft', 'active'].includes(patch.status))) {
+    if (!allowed.includes(patch.status) || (orders.paid > 0 && ['draft', 'active', 'paused'].includes(patch.status))) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     }
   }
@@ -330,6 +337,70 @@ async function updateItem(id, actingUserId, patch = {}) {
   if (!sets.length) return item;
   const { rows } = await client.query(`UPDATE marketplace_items SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals).catch(inventoryConflict);
   return rows[0];
+  });
+}
+
+// ── Photos (migration 207) ──────────────────────────────────────────────────────────────────────────────────────────
+const MAX_PHOTOS = 24;
+// Lock the seller's own item for a photo change. A sold or reserved item keeps the photos it had at the sale.
+async function lockOwnItemForPhotos(client, itemId, sellerId) {
+  const item = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
+  if (!item || item.seller_id !== sellerId) throw err(404, 'NOT_FOUND', 'Listing not found.');
+  if (item.status === 'sold' || item.status === 'pending_purchase') throw err(409, 'ITEM_SOLD', 'This item has been sold or is being purchased, so its photos are kept as they were.');
+  // The same protections as editing the item (updateItem): an administrator takedown, a sale or a checkout in progress
+  // keeps the photos exactly as they are, whatever the item's status now says.
+  if (item.moderation_status === 'taken_down') throw err(409, 'TAKEN_DOWN', 'This listing was removed by Advantage.Bid, so its photos cannot be changed.');
+  const o = (await client.query(
+    `SELECT count(*) FILTER (WHERE payment_status IN ('pending','processing'))::int AS live,
+            count(*) FILTER (WHERE payment_status = 'paid')::int AS paid
+       FROM marketplace_orders WHERE marketplace_item_id = $1`, [itemId])).rows[0] || { live: 0, paid: 0 };
+  if (o.paid > 0) throw err(409, 'ITEM_SOLD', 'This item has been sold, so its photos are kept as they were at the sale.');
+  if (o.live > 0) throw err(409, 'ITEM_RESERVED', "A buyer is checking out this item, so it can't be changed right now. Try again in a few minutes.");
+  return item;
+}
+const imagesOf = (item) => (Array.isArray(item.images) ? item.images.filter((u) => typeof u === 'string') : []);
+
+// Append uploaded photos (already stored; https URLs) to the seller's own item, in order, up to the photo limit.
+// Returns { item, added, skipped_full }. Internal: callers have already resolved and checked the seller.
+async function appendPhotos(itemId, sellerId, urls, runner = null) {
+  const run = async (client) => {
+    const item = await lockOwnItemForPhotos(client, itemId, sellerId);
+    const current = imagesOf(item);
+    const room = Math.max(0, MAX_PHOTOS - current.length);
+    const fresh = urls.filter((u) => typeof u === 'string' && /^https:\/\//i.test(u) && !current.includes(u));
+    const add = fresh.slice(0, room);
+    if (!add.length) return { item, added: 0, skipped_full: fresh.length };
+    const images = current.concat(add);
+    const row = (await client.query(
+      `UPDATE marketplace_items SET images = $2::jsonb, thumbnail_url = $3, updated_at = now() WHERE id = $1 RETURNING *`,
+      [itemId, JSON.stringify(images), images[0]])).rows[0];
+    return { item: row, added: add.length, skipped_full: fresh.length - add.length };
+  };
+  return runner ? run(runner) : withTransaction(run);
+}
+
+// Reorder, choose the primary (first) photo, or remove photos. The new list must be made only of the item's current
+// photos (no outside URL can be attached this way); photo descriptions move with their photos.
+async function setItemPhotos(itemId, actingUserId, images) {
+  const seller = await sellerForUser(actingUserId);
+  if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
+  if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
+  if (!Array.isArray(images) || images.some((u) => typeof u !== 'string')) throw err(422, 'PHOTOS_INVALID', 'Send the photos as a list.');
+  return withTransaction(async (client) => {
+    const item = await lockOwnItemForPhotos(client, itemId, seller.id);
+    const current = imagesOf(item);
+    if (images.length !== new Set(images).size || images.some((u) => !current.includes(u))) {
+      throw err(422, 'PHOTOS_INVALID', "Only this item's own photos can be arranged here.");
+    }
+    const alts = Array.isArray(item.image_alt) ? item.image_alt : [];
+    const altFor = (u) => alts[current.indexOf(u)] || '';
+    const row = (await client.query(
+      `UPDATE marketplace_items SET images = $2::jsonb, image_alt = $3::jsonb, thumbnail_url = $4, updated_at = now() WHERE id = $1 RETURNING *`,
+      [itemId, JSON.stringify(images), JSON.stringify(images.map(altFor)), images[0] || null])).rows[0];
+    // A removed photo's upload record goes too, so the seller can add that photo again later.
+    const removed = current.filter((u) => !images.includes(u));
+    if (removed.length) await client.query('DELETE FROM storefront_item_photos WHERE item_id = $1 AND url = ANY($2::text[])', [itemId, removed]);
+    return row;
   });
 }
 
@@ -459,6 +530,7 @@ async function listingForLot(lotId, runner = db) {
 }
 
 module.exports = {
+  appendPhotos, setItemPhotos, MAX_PHOTOS, SELLER_TRANSITIONS, _normalizeInventoryNumber: normalizeInventoryNumber,
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
   listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, defaultPrice, UNSOLD_JOIN,
   publicItem, PICKUP_COLUMNS, staffItemView,
