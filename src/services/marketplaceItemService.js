@@ -280,13 +280,18 @@ async function updateItem(id, actingUserId, patch = {}) {
     if (item.moderation_status === 'taken_down' && patch.status !== item.status) {
       throw err(409, 'TAKEN_DOWN', 'This listing was removed by Advantage.Bid and cannot be put back on sale. Contact support if you have questions.');
     }
+    // A sold item (paid order, or marked sold by the seller; migration 207 sold_at) is never offered again through
+    // inventory controls, even after it was removed from view. A mistaken "sold" mark is corrected only by Advantage.Bid.
+    if (item.sold_at && ['draft', 'active', 'paused'].includes(patch.status)) {
+      throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again. If it was marked sold by mistake, contact Advantage.Bid to correct it.');
+    }
     const allowed = SELLER_TRANSITIONS[item.status] || [];
     if (!allowed.includes(patch.status) || (orders.paid > 0 && ['draft', 'active', 'paused'].includes(patch.status))) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     }
   }
   // The seller's choice to show a sold item's realized price to signed-in members may be changed at any time.
-  if ((item.status === 'sold' || orders.paid > 0) && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {
+  if ((item.status === 'sold' || item.sold_at || orders.paid > 0) && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {
     throw err(409, 'ITEM_SOLD', 'This item has been sold, so its details are kept as they were at the sale.');
   }
   const sets = []; const vals = [id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
@@ -346,7 +351,7 @@ const MAX_PHOTOS = 24;
 async function lockOwnItemForPhotos(client, itemId, sellerId) {
   const item = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
   if (!item || item.seller_id !== sellerId) throw err(404, 'NOT_FOUND', 'Listing not found.');
-  if (item.status === 'sold' || item.status === 'pending_purchase') throw err(409, 'ITEM_SOLD', 'This item has been sold or is being purchased, so its photos are kept as they were.');
+  if (item.status === 'sold' || item.sold_at || item.status === 'pending_purchase') throw err(409, 'ITEM_SOLD', 'This item has been sold or is being purchased, so its photos are kept as they were.');
   // The same protections as editing the item (updateItem): an administrator takedown, a sale or a checkout in progress
   // keeps the photos exactly as they are, whatever the item's status now says.
   if (item.moderation_status === 'taken_down') throw err(409, 'TAKEN_DOWN', 'This listing was removed by Advantage.Bid, so its photos cannot be changed.');

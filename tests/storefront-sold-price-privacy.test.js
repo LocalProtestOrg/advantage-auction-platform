@@ -129,7 +129,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql', '206_sold_price_privacy_and_message_moderation.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql', '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -322,8 +322,12 @@ describe('member disclosure is the seller\'s choice, off by default', () => {
   test('a refunded sale has no realized price and no SOLD page', async () => {
     const { it, order } = await soldItem();
     await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { show_realized_price_to_members: true });
+    const soldMark = (await global.__PG.query('SELECT sold_at FROM marketplace_items WHERE id = $1', [it.id])).rows[0].sold_at;
+    expect(soldMark).not.toBeNull();                                  // the paid sale marked it sold (migration 207)
     await orders.refundOrder(order.id, { adminId: U.admin.id, reason: 'Refund for the price-privacy test' });
     expect(await items.realizedSalePrice(it.id)).toBe(null);
+    // The full refund undid the sale: the item is out of view and may be relisted deliberately.
+    expect((await global.__PG.query('SELECT status, sold_at FROM marketplace_items WHERE id = $1', [it.id])).rows[0]).toEqual({ status: 'removed', sold_at: null });
     const r = await call('ben', 'GET', '/api/public/storefront/item/' + it.id);
     if (r.status === 200) expect(r.body.data.realized_price_cents).toBeUndefined();
   });

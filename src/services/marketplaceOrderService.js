@@ -826,9 +826,11 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
               review_note = COALESCE($5, review_note),
               payout_eligible = false, payout_eligible_at = NULL, refunded_at = now(), updated_at = now()
         WHERE id = $1 RETURNING *`, [orderId, refundedCents, reversalId, extra.reason || null, extra.reviewNote || null])).rows[0];
-    // Item → non-public 'removed'. Seller must explicitly RELIST (its physical disposition may be uncertain).
+    // Item → non-public 'removed'. Seller must explicitly RELIST (its physical disposition may be uncertain). A full refund
+    // undoes the sale, so the item's sold mark (migration 207) is cleared and it may be relisted.
+    const soldMark = 'sold_at' in ((await client.query('SELECT * FROM marketplace_items WHERE id = $1', [o.marketplace_item_id])).rows[0] || {});
     await client.query(
-      `UPDATE marketplace_items SET status = 'removed', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
+      `UPDATE marketplace_items SET status = 'removed', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()${soldMark ? ', sold_at = NULL' : ''}
         WHERE id = $1 AND status IN ('sold','pending_purchase')`, [o.marketplace_item_id]);
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.refunded', entityType: 'marketplace_order', entityId: orderId,
@@ -858,6 +860,8 @@ async function relistItem(itemId, sellerActorRef) {
       `SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status IN ('pending','processing','paid')`,
       [itemId])).rows[0];
     if (live && live.n > 0) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
+    // Marked sold (by the seller, or a sale not refunded in full): never relisted here. A mistake is corrected by Advantage.Bid.
+    if (item.sold_at) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again. If it was marked sold by mistake, contact Advantage.Bid to correct it.');
     const upd = (await client.query(
       `UPDATE marketplace_items SET status = 'active', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
         WHERE id = $1 RETURNING *`, [itemId]).catch((e) => {

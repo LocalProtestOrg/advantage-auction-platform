@@ -683,3 +683,75 @@ describe('independent security review regressions', () => {
     expect(JSON.stringify(r.body.data).length).toBeLessThan(5000);
   });
 });
+
+describe('sold items are never offered again (owner decision 2026-10-28)', () => {
+  const moderation = () => require('../src/services/marketplaceModerationService');
+  const bulk = (user, action, ids) => call(user, 'POST', '/api/seller-storefront/items/bulk', { action, ids });
+  let admin;
+  beforeAll(async () => { admin = await one(`INSERT INTO users (email, role) VALUES ('mod@test.example', 'admin') RETURNING id`); });
+  async function paidOrder(item) {
+    const o = await one(`INSERT INTO marketplace_orders (marketplace_item_id, seller_id, buyer_user_id, item_price_cents, total_charge_cents, fulfillment_method,
+        item_snapshot, seller_snapshot) VALUES ($1, $2, $3, $4, $4, 'pickup', $5::jsonb, $6::jsonb) RETURNING id`,
+      [item.id, item.seller_id, U.buyer.id, item.price_cents, JSON.stringify({ item_id: item.id }), JSON.stringify({ seller_profile_id: item.seller_id })]);
+    await q(`UPDATE marketplace_orders SET payment_status = 'paid', paid_at = now() WHERE id = $1`, [o.id]);
+    await q(`UPDATE marketplace_items SET status = 'sold' WHERE id = $1`, [item.id]);
+    return o.id;
+  }
+
+  test('marked sold → removed → publish / pause / draft / relist / bulk are all refused; the database refuses it too', async () => {
+    const it = await items.createDirectListing(U.ann.id, { title: 'Marked sold', price_cents: 900, inventory_number: 'MS-1', status: 'active' });
+    await items.updateItem(it.id, U.ann.id, { status: 'sold' });
+    expect((await one('SELECT sold_at FROM marketplace_items WHERE id = $1', [it.id])).sold_at).not.toBeNull();
+    await items.updateItem(it.id, U.ann.id, { status: 'removed' });
+    for (const status of ['active', 'paused', 'draft']) {
+      expect((await call('ann', 'PATCH', `/api/seller-storefront/items/${it.id}`, { status })).body.code).toBe('ITEM_SOLD');
+    }
+    for (const a of ['publish', 'pause', 'unpublish']) expect((await bulk('ann', a, [it.id])).body.data.results[0].code).toBe('ITEM_SOLD');
+    await expect(require('../src/services/marketplaceOrderService').relistItem(it.id, U.ann.id)).rejects.toMatchObject({ code: 'ITEM_SOLD' });
+    await expect(q(`UPDATE marketplace_items SET status = 'active' WHERE id = $1`, [it.id])).rejects.toThrow(/cannot be offered again/);
+    expect(await one('SELECT status FROM marketplace_items WHERE id = $1', [it.id])).toEqual({ status: 'removed' });
+    expect(await items.getPublicItem(it.id)).toBeNull();
+  });
+
+  test('a mistaken sold mark is corrected only by an administrator, with a reason, in the permanent history', async () => {
+    const it = await items.createDirectListing(U.ann.id, { title: 'Sold by mistake', price_cents: 900, inventory_number: 'MS-2', status: 'active' });
+    await items.updateItem(it.id, U.ann.id, { status: 'sold' });
+    await expect(moderation().correctSold(it.id, admin.id, { reason: '' })).rejects.toMatchObject({ code: 'REASON_REQUIRED' });
+    await expect(moderation().correctSold(it.id, null, { reason: 'Seller clicked sold by mistake' })).rejects.toMatchObject({ code: 'ADMIN_REQUIRED' });
+    const fixed = await moderation().correctSold(it.id, admin.id, { reason: 'Seller clicked sold by mistake' });
+    expect(fixed).toEqual(expect.objectContaining({ status: 'draft', sold_at: null }));
+    expect(await one(`SELECT action, actor_user_id, reason, prior_status FROM marketplace_item_moderation_events WHERE item_id = $1`, [it.id]))
+      .toEqual({ action: 'sold_corrected', actor_user_id: admin.id, reason: 'Seller clicked sold by mistake', prior_status: 'sold' });
+    // The seller now decides to publish it again, deliberately.
+    expect((await bulk('ann', 'publish', [it.id])).body.data.done).toBe(1);
+    await expect(moderation().correctSold(it.id, admin.id, { reason: 'Not sold any more' })).rejects.toMatchObject({ code: 'NOT_SOLD' });
+  });
+
+  test('an item sold through Advantage.Bid (paid order) can never be republished or "corrected"; its records stay intact', async () => {
+    const it = await items.createDirectListing(U.ann.id, { title: 'Really sold', price_cents: 4200, inventory_number: 'PO-1', status: 'active' });
+    const orderId = await paidOrder(it);
+    await items.updateItem(it.id, U.ann.id, { status: 'removed' });
+    expect((await bulk('ann', 'publish', [it.id])).body.data.results[0].code).toBe('ITEM_SOLD');
+    await expect(moderation().correctSold(it.id, admin.id, { reason: 'Trying to undo a real sale' })).rejects.toMatchObject({ code: 'HAS_ORDER' });
+    await expect(q(`UPDATE marketplace_items SET sold_at = NULL, status = 'draft' WHERE id = $1`, [it.id])).rejects.toThrow(/paid order/);
+    expect(await one('SELECT payment_status, total_charge_cents FROM marketplace_orders WHERE id = $1', [orderId])).toEqual({ payment_status: 'paid', total_charge_cents: 4200 });
+  });
+
+  test('a takedown and restore never brings a sold item back on sale', async () => {
+    const it = await items.createDirectListing(U.ann.id, { title: 'Sold then reported', price_cents: 900, inventory_number: 'MS-3', status: 'active' });
+    await items.updateItem(it.id, U.ann.id, { status: 'sold' });
+    await moderation().takedown(it.id, admin.id, { reason: 'Reported listing check' });
+    const back = await moderation().restore(it.id, admin.id, { reason: 'Report was unfounded' });
+    expect(back.status).toBe('sold');
+  });
+
+  test('a full refund undoes the sale, so the item may be relisted (database rule)', async () => {
+    const it = await items.createDirectListing(U.ann.id, { title: 'Refunded sale', price_cents: 1500, inventory_number: 'RF-1', status: 'active' });
+    const orderId = await paidOrder(it);
+    await expect(q(`UPDATE marketplace_items SET sold_at = NULL, status = 'removed' WHERE id = $1`, [it.id])).rejects.toThrow(/paid order/);
+    await q(`UPDATE marketplace_orders SET payment_status = 'refunded', refund_status = 'refunded', refunded_amount_cents = 1500, refunded_at = now() WHERE id = $1`, [orderId]);
+    await q(`UPDATE marketplace_items SET sold_at = NULL, status = 'removed' WHERE id = $1`, [it.id]);   // what the refund path does
+    const relisted = await require('../src/services/marketplaceOrderService').relistItem(it.id, U.ann.id);
+    expect(relisted.status).toBe('active');
+  });
+});

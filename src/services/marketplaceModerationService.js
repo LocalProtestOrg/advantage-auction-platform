@@ -47,7 +47,7 @@ async function listItemsForAdmin({ status, moderation, reported, q, limit } = {}
   if (q) add('(mi.title ILIKE $? OR COALESCE(sp.display_name, \'\') ILIKE $?)', '%' + clip(q, 80) + '%');
   p.push(Math.min(500, Math.max(1, parseInt(limit, 10) || 200)));
   const { rows } = await db.query(
-    `SELECT mi.id, mi.title, mi.price_cents, mi.status, mi.moderation_status, mi.moderation_reason, mi.moderated_at, mi.thumbnail_url,
+    `SELECT mi.id, mi.title, mi.price_cents, mi.status, mi.moderation_status, to_jsonb(mi)->>'sold_at' AS sold_at, mi.moderation_reason, mi.moderated_at, mi.thumbnail_url,
             mi.city, mi.state, mi.created_at, mi.updated_at, mi.is_demo, mi.seller_id,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name, sp.seller_type,
             (SELECT count(*)::int FROM marketplace_item_reports r WHERE r.item_id = mi.id AND r.status = 'open') AS open_reports,
@@ -101,7 +101,7 @@ async function restore(itemId, adminId, { reason } = {}) {
     let back = last && ['draft', 'active', 'paused', 'sold', 'removed'].includes(last.prior_status) ? last.prior_status : 'draft';
     // A listing that has been sold is never offered again.
     const paid = (await client.query(`SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status = 'paid'`, [it.id])).rows[0];
-    if (paid.n > 0 && (back === 'active' || back === 'paused')) back = 'sold';
+    if ((paid.n > 0 || it.sold_at) && ['active', 'paused', 'draft'].includes(back)) back = 'sold';
     const upd = (await client.query(
       `UPDATE marketplace_items SET moderation_status = 'none', status = $2, moderation_reason = NULL, moderated_by = $3, moderated_at = now(),
               updated_at = now() WHERE id = $1 RETURNING *`, [it.id, back, adminId])).rows[0];
@@ -174,4 +174,26 @@ async function reviewReport(reportId, adminId, { action, note } = {}) {
   });
 }
 
-module.exports = { REPORT_CATEGORIES, listItemsForAdmin, itemHistory, takedown, restore, reportItem, listReports, reviewReport };
+// An administrator corrects a "sold" mark the seller set by mistake (migration 207). Deliberate and audited: a written
+// reason, kept in the item's permanent moderation history; never possible while the item has a paid order (the database
+// refuses it too). The item returns as a DRAFT, so the seller decides whether to publish it again.
+async function correctSold(itemId, adminId, { reason } = {}) {
+  needAdmin(adminId);
+  if (!UUID_RE.test(String(itemId || ''))) throw err(404, 'ITEM_NOT_FOUND', 'Listing not found.');
+  const why = reasonOf(reason);
+  return withTransaction(async (client) => {
+    const it = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
+    if (!it) throw err(404, 'ITEM_NOT_FOUND', 'Listing not found.');
+    if (!it.sold_at) throw err(409, 'NOT_SOLD', 'This listing is not marked sold.');
+    if (it.moderation_status === 'taken_down') throw err(409, 'TAKEN_DOWN', 'Restore the listing before correcting its sold mark.');
+    const orders = (await client.query(
+      `SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status IN ('pending','processing','paid')`, [it.id])).rows[0];
+    if (orders.n > 0) throw err(409, 'HAS_ORDER', 'This item was sold through Advantage.Bid. Its sale record is kept and it cannot be offered again.');
+    const upd = (await client.query(
+      `UPDATE marketplace_items SET status = 'draft', sold_at = NULL, updated_at = now() WHERE id = $1 RETURNING *`, [it.id])).rows[0];
+    await logModeration(client, it, 'sold_corrected', adminId, why, { priorStatus: it.status });
+    return upd;
+  });
+}
+
+module.exports = { REPORT_CATEGORIES, listItemsForAdmin, itemHistory, takedown, restore, correctSold, reportItem, listReports, reviewReport };

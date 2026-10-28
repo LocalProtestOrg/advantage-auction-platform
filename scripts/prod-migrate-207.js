@@ -3,8 +3,9 @@
    photographs; "paused" item status). Additive; moves no money; changes no existing value (no item is paused or marked as
    imported; every existing inventory number stays reserved).
 
-   --check    READ-ONLY: 206 applied, 207 not recorded, new objects absent, and no live inventory-number duplicates that the
-              rebuilt unique index would refuse.
+   --check    READ-ONLY: 206 applied, 207 not recorded, new objects absent, no live inventory-number duplicates that the
+              rebuilt unique index would refuse, and no item with a paid order still on sale; reports how many items will be
+              marked sold.
    --dry-run  applies inside a transaction, runs every verification, then ROLLS BACK (nothing is kept).
    (none)     applies in one transaction, then verifies the objects and that orders, items, seller profiles, payments,
               invoices, payouts and accounts are unchanged.
@@ -34,6 +35,12 @@ const DRY = process.argv.includes('--dry-run');
       live_inventory_number_duplicates: Number((await one(`SELECT count(*)::int n FROM (SELECT seller_id, lower(inventory_number) FROM marketplace_items
         WHERE inventory_number IS NOT NULL AND status IN ('draft','active','pending_purchase') GROUP BY 1, 2 HAVING count(*) > 1) d`)).n),
       items: Number((await one('SELECT count(*)::int n FROM marketplace_items')).n),
+      // Items the sold-item protection will mark sold (status 'sold' or a paid order); and any paid item still on sale,
+      // which must be 0 (the guard would refuse that item's next change).
+      to_mark_sold: Number((await one(`SELECT count(*)::int n FROM marketplace_items mi WHERE mi.status = 'sold'
+        OR EXISTS (SELECT 1 FROM marketplace_orders o WHERE o.marketplace_item_id = mi.id AND o.payment_status = 'paid')`)).n),
+      paid_items_on_sale: Number((await one(`SELECT count(*)::int n FROM marketplace_items mi WHERE mi.status NOT IN ('sold','removed')
+        AND EXISTS (SELECT 1 FROM marketplace_orders o WHERE o.marketplace_item_id = mi.id AND o.payment_status = 'paid')`)).n),
     });
     const snap = async () => ({
       orders: await h(`SELECT md5(coalesce(string_agg(row_to_json(o)::text, ',' ORDER BY id), '')) h FROM (SELECT id, seller_id, buyer_user_id, marketplace_item_id,
@@ -47,13 +54,15 @@ const DRY = process.argv.includes('--dry-run');
     if (CHECK) {
       await c.query('BEGIN READ ONLY'); const p = await pre(); await c.query('ROLLBACK');
       console.log('Pre-check (read-only):', JSON.stringify(p, null, 2));
-      const ok = p.migration_206_applied && !p.already_recorded && p.new_objects_present === 0 && p.live_inventory_number_duplicates === 0;
+      const ok = p.migration_206_applied && !p.already_recorded && p.new_objects_present === 0 && p.live_inventory_number_duplicates === 0
+        && p.paid_items_on_sale === 0;
       console.log('RESULT: ' + (ok ? 'PASS (safe to apply)' : 'FAIL (see above)'));
       return ok ? 0 : 1;
     }
     const p = await pre();
     if (!p.migration_206_applied) { console.error('REFUSE: migration 206 must be applied first'); return 1; }
     if (p.live_inventory_number_duplicates) { console.error('REFUSE: duplicate live inventory numbers exist; the index rebuild would fail'); return 1; }
+    if (p.paid_items_on_sale) { console.error('REFUSE: an item with a paid order is still on sale; review it before applying'); return 1; }
     const before = await snap();
     const con = (n) => has(`SELECT 1 AS x FROM pg_constraint WHERE conname = $1`, [n]);
     const idx = (n) => has(`SELECT 1 AS x FROM pg_indexes WHERE indexname = $1`, [n]);
@@ -68,6 +77,10 @@ const DRY = process.argv.includes('--dry-run');
         item_photos_table: await has(`SELECT 1 AS x FROM information_schema.tables WHERE table_name = 'storefront_item_photos'`),
         import_row_index: await idx('uq_marketplace_items_import_row'),
         photo_unique: await con('storefront_item_photos_item_id_sha256_key'),
+        sold_guard_trigger: await has(`SELECT 1 AS x FROM pg_trigger WHERE tgname = 'trg_marketplace_items_sold_guard' AND NOT tgisinternal`),
+        moderation_action_rule_has_sold_corrected: /sold_corrected/.test((await one(`SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname = 'marketplace_item_moderation_events_action_check'`) || {}).d || ''),
+        sold_marked_exactly_sold_or_paid: Number((await one(`SELECT count(*)::int n FROM marketplace_items mi WHERE (mi.sold_at IS NOT NULL) <> (mi.status = 'sold'
+          OR EXISTS (SELECT 1 FROM marketplace_orders o WHERE o.marketplace_item_id = mi.id AND o.payment_status = 'paid'))`)).n) === 0,
         no_item_paused_or_imported: Number((await one(`SELECT count(*)::int n FROM marketplace_items WHERE status = 'paused' OR import_batch_id IS NOT NULL`)).n) === 0,
         orders_unchanged: before.orders === after.orders,
         items_unchanged: before.items === after.items,

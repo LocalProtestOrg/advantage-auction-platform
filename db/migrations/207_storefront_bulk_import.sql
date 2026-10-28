@@ -1,6 +1,7 @@
 -- 207: Professional Seller bulk inventory import with photographs, and a "paused" item status.
--- ADDITIVE / IDEMPOTENT. Moves no money; changes no existing value (every existing item keeps its status; no item is
--- marked as imported).
+-- ADDITIVE / IDEMPOTENT. Moves no money. Every existing item keeps its status and details; no item is marked as imported.
+-- The only value written to existing rows is the new sold_at mark on items that are already sold (status 'sold' or a
+-- paid order), so they can never be offered again.
 --   • marketplace_items.status gains 'paused': a published item the seller has taken off sale for now. It is not public
 --     (every public surface reads status = 'active'), keeps its details and photos, and can be published again.
 --     Its inventory number stays reserved, like draft and active items.
@@ -10,7 +11,14 @@
 --     retried or interrupted import never creates the same item twice.
 --   • storefront_item_photos: where each uploaded photograph came from (file name, checksum, size). The same photograph
 --     (same checksum) is attached to an item at most once, so a retried photo upload never duplicates a photo.
+--   • marketplace_items.sold_at + trigger marketplace_items_sold_guard (sold-item protection, owner decision 2026-10-28):
+--     an item becomes "sold" once (by a paid order or by the seller marking it sold) and then stays sold or removed from
+--     view; no status change can offer it again (draft, published, paused, in checkout). Only two things clear the mark:
+--     a full refund of the order that sold it, and an administrator's audited correction of a mistaken "sold" mark
+--     (marketplace_item_moderation_events action 'sold_corrected'). Neither is possible while a paid order exists.
 -- Rollback (only before any item is paused or imported):
+--   DROP TRIGGER trg_marketplace_items_sold_guard ON marketplace_items; DROP FUNCTION marketplace_items_sold_guard();
+--   ALTER TABLE marketplace_items DROP COLUMN sold_at; restore marketplace_item_moderation_events_action_check from 198;
 --   DROP TABLE storefront_item_photos; ALTER TABLE marketplace_items DROP COLUMN import_row, DROP COLUMN import_batch_id;
 --   DROP TABLE storefront_import_batches; restore marketplace_items_status_check and uq_marketplace_items_seller_inventory_number
 --   from migrations 121 and 204.
@@ -70,3 +78,35 @@ CREATE TABLE IF NOT EXISTS storefront_item_photos (
   UNIQUE (item_id, sha256)
 );
 CREATE INDEX IF NOT EXISTS idx_storefront_item_photos_seller ON storefront_item_photos (seller_id, created_at DESC);
+
+-- ── Sold-item protection ──────────────────────────────────────────────────────────────────────────────────────────
+ALTER TABLE marketplace_items ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ;
+UPDATE marketplace_items mi
+   SET sold_at = COALESCE((SELECT max(o.paid_at) FROM marketplace_orders o WHERE o.marketplace_item_id = mi.id AND o.payment_status = 'paid'), mi.updated_at, now())
+ WHERE mi.sold_at IS NULL
+   AND (mi.status = 'sold' OR EXISTS (SELECT 1 FROM marketplace_orders o WHERE o.marketplace_item_id = mi.id AND o.payment_status = 'paid'));
+
+CREATE OR REPLACE FUNCTION marketplace_items_sold_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status = 'sold' AND NEW.sold_at IS NULL THEN NEW.sold_at := now(); END IF;
+  IF NEW.sold_at IS NOT NULL AND NEW.status NOT IN ('sold','removed') THEN
+    RAISE EXCEPTION 'marketplace item % has been sold and cannot be offered again', NEW.id USING ERRCODE = 'check_violation';
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.sold_at IS NOT NULL AND NEW.sold_at IS NULL
+     AND EXISTS (SELECT 1 FROM marketplace_orders o WHERE o.marketplace_item_id = NEW.id AND o.payment_status = 'paid') THEN
+    RAISE EXCEPTION 'marketplace item % has a paid order and stays sold', NEW.id USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_marketplace_items_sold_guard ON marketplace_items;
+CREATE TRIGGER trg_marketplace_items_sold_guard BEFORE INSERT OR UPDATE ON marketplace_items
+  FOR EACH ROW EXECUTE FUNCTION marketplace_items_sold_guard();
+
+-- The administrator's correction of a mistaken "sold" mark is kept in the item's permanent moderation history.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'marketplace_item_moderation_events_action_check') THEN
+    ALTER TABLE marketplace_item_moderation_events DROP CONSTRAINT marketplace_item_moderation_events_action_check;
+  END IF;
+  ALTER TABLE marketplace_item_moderation_events ADD CONSTRAINT marketplace_item_moderation_events_action_check
+    CHECK (action IN ('takedown','restore','report_dismissed','report_actioned','sold_corrected'));
+END $$;

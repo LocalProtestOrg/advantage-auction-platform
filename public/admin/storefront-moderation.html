@@ -157,7 +157,9 @@
         const down = it.moderation_status === 'taken_down';
         const act = down
           ? reasonBox(it.id, 'Why restore? (required)') + '<button class="btn btn-ok" data-act="restore" data-id="'+esc(it.id)+'">Restore</button>'
-          : reasonBox(it.id, 'Why take this down? (required)') + '<button class="btn btn-danger" data-act="takedown" data-id="'+esc(it.id)+'">Take down</button>';
+          : reasonBox(it.id, 'Why take this down? (required)') + '<button class="btn btn-danger" data-act="takedown" data-id="'+esc(it.id)+'">Take down</button>'
+            // A seller's mistaken "sold" mark (no order): the item returns as a draft; the reason is kept permanently.
+            + (it.sold_at && !it.live_orders ? '<button class="btn btn-mut" data-act="correct-sold" data-id="'+esc(it.id)+'" title="Only for an item marked sold by mistake (no order). It returns to the seller as a draft.">Correct mistaken Sold mark</button>' : '');
         return '<tr><td><a href="/item.html?id='+encodeURIComponent(it.id)+'" target="_blank" rel="noopener">'+esc(it.title)+'</a>'+(it.is_demo?' <span class="badge neutral">demo</span>':'')+'<div class="small">'+esc([it.city,it.state].filter(Boolean).join(', '))+'</div></td>'+
           '<td>'+esc(it.seller_name||'')+'</td><td>'+money(it.price_cents)+'</td>'+
           '<td><span class="badge neutral">'+label(it.status)+'</span>'+(down?'<span class="badge no">taken down</span><div class="small">'+esc(it.moderation_reason||'')+'</div>':'')+'</td>'+
