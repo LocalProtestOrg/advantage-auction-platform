@@ -80,7 +80,7 @@ describe('engine: a refused source FAILS the run', () => {
     for (const f of ['txauctionConnector', 'gsaConnector', 'feedConnector']) {
       expect(code('src/services/eventImport/connectors/' + f + '.js')).toMatch(/async \*fetch\(\{ config, limit, signal, diag \} = \{\}\)/);
     }
-    expect(code('src/services/eventImport/index.js')).toMatch(/connector\.fetch\(\{ config, limit: opts\.limit, signal: opts\.signal, diag \}\)/);
+    expect(code('src/services/eventImport/index.js')).toMatch(/connector\.fetch\(\{ config, limit: opts\.limit, signal: opts\.signal, diag[ ,}]/);
   });
   test('GSA records its read WITHOUT the api key', () => {
     const g = code('src/services/eventImport/connectors/gsaConnector.js');

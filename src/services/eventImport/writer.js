@@ -111,6 +111,12 @@ async function writeProvenance(client, eventId, ctx) {
     [eventId, p.sourceId, String(p.sourceEventId), p.sourceUrl || null,
      p.sourceUrl ? sha256(p.sourceUrl) : null, p.sourceUpdatedAt || null,
      ctx.contentHash || null, ctx.imagesHash || null, jsonb(p.rawPayload)]);
+  // Event discovery (migration 208): record the collection channel. Only discovery items carry one, so sources
+  // that predate channels never touch the column.
+  if (p.channelId) {
+    await client.query(`UPDATE event_sources SET channel_id = $3 WHERE source_id = $1 AND source_event_id = $2`,
+      [p.sourceId, String(p.sourceEventId), p.channelId]);
+  }
 }
 
 async function audit(client, action, eventId, ctx, extra) {

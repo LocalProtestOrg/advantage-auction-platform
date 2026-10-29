@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Import My Events - Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/widgets/shared/advantage-ds.css" />
+<link rel="stylesheet" href="/org/portal.css" />
+<style>
+  .state{font-size:16px;font-weight:700;margin:0 0 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+  .alt{border:1px solid var(--hair);border-radius:12px;padding:14px;margin:10px 0}
+  .alt b{display:block;margin-bottom:4px}
+  .keybox{font-family:SFMono-Regular,Consolas,monospace;font-size:13px;background:#f8fafc;border:1px dashed #94a3b8;border-radius:10px;padding:10px;word-break:break-all}
+  pre.req{white-space:pre-wrap;font-size:13px;background:#f8fafc;border-radius:10px;padding:12px;border:1px solid var(--hair)}
+  ul.grant{margin:8px 0 8px 18px;font-size:14px;line-height:1.5}
+  label.chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin:12px 0}
+  label.chk input{width:auto;margin-top:3px}
+  .small{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="adv-shell-root"></div>
+<div id="org-content" hidden>
+<div class="wrap">
+  <p class="sub">Tell us your website once. We'll find your upcoming auctions and estate sales and keep them up to date on Advantage.Bid.</p>
+  <div id="flash" class="msg"></div>
+  <div id="content"><div class="loading">Loading…</div></div>
+</div>
+</div>
+<script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/widgets/shared/member-nav-config.js"></script>
+<script src="/widgets/shared/member-chrome.js"></script>
+<script src="/org/portal.js"></script>
+<script>
+(async function () {
+  if (!ORG.guard()) return;
+  var ctx = await AdvChrome.mountStandalone({ activeHref: '/org/event-promotion.html', title: 'Import My Events' });
+  if (!ctx) return;
+  var content = document.getElementById('content'), flash = document.getElementById('flash');
+  var esc = ORG.esc, state = null;
+
+  function say(text, ok) { flash.className = 'msg ' + (ok ? 'ok' : 'err'); flash.textContent = text; window.scrollTo(0, 0); }
+  function clearSay() { flash.className = 'msg'; flash.textContent = ''; }
+
+  function authorizeCard(s) {
+    var st = s.statement || {};
+    return '<div class="card"><h2>' + esc(st.headline || 'Authorize Free Event Promotion') + '</h2>'
+      + '<p class="sub" style="margin:0 0 10px">' + esc(st.lead || '') + '</p>'
+      + '<ul class="grant">' + (st.grant || []).map(function (g) { return '<li>' + esc(g) + '</li>'; }).join('') + '</ul>'
+      + '<ul class="grant small">' + (st.limits || []).map(function (g) { return '<li>' + esc(g) + '</li>'; }).join('') + '</ul>'
+      + '<label for="site">Your company website</label><input id="site" type="url" placeholder="https://www.yourcompany.com" value="' + esc((s.organization && s.organization.website_url) ? decodeURIComponent(s.organization.website_url) : '') + '">'
+      + '<label for="page" style="margin-top:10px">Events page (optional, only if your events are on a separate page)</label><input id="page" type="url" placeholder="https://www.yourcompany.com/upcoming">'
+      + '<label class="chk"><input id="accept" type="checkbox"> I am authorized to grant this on behalf of ' + esc((s.organization && s.organization.name) || 'my company') + ', and I agree to the statement above.</label>'
+      + '<div class="btnrow"><button class="btn primary" data-do="authorize"' + (s.can_manage ? '' : ' disabled') + '>Authorize and find my events</button></div>'
+      + (s.can_manage ? '' : '<p class="small">Only an owner or administrator of your company can authorize.</p>') + '</div>';
+  }
+
+  function eventsLine(s) {
+    var e = s.events || {};
+    return '<div class="chips"><span class="pill">' + (e.public_upcoming || 0) + ' live upcoming</span>'
+      + (e.in_review ? '<span class="pill">' + e.in_review + ' being checked</span>' : '') + '</div>';
+  }
+
+  function alternatives(s) {
+    var alts = s.alternatives || [];
+    if (!alts.length) return '';
+    return '<div class="card"><h2>Other ways to get your events on Advantage.Bid</h2>' + alts.map(function (a) {
+      var btn = a.key === 'post' ? '<a class="btn ghost" href="/org/event-new.html">Post an event</a>'
+        : a.key === 'send' ? '<button class="btn ghost" data-do="sendkey"' + (s.can_manage && s.authorization && s.authorization.push_covered ? '' : ' disabled') + '>Get my sending address</button>'
+        : '<button class="btn ghost" data-do="hostreq">Show the request</button>';
+      return '<div class="alt"><b>' + esc(a.label) + '</b><span class="small">' + esc(a.detail) + '</span><div class="btnrow" style="margin-top:10px">' + btn + '</div></div>';
+    }).join('') + '<div id="altOut"></div></div>';
+  }
+
+  function statusCard(s) {
+    var a = s.authorization || {};
+    return '<div class="card"><p class="state">' + esc(s.message) + '</p>' + eventsLine(s)
+      + '<p class="small">Website: <b>' + esc(a.website || '') + '</b>' + (a.events_page_url ? ' · Events page: ' + esc(a.events_page_url) : '')
+      + (s.last_check_at ? ' · Last checked ' + esc(ORG.fmtDate(s.last_check_at)) : '') + '</p>'
+      + '<div class="btnrow"><a class="btn ghost" href="/org/events.html">See my events</a>'
+      + (s.can_manage ? '<button class="btn ghost" data-do="check">Check my website again</button>' : '') + '</div>'
+      + (s.can_manage ? '<details style="margin-top:14px"><summary class="small">My events are on a different page</summary>'
+        + '<input id="page2" type="url" placeholder="https://' + esc(a.website || 'yourcompany.com') + '/upcoming" style="margin-top:8px">'
+        + '<div class="btnrow"><button class="btn ghost" data-do="page">Use this page</button></div></details>' : '')
+      + '</div>';
+  }
+
+  function keysCard(s) {
+    var keys = (s.intake_keys || []).filter(function (k) { return !k.revoked_at; });
+    if (!keys.length) return '';
+    return '<div class="card"><h2>Sending addresses</h2><p class="small">Events sent with these keys appear on Advantage.Bid the same way as events we find on your website.</p>'
+      + keys.map(function (k) { return '<div class="erow"><div class="meta"><div class="t">' + esc(k.label || 'Sending key') + ' <span class="pill">' + esc(k.key_prefix) + '…</span></div>'
+        + '<div class="s">Created ' + esc(ORG.fmtDate(k.created_at)) + (k.last_used_at ? ' · last used ' + esc(ORG.fmtDate(k.last_used_at)) : ' · not used yet') + '</div></div>'
+        + (s.can_manage ? '<div class="go"><button class="btn ghost" data-do="revoke" data-id="' + esc(k.id) + '">Stop this key</button></div>' : '') + '</div>'; }).join('') + '</div>';
+  }
+
+  function withdrawCard(s) {
+    if (!s.can_manage || !s.authorization) return '';
+    return '<div class="card"><details><summary class="small">Stop promoting my events</summary><p class="small">We stop collecting at once and your sending keys stop working. Events already listed follow the normal rules.</p>'
+      + '<div class="btnrow"><button class="btn ghost" data-do="withdraw">Stop promotion</button></div></details></div>';
+  }
+
+  function render(s) {
+    state = s;
+    if (s.state === 'no_org') { content.innerHTML = '<div class="card empty"><p class="sub">' + esc(s.message) + '</p><a class="btn primary" href="/org/event-new.html">Get started</a></div>'; return; }
+    if (s.state === 'not_authorized') { content.innerHTML = authorizeCard(s); return; }
+    content.innerHTML = statusCard(s) + alternatives(s) + keysCard(s) + withdrawCard(s);
+  }
+
+  async function load() { try { render((await ORG.api('GET', '/api/org/event-distribution')).data); } catch (e) { content.innerHTML = '<div class="msg err" style="display:block">' + esc(e.message) + '</div>'; } }
+
+  content.addEventListener('click', async function (ev) {
+    var b = ev.target.closest('[data-do]'); if (!b || b.disabled) return;
+    clearSay(); b.disabled = true;
+    try {
+      var d = b.getAttribute('data-do');
+      if (d === 'authorize') {
+        if (!document.getElementById('accept').checked) { say('Please tick the box to confirm the authorization.'); return; }
+        render((await ORG.api('POST', '/api/org/event-distribution/authorize', { website: document.getElementById('site').value, events_page_url: document.getElementById('page').value || null, accept: true })).data);
+        say('Thank you. We\'re checking your website now.', true);
+      } else if (d === 'check') {
+        render((await ORG.api('POST', '/api/org/event-distribution/check')).data); say('We checked your website again.', true);
+      } else if (d === 'page') {
+        render((await ORG.api('POST', '/api/org/event-distribution/events-page', { url: document.getElementById('page2').value })).data); say('Thanks. We\'ll look there.', true);
+      } else if (d === 'sendkey') {
+        var k = (await ORG.api('POST', '/api/org/event-distribution/sending-keys', { label: 'My events' })).data;
+        document.getElementById('altOut').innerHTML = '<div class="alt"><b>Your sending address</b><p class="small">' + esc(k.note) + '</p>'
+          + '<p class="small">Address</p><div class="keybox">' + esc(k.endpoint) + '</div><p class="small" style="margin-top:8px">Key</p><div class="keybox">' + esc(k.key) + '</div>'
+          + '<p class="small" style="margin-top:8px">Give these to whoever manages your website, calendar or auction software, or use them in an automation tool. Each event needs a title, a date and a link to its page on your website.</p></div>';
+      } else if (d === 'hostreq') {
+        var r = (await ORG.api('GET', '/api/org/event-distribution/host-request')).data;
+        document.getElementById('altOut').innerHTML = '<div class="alt"><b>' + esc(r.subject) + '</b><pre class="req">' + esc(r.text) + '</pre></div>';
+      } else if (d === 'revoke') {
+        await fetch('/api/org/event-distribution/sending-keys/' + encodeURIComponent(b.getAttribute('data-id')), { method: 'DELETE', headers: { Authorization: 'Bearer ' + ORG.token } });
+        await load(); say('That key no longer works.', true);
+      } else if (d === 'withdraw') {
+        if (!confirm('Stop promoting your events on Advantage.Bid?')) return;
+        render((await ORG.api('POST', '/api/org/event-distribution/withdraw', { reason: 'withdrawn from dashboard' })).data); say('Promotion stopped.', true);
+      }
+    } catch (e) { say(e.message); }
+    finally { b.disabled = false; }
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

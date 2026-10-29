@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Event Discovery - Advantage Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    h1{font-size:1.45rem;margin:.3rem 0}h2{font-size:1.02rem;margin:0 0 .6rem}h3{font-size:.8rem;text-transform:uppercase;color:#475569;margin:1rem 0 .4rem;letter-spacing:.04em}
+    .sub{color:#64748b;font-size:.88rem;margin-bottom:1rem;line-height:1.45}
+    .card{background:#fff;border:1px solid #e6eaef;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem}
+    .gates{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}.gate{font-size:.78rem;font-weight:700;border-radius:8px;padding:.35rem .6rem}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid #f1f5f9;font-size:.82rem;vertical-align:top}
+    th{background:#f8fafc;color:#475569;font-size:.66rem;text-transform:uppercase}
+    .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e2e8f0;color:#334155;white-space:nowrap}
+    .p-active{background:#dcfce7;color:#166534}.p-previewed{background:#e0e7ff;color:#3730a3}.p-paused{background:#fef3c7;color:#92400e}.p-blocked,.p-retired{background:#fee2e2;color:#991b1b}
+    .btn{padding:.42rem .8rem;border:1px solid #e6eaef;border-radius:8px;font-weight:700;cursor:pointer;font-size:.8rem;background:#f1f5f9;font-family:inherit}
+    .btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}.btn:disabled{opacity:.5}
+    .muted{color:#64748b;font-size:.8rem}.msg{font-size:.84rem;margin:.5rem 0;min-height:1rem}.ok{color:#166534}.bad{color:#b91c1c}
+    pre{white-space:pre-wrap;font-size:.76rem;background:#f8fafc;border:1px solid #e6eaef;border-radius:8px;padding:.6rem;max-height:260px;overflow:auto}
+    .row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+    input,select{padding:.4rem .5rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.82rem;font-family:inherit}
+    .tw{overflow-x:auto}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Event Discovery</h1>
+    <p class="sub">Companies that authorized Advantage.Bid to promote their events. Discovery checks each website honestly and
+      proposes how to collect its events; you confirm each new method once from its preview. Refusals are shown as found, never worked around.</p>
+    <div class="gates" id="gates"></div>
+    <div class="card"><h2>Marketing Director oversight</h2><pre id="report">Loading…</pre></div>
+    <div class="card"><h2>Authorized companies</h2><div class="tw" id="list">Loading…</div></div>
+    <div class="card" id="detail" style="display:none"></div>
+    <div class="msg" id="msg"></div>
+  </div>
+<script>
+(function () {
+  'use strict';
+  var token = localStorage.getItem('token');
+  if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/event-discovery.html');
+  function api(path, method, body) {
+    var opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(path, opts).then(function (r) {
+      if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html'; throw new Error('Session expired'); }
+      return r.json().then(function (b) { if (!r.ok || b.success === false) throw new Error(b.message || b.error || 'Request failed'); return b; });
+    });
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function when(t) { if (!t) return ''; try { return new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  var msg = document.getElementById('msg');
+  function say(t, ok) { msg.className = 'msg ' + (ok ? 'ok' : 'bad'); msg.textContent = t; }
+
+  function gates(d) {
+    function g(label, on) { return '<span class="gate ' + (on ? 'on' : 'off') + '">' + esc(label) + ': ' + (on ? 'on' : 'off') + '</span>'; }
+    document.getElementById('gates').innerHTML = g('Automatic discovery (EVENT_DISCOVERY_ENABLED)', d.discovery_enabled)
+      + g('Event sending (EVENT_INTAKE_ENABLED)', d.intake_enabled) + g('Platform collection (event_partners.collection_enabled)', d.collection_enabled);
+  }
+
+  function list() {
+    return api('/api/admin/event-discovery').then(function (b) {
+      gates(b.data);
+      var rows = b.data.companies;
+      if (!rows.length) { document.getElementById('list').innerHTML = '<p class="muted">No company has authorized event promotion yet.</p>'; return; }
+      document.getElementById('list').innerHTML = '<table><thead><tr><th>Company</th><th>Website</th><th>How authorized</th><th>Last check</th><th>Collecting</th><th>To confirm</th><th>Sending keys</th><th></th></tr></thead><tbody>'
+        + rows.map(function (r) {
+          var block = (r.last_blocks || [])[0];
+          return '<tr><td><b>' + esc(r.company_name) + '</b><div class="muted">' + esc(r.status) + '</div></td><td>' + esc(r.authorized_domain) + '</td>'
+            + '<td>' + esc(r.authorization_method || '') + '<div class="muted">' + esc(r.authorization_statement_version || '') + '</div></td>'
+            + '<td>' + esc(r.last_outcome || 'not checked') + (block ? '<div class="muted">' + esc(block.class) + '</div>' : '') + '<div class="muted">' + esc(when(r.last_checked_at)) + '</div></td>'
+            + '<td>' + r.active_channels + '</td><td>' + r.awaiting_confirmation + '</td><td>' + r.sending_keys + '</td>'
+            + '<td><button class="btn" data-open="' + esc(r.id) + '">Open</button></td></tr>';
+        }).join('') + '</tbody></table>';
+    });
+  }
+
+  function report() {
+    return api('/api/admin/event-imports/oversight').then(function (b) { document.getElementById('report').textContent = b.data.report.text; })
+      .catch(function (e) { document.getElementById('report').textContent = e.message; });
+  }
+
+  function previewTable(p) {
+    if (!p || !p.length) return '<p class="muted">No events in the preview.</p>';
+    return '<table><thead><tr><th>Title</th><th>Starts</th><th>Ends</th><th>Where</th><th>Type</th><th>Link</th></tr></thead><tbody>' + p.map(function (e) {
+      return '<tr><td>' + esc(e.title) + '</td><td>' + esc(e.start_at || '') + '</td><td>' + esc(e.end_at || '') + '</td><td>' + esc([e.city, e.state].filter(Boolean).join(', ')) + '</td>'
+        + '<td>' + esc(e.sale_type || 'not stated') + '</td><td>' + (e.url && /^https?:\/\//i.test(e.url) ? '<a href="' + esc(e.url) + '" target="_blank" rel="noopener noreferrer">page</a>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+
+  function open(id) {
+    return api('/api/admin/event-discovery/' + encodeURIComponent(id)).then(function (b) {
+      var d = b.data, a = d.authorization, el = document.getElementById('detail');
+      el.style.display = '';
+      el.innerHTML = '<h2>' + esc(a.company_name) + ' · ' + esc(a.authorized_domain) + '</h2>'
+        + '<p class="muted">Seller sees: ' + esc(d.seller_view.message) + '</p>'
+        + (a.status === 'prospective' ? '<div class="card"><b>Waiting for you:</b> confirm that ' + esc(a.authorized_domain) + ' belongs to ' + esc(a.company_name)
+          + '.<div class="row" style="margin-top:.5rem"><input id="approveEv" placeholder="How you confirmed it (e.g. called the listed number)" style="min-width:360px">'
+          + '<button class="btn btn-primary" data-approve="' + esc(a.id) + '">Confirm website</button></div></div>' : '')
+        + '<div class="row" style="margin:.6rem 0"><button class="btn btn-primary" data-probe="' + esc(a.id) + '">Check website now</button>'
+        + '<button class="btn" data-preview="' + esc(a.id) + '">Preview next sync</button><button class="btn" data-activate="' + esc(a.id) + '">Re-evaluate activation</button>'
+        + '<button class="btn" data-key="' + esc(a.id) + '">Create sending key</button></div><div id="out"></div>'
+        + '<h3>Collection methods</h3>' + (d.channels.length ? d.channels.map(function (c) {
+          return '<div class="card"><div class="row"><span class="pill p-' + esc(c.status) + '">' + esc(c.status) + '</span><b>' + esc(c.kind) + '</b><span class="muted">' + esc(c.url || 'sent by the company') + '</span></div>'
+            + '<p class="muted">Access basis: ' + esc(c.access_basis) + (c.sale_type_hint ? ' · type: ' + esc(c.sale_type_hint) : '') + (c.timezone ? ' · ' + esc(c.timezone) : '')
+            + (c.last_success_at ? ' · last read ' + esc(when(c.last_success_at)) + ' (' + (c.last_item_count || 0) + ')' : '') + (c.consecutive_failures ? ' · failures ' + c.consecutive_failures : '')
+            + (c.paused_reason ? ' · ' + esc(c.paused_reason) : '') + (c.block_class ? ' · ' + esc(c.block_class) : '') + '</p>'
+            + (c.kind === 'html_profile' ? '<p class="muted">Pages read by layout: events stay in review until ten pass review unchanged; collection pauses itself if the layout changes.</p>' : '')
+            + previewTable(c.preview)
+            + '<div class="row" style="margin-top:.5rem">' + (c.status === 'previewed' || c.status === 'paused'
+              ? '<select data-type="' + esc(c.id) + '"><option value="">type from each event</option><option value="auction">auction</option><option value="estate_sale">estate sale</option></select>'
+                + '<input data-tz="' + esc(c.id) + '" placeholder="time zone e.g. America/Chicago" value="' + esc(c.timezone || '') + '">'
+                + '<button class="btn btn-primary" data-confirm="' + esc(c.id) + '">Confirm and collect</button>' : '')
+            + (c.status !== 'retired' ? '<button class="btn" data-pause="' + esc(c.id) + '">Pause</button><button class="btn" data-retire="' + esc(c.id) + '">Retire</button>' : '') + '</div></div>';
+        }).join('') : '<p class="muted">None yet. Run a website check.</p>')
+        + '<h3>Website checks</h3>' + d.probes.map(function (p) {
+          return '<div class="card"><b>' + esc(p.outcome || p.status) + '</b> <span class="muted">' + esc(when(p.started_at)) + ' · ' + esc(p.trigger) + ' · ' + p.requests + ' requests'
+            + (p.platform ? ' · platform ' + esc(p.platform) : '') + '</span>' + (p.blocks && p.blocks.length ? '<pre>' + esc(JSON.stringify(p.blocks, null, 1)) + '</pre>' : '') + '</div>';
+        }).join('')
+        + '<h3>Sending keys</h3>' + (d.sending_keys.length ? d.sending_keys.map(function (k) {
+          return '<div class="row"><span class="pill">' + esc(k.key_prefix) + '…</span><span class="muted">' + esc(k.label || '') + ' · created ' + esc(when(k.created_at)) + ' · used ' + (k.use_count || 0) + ' times'
+            + (k.revoked_at ? ' · revoked' : '') + '</span>' + (k.revoked_at ? '' : '<button class="btn" data-revoke="' + esc(a.id) + '|' + esc(k.id) + '">Revoke</button>') + '</div>';
+        }).join('') : '<p class="muted">None.</p>');
+      el.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  document.addEventListener('click', function (ev) {
+    var t = ev.target, id;
+    function run(p, after) { t.disabled = true; p.then(function (b) { if (after) after(b); return Promise.all([list(), report()]); }).catch(function (e) { say(e.message); }).then(function () { t.disabled = false; }); }
+    if ((id = t.getAttribute('data-open'))) run(open(id));
+    else if ((id = t.getAttribute('data-approve'))) run(api('/api/admin/event-discovery/' + id + '/approve-domain', 'POST', { evidence: (document.getElementById('approveEv') || {}).value || '' }), function () { say('Website confirmed.', true); return open(id); });
+    else if ((id = t.getAttribute('data-probe'))) run(api('/api/admin/event-discovery/' + id + '/probe', 'POST'), function () { say('Website checked.', true); return open(id); });
+    else if ((id = t.getAttribute('data-preview'))) run(api('/api/admin/event-discovery/' + id + '/preview-sync', 'POST'), function (b) { document.getElementById('out').innerHTML = '<pre>' + esc(JSON.stringify(b.data, null, 1)) + '</pre>'; });
+    else if ((id = t.getAttribute('data-activate'))) run(api('/api/admin/event-discovery/' + id + '/activate', 'POST'), function (b) { say('Activation: ' + JSON.stringify(b.data), true); });
+    else if ((id = t.getAttribute('data-key'))) run(api('/api/admin/event-discovery/' + id + '/sending-keys', 'POST', { label: 'Created by admin' }), function (b) {
+      document.getElementById('out').innerHTML = '<pre>Copy now; it is shown only once.\nKey: ' + esc(b.data.key) + '</pre>'; });
+    else if ((id = t.getAttribute('data-confirm'))) {
+      var type = document.querySelector('[data-type="' + id + '"]'), tz = document.querySelector('[data-tz="' + id + '"]');
+      run(api('/api/admin/event-discovery/channels/' + id + '/confirm', 'POST', { sale_type: type && type.value || null, timezone: tz && tz.value || null }), function (b) {
+        say('Confirmed. ' + (b.data.activation.active ? 'Collecting.' : 'Waiting: ' + b.data.activation.reason), true); return open(b.data.channel.authorization_id); });
+    } else if ((id = t.getAttribute('data-pause')) || (id = t.getAttribute('data-retire'))) {
+      var action = t.getAttribute('data-pause') ? 'pause' : 'retire';
+      var reason = prompt('Reason to ' + action + ' this method?'); if (reason == null) return;
+      run(api('/api/admin/event-discovery/channels/' + id + '/' + action, 'POST', { reason: reason }), function (b) { say('Done.', true); return open(b.data.authorization_id); });
+    } else if ((id = t.getAttribute('data-revoke'))) {
+      var parts = id.split('|');
+      run(api('/api/admin/event-discovery/' + parts[0] + '/sending-keys/' + parts[1], 'DELETE'), function () { say('Key revoked.', true); return open(parts[0]); });
+    }
+  });
+
+  list().catch(function (e) { say(e.message); });
+  report();
+})();
+</script>
+</body>
+</html>

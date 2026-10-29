@@ -89,3 +89,8 @@ Account: Lewis & Maese Antiques & Auctions, lmauctionco.com.
 - Feed items never take a post's publication date as their event date.
 - Directory website decoding, plus the two dry-run-first correction scripts.
 - The oversight alert key for a former partner stays stable through attribution. Deploying it re-sends the Lewis & Maese alert once, because the stored key changes from `FORMER_SOURCE_PARTNER:-` to `FORMER_SOURCE_PARTNER:lewismaese`.
+
+## Status 2026-10-29 (provider-neutral discovery built)
+- **Live probe.** The provider-neutral probe ran live against lmauctionco.com with the honest identity. It made one request: `robots.txt` returned 403 from the provider's edge (CloudFront), classified `host_firewall_refusal`, and nothing more was requested.
+- **Remaining external dependency.** The hosting provider must allow the importer.
+- **Working alternatives** once released: a sending key (push) for any tool Lewis & Maese controls, and posting on Advantage.Bid.

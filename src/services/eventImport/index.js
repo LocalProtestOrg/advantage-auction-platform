@@ -27,7 +27,9 @@ function writerCtx(rec, raw, geo, mr, src, dd) {
     market: { marketSlug: mr.marketSlug, via: mr.via },
     orgId: src.owner_organization_id,
     provenance: { sourceId: src.id, sourceEventId: rec.sourceEventId, sourceUrl: rec.sourceUrl,
-      sourceUpdatedAt: rec.sourceUpdatedAt, rawPayload: raw && raw.payload },
+      sourceUpdatedAt: rec.sourceUpdatedAt, rawPayload: raw && raw.payload,
+      // Event discovery: the collection channel the item arrived through (per-channel provenance and health).
+      channelId: (raw && raw.channelId) || null },
     contentHash: rec.contentHash, imagesHash: rec.imagesHash,
     attribution: { source: src.name || src.key, url: rec.sourceUrl },
     actorId: null, imagesChanged: dd.imagesChanged,
@@ -70,14 +72,17 @@ async function runImport(opts) {
   const diag = diagnostics.createDiagnostics();
 
   try {
-    for await (const raw of connector.fetch({ config, limit: opts.limit, signal: opts.signal, diag })) {
+    // Discovery sources read their channels from the database; `apply` tells them whether they may record
+    // channel health (a dry run writes nothing anywhere).
+    for await (const raw of connector.fetch({ config, limit: opts.limit, signal: opts.signal, diag, db, source: src, apply, now: opts.nowMs, deps: opts.connectorDeps })) {
       counters.fetched++;
       const rec = pipeline.normalizeItem(raw, { fieldMap, defaults, now: opts.nowMs });
       let outcome = rec.outcome, eventId = null, matchVia = null, marketVia = null, reason = rec.reason, error = rec.error;
 
       if (rec.outcome === 'eligible') {
         counters.eligible++;
-        const dd = await dedupe.dedupe(db, rec, { sourceId: src.id });
+        // A company's own source (kind 'partner': discovery / push) may only ever match that company's events.
+        const dd = await dedupe.dedupe(db, rec, { sourceId: src.id, hostOrganizationId: src.kind === 'partner' ? src.owner_organization_id : null });
         const mr = await marketResolver.resolveWithDb(db,
           { lat: rec.canonical.lat, lng: rec.canonical.lng, zip: rec.canonical.zip, city: rec.canonical.city, state: rec.canonical.state },
           { record: apply });
@@ -101,7 +106,9 @@ async function runImport(opts) {
               eventId = await writer.createImported(client, writerCtx(rec, raw, geo, mr, src, dd));
               // noAutoPublish is a hard caller override (used by the scheduled worker): imports stay
               // in DRAFT for the Admin Review Queue even if a source is configured to auto_publish.
-              if (src.auto_publish && !opts.noAutoPublish) await writer.publishImported(client, eventId, writerCtx(rec, raw, geo, mr, src, dd));
+              // holdForReview: an item that must be seen by a person first (e.g. an HTML-extracted event before its
+              // channel has earned trust) stays a draft whatever the source's auto-publish setting.
+              if (src.auto_publish && !opts.noAutoPublish && !(raw && raw.holdForReview)) await writer.publishImported(client, eventId, writerCtx(rec, raw, geo, mr, src, dd));
             });
             counters.images_queued += (rec.canonical.images || []).length;
           }

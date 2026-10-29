@@ -41,9 +41,11 @@ function decodeEntities(s) {
     .replace(/&#0*39;|&apos;/g, "'").replace(/&#x2019;/gi, '’').replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&').trim();
 }
+// Linear scanning (readers/scan): feeds and pages come from websites we do not control.
+const scan = require('../readers/scan');
 function tag(block, name) {
-  const m = block.match(new RegExp('<' + name + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + name + '>', 'i'));
-  return m ? decodeEntities(m[1]) : null;
+  const el = scan.elements(block, name, { limit: 1 })[0];
+  return el ? decodeEntities(el.inner) : null;
 }
 function stripHtml(s) { return s == null ? null : decodeEntities(String(s).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim(); }
 
@@ -136,10 +138,8 @@ function firstDate(block, names) {
 function* parseRss(text) {
   const isAtom = /<feed[\s>]/i.test(text) && !/<rss[\s>]/i.test(text);
   const itemTag = isAtom ? 'entry' : 'item';
-  const re = new RegExp('<' + itemTag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + itemTag + '>', 'gi');
-  let m;
-  while ((m = re.exec(text))) {
-    const block = m[1];
+  for (const el of scan.elements(text, itemTag, { limit: 2000 })) {
+    const block = el.inner;
     const title = tag(block, 'title');
     if (!title) continue;
     let link = tag(block, 'link');
@@ -153,7 +153,7 @@ function* parseRss(text) {
     yield {
       sourceEventId: guid || null,
       url: link || null,
-      saleHints: (block.match(/<category(?:\s[^>]*)?>[\s\S]*?<\/category>/gi) || []).map((c) => stripHtml(c)).join(' | ') || null,
+      saleHints: scan.elements(block, 'category', { limit: 20 }).map((c) => stripHtml(c.inner)).join(' | ') || null,
       payload: {
         title: title,
         description: stripHtml(tag(block, 'description') || tag(block, 'content:encoded') || tag(block, 'summary') || tag(block, 'content')),
@@ -166,9 +166,7 @@ function* parseRss(text) {
 // ── JSON-LD (schema.org Event) ───────────────────────────────────────────────────
 function collectLdNodes(text) {
   const nodes = [];
-  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let m; const scripts = [];
-  while ((m = re.exec(text))) scripts.push(m[1]);
+  const scripts = scan.elements(text, 'script', { limit: 200 }).filter((el) => /type\s*=\s*["']application\/ld\+json["']/i.test(el.attrs)).map((el) => el.inner);
   if (!scripts.length && /^\s*[[{]/.test(text)) scripts.push(text);  // raw JSON-LD document
   for (const s of scripts) {
     let parsed; try { parsed = JSON.parse(s.trim()); } catch (e) { continue; }

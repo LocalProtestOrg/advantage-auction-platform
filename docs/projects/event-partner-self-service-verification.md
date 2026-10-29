@@ -106,3 +106,9 @@ The trust ladder decides **whether an authorization link may be issued**. It nev
 authorization. Permission is still recorded only by the deterministic, single-use, evidence-backed
 authorization action from Phase 1, and `authorization_method` remains limited to its four approved
 evidence types.
+
+## Reconciliation 2026-10-29 (owner-approved): provider-neutral discovery
+- **Wording.** A company is never *required* to configure a feed, upload events or understand structured data. It is offered a plain-language alternative only when its website cannot be read automatically: posting on Advantage.Bid, sending its events with a key, or a ready request to its website provider.
+- **Statement v2** (`2026-10-29.v2`) adds one grant line: events the company chooses to send directly. v1 records stay valid for collection from the website.
+- **Robots** are now evaluated automatically before every request. Terms review stays human for the company's own site; platforms whose terms forbid automation are recorded in the platform registry.
+- **Members.** Path C (members inside their account) is the dashboard authorization. A domain that cannot be matched to the member's recorded website or email domain waits for administrator confirmation, which is Path D.

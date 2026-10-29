@@ -41,7 +41,8 @@ function createDiagnostics() {
     partner(p) {
       partners.push({ organization_id: p.organization_id || null, organizer_name: p.organizer_name || null,
         feed: String(p.feed || '').slice(0, 300), http: p.http == null ? null : p.http, outcome: p.outcome, items: Number(p.items) || 0,
-        note: p.note ? String(p.note).slice(0, 200) : null });
+        note: p.note ? String(p.note).slice(0, 200) : null,
+        channel_id: p.channel_id || null, kind: p.kind || null, block_class: p.block_class || null });
     },
     partners() { return partners.slice(); },
   };

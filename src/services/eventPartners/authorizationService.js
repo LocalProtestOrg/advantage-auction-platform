@@ -458,6 +458,17 @@ async function revoke(authorizationId, input) {
       await client.query(
         "UPDATE import_sources SET status = 'disabled', updated_at = now() WHERE id = $1", [row.import_source_id]);
     }
+    // Event discovery (migration 208): every collection channel stops and every push key stops working, in the
+    // same transaction. Guarded so databases without the discovery tables are unaffected.
+    const reg = await client.query("SELECT to_regclass('event_collection_channels') IS NOT NULL AS ok");
+    const hasDiscovery = !!(reg && reg.rows && reg.rows[0] && reg.rows[0].ok);
+    if (hasDiscovery) {
+      await client.query(
+        "UPDATE event_collection_channels SET status = 'retired', paused_reason = 'authorization revoked', updated_at = now() WHERE authorization_id = $1 AND status <> 'retired'",
+        [authorizationId]);
+      await client.query('UPDATE partner_intake_keys SET revoked_at = now(), revoked_by = $2 WHERE authorization_id = $1 AND revoked_at IS NULL',
+        [authorizationId, input.actorId || null]);
+    }
     const { rows } = await client.query(
       `UPDATE authorized_event_sources
           SET status = 'revoked', revoked_at = now(), revoked_reason = $2, revoked_by = $3, revoked_via = $4,

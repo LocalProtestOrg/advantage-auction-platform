@@ -14,14 +14,32 @@
  * agreement to sell on the platform, and NOT a transfer of any listing rights.
  */
 
-const CURRENT_VERSION = '2026-09-11.v1';
+// v2 (Owner-approved 2026-10-29, provider-neutral discovery): adds the one grant line covering events a company
+// chooses to send to Advantage.Bid directly (push). v1 records stay valid for collection from the company website.
+const CURRENT_VERSION = '2026-10-29.v2';
 
 /** The grant, as bullet lines. Rendered verbatim on the page and copied into the evidence record. */
 const GRANT_LINES = Object.freeze([
   'Advantage.Bid may collect the upcoming estate sales and auctions that your company posts publicly on your own website.',
   'Advantage.Bid may display those events on Advantage.Bid at no charge to you, with your company named as the host.',
   'Each event page links back to your website so buyers can see your full listing.',
+  'You may also send your upcoming events to Advantage.Bid directly, and they are treated the same way.',
 ]);
+
+/** Earlier statement versions, kept so any stored record can be read against the words it was given. */
+const PREVIOUS_GRANT_LINES = Object.freeze({
+  '2026-09-11.v1': Object.freeze(GRANT_LINES_V1()),
+});
+function GRANT_LINES_V1() {
+  return [
+    'Advantage.Bid may collect the upcoming estate sales and auctions that your company posts publicly on your own website.',
+    'Advantage.Bid may display those events on Advantage.Bid at no charge to you, with your company named as the host.',
+    'Each event page links back to your website so buyers can see your full listing.',
+  ];
+}
+
+/** Does an authorization recorded under `version` cover events the company pushes to us? */
+function coversPush(version) { return !!version && version !== '2026-09-11.v1'; }
 
 /** What this explicitly does NOT do. Stated up front so nothing is implied by silence. */
 const LIMIT_LINES = Object.freeze([
@@ -33,7 +51,7 @@ const LIMIT_LINES = Object.freeze([
 
 /** One-sentence summary used in list views, admin surfaces and the confirmation receipt. */
 const SUMMARY = 'Authorizes Advantage.Bid to collect publicly posted upcoming events from the named '
-  + 'company website and promote them on Advantage.Bid at no charge, revocable at any time.';
+  + 'company website, or receive them from the company directly, and promote them on Advantage.Bid at no charge, revocable at any time.';
 
 /**
  * The full statement for a given company + website, ready to render or to store as evidence.
@@ -74,4 +92,4 @@ function evidenceSnapshot(ctx) {
   };
 }
 
-module.exports = { CURRENT_VERSION, GRANT_LINES, LIMIT_LINES, SUMMARY, build, evidenceSnapshot };
+module.exports = { CURRENT_VERSION, GRANT_LINES, LIMIT_LINES, SUMMARY, PREVIOUS_GRANT_LINES, coversPush, build, evidenceSnapshot };

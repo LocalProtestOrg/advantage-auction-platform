@@ -66,3 +66,10 @@ Steps:
 Alternatively, Lewis & Maese can publish its events itself through its member account.
 
 The two currently missing events need either the feed (steps 1 to 3) or their source page details from Lewis & Maese. Their details are never invented.
+
+## Discovery oversight (2026-10-29)
+Every authorized company is also judged by `src/services/eventDiscovery/discoveryOversight.js`, in the same report, history and alerts. Codes:
+- **Onboarding:** `AUTHORIZED_NOT_PROBED`, `DISCOVERY_OFF`, `PROBE_BLOCKED` (with the block class and evidence), `NOTHING_FOUND`, `PROBE_FAILED`, `AWAITING_CHANNEL_CONFIRMATION`.
+- **Collection channels:** `CHANNEL_SUSPENDED`, `CHANNEL_FAILING`, `CHANNEL_RETRYING`, `CHANNEL_STALE`.
+- **Push:** `PUSH_NOT_STARTED`, `PUSH_SILENT`.
+- **Platform and coverage:** `COLLECTION_GATE_OFF`, `EVENTS_MISSED`.

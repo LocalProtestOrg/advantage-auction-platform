@@ -82,17 +82,28 @@ describe('dedupe (DB-backed ladder)', () => {
   });
   test('fingerprint path: one matching candidate → update', async () => {
     const db = fakeDb({ events: [
-      { id: 'E9', organizer_name: 'Smith Estates', address: '123 Main St', title: 'Smith Estate Sale', start_at: '2026-08-01T14:00:00Z', zip: '49221' },
+      { id: 'E9', organizer_name: 'Smith Estates', address: '123 Main St', title: 'Smith Estate Sale', start_at: '2026-08-01T14:00:00Z', zip: '49221', source: 'imported' },
       { id: 'E8', organizer_name: 'Different Co', address: '9 Other Rd', title: 'Other', start_at: '2026-08-01T14:00:00Z', zip: '49221' },
     ] });
     const out = await d.dedupe(db, REC, { sourceId: 'src' });
     expect(out).toMatchObject({ outcome: 'update', eventId: 'E9', matchVia: 'fingerprint' });
   });
   test('two fingerprint matches → ambiguous (skipped)', async () => {
-    const same = { organizer_name: 'Smith Estates', address: '123 Main St', start_at: '2026-08-01T14:00:00Z', zip: '49221', title: 'x' };
+    const same = { organizer_name: 'Smith Estates', address: '123 Main St', start_at: '2026-08-01T14:00:00Z', zip: '49221', title: 'x', source: 'imported' };
     const db = fakeDb({ events: [{ id: 'A', ...same }, { id: 'B', ...same }] });
     const out = await d.dedupe(db, REC, { sourceId: 'src' });
     expect(out).toMatchObject({ outcome: 'ambiguous' });
+  });
+  test('a fingerprint match never overwrites a native (organization-authored) event: create + possible duplicate', async () => {
+    const db = fakeDb({ events: [{ id: 'N1', organizer_name: 'Smith Estates', address: '123 Main St', title: 'Smith Estate Sale', start_at: '2026-08-01T14:00:00Z', zip: '49221', source: 'organization' }] });
+    expect(await d.dedupe(db, REC, { sourceId: 'src' })).toMatchObject({ outcome: 'create', possibleDuplicate: true });
+  });
+  test('a company source never overwrites ANOTHER company event, even with an identical fingerprint', async () => {
+    const ev = { organizer_name: 'Smith Estates', address: '123 Main St', title: 'Smith Estate Sale', start_at: '2026-08-01T14:00:00Z', zip: '49221', source: 'imported' };
+    const other = fakeDb({ events: [{ id: 'V1', ...ev, host_organization_id: 'victim-org', organization_id: 'victim-org' }] });
+    expect(await d.dedupe(other, REC, { sourceId: 'src', hostOrganizationId: 'attacker-org' })).toMatchObject({ outcome: 'create', possibleDuplicate: true });
+    const own = fakeDb({ events: [{ id: 'O1', ...ev, host_organization_id: 'my-org', organization_id: 'my-org' }] });
+    expect(await d.dedupe(own, REC, { sourceId: 'src', hostOrganizationId: 'my-org' })).toMatchObject({ outcome: 'update', eventId: 'O1' });
   });
   test('soft signal: same zip+date, similar title, no fingerprint match → create possible_duplicate', async () => {
     const db = fakeDb({ events: [

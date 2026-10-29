@@ -38,6 +38,7 @@ const sourceHealth = require('../services/eventImport/sourceHealth');
 const imageEnrichment = require('../services/eventImport/imageEnrichment');
 const inventoryHealth = require('../services/eventImport/inventoryHealthService');
 const partnerOversight = require('../services/eventImport/partnerOversight');
+const discovery = require('../services/eventDiscovery/discoveryService');
 const marketplaceIntegrity = require('../services/marketplaceIntegrity');
 const { sendEmail } = require('../services/emailService');
 
@@ -427,6 +428,7 @@ let lastHealthKey = null;          // once-per-ET-hour routine health guard
 let lastCriticalAlertDate = null;  // once-per-ET-date critical-email guard (no spam)
 let priorSnapshot = null;          // prior snapshot for sharp-drop detection
 let lastOversightDate = null;      // once-per-ET-date routine partner oversight guard
+let lastProbeHourKey = null;       // once-per-ET-hour discovery probe guard
 
 // Compute + persist the inventory/health snapshot, log it, and email CRITICAL alerts (once/day).
 // Never throws — monitoring must not crash the worker.
@@ -542,6 +544,19 @@ async function runPartnerOversight(nowDate, o = {}) {
   } catch (e) { logLine({ evt: 'oversight_error', error: String(e && e.message) }); return null; }
 }
 
+async function runDueDiscovery(nowDate) {
+  try {
+    if (!discovery.discoveryOn()) return null;
+    const et = etNow(nowDate);
+    const key = et.date + 'T' + et.hour;
+    if (lastProbeHourKey === key) return null;
+    lastProbeHourKey = key;
+    const done = await discovery.runDueProbes(db, { now: nowDate || new Date(), limit: 3 });
+    if (done.length) logLine({ evt: 'discovery_probes', probes: done });
+    return done;
+  } catch (e) { logLine({ evt: 'discovery_error', error: String(e && e.message) }); return null; }
+}
+
 // ── Scheduler loop ───────────────────────────────────────────────────────────
 let ticking = false;        // reentrancy guard (one tick at a time in this process)
 let lastCycleDate = null;   // once-per-ET-date guard (this process)
@@ -556,6 +571,9 @@ async function tick(nowDate) {
     if (!c.enabled) return;
     // Bounded automatic recovery of transiently failed sources (never structural failures).
     const retried = await runDueRetries({ autoPublish: c.autoPublish });
+    // Provider-neutral discovery: dry-run website checks for newly authorized companies, monthly re-checks, and a
+    // fresh check after repeated failures (they write probe history and channel candidates, never events).
+    await runDueDiscovery(nowDate);
     if (retried.length) await runHealthCheck(nowDate, { afterCycle: true, summary: summarize(null, Date.now(), retried, { trigger: 'retry', apply: true }) });
     const et = etNow(nowDate);
     if (!due(et, c)) return;
@@ -586,9 +604,9 @@ if (require.main === module) {
 module.exports = {
   cfg, etNow, due, clampInt, parseDays, activeSources, reapStaleRun,
   scheduleDayset, scheduleLabel, describeSchedule, nextScheduledRun, lastExpectedWindow,
-  runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck, runPartnerOversight,
+  runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck, runPartnerOversight, runDueDiscovery,
   recordSourceHealth, runDueRetries, enrichImportedImages, pickAccess,
   CHECK_INTERVAL_MS, STALE_RUN_MINUTES, AUDIT_ENTITY_ID,
   // Test-only: reset the in-process scheduler + health guards between cases.
-  _resetForTest: () => { ticking = false; lastCycleDate = null; lastHealthKey = null; lastCriticalAlertDate = null; priorSnapshot = null; lastOversightDate = null; },
+  _resetForTest: () => { ticking = false; lastCycleDate = null; lastHealthKey = null; lastCriticalAlertDate = null; priorSnapshot = null; lastOversightDate = null; lastProbeHourKey = null; },
 };

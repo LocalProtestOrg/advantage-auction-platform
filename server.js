@@ -579,6 +579,7 @@ app.use(logger);
 app.use((req, res, next) => {
   if (req.path === '/api/payments/webhook') return next();
   if (req.path === '/api/meta/webhook') return next();   // Meta X-Hub-Signature-256 needs the raw body
+  if (req.path.startsWith('/api/intake/')) return next();  // partner event push parses its own 1 MB JSON / iCal bodies
   express.json()(req, res, next);
 });
 
@@ -676,6 +677,7 @@ app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/event-imports', adminEventImportsRoutes);
+app.use('/api/admin/event-discovery', require('./src/routes/adminEventDiscovery')); // provider-neutral event discovery: probes, channels, sending keys (admin; mig 208)
 app.use('/api/admin/event-partners', adminEventPartnersRoutes);
 app.use('/api/admin/marketplace', adminMarketplaceRoutes);
 app.use('/api/admin/storefront', require('./src/routes/adminStorefrontModeration')); // storefront moderation: takedowns, reports, order issues (marketplace.moderate; mig 198)
@@ -758,6 +760,8 @@ app.use('/api/public/measurement-config', require('./src/routes/publicMeasuremen
 app.use('/api/public/onsite', require('./src/routes/publicOnsite')); // onsite personalization treatment (consent + auth gated)
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
+app.use('/api/org/event-distribution', require('./src/routes/orgEventDistribution')); // a member promotes its events: authorize once + website (mig 208)
+app.use('/api/intake/v1', require('./src/routes/eventIntake')); // partner push: a company sends its own events (sending key; EVENT_INTAKE_ENABLED)
 app.use('/api/org', orgEventsRoutes);
 app.use('/api/admin/business-listings', require('./src/routes/adminBusinessListings'));
 app.use('/api/admin/compliance', require('./src/routes/adminCompliance')); // admin-only auction compliance review

@@ -64,7 +64,8 @@
   function eventOrganizerItems() {
     return [
       { id: 'events',      label: 'My Events',    emoji: '📅', href: '/org/events.html',   external: true, primaryMobile: true },
-      { id: 'createEvent', label: 'Create Event', emoji: '➕', href: '/org/event-new.html', external: true }
+      { id: 'createEvent', label: 'Create Event', emoji: '➕', href: '/org/event-new.html', external: true },
+      { id: 'importEvents', label: 'Import My Events', emoji: '🔄', href: '/org/event-promotion.html', external: true }
     ];
   }
 

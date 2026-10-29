@@ -38,3 +38,11 @@ Lewis & Maese remains a normal member. Nothing about its membership was touched:
 - Retired sources are not live and are not action items.
 - Image placeholder policy is the source config flag `placeholder_images`, not a source name.
 - Supply shortfalls, such as the external auction target and missing estate sales, still report as DEGRADED. Retirement never makes the system look HEALTHY.
+
+## Revision 2026-10-29 (owner-approved): provider-neutral discovery
+- **Preserved:**
+  - no company-specific connector, crawler exception or browser identity;
+  - unknown or retired connectors fail closed;
+  - every member follows the same path.
+- **Revised:** Member Feed Sync consent moves onto the single authorization record (`authorized_event_sources`), unchanged and never re-dated, by `scripts/migrate-member-feeds-to-discovery.js`. Each company gets its own source and collection channels, read by the generic `discovery` connector. The shared `member-feeds` source is retired with its history.
+- **Further reading:** `provider-neutral-event-discovery-design.md` and `event-discovery-runbook.md`.

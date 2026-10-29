@@ -147,7 +147,7 @@ describe('Phase 4E — professional-first navigation ordering', () => {
     expect(secs[1].items.map((i) => i.id)).toEqual(['home']);      // Dashboard Home next
     const pro = secs.find((s) => s.heading === 'Professional Marketplace');
     const buying = secs.find((s) => s.heading === 'Buying');
-    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent']); // bizadmin no longer inside the pro group
+    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'importEvents']); // bizadmin no longer inside the pro group; Import My Events (2026-10-29)
     expect(buying.items.map((i) => i.id)).toEqual(['watchlist', 'auctions', 'purchases']);
   });
   test('the rail renders the "Professional Marketplace" section heading', () => {
@@ -161,7 +161,7 @@ describe('Phase 4E — professional-first navigation ordering', () => {
     // Administration is no longer here — it is pinned to the top section (see visibleSectionsFor).
     const ready = Nav.visibleSectionsFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: true, storefrontEligible: true, isBdMember: true, businessAdminUrl: 'x' });
     const pro = ready.find((s) => s.heading === 'Professional Marketplace');
-    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'storefront', 'addItem', 'mpOrders', 'createAuction', 'sell']);
+    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'importEvents', 'storefront', 'addItem', 'mpOrders', 'createAuction', 'sell']);
   });
   test('Business Administration is the FIRST item across experiences (buyer, professional, admin)', () => {
     const first = (ctx) => (Nav.visibleNavFor(ctx)[0] || {}).id;

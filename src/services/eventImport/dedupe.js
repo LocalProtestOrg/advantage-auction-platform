@@ -31,7 +31,7 @@ const utcDate = (iso) => String(iso == null ? '' : iso).slice(0, 10); // YYYY-MM
 // Tier-3 key. `e` carries { organizer_name, address, start_at }.
 function eventFingerprint(e) {
   e = e || {};
-  return sha256([strip(e.organizer_name), strip(e.address), utcDate(e.start_at)].join(''));
+  return sha256([strip(e.organizer_name), strip(e.address), utcDate(e.start_at)].join('\x01'));
 }
 
 const STOP = new Set(['the', 'a', 'an', 'of', 'and', 'sale', 'estate', 'auction', 'at', 'in', 'on', 'for']);
@@ -93,7 +93,7 @@ async function dedupe(db, record, ctx) {
     const startDate = utcDate(c.start_at);
     if (startDate && (c.zip || (c.city && c.state))) {
       const rows = (await db.query(
-        `SELECT id, organizer_name, address, title, start_at, zip
+        `SELECT id, organizer_name, address, title, start_at, zip, source, organization_id, host_organization_id
            FROM events
           WHERE (start_at AT TIME ZONE 'UTC')::date = $1::date
             AND COALESCE(status,'') <> 'archived'
@@ -101,7 +101,16 @@ async function dedupe(db, record, ctx) {
                OR ($3::text IS NOT NULL AND lower(city) = lower($3) AND upper(state) = upper($4)) )`,
         [startDate, c.zip || null, c.city || null, c.state || null])).rows;
       const fp = eventFingerprint(c);
-      for (const e of rows) if (eventFingerprint(e) === fp) found.byFingerprint.push(e.id);
+      // A fingerprint match may UPDATE an event only when that event is itself an import and — for a company's own
+      // source (discovery / push) — belongs to that same company. Anything else (a native event, another company's
+      // event) is never overwritten: it becomes a soft "possible duplicate" for review instead.
+      const host = ctx.hostOrganizationId || null;
+      const mayUpdate = (e) => e.source === 'imported'
+        && (!host || e.host_organization_id === host || (!e.host_organization_id && e.organization_id === host));
+      for (const e of rows) {
+        if (eventFingerprint(e) !== fp) continue;
+        if (mayUpdate(e)) found.byFingerprint.push(e.id); else found.bySoftSignal.push(e.id);
+      }
       if (!found.byFingerprint.length) {
         for (const e of rows) {
           if (e.zip && c.zip && e.zip === c.zip && titleSimilarity(e.title, c.title) >= threshold) found.bySoftSignal.push(e.id);

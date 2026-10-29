@@ -1,6 +1,15 @@
 # Provider-Neutral, Consent-Based Event Discovery: Design and Acceptance-Test Plan
 
-Status: DESIGN FOR OWNER REVIEW, 2026-10-29. Nothing here is built, deployed or activated.
+Status: IMPLEMENTED 2026-10-29 on `feat/provider-neutral-event-discovery` (owner authorized all phases). Not deployed. Operations: `event-discovery-runbook.md`.
+
+Changes from this design, made during implementation and security review:
+- Domain claims are verified. The claim must match the organization's recorded website or the requester's email domain; otherwise an administrator approves it.
+- A whole shared-hosting platform cannot be authorized.
+- Duplicate matching never crosses companies.
+- Connections are pinned to the checked address.
+- Parsing uses linear-time scanning.
+- HTML extraction (Phase 4) is built now, as owner-directed, with the review-first trust ramp.
+- The browser "share" capture tool is not built.
 
 Related decisions:
 - `event-partner-self-service-verification.md` (Owner policy, 2026-09-12)

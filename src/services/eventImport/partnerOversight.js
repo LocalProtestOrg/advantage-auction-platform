@@ -31,6 +31,7 @@ const inventoryHealth = require('./inventoryHealthService');
 const memberFeeds = require('./memberFeedService');
 const { hasMemberConsent } = require('./connectors/feedConnector');
 const { activeEventSql } = require('../../lib/marketplaceVisibility');
+const discoveryOversight = require('../eventDiscovery/discoveryOversight');
 
 const OVERSEER = Object.freeze({ code: 'A1', name: 'Marketing Director', capability: 'oversee_event_imports' });
 
@@ -259,15 +260,6 @@ async function selfPublishingOrgs(db) {
       WHERE e.source = 'organization' AND ${activeEventSql('e')}`)).rows;
 }
 
-async function authorizedPartners(db) {
-  try {
-    return (await db.query(
-      `SELECT a.organization_id, a.company_name, a.authorized_domain, a.status, s.key AS source_key, s.status AS source_status
-         FROM authorized_event_sources a LEFT JOIN import_sources s ON s.id = a.import_source_id
-        WHERE a.status IN ('authorized','source_configured','collecting','paused') ORDER BY a.company_name`)).rows;
-  } catch (_) { return []; }   // the Event Partner tables may be absent in a minimal database
-}
-
 /** The full oversight picture. Read-only; a failing part is reported, never thrown. */
 async function assess(db = db0, { now = new Date() } = {}) {
   const at = now instanceof Date ? now : new Date(now);
@@ -302,16 +294,28 @@ async function assess(db = db0, { now = new Date() } = {}) {
     partners.push({ kind: 'member_feed', organization_id: feed.organization_id, name: feed.organizer_name || null, feed: where,
       consent: feed.revoked_at ? 'revoked' : (hasMemberConsent(feed) ? 'recorded' : 'missing'), last_sync: hist[0] || null, events, findings: f.map((x) => x.code) });
   }
-  for (const p of await safe('event partners', () => authorizedPartners(db), [])) {
-    const events = await safe('events ' + p.organization_id, () => partnerEventStats(db, p.organization_id, 'https://' + p.authorized_domain), {});
-    const synced = !!(p.source_key && (sources.find((s) => s.key === p.source_key) || {}).last_success_at);
-    const f = [];
-    if (!p.source_key) f.push(finding('PARTNER_SOURCE_MISSING', 'owner', p.company_name + ' is authorized but no import source is configured for it.', 'Configure its source (an owner-approved production change).'));
-    f.push(...assessEvents(p.company_name, 'https://' + p.authorized_domain, events, { synced }));
-    f.forEach((x) => Object.assign(x, { partner: p.company_name, organization_id: p.organization_id }));
+  // Every authorized company (members and Event Partners alike): onboarding, discovery, channels, push, events.
+  const discoveryOn = String(process.env.EVENT_DISCOVERY_ENABLED || '').toLowerCase() === 'true';
+  // The platform collection switch (platform_config), read through the same database as everything else here.
+  let gateOn = false;
+  try { const g = (await db.query(`SELECT value FROM platform_config WHERE key = 'event_partners.collection_enabled'`)).rows[0]; gateOn = !!(g && g.value === true); }
+  catch (_) { gateOn = false; }
+  for (const c of await safe('authorized companies', () => discoveryOversight.loadCompanies(db), [])) {
+    const a = c.authorization;
+    const events = await safe('events ' + a.organization_id, () => partnerEventStats(db, a.organization_id, 'https://' + a.authorized_domain), {});
+    const readChannels = (c.channels || []).filter((x) => x.status === 'active' && x.kind !== 'push_api');
+    const synced = readChannels.some((x) => x.last_success_at) || (c.keys || []).some((k) => !k.revoked_at && k.last_used_at);
+    const f = c.legacy && !a.import_source_id
+      ? [finding('PARTNER_SOURCE_MISSING', 'owner', a.company_name + ' is authorized but no import source is configured for it.', 'Configure its source (an owner-approved production change).')]
+      : discoveryOversight.assessCompany(c, { now: at, discoveryOn, gateOn });
+    f.push(...assessEvents(a.company_name, 'https://' + a.authorized_domain, events, { synced }));
+    f.forEach((x) => Object.assign(x, { partner: a.company_name, organization_id: a.organization_id }));
     findings.push(...f);
-    partners.push({ kind: 'event_partner', organization_id: p.organization_id, name: p.company_name, feed: p.source_key || null,
-      consent: p.status, events, findings: f.map((x) => x.code) });
+    partners.push({ kind: a.authorization_method === 'member_account' ? 'member' : 'event_partner', organization_id: a.organization_id, name: a.company_name,
+      feed: c.source ? c.source.key : null, consent: a.status, channels: (c.channels || []).map((x) => ({ kind: x.kind, status: x.status })),
+      last_check: c.lastProbe ? { outcome: c.lastProbe.outcome, at: c.lastProbe.started_at } : null,
+      last_sync: readChannels.length ? { outcome: readChannels.every((x) => !x.consecutive_failures) ? 'ok' : 'failing', at: readChannels.map((x) => x.last_success_at).filter(Boolean).sort().pop() || null } : null,
+      events, findings: f.map((x) => x.code) });
   }
 
   const selfPublishing = await safe('member publishing', () => selfPublishingOrgs(db), []);

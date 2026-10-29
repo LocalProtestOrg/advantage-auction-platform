@@ -40,7 +40,9 @@ describe('no member company has a dedicated or privileged integration', () => {
   test('the retired member connector is gone from code and registry', () => {
     expect(fs.existsSync(path.join(ROOT, 'src/services/eventImport/connectors/lmauctionConnector.js'))).toBe(false);
     expect(fs.existsSync(path.join(ROOT, 'scripts/register-lmauction-source.js'))).toBe(false);
-    expect(Object.keys(registry.REGISTRY).sort()).toEqual(['csv', 'feed', 'gsa', 'json', 'rest', 'rss', 'txauction', 'xml']);
+    // 'discovery' (2026-10-29) is the ONE generic connector for every authorized company; it carries no company code.
+    expect(Object.keys(registry.REGISTRY).sort()).toEqual(['csv', 'discovery', 'feed', 'gsa', 'json', 'rest', 'rss', 'txauction', 'xml']);
+    expect(code('src/services/eventImport/connectors/discoveryConnector.js')).not.toMatch(/lmauction|lewis|maese|invaluable/i);
   });
   test('a source naming an unknown / retired connector fails closed — never silently becomes another source', () => {
     expect(() => registry.getConnector('rest', 'lmauction')).toThrow(/No connector registered for: lmauction/);
