@@ -144,7 +144,10 @@ function* parseRss(text) {
     if (!title) continue;
     let link = tag(block, 'link');
     if (!link && isAtom) { const lm = block.match(/<link[^>]*href=["']([^"']+)["']/i); link = lm ? lm[1] : null; }
-    const start = firstDate(block, ['start_date', 'startDate', 'ev:startdate', 'dc:date', 'pubDate', 'published', 'updated']);
+    // Only a field that states the EVENT's date counts. A post's publication date (pubDate, published,
+    // updated, dc:date) is when it was written, not when the sale happens: an item without an event date
+    // is held for review rather than misdated (e.g. a WordPress post feed announcing an estate sale).
+    const start = firstDate(block, ['start_date', 'startDate', 'ev:startdate']);
     const end = firstDate(block, ['end_date', 'endDate', 'ev:enddate']);
     const guid = tag(block, 'guid') || tag(block, 'id') || link;
     yield {

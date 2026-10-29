@@ -186,7 +186,7 @@ function assessFormerPartners(rows, covered, now) {
       name + ': events arrived through ' + (r.source_name || 'a source') + ' until ' + day(r.last_event)
         + ', which was retired' + (r.retired_at ? ' on ' + day(r.retired_at) : '') + '. No consented feed or member publishing has replaced it, so new events cannot appear.',
       'Onboard ' + name + ' through Member Feed Sync with its recorded consent, or have it publish through its member account.',
-      { partner: name, organization_id: r.host_organization_id || null }));
+      { partner: name, organization_id: r.host_organization_id || null, key_hint: n || null }));
   }
   return out;
 }
@@ -328,7 +328,7 @@ async function assess(db = db0, { now = new Date() } = {}) {
 /** The findings that need a person, each with a stable key (so the same problem is alerted once). Pure. */
 function ownerActions(a) {
   return ((a && a.findings) || []).filter((f) => f.owner === 'owner')
-    .map((f) => Object.assign({ key: f.code + ':' + (f.organization_id || f.source || '-') }, f));
+    .map((f) => Object.assign({ key: f.code + ':' + (f.key_hint || f.organization_id || f.source || '-') }, f));
 }
 
 /** A concise periodic report. Pure. */

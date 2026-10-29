@@ -20,6 +20,15 @@ const clean = (v) => {
 const cap = (v, n) => { const c = clean(v); return c ? c.slice(0, n) : null; };
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
 
+// BD returns some website values form-encoded ("https%3A%2F%2Fexample.com%2F"). Decode those, and keep
+// only a real http(s) address; anything else is dropped rather than stored as a broken link. Pure.
+function cleanWebsite(v) {
+  let s = cap(v, 300);
+  if (!s) return null;
+  if (/^https?%3A%2F%2F/i.test(s)) { try { s = decodeURIComponent(s); } catch (_) { return null; } }
+  try { return /^https?:$/.test(new URL(s).protocol) ? s.slice(0, 300) : null; } catch (_) { return null; }
+}
+
 // Classify BD's resolved main image URL. BD's `image_main_file` already implements its own
 // logo→picture→default fallback, so we trust it and label the treatment:
 //   /logos/profile/…    → an uploaded company LOGO        (contained treatment)
@@ -48,7 +57,7 @@ function normalize(r) {
     zip: cap(r.zip_code, 20),
     lat: num(r.lat),
     lng: num(r.lon),
-    website: cap(r.website, 300),
+    website: cleanWebsite(r.website),
     description: cap(r.about_me, 4000) || cap(r.search_description, 4000),
     contactEmail: cap(r.email, 200),                    // PII
     contactPhone: cap(r.phone_number, 40),              // PII
@@ -95,4 +104,4 @@ async function listEligibleListings(opts) {
   return { total, pages, transport: t, listings: eligible, seen: listings.length, excluded: listings.length - eligible.length };
 }
 
-module.exports = { listListings, listEligibleListings, normalize, isEligible, transportName: transport.name };
+module.exports = { listListings, listEligibleListings, normalize, isEligible, cleanWebsite, transportName: transport.name };
