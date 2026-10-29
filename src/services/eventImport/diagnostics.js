@@ -12,18 +12,38 @@
  *   record(url, status, note?)   status = HTTP status (number) or 'network' / 'timeout' / 'parse'
  *   summary()                    counts by status class + first blocking response
  *   zeroReason(fetched)          why a run produced nothing (null when it produced something)
+ *   partner(outcome)             one member feed's result in this run (a multi-member source such as
+ *   partners()                   Member Feed Sync must show WHICH partner failed, not only the source)
  */
 
 const BLOCK_STATUSES = new Set([401, 403, 407, 451]);
 
+// One member feed's result: 'ok' (read, items > 0), 'empty' (read, nothing listed), 'blocked',
+// 'rate_limited', 'unreachable' or 'parse_failure'. Pure.
+function feedOutcome(status, items, parsedSomething) {
+  if (BLOCK_STATUSES.has(status)) return 'blocked';
+  if (status === 429) return 'rate_limited';
+  if (status === 'network' || status === 'timeout' || (typeof status === 'number' && status >= 500)) return 'unreachable';
+  if (typeof status === 'number' && (status < 200 || status >= 300)) return 'unreachable';
+  if (items > 0) return 'ok';
+  return parsedSomething === false ? 'parse_failure' : 'empty';
+}
+
 function createDiagnostics() {
   const responses = [];
+  const partners = [];
   return {
     record(url, status, note = null) {
       responses.push({ url: String(url || '').slice(0, 300), status, note: note ? String(note).slice(0, 200) : null });
     },
     responses() { return responses.slice(); },
     summary() { return summarize(responses); },
+    partner(p) {
+      partners.push({ organization_id: p.organization_id || null, organizer_name: p.organizer_name || null,
+        feed: String(p.feed || '').slice(0, 300), http: p.http == null ? null : p.http, outcome: p.outcome, items: Number(p.items) || 0,
+        note: p.note ? String(p.note).slice(0, 200) : null });
+    },
+    partners() { return partners.slice(); },
   };
 }
 
@@ -80,4 +100,8 @@ function classifyError(message) {
   return { zero_reason: 'connector_error', transient: false };
 }
 
-module.exports = { createDiagnostics, summarize, zeroReason, classifyError, BLOCK_STATUSES, FAILING_ZERO_REASONS, TRANSIENT_ZERO_REASONS };
+/** Feed outcomes worth an automatic (bounded) retry. */
+const TRANSIENT_FEED_OUTCOMES = Object.freeze(['rate_limited', 'unreachable']);
+
+module.exports = { createDiagnostics, summarize, zeroReason, classifyError, feedOutcome, BLOCK_STATUSES, FAILING_ZERO_REASONS,
+  TRANSIENT_ZERO_REASONS, TRANSIENT_FEED_OUTCOMES };

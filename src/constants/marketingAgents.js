@@ -7,7 +7,11 @@
  */
 
 const AGENTS = Object.freeze({
-  A1:  { code: 'A1',  key: 'a1_director',   name: 'Marketing Director',         tier: 'director', capabilities: ['plan', 'allocate', 'growth_spend', 'escalate', 'propose_experiment', 'decide_experiment'], canPublish: false, canSpend: true,  canReview: false },
+  // A1 also oversees the approved-partner event-import system (owner assignment 2026-10-29;
+  // src/services/eventImport/partnerOversight.js): read-only health checks, bounded retries through the
+  // importer's own policy, history, reports and owner alerts. Code-only capability: the agent table
+  // seeded by 129 is a descriptive mirror and is not read for authority.
+  A1:  { code: 'A1',  key: 'a1_director',   name: 'Marketing Director',         tier: 'director', capabilities: ['plan', 'allocate', 'growth_spend', 'escalate', 'propose_experiment', 'decide_experiment', 'oversee_event_imports'], canPublish: false, canSpend: true,  canReview: false },
   A2:  { code: 'A2',  key: 'a2_qa',         name: 'Independent Marketing QA',   tier: 'qa',       capabilities: ['review', 'approve_release', 'reject_release', 'mechanical_correct'], canPublish: false, canSpend: false, canReview: true },
   A3:  { code: 'A3',  key: 'a3_creative',   name: 'Creative',                   tier: 'creator',  capabilities: ['draft_creative'], canPublish: false, canSpend: false, canReview: false },
   A4:  { code: 'A4',  key: 'a4_copy',       name: 'Copy',                       tier: 'creator',  capabilities: ['draft_copy'], canPublish: false, canSpend: false, canReview: false },
@@ -37,6 +41,10 @@ const FORBIDDEN_PHASE1_CAPABILITIES = Object.freeze([
   'send_approved_outreach', 'send_templated_reply', 'grant_authorization', 'broaden_authorization',
   'change_authorized_domain', 'activate_collection_source', 'grant_listing_ownership',
   'answer_customer_service', 'answer_seller_inquiry',
+  // Event-import oversight (2026-10-29): watching the importer never includes getting around a source's
+  // refusal, inventing or publishing events, or changing consent, code or deployments.
+  'bypass_source_access', 'impersonate_browser', 'publish_unverified_event', 'invent_event', 'record_feed_consent',
+  'revoke_feed_consent', 'change_partner_permissions', 'deploy_code',
 ]);
 
 function get(code) { return AGENTS[String(code || '').toUpperCase()] || null; }

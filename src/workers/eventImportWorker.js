@@ -37,6 +37,7 @@ const reportEmail = require('../services/eventImport/reportEmail');
 const sourceHealth = require('../services/eventImport/sourceHealth');
 const imageEnrichment = require('../services/eventImport/imageEnrichment');
 const inventoryHealth = require('../services/eventImport/inventoryHealthService');
+const partnerOversight = require('../services/eventImport/partnerOversight');
 const marketplaceIntegrity = require('../services/marketplaceIntegrity');
 const { sendEmail } = require('../services/emailService');
 
@@ -232,7 +233,8 @@ async function runOneSource(source, o) {
       runId: (r && r.runId) || null, status,
       capped: !!(r && r.capped), remainingAvailable: r && r.remainingAvailable,
       counters: (r && r.counters) || {}, reasons: (r && r.reasons) || {}, duration_ms: Date.now() - startedMs,
-      zero_reason: (r && r.zero_reason) || null, transient: !!(r && r.transient), error: (r && r.lastError) || null,
+      zero_reason: (r && r.zero_reason) || null, transient: !!(r && r.transient), partial_transient: !!(r && r.partial_transient),
+      partners: (r && r.partners) || [], error: (r && r.lastError) || null,
       access: r && r.access ? pickAccess(r.access) : null,
     };
     if (apply) out.health = await recordSourceHealth(source, out, trigger);
@@ -272,7 +274,8 @@ async function recordSourceHealth(source, result, trigger) {
     const c = result.counters || {};
     const run = { ok: result.ok !== false, status: result.status, fetched: c.fetched || 0, created: c.created || 0,
       eligible: c.eligible || 0, rejected: (c.skipped_quality || 0) + (c.skipped_ambiguous || 0),
-      zero_reason: result.zero_reason || null, transient: !!result.transient, error: result.error || null, trigger };
+      zero_reason: result.zero_reason || null, transient: !!result.transient, partial_transient: !!result.partial_transient,
+      error: result.error || null, trigger };
     const next = sourceHealth.nextState(prev, run);
     const cls = sourceHealth.classify(prev, next, run);
     await db.query(
@@ -395,6 +398,8 @@ async function runScheduledCycle(scheduledFor, opts) {
         // Attach the live public inventory so the email answers "what is live now?", not only "what changed?".
         try { summary.inventory = await health.inventorySnapshot(db); } catch (_) { summary.inventory = null; }
         const msg = reportEmail.buildRunSummaryEmail(summary);
+        // The Marketing Director's partner oversight rides on the same periodic report (no second email).
+        try { msg.text += '\n\n' + partnerOversight.buildReport(await partnerOversight.assess(db)).text; } catch (_) { /* report without it */ }
         await sendEmail({ to: 'info@advantage.bid', subject: msg.subject, text: msg.text });
         logLine({ evt: 'run_summary_emailed', state: msg.subject });
       } catch (e) { logLine({ evt: 'run_summary_email_failed', error: String(e && e.message) }); }
@@ -421,6 +426,7 @@ async function runAllNow({ apply = false, trigger = 'manual', autoPublish = fals
 let lastHealthKey = null;          // once-per-ET-hour routine health guard
 let lastCriticalAlertDate = null;  // once-per-ET-date critical-email guard (no spam)
 let priorSnapshot = null;          // prior snapshot for sharp-drop detection
+let lastOversightDate = null;      // once-per-ET-date routine partner oversight guard
 
 // Compute + persist the inventory/health snapshot, log it, and email CRITICAL alerts (once/day).
 // Never throws — monitoring must not crash the worker.
@@ -504,8 +510,36 @@ async function runHealthCheck(nowDate, o) {
         }
       }
     } catch (e) { logLine({ evt: 'integrity_monitor_error', error: String(e && e.message) }); }
-    return { snapshot: snap, alerts };
+    const oversight = await runPartnerOversight(nowDate, { afterCycle: !!o.afterCycle, emailOn });
+    return { snapshot: snap, alerts, oversight };
   } catch (e) { logLine({ evt: 'health_error', error: String(e && e.message) }); return null; }
+}
+
+/**
+ * The Marketing Director's partner oversight (partnerOversight): once per ET day and after every cycle,
+ * assess every approved source and partner, record the assessment in the history, and email the owner
+ * only about NEW problems that need a person (consent, a partner's firewall, a technical repair). It is
+ * read-only toward partners and events: it never retries around a refusal, edits an event or changes
+ * consent. Never throws.
+ */
+async function runPartnerOversight(nowDate, o = {}) {
+  try {
+    const et = etNow(nowDate);
+    if (!o.afterCycle && lastOversightDate === et.date) return null;
+    lastOversightDate = et.date;
+    const a = await partnerOversight.assess(db, { now: nowDate || new Date() });
+    const fresh = await partnerOversight.recordAssessment(db, a);
+    logLine({ evt: 'partner_oversight', overall: a.overall, partners: a.partners.length,
+      findings: a.findings.map((f) => f.code + (f.partner ? ':' + f.partner : f.source ? ':' + f.source : '')), new_owner_actions: fresh.map((f) => f.key) });
+    if (o.emailOn && fresh.length) {
+      try {
+        const report = partnerOversight.buildReport(a);
+        await sendEmail({ to: 'info@advantage.bid', subject: 'Advantage.Bid event import: ' + fresh.length + ' new item' + (fresh.length === 1 ? '' : 's') + ' need you',
+          text: 'New since the last check:\n' + fresh.map((f) => '- ' + f.message + (f.action ? ' Next step: ' + f.action : '')).join('\n') + '\n\n' + report.text });
+      } catch (e) { logLine({ evt: 'oversight_email_failed', error: String(e && e.message) }); }
+    }
+    return { overall: a.overall, new_owner_actions: fresh.length };
+  } catch (e) { logLine({ evt: 'oversight_error', error: String(e && e.message) }); return null; }
 }
 
 // ── Scheduler loop ───────────────────────────────────────────────────────────
@@ -552,9 +586,9 @@ if (require.main === module) {
 module.exports = {
   cfg, etNow, due, clampInt, parseDays, activeSources, reapStaleRun,
   scheduleDayset, scheduleLabel, describeSchedule, nextScheduledRun, lastExpectedWindow,
-  runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck,
+  runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck, runPartnerOversight,
   recordSourceHealth, runDueRetries, enrichImportedImages, pickAccess,
   CHECK_INTERVAL_MS, STALE_RUN_MINUTES, AUDIT_ENTITY_ID,
   // Test-only: reset the in-process scheduler + health guards between cases.
-  _resetForTest: () => { ticking = false; lastCycleDate = null; lastHealthKey = null; lastCriticalAlertDate = null; priorSnapshot = null; },
+  _resetForTest: () => { ticking = false; lastCycleDate = null; lastHealthKey = null; lastCriticalAlertDate = null; priorSnapshot = null; lastOversightDate = null; },
 };

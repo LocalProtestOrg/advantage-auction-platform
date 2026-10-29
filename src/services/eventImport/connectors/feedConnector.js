@@ -16,7 +16,9 @@
  * config: {
  *   connector: 'feed',
  *   feeds:   [ { url, type?, organization_id, organizer_name, organizer_website_url?,
- *                consent: { granted_by, granted_at, evidence }, revoked_at? } ],
+ *                consent: { granted_by, granted_at, evidence }, revoked_at?,
+ *                sale_type?, timezone? } ],   // the member's own declared sale type (when an item does not
+ *                                              // say auction or estate sale itself) and local time zone
  *            // type ∈ 'rss' | 'ical' | 'jsonld' | 'auto' (default auto-detect)
  *   (a member entry may give `site` instead of `url` to discover its RSS/ICS/JSON-LD feeds from a page)
  *   defaults?: { organizer_name, organizer_website_url, sale_type, event_format, timezone }
@@ -25,6 +27,7 @@
  */
 
 const { fetchText } = require('../http');
+const diagnostics = require('../diagnostics');
 const { IDENTITY_FIELD_MAP } = require('../normalize/identityFieldMap');
 const { localToUtcIso } = require('../../../lib/timezoneUtils');
 
@@ -109,6 +112,7 @@ function* parseIcal(text, tz) {
     yield {
       sourceEventId: (props.UID && props.UID.value) || null,
       url: props.URL && props.URL.value,
+      saleHints: props.CATEGORIES ? props.CATEGORIES.value : null,
       payload: {
         title: decodeEntities(summary),
         description: props.DESCRIPTION ? stripHtml(props.DESCRIPTION.value) : null,
@@ -146,6 +150,7 @@ function* parseRss(text) {
     yield {
       sourceEventId: guid || null,
       url: link || null,
+      saleHints: (block.match(/<category(?:\s[^>]*)?>[\s\S]*?<\/category>/gi) || []).map((c) => stripHtml(c)).join(' | ') || null,
       payload: {
         title: title,
         description: stripHtml(tag(block, 'description') || tag(block, 'content:encoded') || tag(block, 'summary') || tag(block, 'content')),
@@ -196,6 +201,7 @@ function* parseJsonLd(text) {
     yield {
       sourceEventId: ldStr(node.url) || node['@id'] || (ldStr(node.name) ? ldStr(node.name) + '|' + (node.startDate || '') : null),
       url: ldStr(node.url),
+      saleHints: [].concat(node.keywords || [], node.about ? [].concat(node.about).map(ldStr) : []).map(String).join(' | ') || null,
       payload: {
         title: ldStr(node.name),
         description: stripHtml(ldStr(node.description)),
@@ -242,24 +248,61 @@ function hasMemberConsent(feed) {
     && c && typeof c.granted_by === 'string' && c.granted_by.trim() && c.granted_at && c.evidence);
 }
 
+// Auction or estate sale, from what the item itself says (its title and categories, never its long
+// description, which may mention an auction in passing). Returns null when it does not say, or says both;
+// the feed's own declared sale type then applies, and otherwise the event is held for review. Pure.
+function classifySaleType(...texts) {
+  const s = texts.filter(Boolean).join(' | ').toLowerCase();
+  const estate = /\bestate[\s-]+sales?\b|\btag[\s-]+sales?\b/.test(s);
+  const auction = /\bauctions?\b/.test(s);
+  if (estate && !auction) return 'estate_sale';
+  if (auction && !estate) return 'auction';
+  return null;
+}
+
+// Did a successfully loaded body look like a feed of the expected format at all? A 200 that is an HTML
+// error page, a login wall or a redesigned site is a FORMAT CHANGE, not "nothing upcoming". Pure.
+function looksLikeFeed(type, text) {
+  const t = String(text || '');
+  if (type === 'ical') return /BEGIN:VCALENDAR/i.test(t);
+  if (type === 'rss') return /<(rss|feed|rdf:RDF)[\s>]/i.test(t);
+  return collectLdNodes(t).length > 0;
+}
+
 async function* iterateFeed(feed, tz, signal, diag) {
-  let text = feed.inlineHtml || null, contentType = '';
+  let text = feed.inlineHtml || null, contentType = '', http = feed.inlineHtml ? 200 : null;
+  const report = (outcome, items, note) => { if (diag && diag.partner) diag.partner({ organization_id: feed.organization_id,
+    organizer_name: feed.organizer_name, feed: feed.url || feed.site, http, outcome, items, note }); };
   if (!text) {
     let r;
     try { r = await fetchText(feed.url, { signal, timeoutMs: 25000 }); }
-    catch (e) { const m = /\bHTTP (\d{3})\b/.exec(String(e && e.message)); if (diag) diag.record(feed.url, m ? Number(m[1]) : 'network', e && e.message); throw e; }
-    if (diag) diag.record(feed.url, r ? r.status : 'network');
-    if (!r.ok && !r.text) throw new Error('feed fetch failed: ' + r.status);
+    catch (e) {
+      const m = /\bHTTP (\d{3})\b/.exec(String(e && e.message));
+      http = m ? Number(m[1]) : 'network';
+      if (diag) diag.record(feed.url, http, e && e.message);
+      report(diagnostics.feedOutcome(http, 0), 0, e && e.message);
+      throw e;
+    }
+    http = r ? r.status : 'network';
+    if (diag) diag.record(feed.url, http);
+    // A refused or failed response is never parsed: an "Access Denied" page is not an empty feed.
+    if (!r || !r.ok) { report(diagnostics.feedOutcome(http, 0), 0, r && r.reason); if (r && !r.text) throw new Error('feed fetch failed: ' + r.status); return; }
     text = r.text; contentType = r.contentType;
   }
   const type = feed.type && feed.type !== 'auto' ? feed.type : detectType(text, contentType, feed.url);
-  const gen = type === 'ical' ? parseIcal(text, tz) : type === 'rss' ? parseRss(text) : parseJsonLd(text);
+  const zone = feed.timezone || tz;
+  const gen = type === 'ical' ? parseIcal(text, zone) : type === 'rss' ? parseRss(text) : parseJsonLd(text);
+  let items = 0;
   for (const item of gen) {
     if (!item || !item.sourceEventId || !(item.payload && item.payload.title)) continue;
     // Attribute to the member who owns this feed: their organizer name / site unless the item states its own.
     const payload = Object.assign({}, item.payload);
     if (!payload.organizer_name && feed.organizer_name) payload.organizer_name = feed.organizer_name;
     if (!payload.organizer_website_url && feed.organizer_website_url) payload.organizer_website_url = feed.organizer_website_url;
+    const saleType = classifySaleType(payload.title, item.saleHints) || feed.sale_type || null;
+    if (saleType) payload.sale_type = saleType;
+    if (feed.timezone && !payload.timezone) payload.timezone = feed.timezone;
+    items++;
     yield {
       sourceEventId: String(item.sourceEventId),
       sourceUrl: item.url || feed.url || null,
@@ -269,6 +312,7 @@ async function* iterateFeed(feed, tz, signal, diag) {
       memberOrganizationId: feed.organization_id || null,
     };
   }
+  report(diagnostics.feedOutcome(http, items, items > 0 || looksLikeFeed(type, text)), items);
 }
 
 module.exports = {
@@ -286,15 +330,27 @@ module.exports = {
     const consented = (Array.isArray(config.feeds) ? config.feeds : []).filter(hasMemberConsent);
     let feeds = consented.filter((fd) => fd.url);
     for (const member of consented.filter((fd) => !fd.url && fd.site)) {
+      const report = (http, outcome, note) => { if (diag && diag.partner) diag.partner({ organization_id: member.organization_id,
+        organizer_name: member.organizer_name, feed: member.site, http, outcome, items: 0, note }); };
       try {
         const r = await fetchText(member.site, { signal, expectType: 'html', timeoutMs: 20000 });
-        if (diag) diag.record(member.site, r ? r.status : 'network');
-        if (r.text) {
+        const http = r ? r.status : 'network';
+        if (diag) diag.record(member.site, http);
+        // Feeds are discovered only on a page that actually loaded, never on an "Access Denied" page.
+        if (r && r.ok && r.text) {
           const inherit = { organization_id: member.organization_id, organizer_name: member.organizer_name,
-            organizer_website_url: member.organizer_website_url, consent: member.consent };
-          feeds = feeds.concat(discoverFeeds(r.text, r.url || member.site).map((d) => Object.assign({}, d, inherit)));
-        }
-      } catch (e) { if (diag) diag.record(member.site, 'network', e && e.message); }
+            organizer_website_url: member.organizer_website_url, consent: member.consent,
+            sale_type: member.sale_type, timezone: member.timezone };
+          const found = discoverFeeds(r.text, r.url || member.site).map((d) => Object.assign({}, d, inherit));
+          if (!found.length) report(http, 'no_feed_found', 'the page loaded but publishes no RSS, iCal or structured event data');
+          feeds = feeds.concat(found);
+        } else report(http, diagnostics.feedOutcome(http, 0), r && r.reason);
+      } catch (e) {
+        const m = /\bHTTP (\d{3})\b/.exec(String(e && e.message));
+        const http = m ? Number(m[1]) : 'network';
+        if (diag) diag.record(member.site, http, e && e.message);
+        report(http, diagnostics.feedOutcome(http, 0), e && e.message);
+      }
     }
 
     let n = 0;
@@ -312,7 +368,7 @@ module.exports = {
   },
 
   // exported for focused tests
-  _parsers: { parseIcal, parseRss, parseJsonLd, detectType, discoverFeeds },
+  _parsers: { parseIcal, parseRss, parseJsonLd, detectType, discoverFeeds, classifySaleType, looksLikeFeed },
   hasMemberConsent,
 
   describe() {

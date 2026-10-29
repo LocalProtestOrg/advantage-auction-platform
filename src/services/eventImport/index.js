@@ -122,7 +122,7 @@ async function runImport(opts) {
     const cls = diagnostics.classifyError(e && e.message);
     const access = diag.summary();
     if (apply && run) await runLog.finishRun(db, run.id, { status: 'failed', counters, capped, lastError: String(e && e.message),
-      stats: { reasons, access, zero_reason: counters.fetched ? null : cls.zero_reason, transient: cls.transient } }).catch(() => {});
+      stats: { reasons, access, partners: diag.partners(), zero_reason: counters.fetched ? null : cls.zero_reason, transient: cls.transient } }).catch(() => {});
     e.zeroReason = cls.zero_reason; e.transient = cls.transient; e.access = access;
     throw e;
   }
@@ -135,11 +135,16 @@ async function runImport(opts) {
   const transient = !!(zero_reason && diagnostics.TRANSIENT_ZERO_REASONS.includes(zero_reason));
   const status = failing ? 'failed' : counters.failed > 0 ? 'partial' : 'completed';
   const lastError = failing ? zero_reason + describeAccess(access) : null;
+  // A multi-member source (Member Feed Sync) records each member's own result, so one partner's refused
+  // or failing feed is visible even when the other partners synced. A recoverable failure of one feed
+  // (rate limited / unreachable) asks for the same bounded automatic retry as a failed source.
+  const partners = diag.partners();
+  const partial_transient = !failing && partners.some((p) => diagnostics.TRANSIENT_FEED_OUTCOMES.includes(p.outcome));
   if (apply && run) await runLog.finishRun(db, run.id, { status, counters, capped, remainingAvailable: capped ? 0 : Math.max(0, cap - created),
-    lastError, stats: { reasons, access, zero_reason, transient } });
+    lastError, stats: { reasons, access, partners, zero_reason, transient, partial_transient } });
 
   return { applied: apply, claimed: apply ? true : undefined, runId: run && run.id, status, capped, remainingAvailable: Math.max(0, cap - created),
-    counters, reasons, items, zero_reason, transient, access, lastError };
+    counters, reasons, items, zero_reason, transient, partial_transient, partners, access, lastError };
 }
 
 function describeAccess(a) {

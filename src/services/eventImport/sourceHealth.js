@@ -31,7 +31,7 @@ const STATES = Object.freeze(['HEALTHY', 'DEGRADED', 'BROKEN', 'BLOCKED_BY_SOURC
 /**
  * Fold one run's result into the source's persisted health. Pure.
  *   prev:   { consecutive_failures, consecutive_zero_runs, retry_count, last_success_at, last_nonzero_at }
- *   run:    { ok, status, fetched, created, updated, eligible, rejected, zero_reason, transient, error, trigger }
+ *   run:    { ok, status, fetched, created, updated, eligible, rejected, zero_reason, transient, partial_transient, error, trigger }
  */
 function nextState(prev, run, now = new Date()) {
   prev = prev || {};
@@ -47,7 +47,9 @@ function nextState(prev, run, now = new Date()) {
     retry_count: 0,
     next_retry_at: null,
   };
-  if (failed && run.transient) {
+  // A run that worked overall but had one partner's feed fail recoverably (Member Feed Sync) gets the
+  // same bounded retry, without counting as a failed run for the partners that synced.
+  if ((failed && run.transient) || (!failed && run.partial_transient)) {
     // A retry run that fails again consumes one retry; a fresh scheduled failure starts the budget.
     const used = run.trigger === 'retry' ? (Number(prev.retry_count) || 0) + 1 : 0;
     if (used < MAX_RETRIES) {

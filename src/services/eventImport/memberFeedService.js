@@ -17,13 +17,19 @@ const db0 = require('../../db');
 
 const SOURCE_KEY = 'member-feeds';
 const FEED_TYPES = ['auto', 'rss', 'ical', 'jsonld'];
+const SALE_TYPES = ['auction', 'estate_sale'];
+
+function validTimezone(tz) {
+  try { return !!tz && Intl.DateTimeFormat('en-US', { timeZone: String(tz) }).resolvedOptions().timeZone === String(tz); } catch (_) { return false; }
+}
 
 function validHttpsUrl(u) {
   try { const x = new URL(String(u)); return x.protocol === 'https:' ? x.toString() : null; } catch (_) { return null; }
 }
 
 /** Validate a registration request. Pure. Returns { ok, reason?, feed? }. */
-function buildFeed({ url = null, site = null, type = 'auto', organizationId, organizerName, organizerWebsiteUrl = null, consent } = {}) {
+function buildFeed({ url = null, site = null, type = 'auto', organizationId, organizerName, organizerWebsiteUrl = null, consent,
+  saleType = null, timezone = null } = {}) {
   const feedUrl = url ? validHttpsUrl(url) : null;
   const siteUrl = site ? validHttpsUrl(site) : null;
   if (!feedUrl && !siteUrl) return { ok: false, reason: 'an https feed url (or the member\'s https site to discover feeds on) is required' };
@@ -34,11 +40,15 @@ function buildFeed({ url = null, site = null, type = 'auto', organizationId, org
     return { ok: false, reason: 'the member\'s consent is required: who granted it, when, and the evidence (e.g. a signed form or written email)' };
   }
   if (Number.isNaN(Date.parse(c.granted_at))) return { ok: false, reason: 'consent.granted_at must be a date' };
+  // The member's own declaration of what its feed lists, used only when an item does not say itself.
+  if (saleType != null && !SALE_TYPES.includes(saleType)) return { ok: false, reason: 'saleType must be one of ' + SALE_TYPES.join(', ') };
+  if (timezone != null && !validTimezone(timezone)) return { ok: false, reason: 'timezone must be an IANA time zone such as America/Chicago' };
   return { ok: true, feed: Object.assign(
     feedUrl ? { url: feedUrl } : { site: siteUrl },
     { type, organization_id: organizationId, organizer_name: organizerName || null,
       organizer_website_url: organizerWebsiteUrl ? validHttpsUrl(organizerWebsiteUrl) : null,
-      consent: { granted_by: c.granted_by.trim().slice(0, 200), granted_at: new Date(c.granted_at).toISOString(), evidence: c.evidence.trim().slice(0, 500) } }) };
+      consent: { granted_by: c.granted_by.trim().slice(0, 200), granted_at: new Date(c.granted_at).toISOString(), evidence: c.evidence.trim().slice(0, 500) } },
+    saleType ? { sale_type: saleType } : {}, timezone ? { timezone } : {}) };
 }
 
 async function withSource(db, fn) {
@@ -101,9 +111,9 @@ async function listFeeds({ db = db0 } = {}) {
   if (!src) return { source_status: null, feeds: [] };
   const feeds = Array.isArray((src.config || {}).feeds) ? src.config.feeds : [];
   return { source_status: src.status, feeds: feeds.map((f) => ({ url: f.url || null, site: f.site || null, type: f.type || 'auto',
-    organization_id: f.organization_id || null, organizer_name: f.organizer_name || null,
+    organization_id: f.organization_id || null, organizer_name: f.organizer_name || null, sale_type: f.sale_type || null, timezone: f.timezone || null,
     consent: f.consent || null, revoked_at: f.revoked_at || null,
     syncs: require('./connectors/feedConnector').hasMemberConsent(f) })) };
 }
 
-module.exports = { SOURCE_KEY, FEED_TYPES, buildFeed, registerFeed, revokeFeed, listFeeds };
+module.exports = { SOURCE_KEY, FEED_TYPES, SALE_TYPES, buildFeed, registerFeed, revokeFeed, listFeeds };
