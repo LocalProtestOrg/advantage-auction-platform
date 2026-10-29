@@ -5,7 +5,7 @@ const c = require('../../src/services/eventImport/normalize/canonical');
 describe('sanitizer primitives', () => {
   test('text preserves punctuation, collapses whitespace, strips control chars, clamps', () => {
     expect(c.text('  Smith & Sons - Estate (2026)!  ')).toBe('Smith & Sons - Estate (2026)!');
-    expect(c.text('ab\tc\n d')).toBe('a b c d');
+    expect(c.text('a\x07b\tc\n d')).toBe('a b c d');
     expect(c.text('abcdef', 3)).toBe('abc');
   });
   test('plainText strips HTML', () => { expect(c.plainText('<b>Hi</b> <i>there</i>')).toBe('Hi there'); });

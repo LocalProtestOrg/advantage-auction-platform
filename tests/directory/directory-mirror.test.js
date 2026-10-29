@@ -33,7 +33,7 @@ afterAll(async () => { if (!SCRATCH_OK) return; await db.pool.end(); });
 
 suite('normalize (sanitize + map, no logo)', () => {
   test('maps BD fields, strips control chars, uppercases state, omits logo', () => {
-    const n = bd.normalize({ user_id: ' BDX-9 ', company: 'Beta Co', state_code: 'ny', city: 'New York', lat: '40.7', lon: '-74.0', about_me: 'a desc', goolge_place_id: 'GP-BETA', email: 'b@x.com', listing_type: 'Company', zip_code: '10001', website: 'http://b', phone_number: '555' });
+    const n = bd.normalize({ user_id: ' BDX-9 ', company: 'Beta\x01 Co', state_code: 'ny', city: 'New York', lat: '40.7', lon: '-74.0', about_me: 'a desc', goolge_place_id: 'GP-BETA', email: 'b@x.com', listing_type: 'Company', zip_code: '10001', website: 'http://b', phone_number: '555' });
     expect(n.bdListingId).toBe('BDX-9');
     expect(n.name).toBe('Beta Co');
     expect(n.state).toBe('NY');

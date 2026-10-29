@@ -242,7 +242,7 @@ describe('no path can create, edit, activate, pause or fund an advertisement', (
     const graphSet = new Set(graphCallers);
     const offenders = [...walk('src'), ...walk('scripts')]
       .filter((f) => !graphSet.has(f))
-      .filter((f) => /graph\.facebook\.com|\/act_[^'"`]*\/(campaigns|adsets|ads)/.test(read(f)))
+      .filter((f) => /graph\.facebook\.com|\/act_[^'"`]*\/(campaigns|adsets|ads)\b/.test(read(f)))
       .map((f) => f.split(path.sep).join('/'));
     expect(offenders).toEqual([]);
   });

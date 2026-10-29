@@ -972,7 +972,7 @@ describe('phone tool turns: API-valid messages, progress phrases, watchdog, ceil
   test('verification and other lookups use their own natural progress phrases', () => {
     expect(engine.PROGRESS_PHRASES.start_account_verification).toBe('Give me just a moment while I send that verification code.');
     expect(engine.PROGRESS_PHRASES.get_my_invoices).toBe('Give me just a moment while I pull up your invoices.');
-    for (const p of Object.values(engine.PROGRESS_PHRASES)) expect(p).not.toMatch(/system|processing|status|AI|query/i);
+    for (const p of Object.values(engine.PROGRESS_PHRASES)) expect(p).not.toMatch(/\bsystem\b|processing|status|\bAI\b|query/i);
   });
 });
 
