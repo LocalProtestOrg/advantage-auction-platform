@@ -247,7 +247,7 @@ async function* iterateFeed(feed, tz, signal, diag) {
   if (!text) {
     let r;
     try { r = await fetchText(feed.url, { signal, timeoutMs: 25000 }); }
-    catch (e) { const m = /HTTP (d{3})/.exec(String(e && e.message)); if (diag) diag.record(feed.url, m ? Number(m[1]) : 'network', e && e.message); throw e; }
+    catch (e) { const m = /\bHTTP (\d{3})\b/.exec(String(e && e.message)); if (diag) diag.record(feed.url, m ? Number(m[1]) : 'network', e && e.message); throw e; }
     if (diag) diag.record(feed.url, r ? r.status : 'network');
     if (!r.ok && !r.text) throw new Error('feed fetch failed: ' + r.status);
     text = r.text; contentType = r.contentType;

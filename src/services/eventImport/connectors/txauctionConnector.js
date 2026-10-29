@@ -36,7 +36,7 @@ async function getText(url, opts, diag) {
   let r;
   try { r = await fetchText(url, opts); }
   catch (e) {
-    const m = /HTTP (d{3})/.exec(String(e && e.message));
+    const m = /\bHTTP (\d{3})\b/.exec(String(e && e.message));
     if (diag) diag.record(url, m ? Number(m[1]) : 'network', e && e.message);
     return null;
   }

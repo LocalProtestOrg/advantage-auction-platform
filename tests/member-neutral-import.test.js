@@ -167,6 +167,29 @@ describe('generic regressions', () => {
     expect(out).toEqual([]);
     expect(diagnostics.zeroReason(0, diag.summary())).toBe('blocked_by_source');
   });
+  // fetchText throws 'HTTP <status>' once retries of a 429 / 5xx run out. The status must be read from that
+  // message; a corrupted regex (control characters, no \d) once recorded every such failure as 'network'.
+  test('a feed that keeps answering 429 is recorded as rate limited, not as a network failure', async () => {
+    http.fetchText.mockRejectedValue(new Error('HTTP 429'));
+    const diag = diagnostics.createDiagnostics();
+    await collect(feed.fetch({ config: { feeds: [{ url: 'https://member.example.com/cal.ics', ...MEMBER }] }, diag }));
+    expect(diag.responses()[0].status).toBe(429);
+    expect(diagnostics.zeroReason(0, diag.summary())).toBe('rate_limited');
+  });
+  test('the government-auction connector reads the status from a failed fetch the same way', async () => {
+    http.fetchText.mockRejectedValue(new Error('HTTP 503'));
+    const diag = diagnostics.createDiagnostics();
+    const tx = require('../src/services/eventImport/connectors/txauctionConnector');
+    await collect(tx.fetch({ config: {}, diag })).catch(() => {});
+    expect(diag.responses().length).toBeGreaterThan(0);
+    expect(diag.responses().every((r) => r.status === 503)).toBe(true);
+  });
+  test('importer source files contain no stray control characters', () => {
+    const dir = path.join(__dirname, '../src/services/eventImport/connectors');
+    for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js'))) {
+      expect([f, /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(fs.readFileSync(path.join(dir, f), 'utf8'))]).toEqual([f, false]);
+    }
+  });
 });
 
 // ── 5. Migration 168 preserves every business record ──────────────────────────────────────────
