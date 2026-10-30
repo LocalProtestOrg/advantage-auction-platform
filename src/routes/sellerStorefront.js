@@ -122,17 +122,63 @@ router.get('/imports/template.csv', sellerRead('company.inventory.view'), (req, 
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', 'attachment; filename="advantage-bid-inventory-template.csv"').send(imports.templateCsv());
 });
 router.get('/imports', seller('company.inventory.view'), send((req) => imports.listBatches(req.sellerCtx)));
+// Optional JSON form fields of a multipart request ("columns", "photo_match", "assign").
+const jsonField = (req, name) => {
+  const raw = req.body && req.body[name];
+  if (raw == null || raw === '') return null;
+  try { return JSON.parse(String(raw)); } catch (_) { const e = new Error('The choices could not be read. Please try again.'); e.status = 422; e.code = 'MAPPING_INVALID'; throw e; }
+};
 router.post('/imports/preview', seller('company.inventory.edit'), uploadLimiter, withUpload(sheetUpload), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, code: 'NO_FILE', message: 'Choose a CSV or Excel (.xlsx) file to upload.' });
-    let mapping = null;
-    if (req.body && req.body.mapping) {
-      try { mapping = JSON.parse(String(req.body.mapping)); } catch (_) { return res.status(422).json({ success: false, code: 'MAPPING_INVALID', message: 'The column choices could not be read.' }); }
-    }
-    return res.json({ success: true, data: await imports.preview(req.sellerCtx, { buffer: req.file.buffer, filename: req.file.originalname, mapping }) });
+    return res.json({ success: true, data: await imports.preview(req.sellerCtx, { buffer: req.file.buffer, filename: req.file.originalname,
+      columns: jsonField(req, 'columns'), photoMatch: jsonField(req, 'photo_match'), duplicateMode: req.body && req.body.duplicate_mode }) });
   } catch (e) { fail(res, e, next); }
 });
 router.get('/imports/:id', seller('company.inventory.view'), send((req) => imports.getBatch(req.sellerCtx, req.params.id)));
+router.get('/imports/:id/review', seller('company.inventory.view'), send((req) => imports.reviewSummary(req.sellerCtx, req.params.id)));
+router.put('/imports/:id/options', seller('company.inventory.edit'), send((req) => imports.updateOptions(req.sellerCtx, req.params.id,
+  { photoMatch: (req.body || {}).photo_match, duplicateMode: (req.body || {}).duplicate_mode })));
+
+// Step 3, Add or Match Photos: photos staged for one import, matched to its rows (storefrontImportPhotoService).
+const importPhotos = require('../services/storefrontImportPhotoService');
+const importPhotoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: photos.MAX_PHOTO_BYTES, files: 10, fields: 3, fieldSize: 64 * 1024 } }).array('photos', 10);
+router.get('/imports/:id/photos', seller('company.inventory.view'), send((req) => importPhotos.listPhotos(req.sellerCtx, req.params.id)));
+router.post('/imports/:id/photos', seller('company.inventory.edit'), uploadLimiter, withUpload(importPhotoUpload), async (req, res, next) => {
+  try { return res.json({ success: true, data: await importPhotos.uploadToBatch(req.sellerCtx, req.params.id, { files: fileList(req), assign: jsonField(req, 'assign') }) }); }
+  catch (e) { fail(res, e, next); }
+});
+router.post('/imports/:id/photos/zip', seller('company.inventory.edit'), uploadLimiter, withUpload(zipUpload), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, code: 'NO_FILE', message: 'Choose a ZIP file of photos.' });
+    return res.json({ success: true, data: await importPhotos.uploadToBatch(req.sellerCtx, req.params.id, { zipBuffer: req.file.buffer }) });
+  } catch (e) { fail(res, e, next); }
+});
+router.post('/imports/:id/photos/fetch-links', seller('company.inventory.edit'), uploadLimiter, send((req) => importPhotos.fetchLinks(req.sellerCtx, req.params.id)));
+router.patch('/imports/:id/photos/:photoId', seller('company.inventory.edit'), async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(String(req.params.photoId))) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Photo not found.' });
+    const b = req.body || {};
+    return res.json({ success: true, data: await importPhotos.updatePhoto(req.sellerCtx, req.params.id, req.params.photoId, { row: b.row, position: b.position }) });
+  } catch (e) { fail(res, e, next); }
+});
+router.delete('/imports/:id/photos/:photoId', seller('company.inventory.edit'), async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(String(req.params.photoId))) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Photo not found.' });
+    return res.json({ success: true, data: await importPhotos.removePhoto(req.sellerCtx, req.params.id, req.params.photoId) });
+  } catch (e) { fail(res, e, next); }
+});
+
+// The ONE category taxonomy (src/constants/lotCategories.js), for the inventory editor and bulk corrections.
+router.get('/categories', sellerRead('company.inventory.view'), (req, res) => {
+  res.json({ success: true, data: require('../constants/lotCategories').CATEGORIES });
+});
+
+// What still stands between this company's inventory and being publicly purchasable (storefrontReadinessService).
+router.get('/readiness', sellerRead('company.inventory.view'), asyncRoute(async (req, res) => {
+  if (!req.sellerCtx) return res.json({ success: true, data: null });
+  return res.json({ success: true, data: await require('../services/storefrontReadinessService').forSeller(req.sellerCtx) });
+}));
 router.get('/imports/:id/problems.csv', seller('company.inventory.view'), async (req, res, next) => {
   try { const r = await imports.errorReportCsv(req.sellerCtx, req.params.id); res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', `attachment; filename="${r.filename}"`).send(r.csv); }
   catch (e) { fail(res, e, next); }
@@ -166,11 +212,20 @@ router.post('/items/bulk', seller('company.inventory.edit'), async (req, res, ne
     if (!ids.length || ids.length > 500) return res.status(422).json({ success: false, code: 'IDS_INVALID', message: 'Choose between 1 and 500 items.' });
     let patch = BULK_ACTIONS[b.action];
     if (b.action === 'set_category') {
-      const c = String(b.value == null ? '' : b.value).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
-      if (!c || c.length > 100) return res.status(422).json({ success: false, code: 'CATEGORY_INVALID', message: 'Enter a category of up to 100 characters.' });
-      patch = { category: c };
+      // A taxonomy category (the seller's own choice: final, never overwritten by automatic processing).
+      const key = String(b.value == null ? '' : b.value).trim();
+      if (!require('../constants/lotCategories').VALID_KEYS.has(key)) return res.status(422).json({ success: false, code: 'CATEGORY_INVALID', message: 'Choose one of the listed categories.' });
+      patch = { category_key: key };
+    } else if (b.action === 'set_price') {
+      const cents = parseInt(b.value, 10);
+      if (!(cents > 0) || cents > 100000000) return res.status(422).json({ success: false, code: 'PRICE_INVALID', message: 'Enter a Sale Price above zero (up to $1,000,000).' });
+      patch = { price_cents: cents };
+    } else if (b.action === 'set_quantity') {
+      const q = Number(b.value);
+      if (!Number.isInteger(q) || q < 0 || q > 100000) return res.status(422).json({ success: false, code: 'QUANTITY_INVALID', message: 'Enter a whole-number quantity from 0 to 100,000.' });
+      patch = { quantity: q };
     }
-    if (!patch) return res.status(422).json({ success: false, code: 'ACTION_INVALID', message: 'Choose publish, pause, unpublish, remove or set category.' });
+    if (!patch) return res.status(422).json({ success: false, code: 'ACTION_INVALID', message: 'Choose publish, pause, unpublish, remove, set category, set price or set quantity.' });
     const results = [];
     for (const id of ids) {
       try { await items.updateItem(id, req.sellerCtx, { ...patch }); results.push({ id, ok: true }); }
@@ -193,9 +248,10 @@ router.get('/unsold-lots', sellerRead('company.inventory.view'), asyncRoute(asyn
 router.post('/unsold-lots/:lotId/convert', seller('company.inventory.edit'), async (req, res, next) => {
   try {
     const b = req.body || {};
-    const r = await items.convertLotToListing(req.params.lotId, req.sellerCtx, { priceCents: b.price_cents, edits: b.edits });
+    // Post to the Market: a draft; the Sale Price is only what the seller sets (never an auction price).
+    const r = await items.convertLotToListing(req.params.lotId, req.sellerCtx, { priceCents: b.price_cents, inventoryNumber: b.inventory_number, edits: b.edits });
     return res.status(r.created ? 201 : 200).json({ success: true, created: r.created, data: shape(req, r.item),
-      needs_pickup_location: r.needs_pickup_location || undefined });
+      needs_pickup_location: r.needs_pickup_location || undefined, needs_price: r.needs_price || undefined });
   } catch (e) { fail(res, e, next); }
 });
 // Bulk convert (explicit list of lot ids; each idempotent + independently guarded).

@@ -253,15 +253,17 @@ describe('auction lots inherit the auction location; converted lots carry it for
     const client = { query: jest.fn(async (sql, p) => {
       if (/FROM seller_profiles WHERE user_id/.test(sql)) return { rows: [PRO] };
       if (/FROM lots l JOIN auctions a/.test(sql)) return { rows: [{ id: 'lot1', state: 'closed', title: 'Chair', bid_count: 0, reserve_cents: 4000,
-        auction_id: 'auc-tx', city: 'Austin', a_state: 'TX', zip: '78701', a_street: '100 Congress Ave' }] };
-      if (/INSERT INTO marketplace_items/.test(sql)) return { rows: [{ params: p }] };
+        auction_id: 'auc-tx', city: 'Austin', a_state: 'TX', zip: '78701', a_street: '100 Congress Ave', auction_state: 'closed' }] };
+      if (/INSERT INTO marketplace_items/.test(sql)) return { rows: [{ params: p, sql }] };
       return { rows: [] };
     }), release: jest.fn() };
     db.connect.mockResolvedValue(client);
     const out = await items.convertLotToListing('lot1', 'u1');
     const p = out.item.params;
-    expect(p[17]).toBe('active');
-    expect(p.slice(21, 28)).toEqual(['100 Congress Ave', null, 'Austin', 'TX', '78701', 'US', 'auction']);
+    // Post to the Market always creates a draft (the seller sets the Sale Price and publishes).
+    expect(out.item.sql).toMatch(/'draft'/);
+    expect(p[7]).toBeNull();                       // never the reserve (4000)
+    expect(p.slice(20, 27)).toEqual(['100 Congress Ave', null, 'Austin', 'TX', '78701', 'US', 'auction']);
   });
 });
 

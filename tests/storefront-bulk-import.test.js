@@ -78,12 +78,13 @@ CREATE TABLE payment_disputes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), st
   opened_at timestamptz NOT NULL DEFAULT now(), closed_at timestamptz, last_event_id text, last_event_type text,
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
 CREATE UNIQUE INDEX uq_payment_disputes_stripe_dispute ON payment_disputes (stripe_dispute_id);
+CREATE TABLE seller_payout_preferences (seller_user_id uuid UNIQUE, stripe_account_id text, connect_transfers_active boolean DEFAULT false, connect_payouts_enabled boolean DEFAULT false);
 `;
 const MIGRATIONS = ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
   '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
   '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
   '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-  '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql'];
+  '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql'];
 
 let server, base, items;
 const U = {}; const SP = {};
@@ -101,8 +102,9 @@ async function call(user, method, url, body) {
 }
 const form = (field, files) => { const fd = new FormData(); for (const [name, buf] of files) fd.append(field, new Blob([buf]), name); return fd; };
 const csv = (rows) => Buffer.from(rows.map((r) => r.map((c) => (/[",\n]/.test(String(c)) ? '"' + String(c).replace(/"/g, '""') + '"' : c)).join(',')).join('\n'));
-const preview = (user, buf, name = 'inventory.csv', mapping) => {
-  const fd = form('file', [[name, buf]]); if (mapping) fd.append('mapping', JSON.stringify(mapping));
+// columns: the seller's destination for every column (migration 209: Inventory Number … Photo_15, Skip / Ignore).
+const preview = (user, buf, name = 'inventory.csv', columns) => {
+  const fd = form('file', [[name, buf]]); if (columns) fd.append('columns', JSON.stringify(columns));
   return call(user, 'POST', '/api/seller-storefront/imports/preview', fd);
 };
 async function importAll(user, batchId) {
@@ -248,12 +250,16 @@ describe('price and quantity rules (pure)', () => {
   test.each([['125', 12500], ['$1,250.00', 125000], ['19.99', 1999], ['19.990000000000002', 1999], ['USD 7', 700], [' 3.5 ', 350]])('accepts %s', (v, c) => {
     expect(imp.parsePrice(v)).toEqual({ cents: c });
   });
-  test.each(['', '0', '0.00', '-5', '(5)', 'abc', '12-15', '1e5', '12,50', '1.234,50', '5.555', '1000001', 'NaN', 'Infinity'])('refuses %j with a suggestion', (v) => {
+  test.each(['0', '0.00', '-5', '(5)', 'abc', '12-15', '1e5', '12,50', '1.234,50', '5.555', '1000001', 'NaN', 'Infinity'])('refuses %j with a suggestion', (v) => {
     const r = imp.parsePrice(v); expect(r.cents).toBeUndefined(); expect(r.error).toBeTruthy(); expect(r.suggestion).toBeTruthy();
   });
-  test('quantity: blank or 1 is fine; 0, 3, 1.5 and words are explained', () => {
-    expect(imp.parseQuantity('')).toEqual({}); expect(imp.parseQuantity('1')).toEqual({}); expect(imp.parseQuantity('1.0')).toEqual({});
-    for (const v of ['0', '3', '1.5', 'one', '-1']) expect(imp.parseQuantity(v).error).toBeTruthy();
+  test('a blank Sale Price is not an error: the item becomes a draft to price later (migration 209)', () => {
+    expect(imp.parsePrice('')).toEqual({}); expect(imp.parsePrice('   ')).toEqual({});
+  });
+  test('quantity: blank is 1; whole numbers 0 to 100,000 are kept; fractions, words and negatives are explained', () => {
+    expect(imp.parseQuantity('')).toEqual({ value: 1 }); expect(imp.parseQuantity('1')).toEqual({ value: 1 }); expect(imp.parseQuantity('1.0')).toEqual({ value: 1 });
+    expect(imp.parseQuantity('6')).toEqual({ value: 6 }); expect(imp.parseQuantity('0')).toEqual({ value: 0 });
+    for (const v of ['1.5', 'one', '-1', '100001']) expect(imp.parseQuantity(v).error).toBeTruthy();
   });
 });
 
@@ -272,45 +278,55 @@ describe('preview and import', () => {
       ['A1003', '', '', '', '20', '', '', ''],                       // missing title
       ['A1004', 'Free thing', '', '', '0', '', '', ''],              // zero price
       ['A1005', 'Bad price', '', '', '12,50', '', '', ''],           // comma cents
-      ['A1006', 'Many plates', '', '', '10', '6', '', ''],           // quantity > 1
+      ['A1006', 'Many plates', '', '', '10', '6', '', ''],           // quantity 6 (kept)
       ['A1001', 'Same SKU again', '', '', '10', '', '', ''],         // duplicate in file
       ['KEEP-1', 'Overwrite attempt', '', '', '1', '', '', ''],      // already in inventory → skip
       ['EXAMPLE-1001', 'Victorian walnut side table', '', '', '450', '', '', ''],
-      ['A1007', 'Mixer', '', '', '275', '', 'yes', ''],              // ships yes but no store default
-      ['A1008', 'Barcode item', '', '', '15', '', '', '012345678905'],  // valid GTIN
-      ['A1009', 'Bad barcode', '', '', '15', '', '', '012345678900'],   // wrong check digit
+      ['A1007', 'Mixer', '', '', '275', '', 'yes', ''],              // "Ships" is not an import field: Skip / Ignore
+      ['A1008', 'Barcode item', '', '', '15', '', '', '012345678905'],  // "UPC" is not an import field either
+      ['A1009', 'Bad barcode', '', '', '15', '', '', '012345678900'],
       ['', 'No sku item', '', '', '5', '', '', ''],
       ['=CMD()', 'Formula SKU', '', '', '5', '', '', ''],             // stored as plain text, never evaluated
+      ['A1010', 'Unpriced vase', '', '', '', '', '', ''],             // no Sale Price: a draft to price later
     ]));
     expect(r.status).toBe(200);
     const d = r.body.data;
-    expect(d.mapping).toEqual(expect.objectContaining({ inventory_number: 0, title: 1, description: 2, category: 3, price: 4, quantity: 5, ships: 6, gtin: 7 }));
+    expect(d.columns).toEqual(['inventory_number', 'title', 'description', 'category', 'price', 'quantity', 'skip', 'skip']);
     const byRow = Object.fromEntries(d.rows.map((x) => [x.row, x]));
-    expect(byRow[2].action).toBe('create'); expect(byRow[2].values).toEqual(expect.objectContaining({ price_cents: 4500, title: 'Oak chair', inventory_number: 'A1001' }));
-    expect(byRow[3].action).toBe('create');
-    for (const [row, field] of [[4, 'title'], [5, 'price'], [6, 'price'], [7, 'quantity'], [8, 'inventory_number'], [10, 'inventory_number'], [11, 'ships'], [13, 'gtin']]) {
+    expect(byRow[2].action).toBe('create'); expect(byRow[2].values).toEqual(expect.objectContaining({ price_cents: 4500, title: 'Oak chair', inventory_number: 'A1001', category: 'Furniture' }));
+    expect(byRow[3].action).toBe('create'); expect(byRow[3].values.category).toBe('Lighting');
+    for (const [row, field] of [[4, 'title'], [5, 'price'], [6, 'price'], [8, 'inventory_number'], [10, 'inventory_number']]) {
       expect([row, byRow[row].action, byRow[row].errors.map((e) => e.field)]).toEqual([row, 'error', expect.arrayContaining([field])]);
       expect(byRow[row].errors.every((e) => e.message && e.suggestion)).toBe(true);
     }
+    expect(byRow[7]).toEqual(expect.objectContaining({ action: 'create' })); expect(byRow[7].values.quantity).toBe(6);
     expect(byRow[9].action).toBe('skip');
-    expect(byRow[12].values.gtin).toBe('012345678905');
+    for (const row of [11, 12, 13, 15]) expect(byRow[row].action).toBe('create');
     expect(byRow[14].action).toBe('create'); expect(byRow[14].warnings[0].field).toBe('inventory_number');
     expect(byRow[15].values.inventory_number).toBe('=CMD()');
-    expect(d.summary).toEqual({ total: 14, ready: 5, skip: 1, errors: 8, warnings: expect.any(Number) });
+    expect(byRow[16].action).toBe('create'); expect(byRow[16].warnings.map((w) => w.code)).toContain('MISSING_PRICE');
+    expect(d.summary).toEqual(expect.objectContaining({ total: 15, ready: 9, create: 9, update: 0, skip: 1, errors: 5, missing_price: 1, new_items: 9, existing_items: 1 }));
     expect((await one('SELECT count(*)::int n FROM marketplace_items')).n).toBe(before);
 
     // Problem list download: one line per problem with the fix, formulas neutralised.
     const p = await call('ann', 'GET', `/api/seller-storefront/imports/${d.batch_id}/problems.csv`);
     expect(p.status).toBe(200);
     expect(p.headers.get('content-type')).toMatch(/text\/csv/);
-    expect(p.raw).toMatch(/Quantity is 6/);
+    expect(p.raw).toMatch(/Item Title is missing/);
+    expect(p.raw).toMatch(/No Sale Price/);
     expect(p.raw).not.toMatch(/(^|,)=CMD/m);
 
-    // Import: only the 5 ready rows, as drafts; the existing item is untouched.
+    // Import: only the 9 ready rows, as drafts; the existing item is untouched.
     const imp = await importAll('ann', d.batch_id);
-    expect(imp.body.data).toEqual(expect.objectContaining({ done: true, created: 5, failed: 0, skipped: 1, status: 'completed_with_errors' }));
+    expect(imp.body.data).toEqual(expect.objectContaining({ done: true, created: 9, failed: 0, skipped: 1, status: 'completed_with_errors' }));
     const created = await q('SELECT * FROM marketplace_items WHERE import_batch_id = $1 ORDER BY import_row', [d.batch_id]);
-    expect(created.map((x) => x.status)).toEqual(['draft', 'draft', 'draft', 'draft', 'draft']);
+    expect(created.map((x) => x.status)).toEqual(Array(9).fill('draft'));
+    // Sale Price only from the spreadsheet; a blank price stays unpriced. Quantity, category and its origin are recorded.
+    const vase = created.find((x) => x.inventory_number === 'A1010');
+    expect(vase.price_cents).toBeNull();
+    expect(created.find((x) => x.inventory_number === 'A1006').quantity).toBe(6);
+    expect(created.find((x) => x.inventory_number === 'A1001')).toEqual(expect.objectContaining({ category_key: 'furniture', category: 'Furniture', category_source: 'spreadsheet', category_status: 'assigned' }));
+    expect(created.find((x) => x.inventory_number === 'A1008').gtin).toBeNull();   // a skipped column is never stored
     expect(created.every((x) => x.seller_id === SP.ann && x.images.length === 0 && x.thumbnail_url === null)).toBe(true);   // no invented photos
     expect(await one('SELECT title, price_cents, status FROM marketplace_items WHERE id = $1', [existing.id])).toEqual({ title: 'Original title', price_cents: 9900, status: 'active' });
     // Drafts are not public anywhere (storefront page, widget, item page).
@@ -362,18 +378,26 @@ describe('preview and import', () => {
     const r = await preview('ann', makeXlsx([['Item #', 'Item Name', 'Asking Price', 'Qty'], ['XL-1', 'Mantel clock', 85, 1], ['XL-2', 'Quilt', '120.00', '']]), 'supplier.xlsx');
     expect(r.status).toBe(200);
     expect(r.body.data.file_kind).toBe('xlsx');
-    expect(r.body.data.mapping).toEqual({ inventory_number: 0, title: 1, price: 2, quantity: 3 });
+    expect(r.body.data.columns).toEqual(['inventory_number', 'title', 'price', 'quantity']);
     expect(r.body.data.summary.ready).toBe(2);
   });
 
   test('column mapping: the seller can choose columns; bad choices are refused', async () => {
     const buf = csv([['Stock', 'Name', 'Cost', 'Retail'], ['M-1', 'Vase', '5', '25']]);
     const auto = await preview('ann', buf, 'map.csv');
-    expect(auto.body.data.missing_required).toEqual(['Price']);
-    expect(auto.body.data.summary.ready).toBe(0);
-    const ok = await preview('ann', buf, 'map.csv', { inventory_number: 0, title: 1, price: 3 });
+    // "Cost" is never suggested as the Sale Price; with no price column the row is still a draft to price later.
+    expect(auto.body.data.columns).toEqual(['inventory_number', 'title', 'skip', 'skip']);   // 'Stock' = stock number
+    expect(auto.body.data.missing_required).toEqual([]);
+    expect(auto.body.data.summary).toEqual(expect.objectContaining({ ready: 1, missing_price: 1 }));
+    const ok = await preview('ann', buf, 'map.csv', ['inventory_number', 'title', 'skip', 'price']);
     expect(ok.body.data.rows[0].values.price_cents).toBe(2500);
-    for (const bad of [{ title: 1, price: 9 }, { title: 1, price: 1 }, { title: 1, price: 3, owner_id: 0 }, ['x'], { title: -1, price: 3 }]) {
+    // Skip / Ignore may repeat; every other destination is unique (server-enforced, whatever the page sends).
+    expect((await preview('ann', buf, 'map.csv', ['skip', 'title', 'skip', 'skip'])).status).toBe(200);
+    expect((await preview('ann', buf, 'map.csv', ['title', 'title', 'skip', 'skip'])).body.code).toBe('MAPPING_DUPLICATE');
+    expect((await preview('ann', buf, 'map.csv', ['photo_1', 'title', 'skip', 'photo_1'])).body.code).toBe('MAPPING_DUPLICATE');
+    // An auction-price column (cost, reserve, bid, estimate) can never be the Sale Price.
+    expect((await preview('ann', buf, 'map.csv', ['skip', 'title', 'price', 'skip'])).body.code).toBe('MAPPING_AUCTION_PRICE');
+    for (const bad of [['skip', 'title'], ['skip', 'title', 'owner_id', 'skip'], { title: 1 }, ['x', 'y', 'z', 'w']]) {
       expect((await preview('ann', buf, 'map.csv', bad)).body.code).toBe('MAPPING_INVALID');
     }
   });
@@ -571,8 +595,9 @@ describe('inventory workspace', () => {
       expect(r.body.data).toEqual(expect.objectContaining({ done: 0, refused: 3 }));
       expect(r.body.data.results.every((x) => x.code === 'NOT_FOUND')).toBe(true);
     }
-    expect((await call('bob', 'POST', '/api/seller-storefront/items/bulk', { action: 'set_category', ids, value: 'Hijacked' })).body.data.done).toBe(0);
-    expect((await q('SELECT category FROM marketplace_items WHERE id = ANY($1::uuid[])', [ids])).every((x) => x.category !== 'Hijacked')).toBe(true);
+    expect((await call('bob', 'POST', '/api/seller-storefront/items/bulk', { action: 'set_category', ids, value: 'coins_currency' })).body.data.done).toBe(0);
+    expect((await call('bob', 'POST', '/api/seller-storefront/items/bulk', { action: 'set_price', ids, value: 100 })).body.data.done).toBe(0);
+    expect((await q('SELECT category_key, category_source FROM marketplace_items WHERE id = ANY($1::uuid[])', [ids])).every((x) => x.category_key !== 'coins_currency' && x.category_source !== 'seller')).toBe(true);
   });
 
   test('unauthorized publishing: staff without editing, Individual Sellers, taken-down and sold items', async () => {
@@ -596,9 +621,16 @@ describe('inventory workspace', () => {
     expect((await bulk('ann', 'publish', [])).body.code).toBe('IDS_INVALID');
     expect((await bulk('ann', 'publish', Array.from({ length: 501 }, () => crypto.randomUUID()))).body.code).toBe('IDS_INVALID');
     expect((await bulk('ann', 'set_category', [d.id], 'x'.repeat(101))).body.code).toBe('CATEGORY_INVALID');
-    const cat = await bulk('ann', 'set_category', [d.id], 'Clocks');
+    // Categories come from the one taxonomy; a seller's bulk choice is recorded as theirs.
+    expect((await bulk('ann', 'set_category', [d.id], 'Clocks')).body.code).toBe('CATEGORY_INVALID');
+    const cat = await bulk('ann', 'set_category', [d.id], 'collectibles');
     expect(cat.body.data.done).toBe(1);
-    expect(await one('SELECT category FROM marketplace_items WHERE id = $1', [d.id])).toEqual({ category: 'Clocks' });
+    expect(await one('SELECT category, category_key, category_source FROM marketplace_items WHERE id = $1', [d.id])).toEqual({ category: 'Collectibles', category_key: 'collectibles', category_source: 'seller' });
+    // Bulk Sale Price and quantity.
+    expect((await bulk('ann', 'set_price', [d.id], 0)).body.code).toBe('PRICE_INVALID');
+    expect((await bulk('ann', 'set_price', [d.id], 4250)).body.data.done).toBe(1);
+    expect((await bulk('ann', 'set_quantity', [d.id], 3)).body.data.done).toBe(1);
+    expect(await one('SELECT price_cents, quantity FROM marketplace_items WHERE id = $1', [d.id])).toEqual({ price_cents: 4250, quantity: 3 });
   });
 });
 
@@ -676,10 +708,11 @@ describe('independent security review regressions', () => {
     expect(g.body.data.created).toBe(2);
   });
 
-  test('over-long pickup details are refused, not stored', async () => {
+  test('columns outside the ten fields (e.g. over-long pickup details) are skipped, never stored or echoed', async () => {
     const r = await preview('ann', csv([['SKU', 'Title', 'Price', 'Pickup address', 'Pickup city', 'Pickup state', 'Pickup ZIP'],
       ['PU-1', 'Pickup test', '10', 'x'.repeat(5000), 'Houston', 'TX', '77002']]), 'pickup.csv');
-    expect(r.body.data.rows[0].action).toBe('error');
+    expect(r.body.data.columns.slice(3)).toEqual(['skip', 'skip', 'skip', 'skip']);
+    expect(r.body.data.rows[0].action).toBe('create');
     expect(JSON.stringify(r.body.data).length).toBeLessThan(5000);
   });
 });
@@ -753,5 +786,244 @@ describe('sold items are never offered again (owner decision 2026-10-28)', () =>
     await q(`UPDATE marketplace_items SET sold_at = NULL, status = 'removed' WHERE id = $1`, [it.id]);   // what the refund path does
     const relisted = await require('../src/services/marketplaceOrderService').relistItem(it.id, U.ann.id);
     expect(relisted.status).toBe('active');
+  });
+});
+
+// ═══ Simple marketplace importer (migration 209, owner requirements 2026-10-30) ══════════════════════════════════
+describe('simple marketplace importer: the real AuctionFlex export (142 items, 17 columns)', () => {
+  const FIXTURE = fs.readFileSync(path.join(__dirname, 'fixtures', 'auctionflex-unsold-inventory.csv'));
+  const photosSvc = () => require('../src/services/storefrontImportPhotoService');
+  let batch, firstPreview;
+
+  test('the columns map themselves; auction prices are never a Sale Price; nothing needs renaming', async () => {
+    const r = await preview('bob', FIXTURE, 'Unsold items by inv.csv');
+    expect(r.status).toBe(200);
+    firstPreview = r.body.data; batch = firstPreview.batch_id;
+    expect(firstPreview.headers).toHaveLength(17);
+    expect(firstPreview.source_label).toBe('AuctionFlex export');
+    const map = Object.fromEntries(firstPreview.headers.map((h, i) => [h, firstPreview.columns[i]]));
+    expect(map).toEqual(expect.objectContaining({ itemnum: 'inventory_number', lead: 'title', shortdesc: 'description', quantity: 'quantity',
+      lotnum: 'skip', bidamount: 'skip', bidreserve: 'skip', bidcardnum: 'skip', soldstatus: 'skip' }));
+    expect(firstPreview.columns.filter((c) => c === 'price')).toHaveLength(0);
+    expect(firstPreview.lot_column).toBe(0);                                         // lotnum: the original auction lot number
+    expect(firstPreview.summary).toEqual(expect.objectContaining({ total: 142, create: 142, errors: 0, missing_price: 142 }));
+    // Ten primary fields, Photo_1..Photo_15, and Skip / Ignore (the only repeatable choice).
+    const dest = firstPreview.destinations;
+    expect(dest.filter((d) => !d.photo && !d.repeatable).map((d) => d.label)).toEqual(['Inventory Number', 'Item Title', 'Description', 'Sale Price', 'Quantity',
+      'Category', 'Condition', 'Dimensions', 'Material', 'Color']);
+    expect(dest.filter((d) => d.photo).map((d) => d.label)).toEqual(Array.from({ length: 15 }, (_, i) => `Photo_${i + 1}`));
+    expect(dest.filter((d) => d.repeatable).map((d) => d.label)).toEqual(['Skip / Ignore']);
+    expect(dest.map((d) => d.label).join(' ')).not.toMatch(/reserve|estimate|starting bid|bid/i);
+  });
+
+  test('photos match by the original auction lot number, numbered photos keep their order, unmatched files are reported and not stored', async () => {
+    const r = await preview('bob', FIXTURE, 'Unsold items by inv.csv', firstPreview.columns.map(String));
+    // Match photos by the lot number column (an internal reference; lotnum stays Skip / Ignore as a field).
+    const pm = await call('bob', 'PUT', `/api/seller-storefront/imports/${r.body.data.batch_id}/options`, { photo_match: { reference: 'lot_number' } });
+    expect(pm.status).toBe(409);                                                       // a different column needs the original cells
+    const fd = new FormData(); fd.append('file', new Blob([FIXTURE]), 'Unsold items by inv.csv');
+    fd.append('columns', JSON.stringify(firstPreview.columns)); fd.append('photo_match', JSON.stringify({ reference: 'lot_number' }));
+    const r2 = await call('bob', 'POST', '/api/seller-storefront/imports/preview', fd);
+    expect(r2.body.data.photo_match).toEqual({ reference: 'lot_number', column: 0 });
+    batch = r2.body.data.batch_id;
+    const up = await call('bob', 'POST', `/api/seller-storefront/imports/${batch}/photos`, form('photos', [['6.jpg', JPEG('lot6-a')], ['6_2.jpg', JPEG('lot6-b')], ['10 (2).png', PNG('lot10')],
+      ['999999.jpg', JPEG('nobody')], ['notes.txt', Buffer.from('not a photo at all, just some text for the test')], ['6.jpg', JPEG('lot6-a')]]));
+    expect(up.status).toBe(200);
+    const by = Object.fromEntries(up.body.data.results.map((x, i) => [i, x]));
+    expect([by[0].outcome, by[1].outcome, by[2].outcome]).toEqual(['matched', 'matched', 'matched']);
+    expect(by[3]).toEqual(expect.objectContaining({ outcome: 'unmatched', code: 'NO_MATCHING_ROW' }));
+    expect(by[4].outcome).toBe('unmatched');                                          // a .txt named like nothing is never stored
+    expect(by[5]).toEqual(expect.objectContaining({ outcome: 'duplicate' }));
+    const list = (await call('bob', 'GET', `/api/seller-storefront/imports/${batch}/photos`)).body.data;
+    const row2 = list.rows.find((x) => x.row === 2);                                   // lot 6 = spreadsheet row 2
+    expect(row2.photos.map((p) => p.file)).toEqual(['6.jpg', '6_2.jpg']);
+    expect((await one('SELECT count(*)::int n FROM storefront_import_photos WHERE batch_id = $1', [batch])).n).toBe(3);
+  });
+
+  test('the review shows the totals; importing creates 142 drafts with their photos, categories assigned automatically', async () => {
+    const rev = (await call('bob', 'GET', `/api/seller-storefront/imports/${batch}/review`)).body.data;
+    expect(rev.summary).toEqual(expect.objectContaining({ total: 142, new_items: 142, existing_items: 0, missing_price: 142, photos_matched: 3, errors: 0 }));
+    expect(rev.summary.photos_unmatched).toBeGreaterThanOrEqual(1);
+    const done = await importAll('bob', batch);
+    expect(done.body.data).toEqual(expect.objectContaining({ done: true, created: 142, failed: 0, photos_attached: 3 }));
+    const made = await q('SELECT * FROM marketplace_items WHERE import_batch_id = $1 ORDER BY import_row', [batch]);
+    expect(made).toHaveLength(142);
+    expect(made.every((m) => m.status === 'draft' && m.price_cents === null && m.seller_id === SP.bob)).toBe(true);   // no auction price carried
+    expect(made[0]).toEqual(expect.objectContaining({ inventory_number: '126721', title: 'KARL SPRINGER STYLE HORN INLAID LAMP', source_lot_number: '6', quantity: 1,
+      category_key: 'lighting', category_source: 'automatic' }));
+    expect(made[0].images).toHaveLength(2);
+    expect(made[0].thumbnail_url).toBe(made[0].images[0]);                             // the primary photo
+    const assigned = made.filter((m) => m.category_status === 'assigned').length;
+    expect(assigned / made.length).toBeGreaterThan(0.8);                              // the rest stay pending, never guessed
+    expect(made.filter((m) => m.category_status === 'pending').every((m) => m.category_key === null)).toBe(true);
+    expect(made.every((m) => m.category_source !== 'seller')).toBe(true);
+    // The seller's approved columns are saved for the next export from the same software.
+    const again = await preview('bob', FIXTURE, 'Unsold items by inv.csv');
+    expect(again.body.data.mapping_source).toBe('saved');
+    expect(again.body.data.photo_match).toEqual({ reference: 'lot_number', column: 0 });
+    expect(again.body.data.summary).toEqual(expect.objectContaining({ create: 0, skip: 142 }));   // already in inventory: never duplicated
+    // Drafts are not public anywhere.
+    expect((await items.listPublicForSeller(SP.bob)).filter((x) => x.title === 'KARL SPRINGER STYLE HORN INLAID LAMP')).toHaveLength(0);
+  });
+
+  test('an imported draft cannot be published until it has a Sale Price', async () => {
+    const it = await one(`SELECT id FROM marketplace_items WHERE inventory_number = '126721' AND seller_id = $1`, [SP.bob]);
+    const r = await call('bob', 'POST', '/api/seller-storefront/items/bulk', { action: 'publish', ids: [it.id] });
+    expect(r.body.data.results[0].code).toBe('PRICE_REQUIRED');
+    await expect(q(`UPDATE marketplace_items SET status = 'active' WHERE id = $1`, [it.id])).rejects.toThrow(/priced_when_visible/);   // the database agrees
+    await call('bob', 'POST', '/api/seller-storefront/items/bulk', { action: 'set_price', ids: [it.id], value: 45000 });
+    expect((await call('bob', 'POST', '/api/seller-storefront/items/bulk', { action: 'publish', ids: [it.id] })).body.data.done).toBe(1);
+  });
+});
+
+describe('simple marketplace importer: photo columns, links, matching choices and corrections', () => {
+  const photosSvc = () => require('../src/services/storefrontImportPhotoService');
+  const SHEET = [['Item Number', 'Name', 'Price', 'Photo 1', 'Photo 2', 'Image URL', 'Vendor Ref'],
+    ['PC-1', 'Walnut bench', '120', 'bench-front.jpg', 'bench-back.jpg', 'https://img.example.com/bench-detail.jpg', 'V-9'],
+    ['PC-2', 'Brass sconce pair', '80', '', '', 'http://127.0.0.1/admin/secret.jpg', 'V-9'],
+    ['PC-3', 'Blue vase', '35', 'shared.jpg', '', '', 'V-3'],
+    ['PC-4', 'Green vase', '35', 'shared.jpg', '', '', 'V-4']];
+  let batch;
+
+  test('Photo_1..Photo_15 headings and image-link columns are recognised; file names and links are counted', async () => {
+    const r = await preview('ann', csv(SHEET), 'photos.csv');
+    expect(r.body.data.columns).toEqual(['inventory_number', 'title', 'price', 'photo_1', 'photo_2', 'photo_3', 'skip']);
+    expect(r.body.data.photo_references).toEqual({ file_names: 4, links: 2, rows: 4 });
+    batch = r.body.data.batch_id;
+  });
+
+  test('named files go to their row and position; a name used by two rows is ambiguous until the seller chooses', async () => {
+    const up = await call('ann', 'POST', `/api/seller-storefront/imports/${batch}/photos`, form('photos', [['bench-back.jpg', JPEG('bb')], ['bench-front.jpg', JPEG('bf')], ['shared.jpg', JPEG('sh')]]));
+    const res = up.body.data.results;
+    expect(res.map((x) => x.outcome)).toEqual(['matched', 'matched', 'ambiguous']);
+    expect(res[2].rows).toEqual([4, 5]);
+    // The seller assigns the ambiguous file to row 5.
+    const fd = form('photos', [['shared.jpg', JPEG('sh')]]); fd.append('assign', JSON.stringify({ 'shared.jpg': 5 }));
+    const fix = await call('ann', 'POST', `/api/seller-storefront/imports/${batch}/photos`, fd);
+    expect(fix.body.data.results[0]).toEqual(expect.objectContaining({ outcome: 'matched', row: 5 }));
+    const list = (await call('ann', 'GET', `/api/seller-storefront/imports/${batch}/photos`)).body.data;
+    expect(list.rows.find((x) => x.row === 2).photos.map((p) => p.file)).toEqual(['bench-front.jpg', 'bench-back.jpg']);   // Photo_1 then Photo_2
+    expect(list.rows.find((x) => x.row === 4).missing).toEqual([{ type: 'file', value: 'shared.jpg', problem: null }]);
+  });
+
+  test('photo links are fetched only from permitted public addresses, as images, and stored unchanged', async () => {
+    const seen = [];
+    const fetcher = async (url) => {
+      seen.push(url);
+      // The real fetcher is netGuard.safeFetch; it refuses private addresses before connecting (checked below).
+      const guard = await require('../src/services/eventImport/netGuard').checkUrl(url, { lookup: async () => [{ address: url.includes('127.0.0.1') ? '127.0.0.1' : '93.184.216.34' }] });
+      if (!guard.ok) return { ok: false, reason: guard.reason };
+      return { ok: true, status: 200, body: JPEG('link:' + url) };
+    };
+    const out = await photosSvc().fetchLinks(U.ann.id, batch, { fetcher });
+    expect(out).toEqual(expect.objectContaining({ fetched: 1, failed: 1, done: true }));
+    expect(out.results.find((x) => x.outcome === 'failed')).toEqual(expect.objectContaining({ code: 'LINK_NOT_PERMITTED', row: 3 }));
+    // The real network guard: private and non-web addresses are refused, and only same-site redirects are followed.
+    const ng = require('../src/services/eventImport/netGuard');
+    for (const bad of ['http://127.0.0.1/x.jpg', 'http://169.254.169.254/latest/meta-data', 'file:///etc/passwd', 'http://user:pw@example.com/a.jpg', 'http://example.com:8080/a.jpg']) {
+      expect((await ng.checkUrl(bad, { lookup: async () => [{ address: '127.0.0.1' }] })).ok).toBe(false);
+    }
+    // A link that returns something other than an image is refused.
+    const notImage = await photosSvc().fetchLinks(U.ann.id, batch, { fetcher: async () => ({ ok: true, status: 200, body: Buffer.from('<html>not a photo</html>'.repeat(4)) }) });
+    expect(notImage.fetched).toBe(0);
+  });
+
+  test('the seller reorders photos, chooses the primary, moves a photo to another item, or removes it', async () => {
+    let list = (await call('ann', 'GET', `/api/seller-storefront/imports/${batch}/photos`)).body.data;
+    const bench = list.rows.find((x) => x.row === 2);
+    expect(bench.photos).toHaveLength(3);
+    const last = bench.photos[2];
+    expect((await call('ann', 'PATCH', `/api/seller-storefront/imports/${batch}/photos/${last.id}`, { position: 0 })).status).toBe(200);   // make it the primary
+    list = (await call('ann', 'GET', `/api/seller-storefront/imports/${batch}/photos`)).body.data;
+    expect(list.rows.find((x) => x.row === 2).photos[0].id).toBe(last.id);
+    const back = list.rows.find((x) => x.row === 2).photos.find((p) => p.file === 'bench-back.jpg');
+    expect((await call('ann', 'PATCH', `/api/seller-storefront/imports/${batch}/photos/${back.id}`, { row: 3 })).status).toBe(200);   // move to the sconce
+    expect((await call('ann', 'PATCH', `/api/seller-storefront/imports/${batch}/photos/${back.id}`, { row: 999 })).body.code).toBe('ROW_INVALID');
+    const vase = (await call('ann', 'GET', `/api/seller-storefront/imports/${batch}/photos`)).body.data.rows.find((x) => x.row === 5).photos[0];
+    expect((await call('ann', 'DELETE', `/api/seller-storefront/imports/${batch}/photos/${vase.id}`)).status).toBe(200);
+    // Import: each draft gets its photos in the chosen order.
+    await importAll('ann', batch);
+    const benchItem = await one(`SELECT images, thumbnail_url FROM marketplace_items WHERE inventory_number = 'PC-1' AND seller_id = $1`, [SP.ann]);
+    expect(benchItem.images).toHaveLength(2);
+    expect(benchItem.thumbnail_url).toBe(last.url);
+    const sconce = await one(`SELECT images FROM marketplace_items WHERE inventory_number = 'PC-2' AND seller_id = $1`, [SP.ann]);
+    expect(sconce.images).toHaveLength(1);
+    const blueVase = await one(`SELECT images FROM marketplace_items WHERE inventory_number = 'PC-4' AND seller_id = $1`, [SP.ann]);
+    expect(blueVase.images).toHaveLength(0);
+    // Retrying the finished import never adds a photo twice.
+    await call('ann', 'POST', `/api/seller-storefront/imports/${batch}/import`);
+    expect((await one(`SELECT images FROM marketplace_items WHERE inventory_number = 'PC-1' AND seller_id = $1`, [SP.ann])).images).toHaveLength(2);
+  });
+
+  test('photos can also be matched by another column (here, a vendor reference shared by two rows is ambiguous)', async () => {
+    const fd = new FormData(); fd.append('file', new Blob([csv(SHEET.map((r, i) => (i === 0 ? r : [r[0] + '-B', ...r.slice(1)])))]), 'photos-b.csv');
+    fd.append('photo_match', JSON.stringify({ reference: 'column', column: 6 }));
+    const r = await call('ann', 'POST', '/api/seller-storefront/imports/preview', fd);
+    const b = r.body.data.batch_id;
+    const up = await call('ann', 'POST', `/api/seller-storefront/imports/${b}/photos`, form('photos', [['V-3.jpg', JPEG('v3')], ['V-9_2.jpg', JPEG('v9')]]));
+    expect(up.body.data.results.map((x) => x.outcome)).toEqual(['matched', 'ambiguous']);
+  });
+});
+
+describe('simple marketplace importer: categories, duplicates and isolation', () => {
+  test('a spreadsheet category maps to the taxonomy; a seller choice is never overwritten by later imports or the background pass', async () => {
+    const r = await preview('ann', csv([['Inventory Number', 'Item Title', 'Category', 'Sale Price'], ['CAT-1', 'Oak hall table', 'Furniture', '50'], ['CAT-2', 'Unlabelled thing', '', '20']]), 'cats.csv');
+    await importAll('ann', r.body.data.batch_id);
+    const t = await one(`SELECT id, category_key, category_source FROM marketplace_items WHERE inventory_number = 'CAT-1' AND seller_id = $1`, [SP.ann]);
+    expect(t).toEqual(expect.objectContaining({ category_key: 'furniture', category_source: 'spreadsheet' }));
+    const pending = await one(`SELECT id, category_status, category_key FROM marketplace_items WHERE inventory_number = 'CAT-2' AND seller_id = $1`, [SP.ann]);
+    expect(pending).toEqual(expect.objectContaining({ category_status: 'pending', category_key: null }));
+    // The seller changes the category in the editor.
+    await call('ann', 'PATCH', `/api/seller-storefront/items/${t.id}`, { category_key: 'antiques' });
+    await call('ann', 'PATCH', `/api/seller-storefront/items/${pending.id}`, { category_key: 'home_decor' });
+    // A re-import that updates drafts does not touch a seller-chosen category.
+    const fd = new FormData(); fd.append('file', new Blob([csv([['Inventory Number', 'Item Title', 'Category', 'Sale Price'], ['CAT-1', 'Oak hall table (updated)', 'Furniture', '55']])]), 'cats2.csv');
+    fd.append('duplicate_mode', 'update_drafts');
+    const r2 = await call('ann', 'POST', '/api/seller-storefront/imports/preview', fd);
+    expect(r2.body.data.summary).toEqual(expect.objectContaining({ update: 1, create: 0, existing_items: 1 }));
+    await importAll('ann', r2.body.data.batch_id);
+    expect(await one(`SELECT title, price_cents, category_key, category_source FROM marketplace_items WHERE id = $1`, [t.id]))
+      .toEqual({ title: 'Oak hall table (updated)', price_cents: 5500, category_key: 'antiques', category_source: 'seller' });
+    // The background pass never changes a seller's choice, and assigns pending items only with confidence.
+    const cats = require('../src/services/storefrontCategoryService');
+    await q(`UPDATE marketplace_items SET category_status = 'pending' WHERE id = $1`, [pending.id]);   // even if it were pending again
+    const out = await cats.refinePending(SP.ann, { classifyText: async () => ({ key: 'tools', confidence: 0.99 }) });
+    expect(out.examined).toBeGreaterThan(0);          // other pending items may be assigned; the seller choice is not
+    expect(await one(`SELECT category_key FROM marketplace_items WHERE id = $1`, [pending.id])).toEqual({ category_key: 'home_decor' });
+  });
+
+  test('update-drafts mode never changes a published item; skip mode changes nothing', async () => {
+    const live = await items.createDirectListing(U.ann.id, { title: 'Live chair', price_cents: 1000, inventory_number: 'LIVE-1', status: 'active' });
+    const fd = new FormData(); fd.append('file', new Blob([csv([['SKU', 'Title', 'Price'], ['LIVE-1', 'Hijack title', '1']])]), 'live.csv'); fd.append('duplicate_mode', 'update_drafts');
+    const r = await call('ann', 'POST', '/api/seller-storefront/imports/preview', fd);
+    expect(r.body.data.rows[0].action).toBe('skip');
+    expect(await one('SELECT title, price_cents FROM marketplace_items WHERE id = $1', [live.id])).toEqual({ title: 'Live chair', price_cents: 1000 });
+  });
+
+  test('another seller cannot see, add photos to, rearrange or import someone else\'s import', async () => {
+    const r = await preview('ann', csv([['SKU', 'Title'], ['ISO-P', 'Private item']]), 'iso-p.csv');
+    const id = r.body.data.batch_id;
+    await call('ann', 'POST', `/api/seller-storefront/imports/${id}/photos`, form('photos', [['ISO-P.jpg', JPEG('iso')]]));
+    const photo = (await call('ann', 'GET', `/api/seller-storefront/imports/${id}/photos`)).body.data.rows[0].photos[0];
+    for (const [m, u, b] of [['GET', `/imports/${id}/photos`], ['GET', `/imports/${id}/review`], ['POST', `/imports/${id}/import`], ['PUT', `/imports/${id}/options`, { duplicate_mode: 'update_drafts' }],
+      ['PATCH', `/imports/${id}/photos/${photo.id}`, { position: 0 }], ['DELETE', `/imports/${id}/photos/${photo.id}`]]) {
+      expect((await call('bob', m, '/api/seller-storefront' + u, b)).status).toBe(404);
+    }
+    const up = await call('bob', 'POST', `/api/seller-storefront/imports/${id}/photos`, form('photos', [['ISO-P.jpg', JPEG('evil')]]));
+    expect(up.status).toBe(404);
+    expect((await one('SELECT count(*)::int n FROM storefront_import_photos WHERE batch_id = $1', [id])).n).toBe(1);
+    // An Individual Seller cannot use the importer at all.
+    expect((await preview('ivy', csv([['SKU', 'Title'], ['X', 'Y']]), 'x.csv')).status).toBe(403);
+  });
+
+  test('the readiness list tells the seller what is left before buyers can purchase', async () => {
+    const r = await call('ann', 'GET', '/api/seller-storefront/readiness');
+    expect(r.status).toBe(200);
+    const keys = r.body.data.company.map((s) => s.key);
+    expect(keys).toEqual(['agreement', 'verification', 'pickup_location', 'storefront', 'payouts', 'checkout']);
+    expect(r.body.data.company.find((s) => s.key === 'checkout').done).toBe(false);   // online checkout stays off
+    expect(r.body.data.purchasable).toBe(false);
+    expect(r.body.data.items.map((n) => n.key)).toEqual(expect.arrayContaining(['missing_price']));
+    expect(JSON.stringify(r.body.data)).not.toMatch(/stripe|MARKETPLACE_CHECKOUT|ENABLED/i);
   });
 });

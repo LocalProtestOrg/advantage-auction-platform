@@ -45,8 +45,9 @@ function pinnedFetch(url, init, approved, maxBytes) {
         if (size > (maxBytes || DEFAULT_MAX_BYTES)) { tooLarge = true; res.destroy(); return; }
         chunks.push(c);
       });
+      const capped = () => { if (tooLarge) { const e = new Error('too_large'); e.code = 'TOO_LARGE'; throw e; } return Buffer.concat(chunks); };
       const finish = () => resolve({ status: res.statusCode, headers: res.headers, body: null,
-        text: async () => { if (tooLarge) { const e = new Error('too_large'); e.code = 'TOO_LARGE'; throw e; } return Buffer.concat(chunks).toString('utf8'); } });
+        text: async () => capped().toString('utf8'), buffer: async () => capped() });
       res.on('end', finish);
       res.on('close', () => { if (tooLarge) finish(); });
       res.on('error', (e) => { if (tooLarge) finish(); else reject(e); });
@@ -150,10 +151,18 @@ function headersObject(h) {
   return out;
 }
 
-async function readCapped(res, maxBytes) {
+// binary: return the raw bytes (a Buffer) instead of text (photo retrieval; marketplace import, migration 209).
+async function readCapped(res, maxBytes, binary = false) {
+  const tooLarge = () => { const e = new Error('too_large'); e.code = 'TOO_LARGE'; return e; };
   if (!res.body || typeof res.body.getReader !== 'function') {
+    if (binary) {
+      const b = typeof res.buffer === 'function' ? await res.buffer()
+        : typeof res.arrayBuffer === 'function' ? Buffer.from(await res.arrayBuffer()) : Buffer.from(typeof res.text === 'function' ? await res.text() : '', 'latin1');
+      if (b.length > maxBytes) throw tooLarge();
+      return b;
+    }
     const t = typeof res.text === 'function' ? await res.text() : '';
-    if (Buffer.byteLength(t) > maxBytes) { const e = new Error('too_large'); e.code = 'TOO_LARGE'; throw e; }
+    if (Buffer.byteLength(t) > maxBytes) throw tooLarge();
     return t;
   }
   const reader = res.body.getReader();
@@ -162,10 +171,11 @@ async function readCapped(res, maxBytes) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.length;
-    if (size > maxBytes) { try { await reader.cancel(); } catch (_) {} const e = new Error('too_large'); e.code = 'TOO_LARGE'; throw e; }
+    if (size > maxBytes) { try { await reader.cancel(); } catch (_) {} throw tooLarge(); }
     chunks.push(Buffer.from(value));
   }
-  return Buffer.concat(chunks).toString('utf8');
+  const all = Buffer.concat(chunks);
+  return binary ? all : all.toString('utf8');
 }
 
 async function safeFetch(url, opts = {}) {
@@ -217,8 +227,8 @@ async function safeFetch(url, opts = {}) {
       current = next;
       continue;
     }
-    let text = '';
-    try { text = await readCapped(res, maxBytes); }
+    let text = ''; let body = null;
+    try { if (opts.binary) body = await readCapped(res, maxBytes, true); else text = await readCapped(res, maxBytes); }
     catch (e) {
       clearTimeout(timer);
       if (e.code === 'TOO_LARGE') return fail(status, 'too_large', { headers });
@@ -227,7 +237,7 @@ async function safeFetch(url, opts = {}) {
     clearTimeout(timer);
     const contentType = String(headers['content-type'] || '').toLowerCase();
     const ok = status >= 200 && status < 300;
-    return { ok, status, headers, text, url: current, redirects, contentType, reason: ok ? null : 'http_status' };
+    return Object.assign({ ok, status, headers, text, url: current, redirects, contentType, reason: ok ? null : 'http_status' }, opts.binary ? { body } : {});
   }
 }
 

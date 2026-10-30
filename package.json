@@ -19,7 +19,14 @@
     "certify:sasha-phone": "node certification/sasha-phone/run.js"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/.claude/"
+    ],
+    "modulePathIgnorePatterns": [
+      "/.claude/"
+    ]
   },
   "repository": {
     "type": "git",

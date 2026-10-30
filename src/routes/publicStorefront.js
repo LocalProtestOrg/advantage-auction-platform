@@ -36,6 +36,8 @@ function ipHash(req) {
 // Signed-in members may see a sold item's realized price when the seller allows it; a member's answer is never cached.
 router.get('/item/:id', async (req, res, next) => {
   try {
+    // A malformed id is simply not an item (never a server error).
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(req.params.id || ''))) return res.status(404).json({ success: false, message: 'Item not found.' });
     const viewerUserId = await confirmedViewerId(req);
     const it = await items.getPublicItem(req.params.id, undefined, { viewerUserId });
     if (!it) return res.status(404).json({ success: false, message: 'Item not found.' });

@@ -67,6 +67,43 @@ function normalizeInventoryNumber(v) {
   if (s.length > 64) throw err(422, 'INVENTORY_NUMBER_INVALID', 'Inventory numbers can be up to 64 characters.');
   return s;
 }
+// Quantity (migration 209): how many of this item the seller has. Whole number 0..100000; blank means 1.
+function normalizeQuantity(v) {
+  if (v === undefined || v === null || v === '') return 1;
+  const n = typeof v === 'number' ? v : Number(String(v).trim());
+  if (!Number.isInteger(n) || n < 0 || n > 100000) throw err(422, 'QUANTITY_INVALID', 'Quantity must be a whole number from 0 to 100,000.');
+  return n;
+}
+// Optional short product facts (migration 209), trimmed; blank becomes null.
+function shortText(v, max, label) {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const s = String(v).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  if (!s) return null;
+  if (s.length > max) throw err(422, 'FIELD_TOO_LONG', `${label} can be up to ${max} characters.`);
+  return s;
+}
+// Sale Price (the ONE marketplace price). null = not priced yet (allowed only while the item is a draft or removed).
+function normalizePrice(v) {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n) || n <= 0) throw err(422, 'PRICE_INVALID', 'Enter a Sale Price above zero.');
+  if (n > 100000000) throw err(422, 'PRICE_INVALID', 'The Sale Price is above the $1,000,000 limit per item.');
+  return n;
+}
+// What an item needs before it can be published (status 'active'). The database enforces the price (migration 209).
+function publishProblems(item) {
+  const out = [];
+  if (!(Number(item.price_cents) > 0)) out.push({ code: 'PRICE_REQUIRED', message: 'Set a Sale Price before publishing.' });
+  if (item.quantity != null && Number(item.quantity) < 1) out.push({ code: 'QUANTITY_ZERO', message: 'Quantity is 0. Set how many you have before publishing.' });
+  return out;
+}
+function assertPublishable(item) {
+  const p = publishProblems(item);
+  if (p.length) { const e = err(422, p[0].code, p.map((x) => x.message).join(' ')); e.problems = p; throw e; }
+}
+
 function inventoryConflict(e) {
   if (e && e.code === '23505' && /inventory_number/.test(String(e.constraint || e.message || ''))) {
     throw err(409, 'INVENTORY_NUMBER_TAKEN', 'You already have a listing with that inventory number.');
@@ -92,24 +129,28 @@ const UNSOLD_JOIN = `
    AND l.winning_buyer_user_id IS NULL
    AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.lot_id = l.id AND p.status IN ('pending','paid'))`;
 
-// Eligible unsold lots for a seller that are NOT already converted (for the Unsold Inventory Center).
+// Eligible unsold lots for a seller that are NOT already posted (the "From Auctions" list). Auction prices (reserve,
+// starting bid, bids) are deliberately not returned: a marketplace Sale Price is the seller's own new decision
+// (owner rule 2026-10-30), never carried over from the auction.
 async function listUnsoldEligible(sellerId, runner = db) {
   const { rows } = await runner.query(
-    `SELECT l.id, l.title, l.description, l.category, l.condition, l.thumbnail_url,
-            l.reserve_cents, l.reserve_not_met, l.starting_bid_cents, l.current_bid_cents, l.bid_count,
-            a.id AS auction_id, a.title AS auction_title, a.city, a.address_state AS state, a.zip,
-            (SELECT count(*)::int FROM marketplace_items mi WHERE mi.source_lot_id = l.id) AS converted
+    `SELECT l.id, l.title, l.description, l.category, l.category_key, l.condition, l.thumbnail_url,
+            COALESCE(l.lot_number_display, l.lot_number::text) AS lot_number,
+            (SELECT count(*)::int FROM lot_images li WHERE li.lot_id = l.id) AS photo_count,
+            a.id AS auction_id, a.title AS auction_title, a.city, a.address_state AS state, a.end_time AS auction_closed_at
      ${UNSOLD_JOIN}
        AND NOT EXISTS (SELECT 1 FROM marketplace_items mi WHERE mi.source_lot_id = l.id)
      ORDER BY a.end_time DESC NULLS LAST, l.lot_number ASC, l.lot_number_display ASC`, [sellerId]);
   return rows;
 }
 
-// Deterministic default asking price for an unsold lot (never exposes "reserve" as a concept downstream).
-function defaultPrice(lot, policy) {
-  const candidates = [lot.reserve_cents, lot.starting_bid_cents, lot.current_bid_cents].map((n) => Number(n) || 0);
-  const first = candidates.find((n) => n > 0);
-  return first || 0;
+// A lot's dimensions as text (lots store { height, width, depth } from the catalog builder, or older free text).
+function lotDimensionsText(d) {
+  if (d == null) return null;
+  if (typeof d === 'string') { try { d = JSON.parse(d); } catch (_) { return d.trim() || null; } }
+  if (typeof d !== 'object') return String(d);
+  const parts = [['H', d.height], ['W', d.width], ['D', d.depth]].filter(([, v]) => v != null && String(v).trim() !== '').map(([k, v]) => `${String(v).trim()} ${k}`);
+  return parts.length ? parts.join(' x ') + ' in.' : null;
 }
 
 async function lotImages(lotId, runner = db) {
@@ -118,10 +159,16 @@ async function lotImages(lotId, runner = db) {
 }
 
 /**
- * ONE-BUTTON: convert an eligible unsold lot → a fixed-price marketplace listing. Server-derives ownership
- * from actingUserId; verifies professional + ownership + unsold eligibility; idempotent; transactional.
- * opts.priceCents (optional override), opts.edits (optional {title,description,price_cents,shippable,...}).
- * Returns { item, created }. Never mutates the source lot/auction.
+ * POST TO THE MARKET: an eligible unsold auction lot → a marketplace DRAFT. Server-derives ownership from actingUserId;
+ * verifies professional + ownership + auction closeout + unsold eligibility; idempotent (one listing per lot,
+ * database-unique); transactional. Never mutates the source lot/auction.
+ *   - Reuses the lot's title, description, condition, dimensions, material, era, maker and photographs.
+ *   - Keeps the auction relationship internally (source lot/auction, original lot number).
+ *   - Category: the lot's taxonomy category, otherwise the automatic classifier (storefrontCategoryService).
+ *   - Sale Price: ONLY what the seller sets now (opts.priceCents) or later. Reserve prices, starting bids and bid amounts
+ *     are never carried over (owner rule 2026-10-30). Without a price the item stays a draft until the seller sets one.
+ *   - Always a draft: the seller reviews and publishes it from the inventory editor.
+ * opts: { priceCents, inventoryNumber, edits }. Returns { item, created, needs_pickup_location, needs_price }.
  */
 async function convertLotToListing(lotId, actingUserId, opts = {}) {
   return withTransaction(async (client) => {
@@ -139,28 +186,35 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
     // NOTE: alias the auction's address_state to a_state so it does NOT collide with l.state (from l.*).
     const lot = (await client.query(
       `SELECT l.*, a.seller_id, a.city, a.address_state AS a_state, a.zip, a.id AS auction_id, a.is_demo AS auction_demo,
-              a.street_address AS a_street
+              a.street_address AS a_street, a.state AS auction_state
          FROM lots l JOIN auctions a ON a.id = l.auction_id
         WHERE l.id = $1 AND a.seller_id = $2 FOR UPDATE OF l`, [lotId, seller.id])).rows[0];
     if (!lot) throw err(404, 'LOT_NOT_FOUND', 'Lot not found or not owned by you.');
-    if (lot.state !== 'closed') throw err(409, 'NOT_CLOSED', 'Only a closed auction lot can be moved to Marketplace.');
+    if (lot.state !== 'closed') throw err(409, 'NOT_CLOSED', 'Only a closed auction lot can be posted to the market.');
     if (lot.is_withdrawn) throw err(409, 'WITHDRAWN', 'This lot was withdrawn.');
     if (lot.winning_buyer_user_id) throw err(409, 'ALREADY_SOLD', 'This lot sold at auction and cannot be relisted.');
     const paid = (await client.query("SELECT 1 FROM payments WHERE lot_id = $1 AND status IN ('pending','paid') LIMIT 1", [lotId])).rows[0];
     if (paid) throw err(409, 'HAS_PAYMENT', 'This lot has an active purchase and cannot be relisted.');
+    // Auction closeout: every lot of the auction has closed and the auction itself is closed.
+    if (lot.auction_state !== 'closed') throw err(409, 'AUCTION_NOT_CLOSED', 'Post to the Market is available once the whole auction has closed.');
 
-    const price = opts.priceCents != null ? Math.max(0, parseInt(opts.priceCents, 10)) : defaultPrice(lot, seller.unsold_price_policy);
-    if (!price || price <= 0) throw err(422, 'PRICE_REQUIRED', 'Set a Marketplace price (no reserve/start price was available to default from).');
+    // Sale Price: only the seller's own new price. Never the reserve, starting bid or any bid.
+    const price = normalizePrice(opts.priceCents) || null;
+    const inventoryNumber = normalizeInventoryNumber(opts.inventoryNumber);
     const images = await lotImages(lotId, client);
     const e = opts.edits || {};
     const reason = lot.reserve_not_met ? 'reserve_not_met' : (lot.bid_count > 0 ? 'unsold' : 'no_bids');
+    // Category: the lot's taxonomy category when it has one, otherwise the item's own words.
+    const cats = require('./storefrontCategoryService');
+    const cat = lot.category_key && cats.LABEL[lot.category_key]
+      ? { category_key: lot.category_key, category: cats.LABEL[lot.category_key], category_source: 'auction', category_confidence: null,
+        category_status: 'assigned', category_input: lot.category || null }
+      : cats.columns(cats.classify({ category: lot.category, title: lot.title, description: lot.description, material: lot.material }));
     // Pickup location: the originating auction's pickup address, unless the seller supplies a different one now.
     const sellerChose = hasPickupInput(e);
     const loc = sellerChose ? saleLocation.fromInput(e)
       : saleLocation.fromAuction({ street_address: lot.a_street, city: lot.city, address_state: lot.a_state, zip: lot.zip });
     const missing = saleLocation.missingParts(loc);
-    // Without a complete pickup location the listing is saved as a DRAFT (never live) and the seller is told why.
-    const status = missing.length ? 'draft' : 'active';
     const pv = pickupValues(loc, sellerChose ? 'item' : 'auction');
 
     const { rows } = await client.query(
@@ -169,21 +223,28 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
           images, thumbnail_url, city, state, zip, shippable, shipping_cost_cents, shipping_notes, pickup_group,
           status, is_demo, converted_by_user_id, conversion_reason, converted_at,
           pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code, pickup_country,
-          pickup_location_source, pickup_location_updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21, now(),
-               $22,$23,$24,$25,$26,$27,$28, now())
+          pickup_location_source, pickup_location_updated_at,
+          inventory_number, quantity, dimensions, material, era_or_period, manufacturer, source_lot_number,
+          category_key, category_source, category_confidence, category_status, category_input, category_updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,'draft',$18,$19,$20, now(),
+               $21,$22,$23,$24,$25,$26,$27, now(),
+               $28, 1, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, now())
        RETURNING *`,
       [seller.id, lot.auction_id, lotId,
-       (e.title || lot.title || 'Item'), (e.description != null ? e.description : lot.description), lot.category, lot.condition,
+       (e.title || lot.title || 'Item'), (e.description != null ? e.description : lot.description), cat.category || lot.category || null, lot.condition,
        price, JSON.stringify(images), lot.thumbnail_url || images[0] || null,
        loc.city || lot.city, loc.state || lot.a_state, loc.postal_code || lot.zip,
        // Owner rule: a converted auction lot always starts PICKUP ONLY, whatever the lot's auction shipping settings were;
        // the seller turns shipping on for the listing deliberately, with complete shipping terms.
        false, null, null, lot.pickup_group,
-       status, !!lot.auction_demo, sellerActor.actorUserId(actingUserId), reason,
+       !!lot.auction_demo, sellerActor.actorUserId(actingUserId), reason,
        pv.pickup_address_line1, pv.pickup_address_line2, pv.pickup_city, pv.pickup_state, pv.pickup_postal_code, pv.pickup_country,
-       pv.pickup_location_source]);
-    return { item: rows[0], created: true, needs_pickup_location: missing.length ? missing : undefined };
+       pv.pickup_location_source,
+       inventoryNumber, shortText(lotDimensionsText(lot.dimensions), 200, 'Dimensions') || null, shortText(lot.material, 200, 'Material') || null,
+       shortText(lot.era, 200, 'Era') || null, shortText(lot.maker_artist, 200, 'Maker') || null,
+       String(lot.lot_number_display || lot.lot_number || '').slice(0, 64) || null,
+       cat.category_key, cat.category_source, cat.category_confidence, cat.category_status, cat.category_input]).catch(inventoryConflict);
+    return { item: rows[0], created: true, needs_pickup_location: missing.length ? missing : undefined, needs_price: !price || undefined };
   });
 }
 
@@ -196,8 +257,21 @@ async function createDirectListing(actingUserId, data = {}, opts = {}) {
   if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
   const title = (data.title || '').trim();
   if (!title) throw err(400, 'TITLE_REQUIRED', 'A title is required.');
-  const price = Math.max(0, parseInt(data.price_cents, 10) || 0);
-  if (!price) throw err(422, 'PRICE_REQUIRED', 'A price is required.');
+  // Sale Price: required to publish; a draft may be saved without one (imports, Post to the Market).
+  const price = normalizePrice(data.price_cents);
+  const quantity = normalizeQuantity(data.quantity);
+  if (data.status !== 'draft') assertPublishable({ price_cents: price, quantity });
+  const dimensions = shortText(data.dimensions, 200, 'Dimensions') || null;
+  const color = shortText(data.color, 80, 'Color') || null;
+  // Category: a seller's pick from the taxonomy, or the automatic classification an import supplies (opts.category).
+  // A hand-entered item without a category is categorised automatically, like an imported one.
+  const cats = require('./storefrontCategoryService');
+  let catCols = opts.category || null;
+  if (data.category_key) catCols = cats.sellerChoice(data.category_key);
+  else if (!catCols && data.category) {
+    const k = require('../constants/lotCategories').normalizeToCategoryKey(data.category);
+    catCols = k ? cats.sellerChoice(k) : { category: String(data.category).slice(0, 100), category_key: null, category_source: 'seller', category_status: 'assigned' };
+  } else if (!catCols) catCols = cats.columns(cats.classify({ title, description: data.description, material: data.material }));
   const images = Array.isArray(data.images) ? data.images.filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u)).slice(0, 24) : [];
   // Optional product details (brand, barcode, part number, condition type, era, material, photo descriptions): only
   // what the seller actually entered; an invalid barcode is refused, never corrected (src/lib/productData.js).
@@ -222,7 +296,8 @@ async function createDirectListing(actingUserId, data = {}, opts = {}) {
   const place = publicPlace(eff.address);
   // Only an import names these columns (migration 207), so ordinary listings never depend on that migration.
   const importCols = opts.importBatchId ? ', import_batch_id, import_row' : '';
-  const importVals = opts.importBatchId ? ',$42,$43' : '';
+  const importVals = opts.importBatchId ? ',$52,$53' : '';
+  const cat = catCols || {};
   const { rows } = await db.query(
     `INSERT INTO marketplace_items
        (seller_id, title, description, category, condition, price_cents, images, thumbnail_url, city, state, zip,
@@ -230,11 +305,13 @@ async function createDirectListing(actingUserId, data = {}, opts = {}) {
         pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code, pickup_country,
         pickup_location_source, pickup_location_updated_at,
         brand, manufacturer, gtin, mpn, condition_type, era_or_period, material, image_alt,
-        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile, inventory_number${importCols})
+        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile, inventory_number,
+        quantity, dimensions, color, category_key, category_source, category_confidence, category_status, category_input, category_updated_at,
+        source_lot_number${importCols})
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'direct',
              $18,$19,$20,$21,$22,$23,$24,$25, $26,$27,$28,$29,$30,$31,$32,$33::jsonb,
-             $34,$35,$36,$37,$38,$39,$40,$41${importVals}) RETURNING *`,
-    [seller.id, title, data.description || null, data.category || null, data.condition || null, price,
+             $34,$35,$36,$37,$38,$39,$40,$41, $42,$43,$44,$45,$46,$47,$48,$49,$50, $51${importVals}) RETURNING *`,
+    [seller.id, title, data.description || null, (cat.category !== undefined ? cat.category : (data.category || null)), data.condition || null, price,
      JSON.stringify(images), images[0] || null, place.city || data.city || null, place.state || data.state || null, place.zip || data.zip || null,
      sh.shippable, sh.shipping_cost_cents, sh.shipping_notes, data.pickup_group || null, status, !!seller.is_demo,
      pv.pickup_address_line1, pv.pickup_address_line2, pv.pickup_city, pv.pickup_state, pv.pickup_postal_code, pv.pickup_country,
@@ -242,7 +319,11 @@ async function createDirectListing(actingUserId, data = {}, opts = {}) {
      pd.brand || null, pd.manufacturer || null, pd.gtin || null, pd.mpn || null, pd.condition_type || null, pd.era_or_period || null,
      pd.material || null, JSON.stringify(pd.image_alt || []),
      sh.shipping_method, sh.shipping_price_mode, sh.shipping_destinations, sh.shipping_states || [], sh.handling_days, !!sh.is_oversized, !!sh.is_fragile,
-     inventoryNumber || null, ...(opts.importBatchId ? [opts.importBatchId, opts.importRow] : [])]).catch(inventoryConflict);
+     inventoryNumber || null,
+     quantity, dimensions, color, cat.category_key || null, cat.category_source || null, cat.category_confidence != null ? cat.category_confidence : null,
+     cat.category_status || null, cat.category_input || null, catCols ? new Date() : null,
+     shortText(opts.sourceLotNumber, 64, 'Lot number') || null,
+     ...(opts.importBatchId ? [opts.importBatchId, opts.importRow] : [])]).catch(inventoryConflict);
   return rows[0];
 }
 
@@ -297,8 +378,21 @@ async function updateItem(id, actingUserId, patch = {}) {
   const sets = []; const vals = [id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
   if (patch.title != null) add('title', String(patch.title).trim());
   if (patch.description != null) add('description', patch.description);
-  if (patch.price_cents != null) add('price_cents', Math.max(0, parseInt(patch.price_cents, 10) || 0));
-  if (patch.category != null) add('category', patch.category);
+  // Sale Price: null clears it (allowed only while the item stays a draft; checked below and by the database).
+  const nextPrice = normalizePrice(patch.price_cents);
+  if (nextPrice !== undefined) add('price_cents', nextPrice);
+  if (patch.quantity !== undefined) add('quantity', normalizeQuantity(patch.quantity));
+  const dims = shortText(patch.dimensions, 200, 'Dimensions'); if (dims !== undefined) add('dimensions', dims);
+  const color = shortText(patch.color, 80, 'Color'); if (color !== undefined) add('color', color);
+  // Category: the seller's own choice from the taxonomy is final (automatic processing never overwrites it). A legacy
+  // free-text category is kept as the seller's choice too, mapped to the taxonomy when it names one.
+  if (patch.category_key !== undefined && patch.category_key !== null && patch.category_key !== '') {
+    for (const [k, v] of Object.entries(require('./storefrontCategoryService').sellerChoice(patch.category_key))) add(k, v);
+  } else if (patch.category != null) {
+    const key = require('../constants/lotCategories').normalizeToCategoryKey(patch.category);
+    if (key) for (const [k, v] of Object.entries(require('./storefrontCategoryService').sellerChoice(key))) add(k, v);
+    else { add('category', patch.category); add('category_key', null); add('category_source', 'seller'); add('category_status', 'assigned'); add('category_updated_at', new Date()); }
+  }
   if (patch.condition != null) add('condition', patch.condition);
   // Shipping settings: validated against the item's current terms (src/lib/storefrontShipping.js); turning shipping on
   // needs complete terms, and a blank price is never free. Only this item changes — never other listings.
@@ -334,8 +428,15 @@ async function updateItem(id, actingUserId, patch = {}) {
     if (place.state) add('state', place.state);
     if (place.zip) add('zip', place.zip);
   }
-  // A live item always has a complete pickup location.
+  // A published item always has a Sale Price and something to sell.
   const nextStatus = patch.status != null ? patch.status : item.status;
+  const touchesSale = patch.status != null || nextPrice !== undefined || patch.quantity !== undefined;
+  if (touchesSale && ['active', 'paused'].includes(nextStatus)) {
+    // Paused (off sale for now) keeps its price but may have nothing in stock; published needs both.
+    assertPublishable({ price_cents: nextPrice !== undefined ? nextPrice : item.price_cents,
+      quantity: nextStatus === 'paused' ? null : (patch.quantity !== undefined ? normalizeQuantity(patch.quantity) : item.quantity) });
+  }
+  // A live item always has a complete pickup location.
   if (nextStatus === 'active' && (patch.status === 'active' || locationChanged)) {
     if (eff.missing && eff.missing.length) throw pickupRequiredError(eff.missing);
   }
@@ -496,6 +597,8 @@ const PUBLIC_ITEM_FIELDS = ['id', 'title', 'description', 'category', 'condition
   'city', 'state', 'shippable', 'shipping_cost_cents', 'shipping_notes', 'status', 'created_at', 'updated_at', 'storefront_slug',
   // product data the seller chose to give (migration 200) — public by nature; never invented
   'brand', 'manufacturer', 'gtin', 'mpn', 'condition_type', 'era_or_period', 'material', 'image_alt',
+  // seller-provided facts and the taxonomy category (migration 209); the category's origin and confidence stay private
+  'dimensions', 'color', 'category_key',
   // seller-set shipping terms (migration 201) — public by nature
   'shipping_method', 'shipping_price_mode', 'shipping_destinations', 'shipping_states', 'handling_days', 'is_oversized', 'is_fragile'];
 function publicItem(row) {
@@ -537,6 +640,7 @@ async function listingForLot(lotId, runner = db) {
 module.exports = {
   appendPhotos, setItemPhotos, MAX_PHOTOS, SELLER_TRANSITIONS, _normalizeInventoryNumber: normalizeInventoryNumber,
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
-  listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, defaultPrice, UNSOLD_JOIN,
+  listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, UNSOLD_JOIN,
+  normalizePrice, normalizeQuantity, publishProblems,
   publicItem, PICKUP_COLUMNS, staffItemView,
 };

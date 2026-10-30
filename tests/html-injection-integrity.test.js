@@ -45,7 +45,7 @@ function scriptsOf(html) {
 
 // null when the code is valid JavaScript, else the syntax error. Module scripts are checked without their import/export lines.
 function parses(code, isModule) {
-  try { new vm.Script(isModule ? code.replace(/^\s*(import|export).*$/gm, '') : code, { filename: 'inline.js' }); return null; }
+  try { new vm.Script(isModule ? code.replace(/^\s*(import|export)\b.*$/gm, '') : code, { filename: 'inline.js' }); return null; }
   catch (e) { return e.message; }
 }
 

@@ -273,7 +273,43 @@ async function refineDescriptionFromImage({ imageUrl, base, selections }) {
    Mantel Clock"). Any future use must be explicit, scoped to dev/test, and
    visibly distinguishable from real AI output. */
 
+// ── Category from an item's own text (marketplace inventory, migration 209) ───────────────────────────────────
+// Used only for items the deterministic classifier (storefrontCategoryService) left PENDING. The answer must be one of
+// the taxonomy keys passed in, with a confidence; the caller assigns only above its threshold and never over a seller's
+// own choice. Returns { key, confidence } or null. Never invents item facts: it only chooses a category.
+async function classifyCategoryText({ title, description, material, category, categories }) {
+  if (!client) return null;
+  const NL = String.fromCharCode(10);
+  const list = (categories || []).map((c) => `${c.key}: ${c.label}`).join(NL);
+  const facts = [`Title: ${String(title || '').slice(0, 200)}`, description ? `Description: ${String(description).slice(0, 1200)}` : null,
+    material ? `Material: ${String(material).slice(0, 120)}` : null, category ? `Seller's category: ${String(category).slice(0, 100)}` : null].filter(Boolean).join(NL);
+  let message;
+  try {
+    message = await client.messages.create({
+      model: AI_MODEL,
+      max_tokens: 60,
+      messages: [{ role: 'user', content: `Choose the single best marketplace category for this item from the list. If none clearly fits, answer "none".
+
+Categories (key: label):
+${list}
+
+Item:
+${facts}
+
+Answer with JSON only: {"key":"<key or none>","confidence":<0 to 1>}` }],
+    });
+  } catch (err) { return null; }
+  try {
+    const raw = message.content[0].text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.key !== 'string' || parsed.key === 'none') return null;
+    const confidence = Number(parsed.confidence);
+    return Number.isFinite(confidence) ? { key: parsed.key, confidence: Math.max(0, Math.min(1, confidence)) } : null;
+  } catch (_) { return null; }
+}
+
 module.exports = {
+  classifyCategoryText,
   generateDescriptionFromImage,
   refineDescriptionFromImage,
   AIUnavailableError,

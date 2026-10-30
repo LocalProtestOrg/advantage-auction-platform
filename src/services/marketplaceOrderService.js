@@ -275,6 +275,9 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     const locked = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
     if (!locked) throw err(404, 'ITEM_NOT_FOUND', 'This item is no longer available.');
     if (locked.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
+    // One item per order until multi-quantity purchasing is built (required before live checkout; migration 209 stores the
+    // seller's quantity). An item with more than one, or none left, is never sold through this single-item path.
+    if (locked.quantity != null && Number(locked.quantity) !== 1) throw err(409, 'QUANTITY_NOT_SUPPORTED', 'This item is not available for online purchase yet. Contact the seller.');
     // Everything the order records comes from the LOCKED item and its owning seller, re-checked here: the seller, price,
     // shipping and pickup terms cannot change between the eligibility check above and this order.
     const { item, method: lockedMethod, shippingCents: lockedShipping } = await loadItemForPurchase(itemId, buyerUserId, method, client, dest);

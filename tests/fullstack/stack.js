@@ -62,7 +62,8 @@ function cleanEnv(extra) {
   return Object.assign(env, extra);
 }
 
-async function startStack({ env = {}, quiet = true } = {}) {
+// fakeStorage: replace photo storage with an in-memory stand-in (fakeStoragePreload.js) for photo workflows.
+async function startStack({ env = {}, quiet = true, fakeStorage = false } = {}) {
   const dbPort = await freePort();
   const appPort = await freePort();
   const db = spawn(process.execPath, [path.join(__dirname, 'dbServer.mjs'), String(dbPort)], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -79,7 +80,8 @@ async function startStack({ env = {}, quiet = true } = {}) {
     FRONTEND_URL: `http://127.0.0.1:${appPort}`,
     ANALYTICS_TAG_ENABLED: 'false',
   }, env));
-  const app = spawn(process.execPath, ['--require', path.join(__dirname, 'pgLocalPreload.js'), path.join(ROOT, 'server.js')], { cwd: workDir, env: appEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+  const preloads = ['pgLocalPreload.js', ...(fakeStorage ? ['fakeStoragePreload.js'] : [])].flatMap((f) => ['--require', path.join(__dirname, f)]);
+  const app = spawn(process.execPath, [...preloads, path.join(ROOT, 'server.js')], { cwd: workDir, env: appEnv, stdio: ['ignore', 'pipe', 'pipe'] });
   const logs = [];
   const keepLog = (d) => { logs.push(d.toString()); if (logs.length > 400) logs.shift(); if (!quiet) process.stdout.write(d); };
   app.stdout.on('data', keepLog); app.stderr.on('data', keepLog);

@@ -101,7 +101,7 @@
           <span class="hint" id="upStatus" style="margin-left:.5rem"></span>
           <label>Title</label><input id="m-title" placeholder="e.g. Victorian Walnut Side Table">
           <label for="m-inv">Your inventory number / SKU (optional)</label><input id="m-inv" maxlength="64" placeholder="e.g. HH-1042">
-          <div class="row2"><div><label>Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label>Category</label><input id="m-cat" placeholder="Furniture, Lighting, Art…"></div></div>
+          <div class="row2"><div><label for="m-price">Sale Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label for="m-cat">Category</label><select id="m-cat" class="cat-select"><option value="">Choose automatically</option></select></div></div>
           <label>Condition</label><input id="m-cond" placeholder="Excellent, Very Good, Good…">
           <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
           <details style="margin:.6rem 0"><summary style="cursor:pointer;font-weight:600">Product details (optional) — helps shoppers find this item</summary>
@@ -134,8 +134,8 @@
       </div>
 
       <div id="pane-unsold" style="display:none">
-        <div class="card"><h3 style="margin-bottom:.3rem">Unsold Inventory</h3><p class="hint" style="margin-bottom:.6rem">Auction lots that closed without selling. Move any of them to your Marketplace store in one click — the item carries over automatically.</p>
-          <table><thead><tr><th>Lot</th><th>Auction</th><th>Default price</th><th></th></tr></thead><tbody id="unsoldBody"><tr><td colspan="4" class="hint">Loading…</td></tr></tbody></table>
+        <div class="card"><h3 style="margin-bottom:.3rem">Unsold Inventory</h3><p class="hint" style="margin-bottom:.6rem">Lots from your closed auctions that did not sell. <b>Post to the Market</b> creates a marketplace draft with the lot's details and photos. Set its Sale Price here or later; auction prices such as reserves and bids are never carried over. Review the draft in your inventory, then publish it.</p>
+          <table><thead><tr><th>Lot</th><th>Auction</th><th>Sale Price (optional)</th><th></th></tr></thead><tbody id="unsoldBody"><tr><td colspan="4" class="hint">Loading…</td></tr></tbody></table>
         </div>
       </div>
 
@@ -176,7 +176,7 @@
     var token=null;try{token=localStorage.getItem('token');}catch(e){}
     if(!token)location.href='/login.html?next='+encodeURIComponent('/seller-storefront.html');
     function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-    function money(c){return '$'+((c||0)/100).toLocaleString();}
+    function money(c){return c==null?'Not set':'$'+((c||0)/100).toLocaleString();}
     async function api(m,u,b){var o={method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};if(b)o.body=JSON.stringify(b);var r=await fetch(u,o);if(r.status===401){location.href='/login.html';throw new Error('auth');}return r.json();}
     function msg(t,ok){var e=document.getElementById('msg');e.textContent=t;e.style.color=ok?'#166534':'#b91c1c';}
     function tab(n){['store','market','unsold','leads','widget'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});if(n==='market')loadItems();if(n==='unsold')loadUnsold();if(n==='leads')loadLeads();if(n==='widget')loadWidget();}
@@ -205,7 +205,7 @@
     document.getElementById('w-copy-code').addEventListener('click',function(){copyText('w-code','w-code-msg');});
     document.getElementById('w-copy-link').addEventListener('click',function(){copyText('w-link','w-link-msg');});
 
-    var CFG=null;
+    var CFG=null, CATS=[];
     // ── Shipping controls (src/lib/storefrontShipping.js is the authority; this only collects the seller's choices) ──
     // Pickup only is the default. Offering shipping needs a method, where it ships and a price — or a deliberate choice of
     // free shipping. A blank price is never treated as free.
@@ -300,6 +300,9 @@
       if(!r.success||!d){var dn=document.getElementById('denied');if(r.code==='SELLER_PERMISSION')dn.textContent='Your role on this seller team does not include managing items.';dn.style.display='block';return;}
       if(!d.eligible){document.getElementById('denied').style.display='block';return;}
       document.getElementById('content').style.display='block';
+      // The one category list (the same categories everywhere on Advantage.Bid).
+      try{var cr=await api('GET','/api/seller-storefront/categories');CATS=cr.data||[];
+        document.querySelectorAll('.cat-select').forEach(function(s){s.insertAdjacentHTML('beforeend',CATS.map(function(c){return '<option value="'+esc(c.key)+'">'+esc(c.label)+'</option>';}).join(''));});}catch(e){}
       setupShipUI();
       if(!d.staff)loadPolicies();
       if(d.staff){
@@ -397,7 +400,7 @@
       box.innerHTML='<div class="card" style="margin:.5rem 0;padding:.8rem">'
         +f('title','Title',m.title)
         +f('inv','Your inventory number / SKU',m.inventory_number,' maxlength="64"')
-        +'<div class="row2"><div>'+f('price','Price (USD)',m.price_cents!=null?(m.price_cents/100):'',' type="number" min="0" step="0.01"')+'</div><div>'+f('cat','Category',m.category)+'</div></div>'
+        +'<div class="row2"><div>'+f('price','Sale Price (USD)',m.price_cents!=null?(m.price_cents/100):'',' type="number" min="0" step="0.01"')+'</div><div><label for="e-cat-'+id+'">Category</label><select id="e-cat-'+id+'"><option value="">'+(m.category&&!m.category_key?esc(m.category):'Not set')+'</option>'+CATS.map(function(c){return '<option value="'+esc(c.key)+'"'+(m.category_key===c.key?' selected':'')+'>'+esc(c.label)+'</option>';}).join('')+'</select></div></div>'
         +f('cond','Condition details',m.condition)
         +'<label for="e-desc-'+id+'">Description</label><textarea id="e-desc-'+id+'" rows="3">'+esc(m.description||'')+'</textarea>'
         +'<p class="hint" style="margin:.6rem 0 .2rem;color:#475569"><b>Product details (optional)</b> — fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number.</p>'
@@ -417,12 +420,17 @@
     async function saveDetails(id,btn){
       var m=ITEMS.find(function(x){return x.id===id;})||{}; var v=function(k){var el=document.getElementById('e-'+k+'-'+id);return el?el.value.trim():'';};
       if(!v('title')){msg('Please add a title.');return;}
-      var price=Math.round(parseFloat(v('price'))*100); if(!(price>0)){msg('Please add a price.');return;}
+      // A draft may stay unpriced; a published or paused item needs its Sale Price.
+      var price=v('price')?Math.round(parseFloat(v('price'))*100):null;
+      if(price!==null&&!(price>0)){msg('Enter a Sale Price above zero.');return;}
+      if(price===null&&m.status!=='draft'){msg('Please add a Sale Price.');return;}
       var n=(m.images&&m.images.length?m.images.length:(m.thumbnail_url?1:0)); var alts=[]; for(var i=0;i<n;i++)alts.push(v('alt'+i));
       var ship=readShip('es'+id,false,true); if(ship.error){msg(ship.error);return;}
-      var body=Object.assign({title:v('title'),price_cents:price,category:v('cat'),condition:v('cond'),description:v('desc'),
+      var catKey=v('cat');
+      var body=Object.assign({title:v('title'),price_cents:price,condition:v('cond'),description:v('desc'),
         condition_type:v('ctype')||null,era_or_period:v('era'),brand:v('brand'),manufacturer:v('maker'),material:v('material'),mpn:v('mpn'),gtin:v('gtin'),image_alt:alts,
         inventory_number:v('inv')},ship);
+      if(catKey&&catKey!==m.category_key)body.category_key=catKey;
       btn.disabled=true; var r=await api('PATCH','/api/seller-storefront/items/'+id,body);
       if(r.success){msg('Changes saved.',true);loadItems();} else{msg(r.message||'Could not save');btn.disabled=false;}
     }
@@ -487,7 +495,7 @@
       if(pk){var pkMissing=pickupMissing(pk);if(pkMissing.length){msg('This item\'s location is missing: '+pkMissing.join(', ')+'.');document.getElementById('m-pk1').focus();return;}}
       else if(!DEFLOC){msg('Confirm your storefront pickup location first (top of this page), or change the location for this item.');document.getElementById('loc-card').scrollIntoView({behavior:'smooth'});return;}
       var ship=readShip('m'); if(ship.error){msg(ship.error);return;}
-      var body=Object.assign({title:g('m-title'),price_cents:price,category:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
+      var body=Object.assign({title:g('m-title'),price_cents:price,category_key:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
         images:UPLOADED.slice(),
         condition_type:document.getElementById('m-ctype').value||null,era_or_period:g('m-era'),brand:g('m-brand'),manufacturer:g('m-maker'),
         material:g('m-material'),mpn:g('m-mpn'),gtin:g('m-gtin'),inventory_number:g('m-inv')},ship);
@@ -512,19 +520,22 @@
     async function loadUnsold(){
       var r=await api('GET','/api/seller-storefront/unsold-lots');var rows=r.data||[];
       document.getElementById('unsoldBody').innerHTML=rows.length?rows.map(function(l){
-        var price=l.reserve_cents||l.starting_bid_cents||l.current_bid_cents||0;
-        return '<tr><td>'+esc(l.title||('Lot '))+'</td><td class="hint">'+esc(l.auction_title||'')+'</td><td>'+(price?money(price):'<span class="hint">set price</span>')+'</td><td><button class="btn b-green" onclick="convert(\''+l.id+'\',this)">Post to Marketplace</button></td></tr>';
-      }).join(''):'<tr><td colspan="4" class="hint">No unsold lots right now. When an auction lot closes without selling, it will appear here.</td></tr>';
+        return '<tr><td>'+esc(l.title||'Lot')+(l.lot_number?'<div class="hint">Lot '+esc(l.lot_number)+'</div>':'')+'</td><td class="hint">'+esc(l.auction_title||'')+'</td>'
+          +'<td><input id="up-'+esc(l.id)+'" type="number" min="0.01" step="0.01" placeholder="Set later" aria-label="Sale Price for '+esc(l.title||'this lot')+'" style="width:110px"></td>'
+          +'<td><button class="btn b-green" onclick="convert(\''+l.id+'\',this)">Post to the Market</button></td></tr>';
+      }).join(''):'<tr><td colspan="4" class="hint">No unsold lots right now. When an auction closes with lots that did not sell, they appear here.</td></tr>';
     }
     async function convert(lotId,btn){
+      var pv=(document.getElementById('up-'+lotId)||{}).value||'';var body={};
+      if(pv){var c=Math.round(parseFloat(pv)*100);if(!(c>0)){msg('Enter a Sale Price above zero, or leave it blank to set it later.');return;}body.price_cents=c;}
       btn.disabled=true;btn.textContent='Posting…';
-      try{var r=await api('POST','/api/seller-storefront/unsold-lots/'+lotId+'/convert',{});
+      try{var r=await api('POST','/api/seller-storefront/unsold-lots/'+lotId+'/convert',body);
         if(r.success){
-          if(r.needs_pickup_location)msg('Saved as a draft: the auction had no complete pickup address. Add the item\'s pickup location in Marketplace Items to put it live.');
-          else msg(r.created?'Posted to Marketplace — now live in your store.':'Already in your Marketplace.',true);
+          var notes=[];if(r.needs_price)notes.push('set its Sale Price');if(r.needs_pickup_location)notes.push('add its pickup location');
+          msg(r.created?('Posted to the Market as a draft.'+(notes.length?' Before publishing, '+notes.join(' and ')+'.':' Review it in your inventory, then publish it.')):'This lot is already in your inventory.',true);
           loadUnsold();}
-        else{msg(r.message||'Could not post');btn.disabled=false;btn.textContent='Post to Marketplace';}
-      }catch(e){msg('Error');btn.disabled=false;btn.textContent='Post to Marketplace';}
+        else{msg(r.message||'Could not post');btn.disabled=false;btn.textContent='Post to the Market';}
+      }catch(e){msg('Error');btn.disabled=false;btn.textContent='Post to the Market';}
     }
     async function loadLeads(){
       var r=await api('GET','/api/seller-storefront/inquiries');var rows=r.data||[];

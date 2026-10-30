@@ -23,7 +23,7 @@ const LOT = { id: 'lot-1', auction_id: 'auc-1', seller_id: 'seller-1', state: 'c
   winning_buyer_user_id: null, reserve_cents: 8000, starting_bid_cents: 5000, current_bid_cents: 0, bid_count: 0,
   title: 'Antique Lamp', description: 'Nice', category: 'Lighting', condition: 'Good', thumbnail_url: null,
   shippable: true, shipping_cost_cents: 1500, shipping_notes: null, pickup_group: 'B_group',
-  city: 'Maplewood', a_state: 'OH', zip: '44060', auction_demo: false };
+  city: 'Maplewood', a_state: 'OH', zip: '44060', auction_demo: false, auction_state: 'closed', lot_number_display: '12' };
 
 function client(routes, rec) {
   return { query: async (sql, params) => {
@@ -38,7 +38,7 @@ const convRoutes = (over = {}) => ([
   [/FROM lots l JOIN auctions a/, { rows: over.lot === null ? [] : [over.lot || LOT] }],
   [/FROM payments WHERE lot_id/, { rows: over.paid || [] }],
   [/FROM lot_images WHERE lot_id/, { rows: over.images || [] }],
-  [/INSERT INTO marketplace_items/, (p) => ({ rows: [{ id: 'item-1', source_lot_id: 'lot-1', price_cents: p[7], status: 'active', conversion_reason: p[19] }] })],
+  [/INSERT INTO marketplace_items/, (p) => ({ rows: [{ id: 'item-1', source_lot_id: 'lot-1', price_cents: p[7], status: 'draft', conversion_reason: p[19] }] })],
 ]);
 beforeEach(() => { db.query.mockReset(); mockClient = null; });
 
@@ -66,15 +66,23 @@ describe('auction→Marketplace conversion — eligibility', () => {
 });
 
 describe('auction→Marketplace conversion — success + safety', () => {
-  test('eligible unsold lot converts: carries data, links source, prices from reserve, active', async () => {
+  // Post to the Market (owner rule 2026-10-30): a DRAFT whose Sale Price is only what the seller sets. The reserve
+  // (8000), starting bid (5000) and bids are never carried over.
+  test('eligible unsold lot is posted as a draft: carries data, links source, NO auction price', async () => {
     const rec = [];
     mockClient = client(convRoutes(), rec);
     const r = await items.convertLotToListing('lot-1', 'user-1', {});
     expect(r.created).toBe(true);
+    expect(r.needs_price).toBe(true);
     const ins = rec.find((c) => /INSERT INTO marketplace_items/.test(c.sql));
+    expect(ins.sql).toMatch(/'draft'/);
     expect(ins.params[2]).toBe('lot-1');       // source_lot_id linkage
-    expect(ins.params[7]).toBe(8000);          // price = reserve_cents default
+    expect(ins.params[7]).toBeNull();          // no Sale Price until the seller sets one
+    expect(ins.params).not.toContain(8000);    // never the reserve
+    expect(ins.params).not.toContain(5000);    // never the starting bid
     expect(ins.params).toContain('Antique Lamp'); // title carried
+    expect(ins.params).toContain('12');           // original lot number kept as an internal reference
+    expect(ins.params).toContain('lighting');     // category from the lot's own words
     // NEVER mutates the source lot/auction history
     expect(rec.some((c) => /UPDATE lots/.test(c.sql))).toBe(false);
     expect(rec.some((c) => /UPDATE auctions/.test(c.sql))).toBe(false);
@@ -87,10 +95,18 @@ describe('auction→Marketplace conversion — success + safety', () => {
     expect(r.item.id).toBe('item-existing');
     expect(rec.some((c) => /INSERT INTO marketplace_items/.test(c.sql))).toBe(false);
   });
-  test('price default falls back reserve → start → current', () => {
-    expect(items.defaultPrice({ reserve_cents: 8000, starting_bid_cents: 5000 })).toBe(8000);
-    expect(items.defaultPrice({ reserve_cents: 0, starting_bid_cents: 5000 })).toBe(5000);
-    expect(items.defaultPrice({ reserve_cents: null, starting_bid_cents: 0, current_bid_cents: 3000 })).toBe(3000);
+  test('the Sale Price the seller sets is used; auction prices never are', async () => {
+    const rec = [];
+    mockClient = client(convRoutes(), rec);
+    const r = await items.convertLotToListing('lot-1', 'user-1', { priceCents: 12500 });
+    expect(r.needs_price).toBeUndefined();
+    const ins = rec.find((c) => /INSERT INTO marketplace_items/.test(c.sql));
+    expect(ins.params[7]).toBe(12500);
+    expect(items.defaultPrice).toBeUndefined();   // the reserve-based default is gone
+  });
+  test('an auction that has not fully closed cannot be posted yet', async () => {
+    mockClient = client(convRoutes({ lot: { ...LOT, auction_state: 'active' } }));
+    await expect(items.convertLotToListing('lot-1', 'user-1', {})).rejects.toMatchObject({ code: 'AUCTION_NOT_CLOSED' });
   });
 });
 
