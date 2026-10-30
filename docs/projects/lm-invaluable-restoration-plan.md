@@ -94,3 +94,9 @@ Account: Lewis & Maese Antiques & Auctions, lmauctionco.com.
 - **Live probe.** The provider-neutral probe ran live against lmauctionco.com with the honest identity. It made one request: `robots.txt` returned 403 from the provider's edge (CloudFront), classified `host_firewall_refusal`, and nothing more was requested.
 - **Remaining external dependency.** The hosting provider must allow the importer.
 - **Working alternatives** once released: a sending key (push) for any tool Lewis & Maese controls, and posting on Advantage.Bid.
+
+## Status 2026-10-30: DEFERRED (not completed)
+- Discovery is live in production (`main@10135ee`), and the Lewis & Maese website and attribution corrections were applied and audited.
+- Automatic collection remains blocked by Invaluable's access restrictions. The two missing events still need an authorized method.
+- Work on this integration is paused by owner decision. Open items: `event-discovery-runbook.md`, "Deferred work".
+

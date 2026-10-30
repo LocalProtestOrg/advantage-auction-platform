@@ -2,6 +2,8 @@
 
 Built 2026-10-29 on branch `feat/provider-neutral-event-discovery`. The design is in `provider-neutral-event-discovery-design.md`, and the owner approved executing all phases. Migration 208.
 
+**Status 2026-10-30: LIVE in production, remaining work DEFERRED (not completed).** See "Deferred work" at the end.
+
 ## What it does
 1. **Authorize.** A company authorizes once and gives its website.
    - **Members:** the "Import My Events" page (`/org/event-promotion.html`; API `/api/org/event-distribution`). This is trust-ladder Path C, statement v2.
@@ -83,3 +85,26 @@ Built 2026-10-29 on branch `feat/provider-neutral-event-discovery`. The design i
   - a sending key (push) for any tool Lewis & Maese controls;
   - posting on Advantage.Bid.
 - **Who authorizes.** The Lewis & Maese organization's only member is its BD-bridge owner identity, so its owner authorizes from the dashboard. The domain verifies automatically against the organization's recorded website, which is decoded on read.
+
+## Deferred work (owner decision 2026-10-30: DEFERRED, not completed)
+Development priority moved to the Professional Seller Storefront, the marketplace inventory importer and seller agreement signing. Do not spend development time on Invaluable or the event importer unless a critical production issue is discovered.
+
+**State at deferral**
+- Provider-neutral event discovery is live in production at `main@10135ee` (Railway deployment `f3de14fd`, 2026-10-30).
+- Migration 208 is applied. Backup branch: `prod-pre-208-2026-10-30` (`br-muddy-waterfall-anahtcsj`).
+- The discovery switch (`EVENT_DISCOVERY_ENABLED`), the intake switch (`EVENT_INTAKE_ENABLED`) and the collection switch (`event_partners.collection_enabled`) are all on.
+- No Event Partner has completed authorization: all 10 are `invited`. There are no collection channels, probes or sending keys yet.
+- The Marketing Director already reports the missing source (`FORMER_SOURCE_PARTNER`, Lewis & Maese).
+
+**Open items**
+1. **Lewis & Maese automatic collection: blocked.** Invaluable's edge firewall (CloudFront) refuses the honest identity, `robots.txt` included. Possible resolutions, none started:
+   - authorized provider access (Invaluable allows the importer; questions in `lm-invaluable-restoration-plan.md`);
+   - a seller-controlled outbound feed (iCal, RSS with event dates, or schema.org JSON-LD);
+   - a sending key (push);
+   - direct event posting on Advantage.Bid.
+2. **The two missing Lewis & Maese events** still need to be supplied through an authorized method. Their details are never invented.
+3. **Production smoke tests outstanding:**
+   - the authenticated admin-page test (`/admin/event-discovery.html`): the seeded `validation-admin@advantage.bid` is suspended in production, and test accounts are not modified;
+   - a live authorized collection test (a real company authorizes, confirms a channel, and collects).
+4. **Lower priority, separate cleanup:** two Georgia estate sales from the old paused EstateSales import exist twice each (relisted July/August with "50% off" titles), at `estatesales.net/GA/Stone-Mountain/30083/5012055` and `estatesales.net/GA/Waleska/30183/4984785`. Not created by discovery.
+

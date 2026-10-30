@@ -1,6 +1,6 @@
 # Provider-Neutral, Consent-Based Event Discovery: Design and Acceptance-Test Plan
 
-Status: IMPLEMENTED 2026-10-29 on `feat/provider-neutral-event-discovery` (owner authorized all phases). Not deployed. Operations: `event-discovery-runbook.md`.
+Status: IMPLEMENTED 2026-10-29; LIVE in production 2026-10-30 (`main@10135ee`, migration 208). Remaining work DEFERRED (owner decision 2026-10-30): see "Deferred work" in `event-discovery-runbook.md`.
 
 Changes from this design, made during implementation and security review:
 - Domain claims are verified. The claim must match the organization's recorded website or the requester's email domain; otherwise an administrator approves it.
