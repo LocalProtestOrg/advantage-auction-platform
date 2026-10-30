@@ -37,7 +37,9 @@ describe('hostile markup cannot stall the server (linear scanning, capped input)
     ['unclosed sitemap blocks', () => sitemap.parseSitemap(big('<url><loc>'))],
     ['unclosed RSS items', () => [...feed._parsers.parseRss('<rss>' + big('<item><title>'))]],
     ['unclosed JSON-LD scripts', () => [...feed._parsers.parseJsonLd(big('<script type="application/ld+json">'))]],
-  ])('%s', (_, fn) => { expect(timed(fn)).toBeLessThan(3000); });
+  // Linear cost is ~1 s for the 1 MB cap when run alone; the quadratic regressions took minutes (153 s). The limit
+  // leaves room for a fully loaded parallel test run, where a 3 s limit flaked.
+  ])('%s', (_, fn) => { expect(timed(fn)).toBeLessThan(15000); });
 
   test('input is capped before parsing', () => {
     expect(scan.capped('x'.repeat(scan.MAX_PARSE_BYTES + 10)).length).toBe(scan.MAX_PARSE_BYTES);
