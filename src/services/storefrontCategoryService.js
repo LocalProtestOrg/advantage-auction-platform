@@ -95,17 +95,20 @@ const PHRASES = (() => {
   for (const [key, terms] of Object.entries(TERMS)) {
     for (const t of terms) {
       const forms = new Set([t, t + 's', t + 'es', t.replace(/y$/, 'ies')]);
-      for (const f of forms) out.push({ key, term: t, form: f, weak: WEAK.has(t), phrase: t.includes(' ') });
+      for (const f of forms) out.push({ key, term: t, form: f, first: f.split(' ')[0], weak: WEAK.has(t), phrase: t.includes(' ') });
     }
   }
   return out.sort((a, b) => b.form.length - a.form.length);
 })();
 
 // Matches in one text, longest phrase first; matched words are consumed so their parts never count again.
+// Only phrases whose first word occurs in the text are tried (keeps a 2,000-row preview fast; security review 2026-10-30).
 function matches(text) {
   let t = ' ' + text + ' ';
   const found = [];
+  const words = new Set(text.split(' '));
   for (const p of PHRASES) {
+    if (!words.has(p.first)) continue;
     const needle = ' ' + p.form + ' ';
     let i = t.indexOf(needle);
     let n = 0;
@@ -122,7 +125,8 @@ function matches(text) {
 function score(fields) {
   const scores = {};
   for (const [field, weight] of Object.entries(FIELD_WEIGHT)) {
-    const text = tokens(fields[field]);
+    // The opening of a long description carries the evidence; the rest adds cost, not certainty.
+    const text = tokens(field === 'description' ? String(fields[field] == null ? '' : fields[field]).slice(0, 1500) : String(fields[field] == null ? '' : fields[field]).slice(0, 300));
     if (!text) continue;
     const tail = field === 'title' ? (' ' + text + ' ').search(TITLE_TAIL) : -1;
     const perKey = {};

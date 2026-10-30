@@ -208,10 +208,12 @@ async function signAgreement(agreementId, { userId, typedName, drawnImageData, c
   let drawnUrl = null; let drawnBuffer = null;
   if (drawnImageData && /^data:image\/png;base64,/.test(drawnImageData)) {
     try {
-      const buf = Buffer.from(drawnImageData.split(',')[1], 'base64');
-      if (buf.length > 0 && buf.length <= 512 * 1024) drawnBuffer = buf;
-      const up = await cloudinaryService.uploadBuffer(buf, { folder: 'agreement-signatures', resource_type: 'image', public_id: `sig-${agreementId}`, overwrite: true });
-      drawnUrl = up.secure_url;
+      // Untrusted browser input: only a verified PNG (size, structure, filters) is stored or embedded.
+      drawnBuffer = pdfService.safePng(Buffer.from(drawnImageData.split(',')[1], 'base64'));
+      if (drawnBuffer) {
+        const up = await cloudinaryService.uploadBuffer(drawnBuffer, { folder: 'agreement-signatures', resource_type: 'image', public_id: `sig-${agreementId}`, overwrite: true });
+        drawnUrl = up.secure_url;
+      }
     } catch (e) { /* drawn signature is optional */ }
   }
   const method = drawnUrl ? 'drawn' : 'typed';

@@ -865,6 +865,9 @@ async function relistItem(itemId, sellerActorRef) {
     if (live && live.n > 0) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     // Marked sold (by the seller, or a sale not refunded in full): never relisted here. A mistake is corrected by Advantage.Bid.
     if (item.sold_at) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again. If it was marked sold by mistake, contact Advantage.Bid to correct it.');
+    // The same publishing rules as any other way of going live: a Sale Price and something to sell (migration 209).
+    const problems = require('./marketplaceItemService').publishProblems(item);
+    if (problems.length) throw err(422, problems[0].code, problems.map((x) => x.message).join(' '));
     const upd = (await client.query(
       `UPDATE marketplace_items SET status = 'active', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
         WHERE id = $1 RETURNING *`, [itemId]).catch((e) => {

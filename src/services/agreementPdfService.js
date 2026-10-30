@@ -127,6 +127,9 @@ function safePng(buf) {
     const raw = zlib.inflateSync(Buffer.concat(idat), { maxOutputLength: 64 * 1024 * 1024 });
     const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[ihdr.color];
     if (!channels || ihdr.interlace !== 0 || raw.length !== ihdr.h * (1 + ihdr.w * channels)) return null;
+    // Every scanline starts with a filter type 0-4; any other value makes the PNG decoder throw asynchronously.
+    const stride = 1 + ihdr.w * channels;
+    for (let y = 0; y < ihdr.h; y++) if (raw[y * stride] > 4) return null;
     return buf;
   } catch (_e) { return null; }
 }

@@ -89,3 +89,10 @@ describe('the background pass (Smart Catalog Tools text classifier)', () => {
     expect(await cats.refinePending('s', { db: { query: async () => ({ rows: [] }) }, classifyText: 'not a function' })).toEqual(expect.objectContaining({ assigned: 0 }));
   });
 });
+
+test('a full-size preview (2,000 rows, long descriptions) categorises quickly (security review 2026-10-30)', () => {
+  const d = 'Antique mahogany table with carved legs and brass hardware, a fine example of the period. '.repeat(27);
+  const t = Date.now();
+  for (let i = 0; i < 2000; i++) cats.classify({ title: 'PAIR OF CONTEMPORARY LAMPS ' + i, description: d, material: 'mahogany' });
+  expect(Date.now() - t).toBeLessThan(3000);
+});

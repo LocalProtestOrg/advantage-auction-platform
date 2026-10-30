@@ -1030,3 +1030,29 @@ describe('simple marketplace importer: categories, duplicates and isolation', ()
     expect(JSON.stringify(r.body.data)).not.toMatch(/stripe|MARKETPLACE_CHECKOUT|ENABLED/i);
   });
 });
+
+describe('security review regressions (2026-10-30)', () => {
+  test('photo links that add nothing new are not fetched again, so link fetching always finishes', async () => {
+    const r = await preview('ann', csv([['SKU', 'Title', 'Photo 1', 'Photo 2'], ['LK-1', 'Same photo twice', 'https://img.example.com/a.jpg', 'https://img.example.com/b.jpg']]), 'links.csv');
+    const svc = require('../src/services/storefrontImportPhotoService');
+    let calls = 0;
+    const fetcher = async () => { calls++; return { ok: true, status: 200, body: JPEG('placeholder') }; };   // both links return the same bytes
+    const first = await svc.fetchLinks(U.ann.id, r.body.data.batch_id, { fetcher });
+    expect(first.done).toBe(true);
+    const again = await svc.fetchLinks(U.ann.id, r.body.data.batch_id, { fetcher });
+    expect([again.done, again.results.length, calls]).toEqual([true, 0, 2]);
+  });
+  test('relisting applies the publishing rules (Sale Price and quantity)', async () => {
+    const it = await items.createDirectListing(U.ann.id, { title: 'Nothing in stock', price_cents: 900, inventory_number: 'RL-0', status: 'draft', quantity: 0 });
+    await expect(require('../src/services/marketplaceOrderService').relistItem(it.id, U.ann.id)).rejects.toMatchObject({ code: 'QUANTITY_ZERO' });
+    const unpriced = await items.createDirectListing(U.ann.id, { title: 'No price', inventory_number: 'RL-1', status: 'draft' });
+    await expect(require('../src/services/marketplaceOrderService').relistItem(unpriced.id, U.ann.id)).rejects.toMatchObject({ code: 'PRICE_REQUIRED' });
+  });
+  test('previewing the same file again never deletes an import that has started', async () => {
+    const buf = csv([['SKU', 'Title'], ['ST-1', 'Started import']]);
+    const a = (await preview('ann', buf, 'started.csv')).body.data.batch_id;
+    await q(`UPDATE storefront_import_batches SET status = 'importing' WHERE id = $1`, [a]);
+    await preview('ann', buf, 'started.csv');
+    expect(await one('SELECT status FROM storefront_import_batches WHERE id = $1', [a])).toEqual({ status: 'importing' });
+  });
+});

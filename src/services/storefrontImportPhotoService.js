@@ -193,12 +193,15 @@ async function fetchLinks(actor, batchId, { fetcher = null, uploader = defaultUp
     if (!buf || !buf.length) { fail('PHOTO_EMPTY', 'The link returned no photo.'); continue; }
     if (!sniffImage(buf)) { fail('NOT_A_PHOTO', 'The link did not return a JPEG, PNG, GIF, WebP or HEIC photo.'); continue; }
     let name = 'photo'; try { name = safeName(decodeURIComponent(new URL(t.url).pathname.split('/').pop() || 'photo')) || 'photo'; } catch (_) { /* keep default */ }
-    results.push(await stage(seller, actor, b, t.row, t.position, { name, buffer: buf }, 'url', t.url, uploader));
+    const st = await stage(seller, actor, b, t.row, t.position, { name, buffer: buf }, 'url', t.url, uploader);
+    results.push(st);
+    // A link that produced no new photo (the same photo as another, or a full row) is tried: never fetched again.
+    if (st.outcome !== 'matched') failures.push({ url: t.url, row: t.row, code: st.code || 'NOT_ADDED', message: st.message || 'Not added.' });
   }
   if (failures.length) {
     const cur = (await db.query('SELECT photo_match FROM storefront_import_batches WHERE id = $1 AND seller_id = $2', [b.id, seller.id])).rows[0];
     const pm = Object.assign({}, (cur && cur.photo_match) || {});
-    pm.link_failures = ((pm.link_failures || []).concat(failures)).slice(-2000);
+    pm.link_failures = (pm.link_failures || []).concat(failures);   // every tried link (bounded by the sheet's own links)
     await db.query('UPDATE storefront_import_batches SET photo_match = $3::jsonb, updated_at = now() WHERE id = $1 AND seller_id = $2', [b.id, seller.id, JSON.stringify(pm)]);
   }
   const remaining = (await pendingLinks(await imports.loadOwnBatch(seller.id, b.id))).length;

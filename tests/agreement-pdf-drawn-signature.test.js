@@ -39,3 +39,14 @@ test.each([
   expect(out.slice(0, 5).toString()).toBe('%PDF-');
   expect(out.toString('latin1')).not.toMatch(/\/Subtype\s*\/Image/);
 });
+
+test('a PNG with an invalid row filter (crashed the PDF library asynchronously; security review 2026-10-30) is refused', async () => {
+  const bad = png(10, 10);
+  // Rebuild the image data with filter byte 9 on every row.
+  const raw = Buffer.alloc(10 * (1 + 10 * 4)); for (let y = 0; y < 10; y++) raw[y * 41] = 9;
+  const ihdr = bad.slice(8, 8 + 25);
+  const evil = Buffer.concat([bad.slice(0, 8), ihdr, chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+  expect(pdf.safePng(evil)).toBeNull();
+  const out = await pdf.buildPdfBuffer(AGREEMENT, { ...SIG, drawn_image_png: evil });
+  expect(out.slice(0, 5).toString()).toBe('%PDF-');
+});

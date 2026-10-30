@@ -1,4 +1,4 @@
-/* agreement-render.js — renders an agreement's frozen text (lightweight markdown: #/## headings, **bold**, - bullets,
+/* agreement-render.js: renders an agreement's frozen text (lightweight markdown: #/## headings, **bold**, - bullets,
    --- rules, > quotes) into DOM nodes. Mirrors src/services/agreementPdfService.parseAgreementMarkdown, so the page,
    the printed copy and the PDF show the same document. Builds nodes with textContent only (never innerHTML), so
    agreement text can never become markup or script.

@@ -248,7 +248,7 @@ describe('relistItem', () => {
   test('a removed (refunded) item can be relisted', async () => {
     mockClient = makeClient([
       [/FROM seller_profiles WHERE user_id/, seller],
-      [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', seller_id: 'seller-1', status: 'removed' }] }],
+      [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', seller_id: 'seller-1', status: 'removed', price_cents: 2500, quantity: 1 }] }],
       [/UPDATE marketplace_items SET status = 'active'/, { rows: [{ id: 'item-1', status: 'active' }] }],
     ]);
     const out = await svc.relistItem('item-1', 'seller-user');

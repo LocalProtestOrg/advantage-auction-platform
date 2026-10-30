@@ -380,8 +380,18 @@ async function preview(actor, { buffer, filename, columns, photoMatch, duplicate
   const stale = (await db.query(`SELECT b.id FROM storefront_import_batches b WHERE b.seller_id = $1 AND b.file_sha256 = $2 AND b.status = 'previewed'
                     AND NOT EXISTS (SELECT 1 FROM marketplace_items mi WHERE mi.import_batch_id = b.id)`, [seller.id, sha])).rows.map((r) => r.id);
   if (stale.length) {
-    try { await require('./storefrontImportPhotoService').discardBatches(seller.id, stale); } catch (_) { /* photo storage cleanup is best effort */ }
-    await db.query('DELETE FROM storefront_import_batches WHERE id = ANY($1::uuid[]) AND seller_id = $2', [stale, seller.id]);
+    // Re-checked under a row lock: a batch whose import started meanwhile (another tab) is never deleted.
+    const storedCopies = await withTransaction(async (client) => {
+      const ids = (await client.query(
+        `SELECT b.id FROM storefront_import_batches b WHERE b.id = ANY($1::uuid[]) AND b.seller_id = $2 AND b.status = 'previewed'
+           AND NOT EXISTS (SELECT 1 FROM marketplace_items mi WHERE mi.import_batch_id = b.id) FOR UPDATE`, [stale, seller.id])).rows.map((r) => r.id);
+      if (!ids.length) return [];
+      const copies = (await client.query("SELECT public_id FROM storefront_import_photos WHERE batch_id = ANY($1::uuid[]) AND status = 'staged'", [ids])).rows.map((r) => r.public_id);
+      await client.query('DELETE FROM storefront_import_batches WHERE id = ANY($1::uuid[])', [ids]);   // staged photo rows cascade
+      return copies;
+    });
+    // The stored copies of those staged photos are removed afterwards (best effort; never part of the transaction).
+    for (const pid of storedCopies) if (pid) require('./cloudinaryService').destroy(pid).catch(() => {});
   }
   const ready = out.filter((r) => r.action === 'create' || r.action === 'update').length;
   const mapping = { version: MAPPING_VERSION, columns: cols, headers, signature, source_label: sourceLabel(headers), mapping_source: mappingSource, lot_column: lotColumn(headers) };

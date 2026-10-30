@@ -196,3 +196,11 @@ describe('browser results ingest (HMAC)', () => {
     expect((await post(unknown, signed(unknown))).status).toBe(422);
   });
 });
+
+test('a signed submission is accepted once; a replay inside the time window is refused (security review 2026-10-30)', () => {
+  const auth = require('../src/services/watchdog/ingestAuth');
+  const key = 'k'.repeat(40); const ts = String(Math.floor(Date.now() / 1000)); const body = '{"results":[]}';
+  const signature = auth.sign(key, ts, body);
+  expect(auth.verify({ key, timestamp: ts, signature, rawBody: body }).ok).toBe(true);
+  expect(auth.verify({ key, timestamp: ts, signature, rawBody: body })).toEqual(expect.objectContaining({ ok: false, code: 'REPLAYED' }));
+});

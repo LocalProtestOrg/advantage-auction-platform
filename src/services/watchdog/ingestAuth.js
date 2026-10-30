@@ -27,7 +27,13 @@ function verify({ key = process.env.WATCHDOG_INGEST_KEY, timestamp, signature, r
   const expected = Buffer.from(sign(key, String(timestamp), Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody || '')));
   const given = Buffer.from(String(signature));
   if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return { ok: false, status: 401, code: 'SIGNATURE_INVALID' };
+  // Each signed submission is accepted once: a copy replayed inside the time window is refused.
+  const seenKey = crypto.createHash('sha256').update(String(signature)).digest('hex');
+  for (const [k, at] of SEEN) if (now - at > 2 * MAX_SKEW_S * 1000) SEEN.delete(k);
+  if (SEEN.has(seenKey)) return { ok: false, status: 409, code: 'REPLAYED' };
+  SEEN.set(seenKey, now);
   return { ok: true };
 }
+const SEEN = new Map();   // signature hash → accepted at (ms); one web process
 
-module.exports = { sign, verify, MAX_SKEW_S };
+module.exports = { sign, verify, MAX_SKEW_S, _seen: SEEN };
