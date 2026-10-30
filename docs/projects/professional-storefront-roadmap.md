@@ -56,6 +56,9 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8.3–8.7) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Storefront website widget (§7.5–7.6) | Basic release built 2026-10-26 (branch `feat/storefront-website-widget`, no migration; not deployed): My Website Widget tab, embed + storefront link, live public inventory, canonical item links, crawlable storefront item links; branding/filters/policy tabs deferred (§7.5) |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money; storefront orders are not yet in any settlement or payout report |
+| **Milestone 209: simple marketplace importer** (owner requirements 2026-10-30) | Built 2026-10-30 on `feat/pro-seller-storefront-completion`; not deployed; production pre-check for migration 209 PASS (read-only). Covers: the five-step importer (10 fields, Photo_1..15, repeatable Skip / Ignore, saved mappings); Sale Price as the only price; automatic categories on the one taxonomy; photo matching; Post to the Market; quantity/dimensions/color; the readiness panel. Runbook: `../operations/marketplace-importer-runbook.md` |
+| Seller agreement page repair (2026-10-30 incident) | Built (commit `5e9ed75`); not deployed. Lewis & Maese's exposed signing link revoked in production; replacement link after deploy. `../operations/seller-agreement-rendering-incident-2026-10-30.md` |
+| Sitewide watchdog (migration 210) | Built on the same branch; not deployed; off until `WATCHDOG_ENABLED`. `../operations/site-watchdog-runbook.md` |
 
 Launch readiness: `professional-storefront-launch-readiness-checklist.md` (what is live, built, required before the
 first real sale, post-launch, and the owner decisions still open). Technical maintenance: `../operations/known-issues.md`.
@@ -407,6 +410,11 @@ reports, exports and imports.
 ### 8.3 Bulk inventory import and image migration (major committed deliverable)
 CSV/spreadsheet; multiple images; image URLs + authorised image migration; inventory number/SKU mapping; flexible column
 mapping; Shopify and Etsy export presets where practical; preview and dry run; duplicate detection; create vs update;
+(**Status 2026-10-30:** the simple importer is built (migration 209; see the status table): CSV/XLSX, automatic column
+suggestions with saved per-software mappings, photos by file name / link / inventory number / lot number / any column,
+duplicate skip or update-drafts, resumable retry-safe imports, automatic categories. Still to do from this list:
+shipping and SEO-specific columns in the standard mapping (deliberately left out of the ten primary fields), and
+Shopify/Etsy presets beyond automatic suggestions.)
 error reports; resumable large imports; progress and completion reports; category, condition, dimensions, materials,
 shipping, price and SEO fields. Seller ownership verified on every record. Imported items are **drafts** until the
 seller authorises publication; shipping **off** unless complete shipping settings are explicitly confirmed. Never

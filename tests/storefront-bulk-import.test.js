@@ -789,6 +789,9 @@ describe('sold items are never offered again (owner decision 2026-10-28)', () =>
   });
 });
 
+// The importer tests below import a real 142-row export; give them room when the whole suite runs in parallel.
+jest.setTimeout(60000);
+
 // ═══ Simple marketplace importer (migration 209, owner requirements 2026-10-30) ══════════════════════════════════
 describe('simple marketplace importer: the real AuctionFlex export (142 items, 17 columns)', () => {
   const FIXTURE = fs.readFileSync(path.join(__dirname, 'fixtures', 'auctionflex-unsold-inventory.csv'));

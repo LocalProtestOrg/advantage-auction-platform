@@ -92,6 +92,16 @@ You are working on the Advantage Auction Platform.
 - **Never invent event data.** Dates come only from explicit event fields or labeled sale dates, never from publication, preview or pickup dates. The sale type comes from the item itself or a confirmed hint. The organizer is the authorized company.
 - **Marketing Director oversight.** The Marketing Director (A1, `oversee_event_imports`) owns import oversight. It never creates or publishes events, changes consent, or deploys.
 
+## Served HTML integrity (incident 2026-10-30: the seller agreement page showed raw JavaScript)
+- Middleware that adds tags to served pages must use `src/lib/htmlInjection.js` (before the LAST `</body>`, after the real `<head>`). Inline page scripts must never contain closing-tag text (`</…>`); build markup with DOM calls.
+- No third-party or help-button script on a page whose address carries a secret (signing links, resets, invitations, unsubscribe; `isTokenPage`).
+- Test pages as served, not only from disk: `tests/html-injection-integrity.test.js`; journeys run in a real browser on the isolated full-stack environment (`tests/fullstack/`, never production).
+
+## Marketplace inventory (owner decisions 2026-10-30, permanent)
+- **Sale Price is the only marketplace price.** Reserve prices, estimates, starting bids, bid amounts and other auction prices are never mapped, converted or defaulted into it (importer and Post to the Market). Only draft/removed items may be unpriced (database rule).
+- **One category taxonomy** (`src/constants/lotCategories.js`), assigned automatically (`storefrontCategoryService`); pending rather than guessed; a seller's choice is never overwritten. No separate category-review step.
+- Importer destinations are the ten primary fields, Photo_1..Photo_15 and repeatable Skip / Ignore; every other destination is unique (page and server). Runbook: `docs/operations/marketplace-importer-runbook.md`.
+
 ## Public Language Standard (Non-Negotiable)
 - No human-facing interface may expose "AI" terminology. This applies to EVERY rendered surface seen by any person — public pages, seller tools, buyer tools, admin dashboards, staff moderation tools, emails, notifications, toasts, dialogs, tooltips, help text, buttons, metadata, accessibility labels, and any API message displayed to a user. Administrators and staff are included: the standard is consistency across the entire Advantage.Bid experience, not just customer-facing pages.
 - Banned visible terms include (non-exhaustive): AI, A.I., Artificial Intelligence, Machine Learning, AI Assistant/Generator/Writer/Enhancement/Detection/Recognition/Suggestions/Verification, "AI-powered", "powered by AI", "AI-generated", and any phrasing that frames a feature as artificial intelligence. Also avoid exposing model/vendor terms in visible text (OpenAI, GPT, LLM, Copilot).
