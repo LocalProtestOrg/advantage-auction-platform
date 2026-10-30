@@ -186,7 +186,7 @@ function assessFormerPartners(rows, covered, now) {
     out.push(finding('FORMER_SOURCE_PARTNER', 'owner',
       name + ': events arrived through ' + (r.source_name || 'a source') + ' until ' + day(r.last_event)
         + ', which was retired' + (r.retired_at ? ' on ' + day(r.retired_at) : '') + '. No consented feed or member publishing has replaced it, so new events cannot appear.',
-      'Onboard ' + name + ' through Member Feed Sync with its recorded consent, or have it publish through its member account.',
+      'Have ' + name + ' authorize event promotion on Import My Events (website reading or a sending key), or publish through its member account.',
       { partner: name, organization_id: r.host_organization_id || null, key_hint: n || null }));
   }
   return out;
