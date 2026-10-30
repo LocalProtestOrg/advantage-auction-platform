@@ -1,0 +1,66 @@
+name: Site Watchdog
+
+# Real-browser site watchdog (docs/operations/site-watchdog-runbook.md).
+#   production: NON-DESTRUCTIVE page checks against the live site, hourly (scripts/watchdog-browser.js)
+#   journeys:   the stateful browser journeys (signing, bidding, imports...) in the ISOLATED test environment only
+#               (jest tests/browser; an in-memory database; never production), every 6 hours
+# Results are posted to the production ingest when the WATCHDOG_INGEST_KEY secret is configured; otherwise the run
+# still shows red/green here and keeps a results artifact.
+on:
+  schedule:
+    - cron: '7 * * * *'        # production page checks, hourly
+    - cron: '37 */6 * * *'     # isolated journeys, every 6 hours
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-watchdog-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+env:
+  BASE_URL: https://bid.advantage.bid
+  WATCHDOG_INGEST_URL: https://bid.advantage.bid/api/watchdog/ingest
+
+jobs:
+  production:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Browser checks (read-only)
+        env:
+          WATCHDOG_INGEST_KEY: ${{ secrets.WATCHDOG_INGEST_KEY }}
+        run: node scripts/watchdog-browser.js --out watchdog-production.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: watchdog-production, path: watchdog-production.json, retention-days: 14, if-no-files-found: ignore }
+
+  journeys:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '37 */6 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Isolated browser journeys (test environment only)
+        env:
+          JWT_SECRET: ci-test-only-not-a-secret
+        run: npx jest tests/browser --forceExit --json --outputFile=jest-journeys.json
+      - name: Report journeys
+        if: always()
+        env:
+          WATCHDOG_INGEST_KEY: ${{ secrets.WATCHDOG_INGEST_KEY }}
+        run: node scripts/watchdog-browser.js --report-journeys jest-journeys.json --out watchdog-journeys.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: watchdog-journeys, path: 'watchdog-journeys.json', retention-days: 14, if-no-files-found: ignore }

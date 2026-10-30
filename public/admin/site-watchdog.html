@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Site Watchdog - Advantage Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    h1{font-size:1.45rem;margin:.3rem 0}h2{font-size:1.02rem;margin:0 0 .6rem}
+    .sub{color:#64748b;font-size:.88rem;margin-bottom:1rem;line-height:1.45}
+    .card{background:#fff;border:1px solid #e6eaef;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem}
+    .gates{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}.gate{font-size:.78rem;font-weight:700;border-radius:8px;padding:.35rem .6rem}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}.mid{background:#fef3c7;color:#92400e}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid #f1f5f9;font-size:.82rem;vertical-align:top}
+    th{background:#f8fafc;color:#475569;font-size:.66rem;text-transform:uppercase}
+    .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e2e8f0;color:#334155;white-space:nowrap}
+    .s-critical{background:#fee2e2;color:#991b1b}.s-high{background:#ffedd5;color:#9a3412}.s-normal{background:#e0e7ff;color:#3730a3}.s-warning{background:#f1f5f9;color:#475569}
+    .st-ok{background:#dcfce7;color:#166534}.st-fail{background:#fee2e2;color:#991b1b}.st-skipped{background:#f1f5f9;color:#64748b}
+    .btn{padding:.42rem .8rem;border:1px solid #e6eaef;border-radius:8px;font-weight:700;cursor:pointer;font-size:.8rem;background:#f1f5f9;font-family:inherit}
+    .btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}.btn:disabled{opacity:.5}
+    .muted{color:#64748b;font-size:.78rem}.msg{font-size:.84rem;margin:.5rem 0;min-height:1rem}.ok{color:#166534}.bad{color:#b91c1c}
+    .tw{overflow-x:auto} details summary{cursor:pointer;color:#2563eb;font-size:.78rem}
+    code{background:#f1f5f9;border-radius:4px;padding:0 .3rem;font-size:.76rem;overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Site Watchdog</h1>
+    <p class="sub">Automatic checks of every page and the most important journeys: pages that fail to load, broken page scripts, script text showing on a page, missing content, failed data requests, and search metadata. Production checks only look; they never sign, bid, buy or change anything. Each problem is reported once and closes by itself when the check passes again.</p>
+    <div class="gates" id="gates"></div>
+    <div class="card"><div class="row"><button class="btn btn-primary" id="run">Run checks now</button> <span class="muted">Runs the server checks immediately (read-only).</span></div><div class="msg" id="msg"></div></div>
+    <div class="card"><h2>Open problems</h2><div class="tw" id="open">Loading…</div></div>
+    <div class="card"><h2>Recently resolved</h2><div class="tw" id="resolved">Loading…</div></div>
+    <div class="card"><h2>Checks</h2><div class="tw" id="checks">Loading…</div></div>
+    <div class="card"><h2>Recent runs</h2><div class="tw" id="runs">Loading…</div></div>
+  </div>
+<script>
+(function () {
+  'use strict';
+  var token = localStorage.getItem('token');
+  if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/site-watchdog.html');
+  function api(path, method, body) {
+    var opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(path, opts).then(function (r) {
+      if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html'; throw new Error('Session expired'); }
+      return r.json().then(function (b) { if (!r.ok || b.success === false) throw new Error(b.message || b.error || 'Request failed'); return b; });
+    });
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function when(t) { if (!t) return '-'; try { return new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return '-'; } }
+  var SEV = { critical: 'Critical', high: 'High', normal: 'Normal', warning: 'Warning' };
+  var STATUS = { ok: 'Passing', fail: 'Failing', skipped: 'Nothing to check yet', error: 'Could not run' };
+  function say(t, ok) { var m = document.getElementById('msg'); m.className = 'msg ' + (ok ? 'ok' : 'bad'); m.textContent = t; }
+  function table(head, rows, empty) { return rows.length ? '<table><thead><tr>' + head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>' : '<div class="muted">' + esc(empty) + '</div>'; }
+
+  function render(d) {
+    if (!d.installed) { document.getElementById('open').textContent = 'The watchdog tables are not installed yet (migration 210).'; return; }
+    var s = d.summary;
+    var cls = s.overall === 'HEALTHY' ? 'on' : (s.overall === 'DEGRADED' ? 'mid' : 'off');
+    var label = { HEALTHY: 'Healthy', DEGRADED: 'Needs attention', CRITICAL: 'Critical problem open' }[s.overall] || s.overall;
+    document.getElementById('gates').innerHTML =
+      '<span class="gate ' + cls + '">' + esc(label) + '</span>' +
+      '<span class="gate ' + (s.enabled ? 'on' : 'off') + '">Scheduled checks: ' + (s.enabled ? 'on' : 'off') + '</span>' +
+      '<span class="gate ' + (s.alerts_enabled ? 'on' : 'off') + '">Email alerts: ' + (s.alerts_enabled ? 'on' : 'off') + '</span>' +
+      '<span class="gate ' + (s.last_browser_run_at ? 'on' : 'mid') + '">Browser checks: ' + (s.last_browser_run_at ? 'last ' + esc(when(s.last_browser_run_at)) : 'no results yet') + '</span>';
+    document.getElementById('open').innerHTML = table(['Severity', 'Feature', 'Problem', 'Since', 'Seen', 'Status'], d.open.map(function (f) {
+      var ev = f.evidence && Object.keys(f.evidence).length ? '<details><summary>Evidence</summary><code>' + esc(JSON.stringify(f.evidence)) + '</code></details>' : '';
+      var rep = f.reproduce ? '<details><summary>How to reproduce</summary><div class="muted">' + esc(f.reproduce) + '</div></details>' : '';
+      var status = f.reopened_count ? 'Came back (' + f.reopened_count + 'x)' : 'Open';
+      status += f.alerted_at ? '<div class="muted">Alert sent ' + esc(when(f.alerted_at)) + '</div>' : '';
+      return '<tr><td><span class="pill s-' + esc(f.severity) + '">' + esc(SEV[f.severity] || f.severity) + '</span></td><td>' + esc(f.feature) + '<div class="muted">' + esc(f.check_id) + '</div></td>' +
+        '<td>' + esc(f.detail) + ev + rep + '</td><td>' + esc(when(f.first_seen_at)) + '</td><td>' + f.occurrences + ' time' + (f.occurrences === 1 ? '' : 's') + '<div class="muted">last ' + esc(when(f.last_seen_at)) + '</div></td><td>' + status + '</td></tr>';
+    }), 'No open problems.');
+    document.getElementById('resolved').innerHTML = table(['Severity', 'Feature', 'Problem', 'Opened', 'Resolved'], d.resolved.map(function (f) {
+      return '<tr><td><span class="pill s-' + esc(f.severity) + '">' + esc(SEV[f.severity] || f.severity) + '</span></td><td>' + esc(f.feature) + '</td><td>' + esc(f.detail) + '</td><td>' + esc(when(f.first_seen_at)) + '</td><td>' + esc(when(f.resolved_at)) + '</td></tr>';
+    }), 'Nothing resolved in the last 7 days.');
+    document.getElementById('checks').innerHTML = table(['Check', 'Risk', 'Runs', 'Last result', 'Last run'], d.checks.map(function (c) {
+      var st = c.last_status || '';
+      return '<tr><td>' + esc(c.feature) + '<div class="muted">' + esc(c.id) + '</div></td><td>' + esc(SEV[c.tier] || c.tier) + '</td><td>' + (c.kind === 'browser' ? 'Browser, scheduled job' : 'Every ' + c.interval_minutes + ' min') + '</td>' +
+        '<td>' + (st ? '<span class="pill st-' + esc(st) + '">' + esc(STATUS[st] || st) + '</span>' + (c.consecutive_failures > 1 ? '<div class="muted">' + c.consecutive_failures + ' failures in a row</div>' : '') : '<span class="muted">Not run yet</span>') + '</td><td>' + esc(when(c.last_run_at)) + '</td></tr>';
+    }), 'No checks.');
+    document.getElementById('runs').innerHTML = table(['Started', 'Source', 'Checks', 'Failing', 'Nothing to check', 'New problems', 'Resolved'], d.runs.map(function (r) {
+      return '<tr><td>' + esc(when(r.started_at)) + '</td><td>' + esc({ server: 'Scheduled', manual: 'Run now', browser: 'Browser' }[r.source] || r.source) + '</td><td>' + r.checks_run + '</td><td>' + r.checks_failed + '</td><td>' + r.checks_skipped + '</td><td>' + r.opened + '</td><td>' + r.resolved + '</td></tr>';
+    }), 'No runs yet.');
+  }
+  function load() { return api('/api/admin/watchdog').then(function (b) { render(b.data); }).catch(function (e) { say(e.message); }); }
+  document.getElementById('run').onclick = function () {
+    var b = this; b.disabled = true; say('Running checks…', true);
+    api('/api/admin/watchdog/run', 'POST', {}).then(function (r) { var d = r.data || {}; say('Done: ' + (d.ran || 0) + ' checks, ' + (d.failed || 0) + ' failing, ' + (d.opened || 0) + ' new problems, ' + (d.resolved || 0) + ' resolved.', !(d.failed)); return load(); })
+      .catch(function (e) { say(e.message); }).then(function () { b.disabled = false; });
+  };
+  load();
+})();
+</script>
+</body>
+</html>
