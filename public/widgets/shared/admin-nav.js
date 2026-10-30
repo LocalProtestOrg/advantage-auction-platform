@@ -99,6 +99,7 @@
       { href: '/admin/events.html', label: 'Events' },
       { href: '/admin/imported-events.html', label: 'Imported Events' },
       { href: '/admin/event-discovery.html', label: 'Event Discovery' },
+      { href: '/admin/site-watchdog.html', label: 'Site Watchdog' },
       { href: '/admin/invoices.html', label: 'Invoices' },
       { href: '/admin/marketplace-orders.html', label: 'Storefront Orders' },
       { href: '/admin/storefront-moderation.html', label: 'Storefront Moderation', perm: 'marketplace.moderate' },

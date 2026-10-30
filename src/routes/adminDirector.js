@@ -88,6 +88,10 @@ router.get('/daily', async (req, res, next) => {
     const identityLinks = await q(`SELECT count(*)::int n FROM behavioral_identity_links`);
     const signals = await q(`SELECT count(*)::int n FROM marketing_signals WHERE active=true`);
     const onsiteToday = await q(`SELECT count(*)::int n FROM marketing_onsite_treatments WHERE shown_at > now() - interval '24 hours'`);
+    // Site health from the site watchdog (migration 210): broken pages or journeys undermine every campaign, so the
+    // daily briefing carries the one-line status. Details stay on /admin/site-watchdog.html (no second report here).
+    let siteHealth = null;
+    try { siteHealth = await require('./../services/watchdog/runner').summary(db); } catch (_) { siteHealth = null; }
     res.json({ success: true, daily: {
       behavioral_events_24h: eventsToday, behavioral_events_24h_with_visitor: eventsWithVisitor,
       identity_links: identityLinks, active_signals: signals, onsite_treatments_24h: onsiteToday,
@@ -98,6 +102,8 @@ router.get('/daily', async (req, res, next) => {
       abandoned_seller_signup: counts['abandoned_individual_seller_signup'] || 0,
       watcher_ending_soon_transactional: 'wired (marketing.watcher_ending_soon.enabled)',
       engine_receiving_input: eventsWithVisitor > 0,
+      site_health: siteHealth && { overall: siteHealth.overall, open: siteHealth.open, open_by_severity: siteHealth.open_by_severity,
+        last_run_at: siteHealth.last_run ? siteHealth.last_run.started_at : null, dashboard: '/admin/site-watchdog.html' },
     } });
   } catch (e) { next(e); }
 });

@@ -580,6 +580,7 @@ app.use((req, res, next) => {
   if (req.path === '/api/payments/webhook') return next();
   if (req.path === '/api/meta/webhook') return next();   // Meta X-Hub-Signature-256 needs the raw body
   if (req.path.startsWith('/api/intake/')) return next();  // partner event push parses its own 1 MB JSON / iCal bodies
+  if (req.path === '/api/watchdog/ingest') return next();  // HMAC over the exact raw bytes (site watchdog, mig 210)
   express.json()(req, res, next);
 });
 
@@ -677,6 +678,7 @@ app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/event-imports', adminEventImportsRoutes);
+app.use('/api/admin/watchdog', require('./src/routes/adminWatchdog')); // site watchdog dashboard + run-now (admin; mig 210)
 app.use('/api/admin/event-discovery', require('./src/routes/adminEventDiscovery')); // provider-neutral event discovery: probes, channels, sending keys (admin; mig 208)
 app.use('/api/admin/event-partners', adminEventPartnersRoutes);
 app.use('/api/admin/marketplace', adminMarketplaceRoutes);
@@ -761,6 +763,7 @@ app.use('/api/public/onsite', require('./src/routes/publicOnsite')); // onsite p
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org/event-distribution', require('./src/routes/orgEventDistribution')); // a member promotes its events: authorize once + website (mig 208)
+app.use('/api/watchdog', require('./src/routes/watchdogIngest')); // browser watchdog results (HMAC, WATCHDOG_INGEST_KEY; mig 210)
 app.use('/api/intake/v1', require('./src/routes/eventIntake')); // partner push: a company sends its own events (sending key; EVENT_INTAKE_ENABLED)
 app.use('/api/org', orgEventsRoutes);
 app.use('/api/admin/business-listings', require('./src/routes/adminBusinessListings'));
@@ -961,6 +964,9 @@ server.listen(PORT, () => {
     // Organic social INSIGHTS ingestion (read-only toward Meta). Self-gated on marketing.social.insights_enabled
     // and structurally inert until a REAL post exists; never publishes/replies/spends.
     spawnWorker(path.join(__dirname, 'src/workers/marketingSocialInsightsWorker.js'));
+    // Site watchdog: non-destructive checks of every page and key API on a risk-tier schedule; alerts on new problems.
+    // Idle unless WATCHDOG_ENABLED=true (src/services/watchdog, migration 210).
+    spawnWorker(path.join(__dirname, 'src/workers/watchdogWorker.js'));
     // Phase 3P Owner Creative Reference library: reconcile folders/sidecars by content hash and upsert the durable
     // index at boot (best-effort; adding approved images needs no software change). Never publishes anything.
     setTimeout(() => {

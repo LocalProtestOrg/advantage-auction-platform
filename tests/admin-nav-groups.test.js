@@ -36,6 +36,7 @@ const ADDED = {
   '/admin/phone-sasha.html': null,                         // simulator API is Super Admin only
   '/admin/storefront-moderation.html': 'marketplace.moderate', // requirePermission('marketplace.moderate') (storefront milestone 2)
   '/admin/event-discovery.html': null,                   // role(['admin']) (provider-neutral event discovery, mig 208)
+  '/admin/site-watchdog.html': null,                     // role(['admin']) (site watchdog, mig 210)
 };
 const DETAIL_PAGES = ['/admin/index.html', '/admin/invoice-detail.html', '/admin/event-detail.html', '/admin/settlement-review.html', '/admin/member.html'];
 
