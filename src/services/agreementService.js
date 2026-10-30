@@ -31,7 +31,7 @@ class AgreementError extends Error {
 const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const newRawToken = () => crypto.randomBytes(32).toString('hex');
 const hashToken = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex');
-const publicBase = () => process.env.PUBLIC_BASE_URL || process.env.FRONTEND_URL || 'https://advantageauction.bid';
+const publicBase = () => process.env.PUBLIC_BASE_URL || process.env.FRONTEND_URL || 'https://bid.advantage.bid';
 
 async function emailLink(agreement, rawToken) {
   try {
@@ -135,10 +135,15 @@ async function getById(id) {
   return r.rows[0] ? maybeExpire(r.rows[0]) : null;
 }
 
+// A signing link works until its own expiry (token_expires_at) and only while its hash is on record: resend rotates
+// it, revokeLink/reissue/revoke clear it.
 async function getByToken(rawToken) {
   if (!rawToken) return null;
   const r = await db.query('SELECT * FROM agreements WHERE access_token_hash = $1', [hashToken(rawToken)]);
-  return r.rows[0] ? maybeExpire(r.rows[0]) : null;
+  const a = r.rows[0];
+  if (!a) return null;
+  if (a.token_expires_at && new Date(a.token_expires_at) < new Date()) return null;
+  return maybeExpire(a);
 }
 
 async function markViewed(agreement) {
@@ -183,7 +188,10 @@ async function getSignatures(agreementId) {
   return r.rows;
 }
 
-async function signAgreement(agreementId, { userId, typedName, drawnImageData, consent, intent, reviewed, intentStatement, ip, userAgent }) {
+// displayedSha256: the SHA-256 the signing page computed over the exact text it displayed. Signing is refused unless
+// it equals the frozen text's hash, so an agreement that did not display completely and correctly cannot be signed
+// (seller agreement defect, 2026-10-30). It is the same value recorded as the signature's content_sha256.
+async function signAgreement(agreementId, { userId, typedName, drawnImageData, consent, intent, reviewed, intentStatement, ip, userAgent, displayedSha256 }) {
   let agreement = await getById(agreementId);
   if (!agreement) throw new AgreementError('NOT_FOUND', 'Agreement not found', 404);
   if (agreement.seller_user_id !== userId) throw new AgreementError('FORBIDDEN', 'Not your agreement', 403);
@@ -194,10 +202,14 @@ async function signAgreement(agreementId, { userId, typedName, drawnImageData, c
   if (consent !== true || intent !== true) throw new AgreementError('CONSENT_REQUIRED', 'Consent and intent to sign are required', 400);
 
   const contentHash = sha256(agreement.rendered_body || '');
-  let drawnUrl = null;
+  if (!agreement.rendered_body || String(displayedSha256 || '').toLowerCase() !== contentHash) {
+    throw new AgreementError('DISPLAY_NOT_CONFIRMED', 'This agreement could not be confirmed as fully displayed. Please reload the page, review the agreement, and sign again.', 409);
+  }
+  let drawnUrl = null; let drawnBuffer = null;
   if (drawnImageData && /^data:image\/png;base64,/.test(drawnImageData)) {
     try {
       const buf = Buffer.from(drawnImageData.split(',')[1], 'base64');
+      if (buf.length > 0 && buf.length <= 512 * 1024) drawnBuffer = buf;
       const up = await cloudinaryService.uploadBuffer(buf, { folder: 'agreement-signatures', resource_type: 'image', public_id: `sig-${agreementId}`, overwrite: true });
       drawnUrl = up.secure_url;
     } catch (e) { /* drawn signature is optional */ }
@@ -222,7 +234,7 @@ async function signAgreement(agreementId, { userId, typedName, drawnImageData, c
 
   // PDF — non-blocking to the legal act. Stored PRIVATE; delivered via signed URLs.
   try {
-    const { public_id, sha256: pdfHash, buffer } = await pdfService.generateAndStore(agreement, sig.rows[0]);
+    const { public_id, sha256: pdfHash, buffer } = await pdfService.generateAndStore(agreement, Object.assign({}, sig.rows[0], { drawn_image_png: drawnBuffer }));
     agreement = Object.assign((await db.query(`UPDATE agreements SET signed_pdf_public_id=$1, signed_pdf_sha256=$2, pdf_status='stored', updated_at=now() WHERE id=$3 RETURNING *`, [public_id, pdfHash, agreementId])).rows[0],
       isAddendum ? { document_title: 'Advantage.Bid Auction Partner Program Addendum' } : {});
     await writeAuditLog({ event_type: 'agreement_pdf_stored', entity_type: 'agreement', entity_id: agreementId, metadata: { signed_pdf_sha256: pdfHash } });
@@ -391,6 +403,18 @@ async function reissue(id, { templateId, overrides, expiresInDays }, actorId) {
   return { agreement, rawToken, superseded: id };
 }
 
+// Invalidate the emailed signing link without withdrawing the agreement (e.g. a link that may have been exposed). The
+// seller can still open it from their account (/sign-agreement.html?onboarding=1 or My Agreements); resend() issues a
+// fresh link by email when wanted.
+async function revokeLink(id, { reason }, actorId) {
+  const agreement = await getById(id);
+  if (!agreement) throw new AgreementError('NOT_FOUND', 'Agreement not found', 404);
+  const u = await db.query(`UPDATE agreements SET access_token_hash=NULL, updated_at=now() WHERE id=$1 RETURNING *`, [id]);
+  await writeAuditLog({ event_type: 'agreement_link_revoked', entity_type: 'agreement', entity_id: id, actor_id: actorId ?? null,
+    metadata: { reason: reason || null, had_link: !!agreement.access_token_hash, status: agreement.status } });
+  return u.rows[0];
+}
+
 async function revoke(id, { reason }, actorId) {
   const agreement = await getById(id);
   if (!agreement) throw new AgreementError('NOT_FOUND', 'Agreement not found', 404);
@@ -409,6 +433,6 @@ async function expireOverdue() {
 module.exports = {
   AgreementError, hashToken, ADDENDUM_TEMPLATE_ID, resolveBaseTemplateId: resolveActiveTemplateId,
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
-  signAgreement, resend, reissue, revoke, expireOverdue,
+  signAgreement, resend, reissue, revoke, revokeLink, expireOverdue,
   emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate, autoSendAgreement,
 };

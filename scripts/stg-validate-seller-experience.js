@@ -113,8 +113,11 @@ async function http(method, path, { token, body, idempotencyKey } = {}) {
 
     // Sign the agreement
     {
+      // Like the signing page, confirm the displayed text by its hash (required since 2026-10-30).
+      const view = await http('GET', `/api/agreements/${agreementId}`, { token: sellerToken });
       const r = await http('POST', `/api/agreements/${agreementId}/sign`, { token: sellerToken, body: {
         typed_name: 'Valerie Validation', reviewed_acknowledged: true, consent_acknowledged: true, intent_acknowledged: true,
+        displayed_sha256: view.json && view.json.data && view.json.data.content_sha256,
       } });
       check('Sign agreement succeeds', r.status === 200 && r.json && r.json.data && r.json.data.status === 'signed', 'status ' + r.status + ' ' + JSON.stringify(r.json && r.json.data));
     }

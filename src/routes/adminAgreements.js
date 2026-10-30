@@ -18,6 +18,7 @@ const termsService    = require('../services/sellerTermsService');
 const identityService = require('../services/sellerIdentityService');
 const { resolveAndRender } = require('../services/agreementVariableService');
 const agreementService = require('../services/agreementService');
+const db = require('../db');
 
 function mapAgreementErr(res, err, next) {
   if (err && err.status && err.code) {
@@ -27,7 +28,10 @@ function mapAgreementErr(res, err, next) {
   }
   return next(err);
 }
-function signingLink(req, rawToken) { return `${req.protocol}://${req.get('host')}/sign-agreement.html?token=${rawToken}`; }
+function signingLink(req, rawToken) {
+  const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  return `${base.replace(/\/+$/, '')}/sign-agreement.html?token=${rawToken}`;
+}
 
 function isUuid(v) {
   return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -184,11 +188,23 @@ router.post('/agreements', idempotency, async (req, res, next) => {
   } catch (err) { mapAgreementErr(res, err, next); }
 });
 
+// The signing link's hash never leaves the server; admins see whether a link is active.
+function adminView(a) {
+  if (!a) return a;
+  const { access_token_hash, ...rest } = a;
+  return Object.assign(rest, { link_active: !!access_token_hash && (!a.token_expires_at || new Date(a.token_expires_at) > new Date()) });
+}
+
 router.get('/agreements', async (req, res, next) => {
   try {
     const filter = {};
     if (req.query.sellerProfileId) { if (!isUuid(req.query.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid sellerProfileId' }); filter.sellerProfileId = req.query.sellerProfileId; }
-    return res.json({ success: true, data: await agreementService.listAll(filter) });
+    else if (req.query.email) {
+      const sp = (await db.query('SELECT sp.id FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE lower(u.email) = lower($1)', [String(req.query.email).trim()])).rows[0];
+      if (!sp) return res.json({ success: true, data: [] });
+      filter.sellerProfileId = sp.id;
+    }
+    return res.json({ success: true, data: (await agreementService.listAll(filter)).map(adminView) });
   } catch (err) { next(err); }
 });
 
@@ -197,8 +213,9 @@ router.get('/agreements/:id', async (req, res, next) => {
     if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
     const a = await agreementService.getById(req.params.id);
     if (!a) return res.status(404).json({ success: false, message: 'Agreement not found' });
-    a.signatures = await agreementService.getSignatures(a.id);
-    return res.json({ success: true, data: a });
+    const out = adminView(a);
+    out.signatures = await agreementService.getSignatures(a.id);
+    return res.json({ success: true, data: out });
   } catch (err) { next(err); }
 });
 
@@ -224,6 +241,16 @@ router.post('/agreements/:id/revoke', idempotency, async (req, res, next) => {
     if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
     const a = await agreementService.revoke(req.params.id, { reason: req.body && req.body.reason }, req.user.id);
     return res.json({ success: true, data: { id: a.id, status: a.status } });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
+// Invalidate the emailed signing link only (the agreement stays open to sign from the seller's account). Use
+// /resend afterwards to email a fresh link.
+router.post('/agreements/:id/revoke-link', idempotency, async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
+    const a = await agreementService.revokeLink(req.params.id, { reason: req.body && req.body.reason }, req.user.id);
+    return res.json({ success: true, data: { id: a.id, status: a.status, link_active: false } });
   } catch (err) { mapAgreementErr(res, err, next); }
 });
 

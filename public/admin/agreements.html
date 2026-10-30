@@ -34,6 +34,13 @@
     <h1>Seller Agreements <span class="pill">Phase A · Admin authoring</span></h1>
   </header>
   <main>
+    <!-- Seller agreements issued to sellers: status, signing link, resend / revoke link / withdraw -->
+    <section class="card" id="sa-card">
+      <h2>Issued Seller Agreements</h2>
+      <p class="muted" style="margin-top:0">Find a seller's agreements by email or seller profile ID. <strong>Revoke link</strong> stops the emailed signing link (the seller can still sign from their account). <strong>Email a new link</strong> sends a fresh, private link. <strong>Withdraw</strong> cancels the agreement.</p>
+      <div class="row"><input id="sa-q" placeholder="seller email or seller_profile UUID" /><button class="ghost" id="sa-load">Find</button></div>
+      <table id="sa-table" style="margin-top:0.6rem"><thead><tr><th>Agreement</th><th>Status</th><th>Sent</th><th>Viewed</th><th>Signed</th><th>Signing link</th><th></th></tr></thead><tbody></tbody></table>
+    </section>
     <!-- Templates -->
     <section class="card">
       <h2>Agreement Templates</h2>
@@ -195,6 +202,39 @@
       if (!v) return fallback;
       try { return JSON.parse(v); } catch (e) { toast('Invalid JSON in ' + id, false); throw e; }
     }
+
+
+    // ── Issued seller agreements (resend / revoke link / withdraw) ──
+    function saDate(v) { return v ? new Date(v).toLocaleString() : '-'; }
+    async function saLoad() {
+      var q = document.getElementById('sa-q').value.trim(); if (!q) return;
+      var isId = /^[0-9a-f-]{36}$/i.test(q);
+      var r = await api('GET', '/agreements?' + (isId ? 'sellerProfileId=' : 'email=') + encodeURIComponent(q));
+      var tb = document.querySelector('#sa-table tbody'); tb.textContent = '';
+      var rows = (r.json && r.json.data) || [];
+      if (!rows.length) { var tr0 = document.createElement('tr'); var td0 = document.createElement('td'); td0.colSpan = 7; td0.textContent = 'No agreements found.'; tr0.appendChild(td0); tb.appendChild(tr0); return; }
+      rows.forEach(function (a) {
+        var tr = document.createElement('tr');
+        [a.template_name || 'Agreement', a.status, saDate(a.sent_at), saDate(a.viewed_at), saDate(a.signed_at), a.link_active ? 'Active' : 'Not active'].forEach(function (v) { var td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+        var act = document.createElement('td');
+        function btn(label, fn) { var b = document.createElement('button'); b.className = 'secondary'; b.style.margin = '0 0.3rem 0.3rem 0'; b.textContent = label; b.onclick = fn; act.appendChild(b); }
+        var open = a.status === 'sent' || a.status === 'viewed';
+        if (open && a.link_active) btn('Revoke link', async function () {
+          var why = prompt('Reason for revoking the signing link (kept in the audit log):', 'Link may have been exposed'); if (why == null) return;
+          var rr = await api('POST', '/agreements/' + a.id + '/revoke-link', { reason: why }); if (rr.status === 200) { toast('Signing link revoked', true); saLoad(); }
+        });
+        if (open) btn('Email a new link', async function () {
+          if (!confirm('Email a new private signing link to this seller? Any earlier link stops working.')) return;
+          var rr = await api('POST', '/agreements/' + a.id + '/resend'); if (rr.status === 200) { toast('New link emailed', true); saLoad(); }
+        });
+        if (open) btn('Withdraw', async function () {
+          var why = prompt('Reason for withdrawing this agreement:'); if (why == null) return;
+          var rr = await api('POST', '/agreements/' + a.id + '/revoke', { reason: why }); if (rr.status === 200) { toast('Agreement withdrawn', true); saLoad(); }
+        });
+        tr.appendChild(act); tb.appendChild(tr);
+      });
+    }
+    document.getElementById('sa-load').onclick = saLoad;
 
     // ── Templates ──
     var selectedTpl = null;

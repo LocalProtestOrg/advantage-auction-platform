@@ -48,6 +48,8 @@ function viewPayload(a) {
     version: (a.version != null) ? a.version : (a.version_int != null ? a.version_int : null),
     effective_date: rv.effective_date || null,
     rendered_body: a.rendered_body, resolved_variables: a.resolved_variables, party_snapshot: a.party_snapshot,
+    // SHA-256 of rendered_body: the signing page confirms it displayed exactly this text before it offers signing.
+    content_sha256: a.rendered_body ? require('crypto').createHash('sha256').update(String(a.rendered_body)).digest('hex') : null,
     sent_at: a.sent_at, viewed_at: a.viewed_at, signed_at: a.signed_at, expires_at: a.expires_at,
     pdf_available: a.pdf_status === 'stored',
   };
@@ -93,11 +95,11 @@ router.get('/:id', auth, async (req, res, next) => {
 // Sign — authenticated seller match (server-enforced in the service).
 router.post('/:id/sign', auth, idempotency, async (req, res, next) => {
   try {
-    const { typed_name, drawn_image_data, consent_acknowledged, intent_acknowledged, reviewed_acknowledged, intent_statement } = req.body || {};
+    const { typed_name, drawn_image_data, consent_acknowledged, intent_acknowledged, reviewed_acknowledged, intent_statement, displayed_sha256 } = req.body || {};
     const result = await agreements.signAgreement(req.params.id, {
       userId: req.user.id, typedName: typed_name, drawnImageData: drawn_image_data,
       consent: consent_acknowledged === true, intent: intent_acknowledged === true,
-      reviewed: reviewed_acknowledged === true, intentStatement: intent_statement,
+      reviewed: reviewed_acknowledged === true, intentStatement: intent_statement, displayedSha256: displayed_sha256,
       ip: req.ip, userAgent: req.get('user-agent'),
     });
     return res.json({ success: true, data: { id: result.agreement.id, status: result.agreement.status, pdf_status: result.agreement.pdf_status } });

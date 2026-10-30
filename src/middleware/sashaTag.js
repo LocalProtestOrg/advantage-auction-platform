@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { beforeClosingBody, isTokenPage } = require('../lib/htmlInjection');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const TAG = '\n<script src="/widgets/sasha-loader.js" async></script>\n';
@@ -30,13 +31,12 @@ function htmlFileFor(p) {
   if (/\.html$/i.test(p)) return p.replace(/^\/+/, '');
   return null;
 }
+// Before the document's own (last) </body>: an earlier "</body>" can be text inside a page script (see htmlInjection).
 function inject(html) {
   if (typeof html !== 'string' || !html || html.indexOf(MARKER) !== -1) return null;
-  const at = html.search(/<\/body>/i);
-  if (at === -1) return null;
-  return html.slice(0, at) + TAG + html.slice(at);
+  return beforeClosingBody(html, TAG);
 }
-const active = (req) => (req.method === 'GET' || req.method === 'HEAD') && !isExcluded(req.path || '/');
+const active = (req) => (req.method === 'GET' || req.method === 'HEAD') && !isExcluded(req.path || '/') && !isTokenPage(req);
 
 function patch(req, res, next) {
   try {

@@ -17,9 +17,11 @@ const pdfService = require('../src/services/agreementPdfService');
 const agreementService = require('../src/services/agreementService');
 
 const SIGNABLE = { id: 'ag1', seller_user_id: 'u1', status: 'sent', rendered_body: 'TERMS' };
+// The signing page sends the SHA-256 of the exact text it displayed (seller agreement defect, 2026-10-30).
+const DISPLAYED = require('crypto').createHash('sha256').update('TERMS').digest('hex');
 
 function baseArgs(over) {
-  return Object.assign({ userId: 'u1', typedName: 'Jane Seller', consent: true, intent: true, reviewed: true, ip: '1.2.3.4', userAgent: 'jest' }, over || {});
+  return Object.assign({ userId: 'u1', typedName: 'Jane Seller', consent: true, intent: true, reviewed: true, ip: '1.2.3.4', userAgent: 'jest', displayedSha256: DISPLAYED }, over || {});
 }
 
 describe('signAgreement — review acknowledgment', () => {
@@ -51,6 +53,14 @@ describe('signAgreement — review acknowledgment', () => {
       .rejects.toMatchObject({ code: 'CONSENT_REQUIRED' });
     await expect(agreementService.signAgreement('ag1', baseArgs({ intent: false })))
       .rejects.toMatchObject({ code: 'CONSENT_REQUIRED' });
+  });
+
+  test('refuses an agreement whose display was not confirmed (missing or different text hash) and writes no signature', async () => {
+    await expect(agreementService.signAgreement('ag1', baseArgs({ displayedSha256: undefined })))
+      .rejects.toMatchObject({ code: 'DISPLAY_NOT_CONFIRMED', status: 409 });
+    await expect(agreementService.signAgreement('ag1', baseArgs({ displayedSha256: 'a'.repeat(64) })))
+      .rejects.toMatchObject({ code: 'DISPLAY_NOT_CONFIRMED' });
+    expect(insertSql).toBeNull();
   });
 
   test('succeeds with reviewed+consent+intent: records reviewed_acknowledged and generates signed PDF', async () => {

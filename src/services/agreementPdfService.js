@@ -103,6 +103,34 @@ function renderAgreementBody(doc, md) {
   }
 }
 
+// The drawn signature comes from the browser, so it is untrusted. PDFKit decodes PNGs asynchronously and a malformed
+// one throws outside any try/catch (it would crash the process), so a PNG is embedded only after it is verified here:
+// signature, chunk structure, a sane size, and IDAT data that actually inflates.
+const zlib = require('zlib');
+const MAX_SIGNATURE_PIXELS = 4000 * 1000;
+function safePng(buf) {
+  try {
+    if (!Buffer.isBuffer(buf) || buf.length < 57 || buf.length > 512 * 1024) return null;
+    if (!buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return null;
+    let off = 8; let ihdr = null; const idat = []; let end = false;
+    while (off + 12 <= buf.length) {
+      const len = buf.readUInt32BE(off); const type = buf.toString('latin1', off + 4, off + 8);
+      if (off + 12 + len > buf.length) return null;
+      const data = buf.slice(off + 8, off + 8 + len);
+      if (!ihdr && type !== 'IHDR') return null;
+      if (type === 'IHDR') ihdr = { w: data.readUInt32BE(0), h: data.readUInt32BE(4), depth: data[8], color: data[9], interlace: data[12] };
+      else if (type === 'IDAT') idat.push(data);
+      else if (type === 'IEND') { end = true; break; }
+      off += 12 + len;
+    }
+    if (!ihdr || !end || !idat.length || !ihdr.w || !ihdr.h || ihdr.w * ihdr.h > MAX_SIGNATURE_PIXELS || ihdr.depth !== 8) return null;
+    const raw = zlib.inflateSync(Buffer.concat(idat), { maxOutputLength: 64 * 1024 * 1024 });
+    const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[ihdr.color];
+    if (!channels || ihdr.interlace !== 0 || raw.length !== ihdr.h * (1 + ihdr.w * channels)) return null;
+    return buf;
+  } catch (_e) { return null; }
+}
+
 function buildPdfBuffer(agreement, signature) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
@@ -128,6 +156,11 @@ function buildPdfBuffer(agreement, signature) {
     const _v = (agreement.version_int != null) ? agreement.version_int : agreement.version;
     if (_v != null) line(`Agreement version: v${_v}`);
     line(`Signed by (typed): ${signature.typed_name || ''}`);
+    // The drawn signature itself, when the seller drew one (the PNG they submitted; never altered).
+    const drawnPng = safePng(signature.drawn_image_png);
+    if (drawnPng) {
+      try { doc.moveDown(0.3); doc.image(drawnPng, { fit: [220, 80] }); doc.moveDown(0.3); } catch (_e) { /* an unreadable image never blocks the PDF */ }
+    }
     if (signature.drawn_image_url) line(`Drawn signature on file: ${signature.drawn_image_url}`);
     line(`Signer role: ${signature.signer_role || 'seller'}`);
     line(`Signed at (UTC): ${signature.signed_at ? new Date(signature.signed_at).toISOString() : ''}`);
@@ -204,4 +237,4 @@ function signedDownloadUrl(publicId, ttlSeconds = SIGNED_URL_TTL_SECONDS) {
   });
 }
 
-module.exports = { buildPdfBuffer, buildUnsignedPdfBuffer, generateAndStore, signedDownloadUrl, agreementStampLines, parseAgreementMarkdown, parseInlineBold, SIGNED_URL_TTL_SECONDS };
+module.exports = { buildPdfBuffer, buildUnsignedPdfBuffer, generateAndStore, signedDownloadUrl, agreementStampLines, parseAgreementMarkdown, parseInlineBold, safePng, SIGNED_URL_TTL_SECONDS };

@@ -55,6 +55,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { afterHeadOpen, isTokenPage } = require('../lib/htmlInjection');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
@@ -112,11 +113,7 @@ function tagBlock(id) {
 function inject(html, id) {
   if (typeof html !== 'string' || !html) return null;
   if (html.indexOf(id) !== -1) return null;               // idempotency guard
-  const headOpen = html.search(/<head[^>]*>/i);
-  if (headOpen === -1) return null;
-  const at = html.indexOf('>', headOpen) + 1;
-  if (at <= 0) return null;
-  return html.slice(0, at) + tagBlock(id) + html.slice(at);
+  return afterHeadOpen(html, tagBlock(id));                // the real <head>, never <header>
 }
 
 // Template cache — read once per file, mirroring shareMeta's approach. A read
@@ -138,6 +135,7 @@ function activeIdFor(req) {
   const id = measurementId();
   if (!id) return null;
   if (isExcluded(req.path || '/')) return null;
+  if (isTokenPage(req)) return null;   // a secret in the address must never reach a third party (htmlInjection)
   return id;
 }
 
