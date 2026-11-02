@@ -98,6 +98,7 @@ const CONVERT = { seller_type: 'estate_sale_company', company_name: 'Lone Star E
 beforeAll(async () => {
   global.__PG = startPg();
   await global.__PG.exec(BASE);
+  await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   await global.__PG.exec(mig('013_create_audit_log.sql'));
   await global.__PG.exec(mig('071_verification_documents.sql'));
   const mk = async (name, extra = {}) => {

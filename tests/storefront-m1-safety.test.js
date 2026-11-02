@@ -5,7 +5,7 @@
  *   - an item a buyer has reserved (checkout hold / live order) cannot be changed by the seller (409 ITEM_RESERVED);
  *   - a sold item keeps its details and can never be offered again (only removed from view);
  *   - edits run under the same row lock checkout uses;
- *   - a duplicate live order is a clean 409 NOT_AVAILABLE, never a server error;
+ *   - units can never be sold twice: an order reserves its units with one guarded decrement (migration 212);
  *   - storefronts and items are public only for Professional Sellers (and a published storefront).
  */
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
@@ -84,9 +84,10 @@ describe('sold items', () => {
   });
 });
 
-test('a duplicate live order is a 409 NOT_AVAILABLE, not a server error', () => {
+test('units are never sold twice: the reservation is one guarded decrement under the row lock (migration 212)', () => {
   const src = require('fs').readFileSync('src/services/marketplaceOrderService.js', 'utf8');
-  expect(src).toMatch(/if \(e && e\.code === '23505' && \/live_item\/\.test\(e\.constraint \|\| e\.message \|\| ''\)\) throw err\(409, 'NOT_AVAILABLE'/);
+  expect(src).toMatch(/SET quantity = quantity - \$2,[\s\S]*?WHERE id = \$1 AND quantity >= \$2 RETURNING quantity/);
+  expect(src).toMatch(/if \(!after\) throw err\(409, 'NOT_ENOUGH_AVAILABLE'/);
 });
 
 describe('public visibility: Professional Sellers only', () => {
@@ -104,7 +105,7 @@ describe('public visibility: Professional Sellers only', () => {
     db.query.mockResolvedValue({ rows: [] });
     await items.getPublicItem('i-1');
     expect(db.query.mock.calls[0][0]).toMatch(/sp\.seller_type = ANY\(\$2::text\[\]\)/);
-    expect(db.query.mock.calls[0][1][1]).toEqual(['auction_house', 'estate_sale_company', 'professional_liquidator']);
+    expect(db.query.mock.calls[0][1][1]).toEqual(require('../src/constants/sellerTypes').PROFESSIONAL_SELLER_TYPES);
     await items.listPublicForSeller('sp-1', 10);
     expect(db.query.mock.calls[1][0]).toMatch(/sp\.seller_type = ANY\(\$3::text\[\]\)/);
   });

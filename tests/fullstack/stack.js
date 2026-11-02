@@ -63,7 +63,9 @@ function cleanEnv(extra) {
 }
 
 // fakeStorage: replace photo storage with an in-memory stand-in (fakeStoragePreload.js) for photo workflows.
-async function startStack({ env = {}, quiet = true, fakeStorage = false } = {}) {
+// fakePayments: replace the payment processor's library with an in-memory stand-in (fakeStripePreload.js) and turn
+// marketplace checkout on, so purchases can be tested end to end without any network or keys.
+async function startStack({ env = {}, quiet = true, fakeStorage = false, fakePayments = false } = {}) {
   const dbPort = await freePort();
   const appPort = await freePort();
   const db = spawn(process.execPath, [path.join(__dirname, 'dbServer.mjs'), String(dbPort)], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -79,8 +81,10 @@ async function startStack({ env = {}, quiet = true, fakeStorage = false } = {}) 
     PUBLIC_BASE_URL: `http://127.0.0.1:${appPort}`,
     FRONTEND_URL: `http://127.0.0.1:${appPort}`,
     ANALYTICS_TAG_ENABLED: 'false',
+    ...(fakePayments ? { STRIPE_SECRET_KEY: 'sk_test_isolated_placeholder', STRIPE_PUBLISHABLE_KEY: 'pk_test_isolated_placeholder', MARKETPLACE_CHECKOUT_ENABLED: 'true' } : {}),
   }, env));
-  const preloads = ['pgLocalPreload.js', ...(fakeStorage ? ['fakeStoragePreload.js'] : [])].flatMap((f) => ['--require', path.join(__dirname, f)]);
+  const preloads = ['pgLocalPreload.js', ...(fakeStorage ? ['fakeStoragePreload.js'] : []), ...(fakePayments ? ['fakeStripePreload.js'] : [])]
+    .flatMap((f) => ['--require', path.join(__dirname, f)]);
   const app = spawn(process.execPath, [...preloads, path.join(ROOT, 'server.js')], { cwd: workDir, env: appEnv, stdio: ['ignore', 'pipe', 'pipe'] });
   const logs = [];
   const keepLog = (d) => { logs.push(d.toString()); if (logs.length > 400) logs.shift(); if (!quiet) process.stdout.write(d); };

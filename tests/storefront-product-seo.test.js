@@ -60,9 +60,10 @@ const product = (html) => jsonlds(html).find((j) => j['@type'] === 'Product');
 beforeAll(async () => {
   global.__PG = startPg();
   await global.__PG.exec(BASE);
+  await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql']) await global.__PG.exec(mig(f));
+    '198_storefront_moderation_reports.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql']) await global.__PG.exec(mig(f));
   await global.__PG.exec(mig('200_storefront_product_data.sql'));   // idempotent
   for (const [name, type, demo] of [['nora', 'estate_sale_company'], ['sue', 'auction_house'], ['pat', 'private'], ['demo', 'auction_house', true]]) {
     U[name] = await one(`INSERT INTO users (email, full_name, role) VALUES ($1, $2, 'seller') RETURNING *`, [name + '@test.example', name.toUpperCase()]);

@@ -127,11 +127,12 @@ const feed = (sellerId) => anon('/api/public/storefront/widget/' + sellerId);
 beforeAll(async () => {
   global.__PG = startPg();
   await global.__PG.exec(BASE);
+  await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -209,7 +210,7 @@ describe('one widget per seller, bound to that seller on the server', () => {
       expect(keys).not.toContain(bad);
     }
     expect(JSON.stringify(nora.body)).not.toMatch(/Private St|77001|@test\.example/);
-    expect(nora.body.data.seller).toEqual({ name: 'Nora "Fine" & Co $&', storefront_url: storefront.APP_BASE + '/pro/nora' });
+    expect(nora.body.data.seller).toEqual({ name: 'Nora "Fine" & Co $&', storefront_url: storefront.APP_BASE + '/pro/nora', logo_url: null });
     expect(nora.body.data.attribution).toMatchObject({ label: 'Shop securely on Advantage.Bid', url: storefront.APP_BASE + '/pro/nora' });
   });
 
@@ -372,15 +373,25 @@ describe('embedding: the frame is embeddable and noindex; the rest of the site i
     expect(r.headers.get('x-robots-tag')).toBe('noindex');
     const html = await r.text();
     expect(html).toContain('<meta name="robots" content="noindex" />');
-    expect(html).toContain("fetch('/api/public/storefront/widget/'+encodeURIComponent(SELLER),{credentials:'omit'})");
-    expect(html).toMatch(/target="_blank" rel="noopener"/);
-    expect(html).toContain('Shop securely on Advantage.Bid');
-    expect(html).not.toMatch(/<form|\/api\/marketplace\/|paymentIntent|localStorage|Authorization/i);   // no checkout or session code
-    expect(html).not.toMatch(/[–—]|&mdash;|&ndash;/);
-    expect(html).not.toMatch(/\bA\.?I\b|artificial intelligence/i);
-    // every value placed into the page goes through esc(); links only http(s)
-    expect(html).toMatch(/href="'\+esc\(safeUrl\(it\.url\)\)\+'"/);
-    expect(html).toMatch(/src="'\+esc\(it\.image\)\+'"/);
+    // The page is markup only; its script (/embed/storefront.js) reads the public widget data and, for the in-frame item
+    // view, this seller's own item. It reads the public checkout switch, never a session, and takes no payment.
+    expect(html).toContain('<script src="/embed/storefront.js"></script>');
+    expect(html).not.toMatch(/<script>/);
+    const js = await (await fetch(base + '/embed/storefront.js')).text();
+    expect(js).toContain("fetch('/api/public/storefront/widget/'+encodeURIComponent(SELLER),{credentials:'omit'})");
+    expect(js).toContain("'/api/public/storefront/widget/'+encodeURIComponent(SELLER)+'/item/'+encodeURIComponent(id),{credentials:'omit'}");
+    expect(js).toMatch(/target="_blank" rel="noopener"/);
+    expect(js).toContain('Shop securely on Advantage.Bid');
+    expect((js.match(/\/api\/marketplace\/[a-z]+/g) || [])).toEqual(['/api/marketplace/config']);
+    expect(js + html).not.toMatch(/<form|paymentIntent|localStorage|Authorization/i);   // no checkout or session code
+    expect(html + js).not.toMatch(/[–—]|&mdash;|&ndash;/);
+    expect(html + js).not.toMatch(/\bA\.?I\b|artificial intelligence/i);
+    // every value placed into the page goes through esc(); links only http(s). A card opens the item inside the frame
+    // (same address with ?item=); the item view links the canonical Advantage.Bid page.
+    expect(js).toMatch(/href="'\+esc\(urlFor\(it\.id\)\)\+'"/);
+    expect(js).toMatch(/var canonical=safeUrl\(it\.url\);/);
+    expect(js).toMatch(/href="'\+esc\(canonical\)\+'" target="_blank" rel="noopener">View this item on Advantage\.Bid/);
+    expect(js).toMatch(/src="'\+esc\(it\.image\)\+'"/);
   });
 
   test('seller and other pages keep their frame protection', async () => {

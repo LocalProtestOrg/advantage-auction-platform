@@ -120,11 +120,12 @@ async function call(user, method, url, body) {
 beforeAll(async () => {
   global.__PG = startPg();
   await global.__PG.exec(BASE);
+  await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -284,5 +285,42 @@ describe('enforced on the server for every path (source guard)', () => {
     expect(payFn).toMatch(/await assertSellerCanSell\(o\.seller_id\)/);
     const elig = fs.readFileSync(path.join(ROOT, 'src', 'services', 'sellerSaleEligibility.js'), 'utf8');
     expect(elig).toMatch(/require\('\.\/verificationService'\)\.publicationGate\(sp\.id\)/);
+  });
+});
+
+describe('agreement and payouts must be in place before a seller can be paid by a buyer (2026-11-02)', () => {
+  const sueUser = () => U.sue.id;
+  test('no agreement in place (not signed, not waived, no earlier auctions): refused with the same neutral answer', async () => {
+    const it = await listing('sue');
+    await q('UPDATE seller_profiles SET agreement_waived_at = NULL WHERE id = $1', [SP.sue]);
+    try {
+      const r = await order(it.id);
+      expect([r.status, r.body.code]).toEqual([409, 'SELLER_NOT_ACCEPTING_ORDERS']);
+      expect(r.body.message).toBe('This seller is not accepting orders right now.');
+      expect(await orderCount(it.id)).toBe(0);
+    } finally { await q('UPDATE seller_profiles SET agreement_waived_at = now() WHERE id = $1', [SP.sue]); }
+  });
+  test('payout account not ready (missing, onboarding unfinished, or payouts disabled): refused, also for a checkout already started', async () => {
+    const it = await listing('sue');
+    const started = await order(it.id);
+    expect(started.status).toBe(200);
+    for (const state of [{ connect_payouts_enabled: false }, { connect_transfers_active: false }, { stripe_account_id: null }]) {
+      const [col] = Object.keys(state);
+      await q(`UPDATE seller_payout_preferences SET ${col} = $2 WHERE seller_user_id = $1`, [sueUser(), state[col]]);
+      const it2 = await listing('sue');
+      expect((await order(it2.id)).body.code).toBe('SELLER_NOT_ACCEPTING_ORDERS');
+      const paid = await pay(started.body.data.order.id);
+      expect(paid.body.code).toBe('SELLER_NOT_ACCEPTING_ORDERS');                         // never charged
+      await q(`UPDATE seller_payout_preferences SET stripe_account_id = 'acct_test_sue', connect_transfers_active = true, connect_payouts_enabled = true
+                WHERE seller_user_id = $1`, [sueUser()]);
+    }
+    expect((await pay(started.body.data.order.id)).body.data.status).toBe('succeeded');  // ready again: the started checkout completes
+  });
+  test('the gate is the existing agreement check and the settlement payout readiness, not a new system', () => {
+    const src = require('fs').readFileSync('src/services/sellerSaleEligibility.js', 'utf8');
+    expect(src).toMatch(/require\('\.\/agreementService'\)\.dashboardAccess\(sp\.id\)/);
+    expect(src).toMatch(/getSellerPayoutPreference\(sp\.user_id\)/);
+    expect(require('../src/services/sellerSaleEligibility').payoutReady({ stripe_account_id: 'acct_1', connect_transfers_active: true, connect_payouts_enabled: true })).toBe(true);
+    expect(require('../src/services/sellerSaleEligibility').payoutReady({ stripe_account_id: 'acct_1', connect_transfers_active: true, connect_payouts_enabled: false })).toBe(false);
   });
 });

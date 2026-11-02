@@ -355,6 +355,11 @@ async function updateItem(id, actingUserId, patch = {}) {
   if (item.status === 'pending_purchase' || orders.live > 0) {
     throw err(409, 'ITEM_RESERVED', "A buyer is checking out this item, so it can't be changed right now. Try again in a few minutes.");
   }
+  // Fully sold: marked sold, or sold through a paid order with no units left on sale. A multi-quantity item that has sold
+  // some units (quantity_sold, migration 212) and still has units available stays on sale and editable; every order keeps
+  // its own fixed purchase record.
+  const fullySold = item.status === 'sold' || !!item.sold_at
+    || (orders.paid > 0 && !(Number(item.quantity) > 0 && Number(item.quantity_sold) > 0));
   if (patch.status != null) {
     if (!['draft', 'active', 'paused', 'sold', 'removed'].includes(patch.status)) throw err(400, 'INVALID_STATUS', 'That status is not available.');
     // A listing an administrator took down stays down until an administrator restores it (database-enforced too).
@@ -367,12 +372,12 @@ async function updateItem(id, actingUserId, patch = {}) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again. If it was marked sold by mistake, contact Advantage.Bid to correct it.');
     }
     const allowed = SELLER_TRANSITIONS[item.status] || [];
-    if (!allowed.includes(patch.status) || (orders.paid > 0 && ['draft', 'active', 'paused'].includes(patch.status))) {
+    if (!allowed.includes(patch.status) || (fullySold && ['draft', 'active', 'paused'].includes(patch.status))) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     }
   }
   // The seller's choice to show a sold item's realized price to signed-in members may be changed at any time.
-  if ((item.status === 'sold' || item.sold_at || orders.paid > 0) && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {
+  if (fullySold && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {
     throw err(409, 'ITEM_SOLD', 'This item has been sold, so its details are kept as they were at the sale.');
   }
   const sets = []; const vals = [id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
@@ -442,6 +447,12 @@ async function updateItem(id, actingUserId, patch = {}) {
   }
   if (!sets.length) return item;
   const { rows } = await client.query(`UPDATE marketplace_items SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals).catch(inventoryConflict);
+  // Every change to the available stock is recorded (migration 212).
+  if (patch.quantity !== undefined && Number(rows[0].quantity) !== Number(item.quantity)) {
+    await client.query(`INSERT INTO marketplace_stock_events (item_id, seller_id, delta, available_after, reason, actor_user_id)
+                        VALUES ($1, $2, $3, $4, 'seller_adjusted', $5)`,
+      [id, item.seller_id, Number(rows[0].quantity) - Number(item.quantity), Number(rows[0].quantity), require('../lib/sellerActor').actorUserId(actingUserId) || null]);
+  }
   return rows[0];
   });
 }
@@ -599,6 +610,8 @@ const PUBLIC_ITEM_FIELDS = ['id', 'title', 'description', 'category', 'condition
   'brand', 'manufacturer', 'gtin', 'mpn', 'condition_type', 'era_or_period', 'material', 'image_alt',
   // seller-provided facts and the taxonomy category (migration 209); the category's origin and confidence stay private
   'dimensions', 'color', 'category_key',
+  // units available now (migration 212: held and sold units are already off this count)
+  'quantity',
   // seller-set shipping terms (migration 201) — public by nature
   'shipping_method', 'shipping_price_mode', 'shipping_destinations', 'shipping_states', 'handling_days', 'is_oversized', 'is_fragile'];
 function publicItem(row) {

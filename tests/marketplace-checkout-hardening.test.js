@@ -140,7 +140,11 @@ describe('markOrderPaid: conflict auto-refund', () => {
     const f = install(routesFor(ORDER(), { id: 'item-1', status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001' }));
     await svc.markOrderPaid(INTENT());
     expect(f.has(/SET payment_status = 'paid'/)).toBe(true);
-    expect(f.has(/UPDATE marketplace_items SET status = 'sold'/)).toBe(true);
+    // migration 212: the reserved unit is counted as sold; with none left and no other hold the item becomes 'sold'
+    const sold = f.find(/UPDATE marketplace_items SET quantity_sold = quantity_sold \+ \$2/)[0];
+    expect(sold.sql).toMatch(/status = CASE WHEN quantity = 0 AND \$3::int = 0 THEN 'sold'/);
+    expect(sold.params.slice(0, 3)).toEqual(['item-1', 1, 0]);
+    expect(f.has(/INSERT INTO marketplace_stock_events/)).toBe(true);
     expect(mockStripe.refunds.create).not.toHaveBeenCalled();
     expect(notifier.sendPaid).toHaveBeenCalledWith('0000000a-0000-4000-8000-000000000001');
   });
@@ -164,7 +168,7 @@ describe('sweepExpiredHolds', () => {
       oC: ORDER({ id: 'oC', marketplace_item_id: 'iC', stripe_payment_intent_id: 'pi_C' }),
     };
     const f = install([
-      [/FROM marketplace_items mi LEFT JOIN marketplace_orders o/, { rows: [
+      [/FROM marketplace_orders o WHERE o.payment_status = 'pending' AND o.stock_released_at IS NULL AND o.hold_expires_at < now\(\)/, { rows: [
         { item_id: 'iA', order_id: 'oA', stripe_payment_intent_id: 'pi_A' },
         { item_id: 'iB', order_id: 'oB', stripe_payment_intent_id: 'pi_B' },
         { item_id: 'iC', order_id: 'oC', stripe_payment_intent_id: 'pi_C' },
@@ -221,7 +225,9 @@ describe('handleIntentEvent', () => {
     ]);
     await svc.handleIntentEvent('payment_intent.canceled', INTENT({ status: 'canceled' }));
     expect(f.has(/SET payment_status = 'failed'/)).toBe(true);
-    expect(f.has(/UPDATE marketplace_items SET status = 'active'/)).toBe(true);
+    // migration 212: the order's units go back to the item, exactly once
+    expect(f.has(/UPDATE marketplace_items SET quantity = quantity \+ \$2/)).toBe(true);
+    expect(f.has(/UPDATE marketplace_orders SET stock_released_at = now\(\)/)).toBe(true);
   });
 });
 
@@ -372,6 +378,7 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
       [/JOIN seller_profiles sp ON sp.id = mi.seller_id/, { rows: [itemRow] }],
       [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [itemRow] }],
       [/INSERT INTO marketplace_orders/, (p) => ({ rows: [ORDER({ fulfillment_method: 'shipping', ship_to: JSON.parse(p[10]) })] })],
+      [/UPDATE marketplace_items SET quantity = quantity - \$2/, { rows: [{ quantity: 0 }] }],
       [/UPDATE marketplace_orders SET stripe_payment_intent_id/, (p) => ({ rows: [ORDER({ tax_cents: p[3], total_charge_cents: p[4] })] })],
     ]);
     await svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: ship,
@@ -392,7 +399,7 @@ describe('payOrder: card funding check before any charge', () => {
   function payRoutes() {
     return install([
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 AND buyer_user_id = \$2/, { rows: [ORDER()] }],
-      [/UPDATE marketplace_items SET pending_expires_at = GREATEST/, { rowCount: 1, rows: [] }],
+      [/UPDATE marketplace_orders SET hold_expires_at = GREATEST/, { rowCount: 1, rows: [] }],
       [/SELECT stripe_customer_id FROM users/, { rows: [{ stripe_customer_id: 'cus_1' }] }],
       [/FROM marketplace_orders WHERE stripe_payment_intent_id = \$1 FOR UPDATE/, { rows: [ORDER()] }],
       [/FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001' }] }],
@@ -446,7 +453,7 @@ describe('payOrder: card funding check before any charge', () => {
   test('an expired hold cannot be paid', async () => {
     install([
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 AND buyer_user_id = \$2/, { rows: [ORDER()] }],
-      [/UPDATE marketplace_items SET pending_expires_at = GREATEST/, { rowCount: 0, rows: [] }],
+      [/UPDATE marketplace_orders SET hold_expires_at = GREATEST/, { rowCount: 0, rows: [] }],
     ]);
     await expect(svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', { paymentMethodId: 'pm_x' })).rejects.toMatchObject({ code: 'ORDER_NOT_PAYABLE' });
     expect(mockStripe.paymentMethods.retrieve).not.toHaveBeenCalled();
@@ -459,7 +466,9 @@ test('createOrder by the same buyer while their hold is live returns the SAME or
   const f = install([
     [/JOIN seller_profiles sp ON sp.id = mi.seller_id/, { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su',
       seller_type: 'estate_sale_company', price_cents: 10000, status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001', pending_expires_at: future, shippable: false }] }],
-    [/SELECT \* FROM marketplace_orders WHERE id = \$1/, { rows: [ORDER({ shipping_cents: 0, ship_to: null })] }],
+    // migration 212: the buyer's own live hold is found on the orders (units reserved, hold not expired)
+    [/FROM marketplace_orders WHERE marketplace_item_id = \$1 AND payment_status = 'pending' AND stock_released_at IS NULL/,
+      { rows: [ORDER({ shipping_cents: 0, ship_to: null, quantity: 1, hold_expires_at: future })] }],
   ]);
   mockStripe.paymentIntents.retrieve.mockResolvedValueOnce(INTENT({ status: 'requires_payment_method', client_secret: 'cs_1' }));
   const out = await svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'pickup' });

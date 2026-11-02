@@ -40,7 +40,24 @@ const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 const saleLocation = require('../lib/saleLocation');
 
 const STRIPE_API_VERSION = '2026-03-25.dahlia'; // matches paymentService/taxCalculationService pin
-const CLAIM_TTL_MINUTES = 30;                    // an in-flight checkout holds a one-of-one item this long
+const CLAIM_TTL_MINUTES = 30;                    // an in-flight checkout holds its units this long
+const MAX_UNITS_PER_ORDER = 1000;                // migration 212 marketplace_orders_quantity_check
+// Units a buyer asks for: a whole number from 1 (the default) up to the per-order limit.
+function unitsOf(v) {
+  if (v === undefined || v === null || v === '') return 1;
+  const n = typeof v === 'number' ? v : Number(String(v).trim());
+  if (!Number.isInteger(n) || n < 1 || n > MAX_UNITS_PER_ORDER) throw err(422, 'QUANTITY_INVALID', 'Choose a quantity of at least 1.');
+  return n;
+}
+function availabilityMessage(available) {
+  const n = Math.max(0, Number(available) || 0);
+  return n > 0 ? `Only ${n} available. Please choose a quantity of ${n} or fewer.` : 'This item is no longer available for purchase.';
+}
+// One line in the stock history (migration 212; append-only).
+async function stockEvent(runner, { itemId, sellerId, orderId = null, delta = 0, soldDelta = 0, availableAfter, reason, actorUserId = null }) {
+  await runner.query(`INSERT INTO marketplace_stock_events (item_id, seller_id, order_id, delta, sold_delta, available_after, reason, actor_user_id)
+                      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [itemId, sellerId, orderId, delta, soldDelta, availableAfter, reason, actorUserId]);
+}
 
 // FLAT Professional Storefront selling fee (owner-authoritative): 11% of the ITEM PRICE, INCLUSIVE of
 // credit-card/payment processing. Customer-facing promise: "Flat 11% selling fee, including credit card
@@ -163,10 +180,10 @@ async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runne
 
 // The fixed record of what was bought and from whom, captured from the locked item at purchase (migration 197 rejects an
 // order whose snapshot names a different item or seller, and never lets it change afterwards).
-function purchaseSnapshot(item, method = 'pickup', shippingCents = 0) {
+function purchaseSnapshot(item, method = 'pickup', shippingCents = 0, units = 1) {
   const eff = saleLocation.forItem(item);
   return {
-    item: { item_id: item.id, title: item.title, description: item.description || null, category: item.category || null,
+    item: { item_id: item.id, quantity: units, title: item.title, description: item.description || null, category: item.category || null,
       condition: item.condition || null, thumbnail_url: item.thumbnail_url || null, images: Array.isArray(item.images) ? item.images : [],
       shippable: !!item.shippable, shipping_cost_cents: item.shipping_cost_cents == null ? null : Number(item.shipping_cost_cents),
       shipping_notes: item.shipping_notes || null, source_lot_id: item.source_lot_id || null, listed_price_cents: Number(item.price_cents),
@@ -197,16 +214,20 @@ async function quote(itemId, buyerUserId, opts = {}) {
   const { item, method, shippingCents, feeBps } = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db,
     qShip ? { shipToState: qShip.state || '', shipToCountry: qShip.country } : {});
   if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
+  const units = unitsOf(opts.quantity);
+  if (Number(item.quantity == null ? 1 : item.quantity) < units) throw err(409, 'NOT_ENOUGH_AVAILABLE', availabilityMessage(item.quantity));
+  const goods = Number(item.price_cents) * units;
   // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
   const loc = await resolveTaxLocation({ method, item, shipTo: opts.ship_to || opts.address });
-  const taxable = item.price_cents + shippingCents;
+  const taxable = goods + shippingCents;
   const tax = await taxService.computeTax({
     buyerUserId, taxableBaseCents: taxable, address: loc && loc.address, shipFrom: loc && loc.shipFrom,
     addressSource: 'shipping', reference: 'marketplace-quote:' + itemId,
   });
-  const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents, taxCents: tax.taxCents, feeBps });
+  const b = computeBreakdown({ itemPriceCents: goods, shippingCents, taxCents: tax.taxCents, feeBps });
   return {
-    item: { id: item.id, title: item.title, thumbnail_url: item.thumbnail_url, seller_id: item.seller_id },
+    item: { id: item.id, title: item.title, thumbnail_url: item.thumbnail_url, seller_id: item.seller_id,
+      unit_price_cents: Number(item.price_cents), quantity: units, available: Number(item.quantity) },
     fulfillment_method: method, tax_enabled: tax.enabled, tax_exempt: tax.exempt, breakdown: buyerBreakdown(b),
   };
 }
@@ -262,22 +283,23 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   const pre = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db, dest);
   const { method, shippingCents, feeBps } = pre;
   if (method === 'shipping' && !shipToObj) throw err(422, 'SHIP_TO_REQUIRED', 'A shipping address is required.');
-  // Check the sale location BEFORE the item is held, so a blocked sale never claims inventory.
+  const units = unitsOf(opts.quantity);
+  // Check the sale location BEFORE any unit is held, so a blocked sale never claims inventory.
   if (taxActive()) await resolveTaxLocation({ method, item: pre.item, shipTo: shipToObj });
 
-  if (pre.item.status === 'pending_purchase') {
-    const reused = await reuseOrRetireHold(pre.item, buyerUserId, method, shipToObj);
-    if (reused) return reused;
-  }
+  // This buyer's own checkout for this item still in progress: reuse it ("Try again" is safe) or retire it. Expired
+  // holds on this item (anyone's) are released first so their units are available again.
+  const reused = await reuseOrRetireHold(pre.item, buyerUserId, method, shipToObj, units);
+  if (reused) return reused;
 
   let order;
   await withTransaction(async (client) => {
     const locked = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
     if (!locked) throw err(404, 'ITEM_NOT_FOUND', 'This item is no longer available.');
     if (locked.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
-    // One item per order until multi-quantity purchasing is built (required before live checkout; migration 209 stores the
-    // seller's quantity). An item with more than one, or none left, is never sold through this single-item path.
-    if (locked.quantity != null && Number(locked.quantity) !== 1) throw err(409, 'QUANTITY_NOT_SUPPORTED', 'This item is not available for online purchase yet. Contact the seller.');
+    // Stock (migration 212): the units must be available now; they are taken off the available count below, under this
+    // row lock, so two buyers can never be sold the same unit.
+    if (!(Number(locked.quantity == null ? 1 : locked.quantity) >= units)) throw err(409, 'NOT_ENOUGH_AVAILABLE', availabilityMessage(locked.quantity));
     // Everything the order records comes from the LOCKED item and its owning seller, re-checked here: the seller, price,
     // shipping and pickup terms cannot change between the eligibility check above and this order.
     const { item, method: lockedMethod, shippingCents: lockedShipping } = await loadItemForPurchase(itemId, buyerUserId, method, client, dest);
@@ -288,9 +310,9 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
       throw err(409, 'PRICE_CHANGED', 'The price or shipping for this item changed since you reviewed it. Please review your order again.');
     }
     if (lockedMethod !== method) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
-    const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents: lockedShipping, taxCents: 0, feeBps });
+    const b = computeBreakdown({ itemPriceCents: Number(item.price_cents) * units, shippingCents: lockedShipping, taxCents: 0, feeBps });
     const shipTo = shipToObj ? JSON.stringify(shipToObj) : null;
-    const snap = purchaseSnapshot(item, lockedMethod, lockedShipping);
+    const snap = purchaseSnapshot(item, lockedMethod, lockedShipping, units);
     // The seller's policies apply only when the buyer could see them (seller branding shown). The buyer confirmed the
     // versions on the review screen: if the seller published a different version since, ask the buyer to review again.
     // Share-lock the seller company: publishing or withdrawing a policy takes the same row FOR UPDATE, so the versions
@@ -304,37 +326,43 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
         if (want !== have) throw err(409, 'POLICIES_CHANGED', "The seller updated their store policies since you reviewed them. Please review them again.");
       }
     }
-    // The database allows one live order per item (uq_marketplace_orders_live_item); if one already exists the buyer
-    // gets a clean "not available" instead of a server error.
+    // The order is the reservation: its units, unit price and hold expiry (migration 212).
     const inserted = await client.query(
       `INSERT INTO marketplace_orders
          (marketplace_item_id, seller_id, buyer_user_id, item_price_cents, shipping_cents, tax_cents,
           platform_fee_bps, platform_fee_cents, seller_proceeds_cents, total_charge_cents,
           fulfillment_method, ship_to, payment_status, is_demo, idempotency_key,
-          item_snapshot, seller_snapshot, pickup_snapshot, policy_snapshot, policies_acknowledged_at)
-       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13,$14::jsonb,$15::jsonb,$16::jsonb,$17::jsonb, now())
+          item_snapshot, seller_snapshot, pickup_snapshot, policy_snapshot, policies_acknowledged_at,
+          quantity, unit_price_cents, hold_expires_at)
+       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13,$14::jsonb,$15::jsonb,$16::jsonb,$17::jsonb, now(),
+               $18, $19, now() + interval '${CLAIM_TTL_MINUTES} minutes')
        RETURNING *`,
       [itemId, item.seller_id, buyerUserId, b.item_price_cents, b.shipping_cents,
        b.platform_fee_bps, b.platform_fee_cents, b.seller_proceeds_cents, b.total_charge_cents,
        method, shipTo, !!item.is_demo, opts.idempotencyKey || null,
        JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null,
-       JSON.stringify(policySnap)])
+       JSON.stringify(policySnap), units, Number(item.price_cents)])
       .catch((e) => {
-        if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
         if (e && e.code === '23514' && /own seller/.test(e.message || '')) throw err(409, 'POLICIES_CHANGED', 'The seller updated their store policies since you reviewed them. Please review them again.');
         throw e;
       });
     order = inserted.rows[0];
     await recordEvent(client, order.id, 'created', { actorUserId: buyerUserId, actorRole: 'buyer',
-      data: { item_id: itemId, seller_id: item.seller_id, total_charge_cents: b.total_charge_cents, method } });
-    await client.query(
+      data: { item_id: itemId, seller_id: item.seller_id, total_charge_cents: b.total_charge_cents, method, quantity: units } });
+    // Reserve the units. When none are left, the item shows "sale in progress" until every hold is paid or released.
+    const after = (await client.query(
       `UPDATE marketplace_items
-          SET status = 'pending_purchase', pending_order_id = $2,
-              pending_expires_at = now() + interval '${CLAIM_TTL_MINUTES} minutes', updated_at = now()
-        WHERE id = $1`, [itemId, order.id]);
+          SET quantity = quantity - $2,
+              status = CASE WHEN quantity - $2 = 0 THEN 'pending_purchase' ELSE status END,
+              pending_order_id = CASE WHEN quantity - $2 = 0 THEN $3::uuid ELSE pending_order_id END,
+              pending_expires_at = CASE WHEN quantity - $2 = 0 THEN now() + interval '${CLAIM_TTL_MINUTES} minutes' ELSE pending_expires_at END,
+              updated_at = now()
+        WHERE id = $1 AND quantity >= $2 RETURNING quantity`, [itemId, units, order.id])).rows[0];
+    if (!after) throw err(409, 'NOT_ENOUGH_AVAILABLE', availabilityMessage(locked.quantity));
+    await stockEvent(client, { itemId, sellerId: item.seller_id, orderId: order.id, delta: -units, availableAfter: Number(after.quantity), reason: 'reserved' });
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.created', entityType: 'marketplace_order', entityId: order.id,
-      actorId: buyerUserId, metadata: { item_id: itemId, total_charge_cents: b.total_charge_cents, method },
+      actorId: buyerUserId, metadata: { item_id: itemId, total_charge_cents: b.total_charge_cents, method, quantity: units },
     });
   });
 
@@ -381,30 +409,54 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     tax_enabled: tax.enabled, tax_exempt: tax.exempt };
 }
 
-// The item is currently held. If the hold belongs to this buyer's own still-payable order with the same
-// fulfillment choice, return that order (no second order, no second intent — "Try again" is safe). If the
-// buyer changed method/ship-to, retire the old hold (cancel its intent first). If someone else's hold expired,
-// release it via the sweeper path. Anything else → the tx below reports NOT_AVAILABLE.
-async function reuseOrRetireHold(item, buyerUserId, method, shipToObj) {
-  const o = item.pending_order_id
-    ? (await db.query('SELECT * FROM marketplace_orders WHERE id = $1', [item.pending_order_id])).rows[0] : null;
-  const expired = item.pending_expires_at && new Date(item.pending_expires_at) < new Date();
-  if (o && o.buyer_user_id === buyerUserId && o.payment_status === 'pending' && o.stripe_payment_intent_id && !expired) {
+// Before a new order: every EXPIRED hold on this item is released (through the sweeper's safe path), so its units are
+// available again. Then, if this buyer already has a still-payable checkout for this item with the same choices
+// (fulfillment, ship-to, quantity), that order is returned (no second order or intent; "Try again" is safe); a checkout
+// with different choices is retired (its intent canceled first, its units returned). Returns the reused order or null.
+async function reuseOrRetireHold(item, buyerUserId, method, shipToObj, units = 1) {
+  const holds = (await db.query(
+    `SELECT * FROM marketplace_orders
+      WHERE marketplace_item_id = $1 AND payment_status = 'pending' AND stock_released_at IS NULL
+      ORDER BY created_at`, [item.id])).rows;
+  const now = Date.now();
+  for (const o of holds) {
+    const expired = o.hold_expires_at && new Date(o.hold_expires_at).getTime() < now;
+    if (expired) { await releaseExpiredHold({ item_id: item.id, order_id: o.id, stripe_payment_intent_id: o.stripe_payment_intent_id }); continue; }
+    if (o.buyer_user_id !== buyerUserId || !o.stripe_payment_intent_id) continue;
     const stripe = getStripe();
     const intent = await stripe.paymentIntents.retrieve(o.stripe_payment_intent_id);
     if (INTENT_IN_FLIGHT.includes(intent.status)) throw err(409, 'PAYMENT_IN_PROGRESS', 'Your payment for this item is already being processed.');
-    if (INTENT_REUSABLE.includes(intent.status) && o.fulfillment_method === method && sameShipTo(o.ship_to, shipToObj)) {
+    if (INTENT_REUSABLE.includes(intent.status) && o.fulfillment_method === method && sameShipTo(o.ship_to, shipToObj)
+        && Number(o.quantity || 1) === Number(units)) {
       return { order: buyerOrder(o), client_secret: intent.client_secret, reused: true,
         breakdown: buyerBreakdown(computeBreakdown({ itemPriceCents: o.item_price_cents, shippingCents: o.shipping_cents,
           taxCents: o.tax_cents, feeBps: o.platform_fee_bps })),
         tax_enabled: taxActive(), tax_exempt: false };
     }
     await releaseOrder(o.id, 'buyer_changed_checkout', { cancelIntent: true });
-    return null;
   }
-  if (expired) await releaseExpiredHold({ item_id: item.id, order_id: o ? o.id : null,
-    stripe_payment_intent_id: o ? o.stripe_payment_intent_id : null });
+  // A legacy item-level hold with no order (never left behind by this code) is cleared once it has expired.
+  if (item.status === 'pending_purchase' && !item.pending_order_id && item.pending_expires_at && new Date(item.pending_expires_at).getTime() < now) {
+    await releaseExpiredHold({ item_id: item.id, order_id: null, stripe_payment_intent_id: null });
+  }
   return null;
+}
+
+// Give an order's reserved units back to the item, exactly once (stock_released_at), inside the caller's transaction.
+// The item becomes available again unless the seller or an administrator took it off sale meanwhile.
+async function returnUnits(client, o, reason) {
+  if (o.stock_released_at) return;
+  const units = Number(o.quantity || 1);
+  const it = (await client.query(
+    `UPDATE marketplace_items
+        SET quantity = quantity + $2,
+            status = CASE WHEN status = 'pending_purchase' THEN 'active' ELSE status END,
+            pending_order_id = CASE WHEN pending_order_id = $3 OR status = 'pending_purchase' THEN NULL ELSE pending_order_id END,
+            pending_expires_at = CASE WHEN pending_order_id = $3 OR status = 'pending_purchase' THEN NULL ELSE pending_expires_at END,
+            updated_at = now()
+      WHERE id = $1 RETURNING quantity, seller_id`, [o.marketplace_item_id, units, o.id])).rows[0];
+  await client.query('UPDATE marketplace_orders SET stock_released_at = now() WHERE id = $1', [o.id]);
+  if (it) await stockEvent(client, { itemId: o.marketplace_item_id, sellerId: it.seller_id, orderId: o.id, delta: units, availableAfter: Number(it.quantity), reason: 'released' });
 }
 
 // Release an order's inventory claim + mark it failed (used by tax/stripe fail-safes, cancel webhooks, the
@@ -425,10 +477,9 @@ async function releaseOrder(orderId, reason, opts = {}) {
     await withTransaction(async (client) => {
       const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
       if (!o || o.payment_status === 'paid' || o.payment_status === 'refunded') return; // never disturb a settled order
+      await client.query('SELECT id FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id]);
       await client.query(`UPDATE marketplace_orders SET payment_status = 'failed', updated_at = now() WHERE id = $1`, [orderId]);
-      await client.query(
-        `UPDATE marketplace_items SET status = 'active', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
-          WHERE id = $1 AND status = 'pending_purchase' AND pending_order_id = $2`, [o.marketplace_item_id, orderId]);
+      await returnUnits(client, o, reason);
       await auditService.logEvent(client, {
         eventType: 'marketplace_order.released', entityType: 'marketplace_order', entityId: orderId,
         metadata: { reason: reason || null },
@@ -468,13 +519,18 @@ async function sweepExpiredHolds({ limit = 50 } = {}) {
   const summary = { enabled: false, scanned: 0, released: 0, reconciled_paid: 0, skipped: 0, errors: 0 };
   if (!marketplaceCheckoutEnabled() || !process.env.STRIPE_SECRET_KEY) return summary;
   summary.enabled = true;
+  // Expired holds are orders (migration 212): pending, units still reserved, hold time passed. A legacy item-level hold
+  // without any order is included too.
   const { rows } = await db.query(
-    `SELECT mi.id AS item_id, o.id AS order_id, o.stripe_payment_intent_id
-       FROM marketplace_items mi
-       LEFT JOIN marketplace_orders o ON o.id = mi.pending_order_id
-      WHERE mi.status = 'pending_purchase' AND mi.pending_expires_at < now()
-      ORDER BY mi.pending_expires_at ASC
-      LIMIT $1`, [limit]);
+    `SELECT * FROM (
+       SELECT o.marketplace_item_id AS item_id, o.id AS order_id, o.stripe_payment_intent_id, o.hold_expires_at AS expires_at
+         FROM marketplace_orders o
+        WHERE o.payment_status = 'pending' AND o.stock_released_at IS NULL AND o.hold_expires_at < now()
+       UNION ALL
+       SELECT mi.id, NULL::uuid, NULL::text, mi.pending_expires_at
+         FROM marketplace_items mi
+        WHERE mi.status = 'pending_purchase' AND mi.pending_expires_at < now() AND mi.pending_order_id IS NULL
+     ) h ORDER BY expires_at ASC LIMIT $1`, [limit]);
   for (const row of rows) {
     summary.scanned += 1;
     try {
@@ -519,13 +575,15 @@ async function payOrder(orderId, buyerUserId, { paymentMethodId, idempotencyKey 
   }
   // The seller may have been suspended or lost verification since the order was started: never charge in that case.
   await assertSellerCanSell(o.seller_id);
-  // Hold must still be ours and unexpired; extend it so card authentication can't outlive it.
+  // The order's reserved units must still be held and unexpired; extend the hold so card authentication can't outlive it.
   const hold = await db.query(
-    `UPDATE marketplace_items
-        SET pending_expires_at = GREATEST(pending_expires_at, now() + interval '${CLAIM_TTL_MINUTES} minutes'), updated_at = now()
-      WHERE id = $1 AND status = 'pending_purchase' AND pending_order_id = $2 AND pending_expires_at > now()`,
-    [o.marketplace_item_id, o.id]);
+    `UPDATE marketplace_orders
+        SET hold_expires_at = GREATEST(hold_expires_at, now() + interval '${CLAIM_TTL_MINUTES} minutes'), updated_at = now()
+      WHERE id = $1 AND payment_status = 'pending' AND stock_released_at IS NULL AND hold_expires_at > now()`, [o.id]);
   if (!hold.rowCount) throw err(409, 'ORDER_NOT_PAYABLE', 'Your checkout session expired. Please start again.');
+  await db.query(
+    `UPDATE marketplace_items SET pending_expires_at = GREATEST(pending_expires_at, now() + interval '${CLAIM_TTL_MINUTES} minutes')
+      WHERE id = $1 AND pending_order_id = $2`, [o.marketplace_item_id, o.id]);
 
   const stripe = getStripe();
   const refuse = async (pm) => {
@@ -627,15 +685,19 @@ async function markOrderPaid(intent) {
       return;
     }
     const item = (await client.query(
-      'SELECT id, status, pending_order_id FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id])).rows[0];
-    const claimedByThis = !!(item && item.status === 'pending_purchase' && item.pending_order_id === o.id);
-    if (o.payment_status === 'failed' || !claimedByThis) {
+      'SELECT id, seller_id, status, quantity, quantity_sold, pending_order_id, moderation_status FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id])).rows[0];
+    // The claim is the order's own reservation (migration 212): still pending, units never given back, and the item not
+    // taken off sale meanwhile (removed by the seller or taken down by an administrator: the payment is refunded).
+    const claimedByThis = !!(item && o.payment_status === 'pending' && !o.stock_released_at
+      && item.status !== 'removed' && item.moderation_status !== 'taken_down');
+    if (!claimedByThis) {
       let reason = 'order_failed';
       if (!item) reason = 'item_missing';
       else if (item.status === 'sold') reason = 'item_sold';
       else if (item.status === 'removed') reason = 'item_removed';
-      else if (item.status === 'pending_purchase' && item.pending_order_id !== o.id) reason = 'item_claimed_by_other_order';
+      else if (item.status === 'pending_purchase' && item.pending_order_id && item.pending_order_id !== o.id) reason = 'item_claimed_by_other_order';
       else if (o.payment_status === 'failed') reason = 'order_failed';
+      else if (o.stock_released_at) reason = 'hold_released';
       else reason = 'item_not_claimed';
       conflict = { order: o, reason };
       return;
@@ -644,9 +706,21 @@ async function markOrderPaid(intent) {
       `UPDATE marketplace_orders
           SET payment_status = 'paid', stripe_charge_id = $2, paid_at = now(), updated_at = now()
         WHERE id = $1`, [o.id, chargeId]);
-    await client.query(
-      `UPDATE marketplace_items SET status = 'sold', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
-        WHERE id = $1`, [o.marketplace_item_id]);
+    // The reserved units are now sold. When nothing is available and no other checkout holds units, the item is sold.
+    const units = Number(o.quantity || 1);
+    const otherHolds = Number(((await client.query(
+      `SELECT count(*)::int AS n FROM marketplace_orders
+        WHERE marketplace_item_id = $1 AND id <> $2 AND payment_status = 'pending' AND stock_released_at IS NULL`, [o.marketplace_item_id, o.id])).rows[0] || {}).n) || 0;
+    const sold = (await client.query(
+      `UPDATE marketplace_items
+          SET quantity_sold = quantity_sold + $2,
+              status = CASE WHEN quantity = 0 AND $3::int = 0 THEN 'sold' ELSE status END,
+              pending_order_id = CASE WHEN pending_order_id = $4 OR (quantity = 0 AND $3::int = 0) THEN NULL ELSE pending_order_id END,
+              pending_expires_at = CASE WHEN pending_order_id = $4 OR (quantity = 0 AND $3::int = 0) THEN NULL ELSE pending_expires_at END,
+              updated_at = now()
+        WHERE id = $1 RETURNING quantity`, [o.marketplace_item_id, units, otherHolds, o.id])).rows[0] || { quantity: 0 };
+    await stockEvent(client, { itemId: o.marketplace_item_id, sellerId: item.seller_id || o.seller_id, orderId: o.id, soldDelta: units,
+      availableAfter: Number(sold.quantity) || 0, reason: 'sold' });
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.paid', entityType: 'marketplace_order', entityId: o.id,
       metadata: { intent_id: intent.id, total_charge_cents: o.total_charge_cents },
@@ -829,12 +903,22 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
               review_note = COALESCE($5, review_note),
               payout_eligible = false, payout_eligible_at = NULL, refunded_at = now(), updated_at = now()
         WHERE id = $1 RETURNING *`, [orderId, refundedCents, reversalId, extra.reason || null, extra.reviewNote || null])).rows[0];
-    // Item → non-public 'removed'. Seller must explicitly RELIST (its physical disposition may be uncertain). A full refund
-    // undoes the sale, so the item's sold mark (migration 207) is cleared and it may be relisted.
-    const soldMark = 'sold_at' in ((await client.query('SELECT * FROM marketplace_items WHERE id = $1', [o.marketplace_item_id])).rows[0] || {});
-    await client.query(
-      `UPDATE marketplace_items SET status = 'removed', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()${soldMark ? ', sold_at = NULL' : ''}
-        WHERE id = $1 AND status IN ('sold','pending_purchase')`, [o.marketplace_item_id]);
+    // A full refund undoes the sale: its units come off the sold count. They are NOT put back on sale automatically (the
+    // goods may already have left); the seller adjusts the available quantity. A fully sold item becomes non-public
+    // 'removed' and must be explicitly RELISTED; an item still on sale (other units available or held) stays as it is.
+    const itemRow = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id])).rows[0] || {};
+    const soldMark = 'sold_at' in itemRow;
+    const back = (await client.query(
+      `UPDATE marketplace_items SET quantity_sold = GREATEST(quantity_sold - $2, 0),
+              status = CASE WHEN status = 'sold' THEN 'removed' ELSE status END,
+              pending_order_id = CASE WHEN status = 'sold' THEN NULL ELSE pending_order_id END,
+              pending_expires_at = CASE WHEN status = 'sold' THEN NULL ELSE pending_expires_at END,
+              updated_at = now()${soldMark ? ", sold_at = CASE WHEN status = 'sold' THEN NULL ELSE sold_at END" : ''}
+        WHERE id = $1 RETURNING quantity, seller_id`, [o.marketplace_item_id, Number(o.quantity || 1)])).rows[0];
+    if (back && o.payment_status === 'paid') {
+      await stockEvent(client, { itemId: o.marketplace_item_id, sellerId: back.seller_id, orderId: o.id, soldDelta: -Number(o.quantity || 1),
+        availableAfter: Number(back.quantity), reason: 'refunded', actorUserId: adminId || null });
+    }
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.refunded', entityType: 'marketplace_order', entityId: orderId,
       actorId: adminId || null, metadata: { refunded_amount_cents: refundedCents, reversal_id: reversalId, reason: extra.reason || null } });
@@ -860,9 +944,12 @@ async function relistItem(itemId, sellerActorRef) {
     }
     // A sold item stays sold even after it is removed from view: only a refunded or failed sale frees it again.
     const live = (await client.query(
-      `SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status IN ('pending','processing','paid')`,
-      [itemId])).rows[0];
-    if (live && live.n > 0) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
+      `SELECT count(*) FILTER (WHERE payment_status IN ('pending','processing') AND stock_released_at IS NULL)::int AS held,
+              count(*) FILTER (WHERE payment_status = 'paid')::int AS paid
+         FROM marketplace_orders WHERE marketplace_item_id = $1`, [itemId])).rows[0] || { held: 0, paid: 0 };
+    if (live.held > 0) throw err(409, 'ITEM_RESERVED', "A buyer is checking out this item, so it can't be changed right now. Try again in a few minutes.");
+    // Sold out through paid orders: never offered again here. With units left (multi-quantity), it may be relisted.
+    if (live.paid > 0 && !(Number(item.quantity) > 0 && Number(item.quantity_sold) > 0)) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     // Marked sold (by the seller, or a sale not refunded in full): never relisted here. A mistake is corrected by Advantage.Bid.
     if (item.sold_at) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again. If it was marked sold by mistake, contact Advantage.Bid to correct it.');
     // The same publishing rules as any other way of going live: a Sale Price and something to sell (migration 209).
@@ -935,6 +1022,7 @@ function publicOrder(o) {
   if (!o) return null;
   return {
     id: o.id, order_number: o.order_number, marketplace_item_id: o.marketplace_item_id,
+    quantity: Number(o.quantity || 1), unit_price_cents: o.unit_price_cents != null ? Number(o.unit_price_cents) : o.item_price_cents,
     item_price_cents: o.item_price_cents, shipping_cents: o.shipping_cents, tax_cents: o.tax_cents,
     platform_fee_bps: o.platform_fee_bps, platform_fee_cents: o.platform_fee_cents,
     seller_proceeds_cents: o.seller_proceeds_cents, total_charge_cents: o.total_charge_cents, currency: o.currency,
