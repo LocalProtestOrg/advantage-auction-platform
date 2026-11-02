@@ -45,7 +45,8 @@ async function visibleFacts(page) {
       title: document.title || '',
       text: text.slice(0, 200000),
       scrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth,
+      // The visible width: on a phone, window.innerWidth can stretch to fit content that is too wide, hiding the problem.
+      innerWidth: document.documentElement.clientWidth || window.innerWidth,
     };
   });
 }
