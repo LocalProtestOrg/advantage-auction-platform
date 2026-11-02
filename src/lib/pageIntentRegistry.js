@@ -24,7 +24,7 @@ const RULES = [
   // become-seller.html (no "a") is the canonical individual-seller intent page (3J fix).
   { test: /^\/assisted-service(\/|$|\.html)/, intent: 'seller_intent_high', weight: 3, funnel: 'assisted_service' },
   { test: /^\/(start-selling|become-seller)(\/|$|\.html)/, intent: 'seller_intent_high', weight: 3, funnel: 'seller_signup_entry' },
-  { test: /^\/(become-professional-seller|professional-sellers)/, intent: 'professional_seller_intent', weight: 2 },
+  { test: /^\/(become-professional-seller|professional-sellers|sell-online)/, intent: 'professional_seller_intent', weight: 2 },
   { test: /^\/(free-business-listing|get-listed)/,        intent: 'professional_seller_intent', weight: 2 },
   { test: /^\/how-sellers-get-paid/,                      intent: 'seller_consideration_high', weight: 2 },
   { test: /^\/(seller-faq|seller-pilot)/,                 intent: 'seller_consideration', weight: 2 },

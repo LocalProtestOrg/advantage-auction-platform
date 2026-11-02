@@ -238,6 +238,7 @@ app.get('/sitemap.xml', async (req, res) => {
     '/how-it-works',
     '/how-to-buy.html',
     '/start-selling.html',
+    '/sell-online',
     '/faq.html',
     '/buyer-faq.html',
     '/seller-faq.html',
@@ -440,6 +441,20 @@ app.get('/free-event-promotion', (req, res) => {
   }
 });
 app.get('/free-event-promotion.html', (req, res) => res.redirect(301, '/free-event-promotion'));
+
+// Professional Seller Storefront marketing page (independent shops, galleries, artists and makers). Same pattern as
+// /how-it-works: served with res.send so the analytics patch tags it; canonical clean URL, .html redirects to it.
+const SELL_ONLINE_FILE = path.join(__dirname, 'public', 'sell-online.html');
+let _sellOnlineHtml = null;
+app.get('/sell-online', (req, res) => {
+  try {
+    if (_sellOnlineHtml == null) _sellOnlineHtml = fs.readFileSync(SELL_ONLINE_FILE, 'utf8');
+    return res.type('html').send(_sellOnlineHtml);
+  } catch (e) {
+    return res.sendFile(SELL_ONLINE_FILE);
+  }
+});
+app.get('/sell-online.html', (req, res) => res.redirect(301, '/sell-online'));
 
 // Route legacy signed-in pages into the unified member shell (/app.html). Additive + reversible: the
 // old page files remain in the repo, but these redirects win because they run before express.static.
