@@ -13,6 +13,7 @@ const templateService = require('./agreementTemplateService');
 const termsService = require('./sellerTermsService');
 const identityService = require('./sellerIdentityService');
 const { resolveAndRender } = require('./agreementVariableService');
+const { isProfessional } = require('./sellerTypeRules');
 const pdfService = require('./agreementPdfService');
 const cloudinaryService = require('./cloudinaryService');
 const { sendEmail } = require('./emailService');
@@ -297,6 +298,14 @@ async function dashboardAccess(sellerProfileId) {
   return { access: false, reason: 'agreement_required', agreement_id: pending ? pending.id : null };
 }
 
+// Who the auto-sent agreement names. A professional seller contracts as its business (the recorded identity's legal
+// name, else its business display name) with the person signing on its behalf; an individual contracts in their own name.
+function autoSendParty(sp, ident = {}) {
+  const who = (sp.full_name && sp.full_name.trim()) ? sp.full_name.trim() : sp.email;
+  const company = isProfessional(sp.seller_type) ? ((ident.legal_name || '').trim() || (sp.display_name || '').trim()) : '';
+  return { legal_name: company || who, signatory_name: (ident.signatory_name || '').trim() || who };
+}
+
 // Auto-send the current Seller Agreement to a seller who has none yet. Idempotent
 // and side-effect-safe: skips waived sellers and sellers who already have a live or
 // signed agreement. Never throws (onboarding/registration must not crash). Resolves
@@ -305,7 +314,7 @@ async function dashboardAccess(sellerProfileId) {
 async function autoSendAgreement(sellerProfileId, actorId = null) {
   try {
     const sp = (await db.query(
-      `SELECT sp.id, sp.seller_type, sp.agreement_waived_at, u.email, u.full_name
+      `SELECT sp.id, sp.seller_type, sp.display_name, sp.agreement_waived_at, u.email, u.full_name
          FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1`, [sellerProfileId])).rows[0];
     if (!sp) return { status: 'no_seller' };
     if (sp.agreement_waived_at) return { status: 'waived' };
@@ -324,11 +333,10 @@ async function autoSendAgreement(sellerProfileId, actorId = null) {
       console.error('[onboarding] ALERT no active agreement template for seller_type=' + (sp.seller_type || 'private') + ' (seller ' + sellerProfileId + '); cannot auto-send.');
       return { status: 'missing_template' };
     }
-    const who = (sp.full_name && sp.full_name.trim()) ? sp.full_name.trim() : sp.email;
     const overrides = {
       effective_date: new Date().toISOString().slice(0, 10),
       seller_type: sp.seller_type || 'private',
-      legal_name: who, signatory_name: who,
+      ...autoSendParty(sp, (await identityService.getIdentity(sellerProfileId)) || {}),
     };
     try {
       const { agreement } = await sendAgreement({ sellerProfileId, overrides, actorId });
@@ -436,5 +444,5 @@ module.exports = {
   AgreementError, hashToken, ADDENDUM_TEMPLATE_ID, resolveBaseTemplateId: resolveActiveTemplateId,
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
   signAgreement, resend, reissue, revoke, revokeLink, expireOverdue,
-  emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate, autoSendAgreement,
+  emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate, autoSendAgreement, autoSendParty,
 };

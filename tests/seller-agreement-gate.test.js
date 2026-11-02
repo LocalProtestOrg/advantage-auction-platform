@@ -166,3 +166,21 @@ describe('getOnboardingStatus auto-send wiring', () => {
     expect(r).toMatchObject({ is_seller: true, dashboard_access: false, required: true, reason: 'missing_template', agreement_id: null });
   });
 });
+
+describe('autoSendParty (who the agreement names)', () => {
+  const person = { full_name: 'Tyler Witt', email: 't@example.com' };
+  test('a professional seller contracts as its business, signed by the person', () => {
+    expect(svc.autoSendParty({ ...person, seller_type: 'professional_liquidator', display_name: 'Lewis & Maese' }))
+      .toEqual({ legal_name: 'Lewis & Maese', signatory_name: 'Tyler Witt' });
+  });
+  test('the recorded identity wins over the display name', () => {
+    expect(svc.autoSendParty({ ...person, seller_type: 'auction_house', display_name: 'L&M' }, { legal_name: 'Lewis & Maese', signatory_name: 'T. Witt' }))
+      .toEqual({ legal_name: 'Lewis & Maese', signatory_name: 'T. Witt' });
+  });
+  test('an individual contracts in their own name, whatever the display name', () => {
+    expect(svc.autoSendParty({ ...person, seller_type: 'private', display_name: 'Garage Finds' })).toEqual({ legal_name: 'Tyler Witt', signatory_name: 'Tyler Witt' });
+  });
+  test('a professional with no business name falls back to the person', () => {
+    expect(svc.autoSendParty({ full_name: '', email: 'x@y.com', seller_type: 'estate_sale_company', display_name: null })).toEqual({ legal_name: 'x@y.com', signatory_name: 'x@y.com' });
+  });
+});

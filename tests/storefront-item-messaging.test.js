@@ -385,7 +385,8 @@ describe('privacy: neither side sees the other\'s identity or contact details', 
     expect(r.body.data.notice).toMatch(/hid contact details/);
     expect(r.body.data.message.body).toContain('713 555 0199');
     const s = await call('nora', 'GET', '/api/storefront-messages/seller/' + r.body.data.conversation_id);
-    const seen = JSON.stringify(s.body);
+    // Record ids are random and may contain the digits; only the readable content is checked.
+    const seen = JSON.stringify(s.body).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '');
     expect(seen).not.toMatch(/713|0199|bea\.private|gmail/);
     expect(s.body.data.messages[0].body).toBe('Is it still available? My cell [phone number hidden] or [email hidden]');
   });

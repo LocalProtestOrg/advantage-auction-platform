@@ -102,7 +102,8 @@ describe('inventory management and dual distribution', () => {
     await page.click('text=Review my drafts');
     await page.selectOption('#fStatus', '');
     await page.fill('#q', '126721');
-    await page.waitForFunction(() => document.querySelectorAll('#invBody tr').length === 1);
+    // One matching item row (not the "No items yet" placeholder shown while the list is still loading).
+    await page.waitForFunction(() => { const r = document.querySelectorAll('#invBody tr'); return r.length === 1 && /126721/.test(r[0].innerText); });
     const row = await page.$eval('#invBody tr', (tr) => tr.innerText);
     expect(row).toMatch(/KARL SPRINGER/); expect(row).toMatch(/Lighting/); expect(row).toMatch(/Not set/);
     await page.click('#invBody td.hide-sm [data-do="edit"]');
