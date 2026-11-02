@@ -11,6 +11,8 @@ on:
     - cron: '7 * * * *'        # production page checks, hourly
     - cron: '37 */6 * * *'     # isolated journeys, every 6 hours
   workflow_dispatch: {}
+# Scheduled runs are off until the owner approves monitoring: set the repository variable WATCHDOG_SCHEDULE_ENABLED=true.
+# Manual runs (Actions > Site Watchdog > Run workflow) are always available.
 
 permissions:
   contents: read
@@ -25,7 +27,7 @@ env:
 
 jobs:
   production:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 * * * *'
+    if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '7 * * * *' && vars.WATCHDOG_SCHEDULE_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -43,7 +45,7 @@ jobs:
         with: { name: watchdog-production, path: watchdog-production.json, retention-days: 14, if-no-files-found: ignore }
 
   journeys:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '37 */6 * * *'
+    if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '37 */6 * * *' && vars.WATCHDOG_SCHEDULE_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

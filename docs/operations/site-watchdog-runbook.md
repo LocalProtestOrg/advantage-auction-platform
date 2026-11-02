@@ -99,6 +99,7 @@ Each page is checked for:
    - `WATCHDOG_ALERTS_ENABLED=true` turns on email alerts. Enable it after a day of watching the dashboard.
    - `WATCHDOG_INGEST_KEY=<random, at least 32 characters>` lets the browser job post results. Without it the ingest refuses everything (503).
 3. **GitHub:** add the repository secret `WATCHDOG_INGEST_KEY` with the same value. Without it the workflow still runs and shows red or green, but posts nothing.
+4. **GitHub schedule:** the scheduled runs (hourly production page checks, 6-hourly isolated journeys) are off until the repository variable `WATCHDOG_SCHEDULE_ENABLED=true` is set (owner approval). Manual runs (Actions, Site Watchdog, Run workflow) work without it.
 
 ## Adding a check
 - **Server check:** add a `pageCheck(...)` or `apiCheck(...)` to `CHECKS` in `src/services/watchdog/httpChecks.js`, with an id, a feature name and a risk tier. It must use only `ctx.get` (GET). A test enforces this.
