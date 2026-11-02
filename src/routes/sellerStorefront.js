@@ -118,6 +118,14 @@ const uploadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 300, standardHe
   message: { success: false, code: 'RATE_LIMITED', message: 'Too many uploads in a short time. Please wait a few minutes and continue.' } });
 const send = (fn, status = 200) => async (req, res, next) => { try { return res.status(status).json({ success: true, data: await fn(req) }); } catch (e) { fail(res, e, next); } };
 
+// ── Storefront hero image and logo (owner): direct upload to the persistent image store, or remove. The logo is the
+// seller's existing logo record (seller_profiles.logo_url); the hero is the storefront config's hero_image.
+const branding = require('../services/storefrontBrandingService');
+const brandingUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: photos.MAX_PHOTO_BYTES, files: 1, fields: 2 } }).single('image');
+router.post('/branding/:kind', seller('company.storefront.manage'), uploadLimiter, withUpload(brandingUpload),
+  send((req) => branding.upload(req.sellerCtx, req.user.id, req.params.kind, req.file), 201));
+router.delete('/branding/:kind', seller('company.storefront.manage'), send((req) => branding.remove(req.sellerCtx, req.user.id, req.params.kind)));
+
 router.get('/imports/template.csv', sellerRead('company.inventory.view'), (req, res) => {
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', 'attachment; filename="advantage-bid-inventory-template.csv"').send(imports.templateCsv());
 });

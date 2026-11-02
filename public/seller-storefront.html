@@ -28,6 +28,13 @@
     .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e0e7ff;color:#3730a3}
     .toggle{display:flex;align-items:center;gap:8px;font-weight:600;font-size:.9rem;text-transform:none;color:#0f172a}
     .hint{color:#94a3b8;font-size:.78rem}
+    .brand-grid{display:grid;grid-template-columns:1fr 2fr;gap:1rem}@media(max-width:720px){.brand-grid{grid-template-columns:1fr}}
+    .brand-box{border:1px solid #e6eaef;border-radius:10px;padding:.8rem}.brand-box h4{margin:0 0 .35rem;font-size:.95rem}
+    .brand-prev{display:flex;align-items:center;justify-content:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;overflow:hidden;margin-bottom:.6rem;color:#64748b;font-size:.85rem;text-align:center}
+    .brand-prev.logo{width:140px;height:140px}.brand-prev.logo img{max-width:100%;max-height:100%;object-fit:contain}
+    .brand-prev.hero{width:100%;aspect-ratio:3/1}.brand-prev.hero img{width:100%;height:100%;object-fit:cover}
+    .brand-acts{display:flex;gap:.4rem;flex-wrap:wrap}.brand-prog{height:6px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:.5rem 0;display:none}.brand-prog i{display:block;height:100%;width:0;background:#2563eb;transition:width .15s}
+    .brand-msg{font-size:.82rem;margin-top:.35rem;min-height:1em}
     .row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:.7rem}
     fieldset.pickup{border:1px solid #e6eaef;border-radius:10px;padding:.7rem .8rem .8rem;margin:.8rem 0 .4rem}
     fieldset.pickup legend{font-weight:700;font-size:.85rem;padding:0 .3rem}
@@ -56,7 +63,23 @@
           <label class="toggle"><input type="checkbox" id="s-pub" style="width:auto"> Publish my storefront (make it public)</label>
           <div class="row2"><div><label>Storefront address (slug)</label><input id="s-slug" placeholder="my-company"></div><div style="display:flex;align-items:end"><a class="btn b-ghost" id="viewBtn" target="_blank" style="width:100%;text-align:center">View public page ↗</a></div></div>
           <label>Tagline</label><input id="s-tagline" maxlength="140" placeholder="Full-service estate sales & online auctions">
-          <label>Hero image URL</label><input id="s-hero" placeholder="https://…">
+          <h3 style="margin:1rem 0 .3rem">Storefront Branding</h3>
+          <p class="hint" style="margin:0 0 .6rem;color:#475569">Your logo and banner photo appear at the top of your storefront and in your website widget. Use a photo from your computer, tablet or phone (JPEG, PNG, GIF, WebP or HEIC, up to 10 MB). Changes save as soon as the upload finishes.</p>
+          <div class="brand-grid">
+            <div class="brand-box" id="bx-logo"><h4>Storefront Logo</h4>
+              <div class="brand-prev logo" id="pv-logo">No logo yet</div>
+              <div class="brand-prog" id="pg-logo"><i></i></div>
+              <div class="brand-acts"><label class="btn b-blue" style="margin:0;text-transform:none;color:#fff;font-size:.85rem" for="f-logo" id="ub-logo">Upload Logo</label><input type="file" id="f-logo" accept="image/*" hidden onchange="uploadBrand('logo',this)">
+                <button type="button" class="btn b-ghost" id="rm-logo" onclick="removeBrand('logo')" hidden>Remove</button></div>
+              <div class="brand-msg" id="bm-logo"></div></div>
+            <div class="brand-box" id="bx-hero"><h4>Banner Photo</h4>
+              <div class="brand-prev hero" id="pv-hero">No banner photo yet</div>
+              <div class="brand-prog" id="pg-hero"><i></i></div>
+              <div class="brand-acts"><label class="btn b-blue" style="margin:0;text-transform:none;color:#fff;font-size:.85rem" for="f-hero" id="ub-hero">Upload Banner Photo</label><input type="file" id="f-hero" accept="image/*" hidden onchange="uploadBrand('hero',this)">
+                <button type="button" class="btn b-ghost" id="rm-hero" onclick="removeBrand('hero')" hidden>Remove</button></div>
+              <div class="brand-msg" id="bm-hero"></div>
+              <label for="s-hero">Or use an image link</label><input id="s-hero" placeholder="https://…" oninput="showBrand('hero',this.value.trim())"></div>
+          </div>
           <label>About your company</label><textarea id="s-about" rows="5" maxlength="4000"></textarea>
           <label>Services (comma separated)</label><input id="s-services" placeholder="Estate Sales, Online Auctions, Appraisals, Cleanouts">
           <div class="row2"><div><label>Public phone</label><input id="s-phone"></div><div><label>Public email</label><input id="s-email"></div></div>
@@ -147,7 +170,7 @@
       <div id="pane-widget" style="display:none">
         <div class="card">
           <h3 style="margin-bottom:.4rem">Show your items on your own website</h3>
-          <p class="hint" style="margin-bottom:.6rem">Your website widget shows the items you have for sale on Advantage.Bid. It updates by itself when you add, change, sell or remove an item. Every item opens its own Advantage.Bid page, where buyers can see the details and buy securely. Your items also stay listed on Advantage.Bid.</p>
+          <p class="hint" style="margin-bottom:.6rem">Your website widget shows the items you have for sale on Advantage.Bid. It updates by itself when you add, change, sell or remove an item. Shoppers open each item's details and photos right inside your website, and checkout is handled securely by Advantage.Bid.</p>
           <div id="w-status" class="msg"></div>
           <label for="w-code">Embed code (paste into your website)</label>
           <textarea id="w-code" rows="5" readonly style="font-family:ui-monospace,Consolas,monospace;font-size:.78rem"></textarea>
@@ -317,6 +340,7 @@
       document.getElementById('s-slug').value=d.slug||'';
       document.getElementById('s-tagline').value=c.tagline||'';
       document.getElementById('s-hero').value=c.hero_image||'';
+      showBrand('hero',c.hero_image||'');showBrand('logo',d.logo_url||'');
       document.getElementById('s-about').value=c.about||'';
       document.getElementById('s-services').value=(c.services||[]).join(', ');
       document.getElementById('s-phone').value=c.public_phone||'';
@@ -333,6 +357,25 @@
       // Deep-link straight to a tab (e.g. the "Add Item" nav → ?tab=market) so listing an item is one click.
       try{var qp=new URLSearchParams(location.search).get('tab'); if(qp&&['store','market','unsold','leads'].indexOf(qp)>=0)tab(qp);}catch(e){}
     }
+    // Storefront Branding: logo (the seller's logo record) and banner photo, uploaded straight to permanent image storage.
+    function showBrand(kind,url){var pv=document.getElementById('pv-'+kind);while(pv.firstChild)pv.removeChild(pv.firstChild);
+      if(url&&/^https?:\/\//i.test(url)){var im=document.createElement('img');im.src=url;im.alt=kind==='logo'?'Your storefront logo':'Your storefront banner photo';pv.appendChild(im);}
+      else pv.textContent=kind==='logo'?'No logo yet':'No banner photo yet';
+      document.getElementById('rm-'+kind).hidden=!url;document.getElementById('ub-'+kind).textContent=(url?'Replace ':'Upload ')+(kind==='logo'?'Logo':'Banner Photo');}
+    function brandMsg(kind,t,ok){var m=document.getElementById('bm-'+kind);m.textContent=t;m.style.color=ok?'#166534':'#b91c1c';}
+    function uploadBrand(kind,input){var f=input.files&&input.files[0];input.value='';if(!f)return;
+      if(f.size>10*1024*1024){brandMsg(kind,'That photo is larger than 10 MB. Please choose a smaller one.');return;}
+      var fd=new FormData();fd.append('image',f);var pg=document.getElementById('pg-'+kind),bar=pg.firstChild;pg.style.display='block';bar.style.width='0';brandMsg(kind,'Uploading…',true);
+      var x=new XMLHttpRequest();x.open('POST','/api/seller-storefront/branding/'+kind);x.setRequestHeader('Authorization','Bearer '+token);
+      x.upload.onprogress=function(e){if(e.lengthComputable)bar.style.width=Math.round(e.loaded/e.total*100)+'%';};
+      x.onload=function(){pg.style.display='none';var r={};try{r=JSON.parse(x.responseText);}catch(e){}
+        if(x.status===401){location.href='/login.html';return;}
+        if(r.success){showBrand(kind,r.data.url);if(kind==='hero')document.getElementById('s-hero').value=r.data.url;if(kind==='logo'&&CFG)CFG.logo_url=r.data.url;brandMsg(kind,'Saved.',true);}
+        else brandMsg(kind,r.message||'The photo could not be uploaded. Please try again.');};
+      x.onerror=function(){pg.style.display='none';brandMsg(kind,'The upload was interrupted. Please check your connection and try again.');};x.send(fd);}
+    async function removeBrand(kind){if(!confirm(kind==='logo'?'Remove your storefront logo?':'Remove your banner photo?'))return;
+      var r=await api('DELETE','/api/seller-storefront/branding/'+kind);
+      if(r.success){showBrand(kind,'');if(kind==='hero')document.getElementById('s-hero').value='';brandMsg(kind,'Removed.',true);}else brandMsg(kind,r.message||'Could not remove.');}
     async function saveStore(){
       var g=function(id){return document.getElementById(id).value.trim();};
       var body={published:document.getElementById('s-pub').checked,slug:g('s-slug')||undefined,config:{

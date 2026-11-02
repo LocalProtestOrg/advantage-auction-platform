@@ -63,7 +63,7 @@ async function publicFeed(sellerId, runner = db) {
   const rows = await widgetItems(sp, runner);
   const pub = publicBaseUrl();
   return {
-    seller: { name: storefront.sellerName(sp), storefront_url: storefrontUrl(sp) },
+    seller: { name: storefront.sellerName(sp), storefront_url: storefrontUrl(sp), logo_url: sp.logo_url || null },
     items: rows.map((r) => {
       const imgs = productData.imagesOf(r);
       return {
@@ -77,6 +77,21 @@ async function publicFeed(sellerId, runner = db) {
     count: rows.length,
     attribution: { label: 'Shop securely on Advantage.Bid', url: storefrontUrl(sp) },
   };
+}
+
+// One item's details for the widget's in-frame product view. Only an item this widget itself lists (this seller,
+// published storefront, currently available, same demo rule) is returned, so a crafted address can never show another
+// seller's item, a draft or a sold price inside this seller's website. Null otherwise.
+async function widgetItem(sellerId, itemId, runner = db) {
+  if (!UUID_RE.test(String(itemId || ''))) return null;
+  const sp = await sellerById(sellerId, runner);
+  if (!storefront.isPublicStorefront(sp)) return null;
+  if (!(await widgetItems(sp, runner)).some((r) => r.id === itemId)) return null;
+  const it = await items.getPublicItem(itemId, runner);
+  if (!it || it.status !== 'active') return null;
+  const imgs = productData.imagesOf(it);
+  return { ...it, images: imgs, image_alt: productData.altTexts(it), url: productData.canonicalUrl(publicBaseUrl(), it),
+    seller: { name: storefront.sellerName(sp), logo_url: sp.logo_url || null } };
 }
 
 // The seller's own "My Website Widget" panel (ctx from requireSellerPermission; the company comes from the session).
@@ -94,4 +109,4 @@ async function forOwner(ctx, runner = db) {
   };
 }
 
-module.exports = { publicFeed, forOwner, embedCode, embedUrl, storefrontUrl, shopHidden, MAX_ITEMS };
+module.exports = { publicFeed, widgetItem, forOwner, embedCode, embedUrl, storefrontUrl, shopHidden, MAX_ITEMS };

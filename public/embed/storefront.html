@@ -6,13 +6,17 @@
 <meta name="robots" content="noindex" />
 <title>Shop</title>
 <style>
-  /* Professional Seller website widget (roadmap 7.5). Public inventory only; every item opens its canonical
-     Advantage.Bid product page, where checkout happens. Embedded displays are noindex; the product pages are indexed. */
+  /* Professional Seller website widget (roadmap 7.5). Public inventory only. Shoppers browse the shop AND open an item's
+     details inside this frame, so they stay on the seller's website; the item's canonical Advantage.Bid page (indexed)
+     is linked from each detail view, and purchasing opens Advantage.Bid's secure checkout in a new tab. Embedded displays
+     are noindex. The script lives in /embed/storefront.js. */
   *,*::before,*::after{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;background:transparent}
   .sw-wrap{max-width:1100px;margin:0 auto;padding:8px}
-  .sw-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin:4px 4px 12px}
+  .sw-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 4px 12px}
+  .sw-brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .sw-logo{width:44px;height:44px;border-radius:10px;border:1px solid #e5e7eb;background:#fff center/contain no-repeat;background-origin:content-box;padding:4px;flex:none}
   .sw-co{font-size:1.05rem;font-weight:800;color:#111827;margin:0}
   .sw-count{font-size:.8rem;color:#6b7280}
   .sw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
@@ -30,41 +34,25 @@
   .sw-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:.9rem}
   .sw-foot{margin:16px 4px 4px;font-size:.8rem;color:#6b7280;text-align:center}
   .sw-foot a{color:#1d4ed8;font-weight:700;text-decoration:none}
+  /* Item view */
+  .sw-back{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-weight:700;font-size:.9rem;color:#111827;cursor:pointer;margin:2px 4px 12px}
+  .sw-back:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+  .sw-item{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;align-items:start;padding:0 4px}
+  @media (max-width:700px){.sw-item{grid-template-columns:1fr;gap:14px}}
+  .sw-item h1{font-size:1.4rem;line-height:1.25;margin:0 0 6px;color:#111827}
+  .sw-item .sw-price{font-size:1.5rem;margin:6px 0 10px}
+  .sw-desc{white-space:pre-wrap;font-size:.95rem;line-height:1.55;color:#374151;margin:12px 0}
+  .sw-facts{font-size:.88rem;color:#4b5563;margin:4px 0}
+  .sw-buy{border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin:12px 0;background:#fff}
+  .sw-btn{display:inline-block;background:#1d4ed8;color:#fff;font-weight:800;text-decoration:none;border-radius:9px;padding:11px 18px;font-size:.98rem}
+  .sw-btn:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+  .sw-small{font-size:.8rem;color:#6b7280;margin:8px 0 0}
+  .sw-small a{color:#1d4ed8;font-weight:700}
 </style>
+<script src="/widgets/shared/image-gallery.js"></script>
 </head>
 <body>
 <div class="sw-wrap"><div id="sw-root"><div class="sw-empty">Loading items...</div></div></div>
-<script>
-(function () {
-  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  // Only links to this platform are ever rendered (the server builds them; this is a second check).
-  function safeUrl(u){u=String(u||'');return /^https?:\/\//i.test(u)?u:'#';}
-  function money(c){if(c==null)return '';var n=Number(c)/100;return '$'+n.toLocaleString('en-US',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});}
-  var root=document.getElementById('sw-root');
-  var SELLER='';try{SELLER=new URLSearchParams(location.search).get('seller')||'';}catch(e){}
-  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(SELLER)){root.innerHTML='<div class="sw-empty">This shop is not available right now.</div>';return;}
-
-  function card(it){
-    var loc=[it.city,it.state].filter(Boolean).map(esc).join(', ');
-    var img=it.image?'<img class="sw-img" src="'+esc(it.image)+'" alt="'+esc(it.image_alt||it.title)+'" loading="lazy" decoding="async">':'<div class="sw-noimg">No photo</div>';
-    return '<a class="sw-card" href="'+esc(safeUrl(it.url))+'" target="_blank" rel="noopener">'+img
-      +'<div class="sw-body"><p class="sw-title">'+esc(it.title)+'</p>'
-      +(it.price_cents!=null?'<div class="sw-price">'+esc(money(it.price_cents))+'</div>':'')
-      +'<div class="sw-meta">'+(loc?'<span>'+loc+'</span>':'')+'<span class="sw-pill">'+(it.shippable?'Shipping available':'Local pickup')+'</span></div>'
-      +'<span class="sw-cta">View details</span></div></a>';
-  }
-  function render(d){
-    var s=d.seller||{},list=d.items||[],att=d.attribution||{};
-    document.title=(s.name||'Shop')+' | Shop';
-    var foot='<p class="sw-foot"><a href="'+esc(safeUrl(att.url||s.storefront_url))+'" target="_blank" rel="noopener">'+esc(att.label||'Shop securely on Advantage.Bid')+'</a></p>';
-    var head='<div class="sw-head"><p class="sw-co">'+esc(s.name||'Shop')+'</p><span class="sw-count">'+list.length+' item'+(list.length===1?'':'s')+' available</span></div>';
-    root.innerHTML=head+(list.length?'<div class="sw-grid">'+list.map(card).join('')+'</div>':'<div class="sw-empty">No items are available right now. Please check back soon.</div>')+foot;
-  }
-  fetch('/api/public/storefront/widget/'+encodeURIComponent(SELLER),{credentials:'omit'}).then(function(r){return r.json();}).then(function(res){
-    if(!res||!res.success){root.innerHTML='<div class="sw-empty">This shop is not available right now.</div>';return;}
-    render(res.data);
-  }).catch(function(){root.innerHTML='<div class="sw-empty">Items could not be loaded. Please try again later.</div>';});
-})();
-</script>
+<script src="/embed/storefront.js"></script>
 </body>
 </html>

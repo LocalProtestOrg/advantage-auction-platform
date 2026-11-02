@@ -44,11 +44,11 @@ async function publishedStorefront(stack, { email = 'shop-owner@fullstack.test',
 }
 
 /** A published (active) fixed-price item in that storefront. */
-async function publishedItem(stack, { sellerProfileId, title = 'Brass Ship Lantern', priceCents = 12500 }) {
+async function publishedItem(stack, { sellerProfileId, title = 'Brass Ship Lantern', priceCents = 12500, inventoryNumber = 'WD-1001' }) {
   return (await stack.query(
     `INSERT INTO marketplace_items (seller_id, title, description, category, condition, price_cents, status, city, state, zip, pickup_location_source, inventory_number)
-     VALUES ($1, $2, 'A heavy brass lantern with its original glass.', 'Antiques', 'Light wear', $3, 'active', 'Houston', 'TX', '77002', 'default', 'WD-1001') RETURNING id`,
-    [sellerProfileId, title, priceCents])).rows[0].id;
+     VALUES ($1, $2, 'A heavy brass lantern with its original glass.', 'Antiques', 'Light wear', $3, 'active', 'Houston', 'TX', '77002', 'default', $4) RETURNING id`,
+    [sellerProfileId, title, priceCents, inventoryNumber])).rows[0].id;
 }
 
 module.exports = { liveAuctionWithLot, buyerReadyToBid, publishedStorefront, publishedItem };

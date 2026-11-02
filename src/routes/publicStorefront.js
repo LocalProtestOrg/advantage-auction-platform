@@ -63,6 +63,19 @@ router.get('/widget/:sellerId', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// One item for the website widget's in-frame product view (same rules as the widget list: this seller's available items
+// only). Public, the same for everyone; no session read.
+router.get('/widget/:sellerId/item/:itemId', async (req, res, next) => {
+  const U = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!U.test(String(req.params.sellerId || '')) || !U.test(String(req.params.itemId || ''))) return res.status(404).json({ success: false, code: 'ITEM_NOT_AVAILABLE', message: 'This item is no longer available.' });
+  try {
+    const it = await require('../services/storefrontWidgetService').widgetItem(req.params.sellerId, req.params.itemId.toLowerCase());
+    res.set('Cache-Control', 'no-cache');
+    if (!it) return res.status(404).json({ success: false, code: 'ITEM_NOT_AVAILABLE', message: 'This item is no longer available.' });
+    return res.json({ success: true, data: it });
+  } catch (e) { next(e); }
+});
+
 // Storefront data by slug.
 router.get('/:slug', async (req, res, next) => {
   // Lists priced active items, any of which can sell at any moment: revalidated on every request (§12.3).

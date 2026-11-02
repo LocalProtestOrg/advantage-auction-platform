@@ -331,7 +331,7 @@
       if(!SEL.size){say('invMsg','Select one or more items first.');return;}
       var ids=Array.from(SEL);var label={publish:'Publish',pause:'Pause',unpublish:'Move to draft',remove:'Remove',set_category:'Set the category of',set_price:'Set the Sale Price of',set_quantity:'Set the quantity of'}[action];
       if(action==='publish'){var nophoto=ITEMS.filter(function(m){return SEL.has(m.id)&&!m.photo_count;}).length;
-        if(!confirm(label+' '+ids.length+' item(s)? They will be visible on Advantage.Bid'+(nophoto?'.\n\n'+nophoto+' of them have no photo and will show "No photo".':'.')))return;}
+        if(!confirm(label+' '+ids.length+' item(s)?'+(nophoto?'\n\n'+nophoto+' of them have no photo and will show "No photo".':'')))return;}
       else if(!confirm(label+' '+ids.length+' item(s)?'))return;
       say('invMsg','Working…',true);var done=0,refused=[];
       for(var i=0;i<ids.length;i+=200){var r=await req('POST','/api/seller-storefront/items/bulk',{ids:ids.slice(i,i+200),action:action,value:value});
