@@ -84,7 +84,7 @@
   // non-sellers; a professional seller_type hides it; individual/private sellers still see it.
   ORG.api('GET', '/api/sellers/me').then(function (d) {
     var t = d && d.data && d.data.seller_type;
-    var isPro = ['auction_house', 'estate_sale_company', 'professional_liquidator'].indexOf(t) !== -1;
+    var isPro = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'].indexOf(t) !== -1;
     if (!isPro && window.AdvProUpgrade) window.AdvProUpgrade.render('proUpgrade');
   }).catch(function () { if (window.AdvProUpgrade) window.AdvProUpgrade.render('proUpgrade'); });
 })();

@@ -626,7 +626,7 @@
 
   // ================= SELLERS =================
   function typeLabel(t) { t = String(t || '').toLowerCase();
-    var m = { auction_house: 'Auction house', estate_sale_company: 'Estate sale company', professional_liquidator: 'Professional liquidator', business: 'Business seller', private: 'Private seller', other: 'Seller' };
+    var m = { auction_house: 'Auction house', estate_sale_company: 'Estate sale company', professional_liquidator: 'Professional liquidator', retail_gallery_studio: 'Retail shop, gallery or studio', business: 'Business seller', private: 'Private seller', other: 'Seller' };
     return m[t] || 'Seller'; }
   function sellerCardShell(f) {
     var n = Number(f.active_auction_count) || 0;

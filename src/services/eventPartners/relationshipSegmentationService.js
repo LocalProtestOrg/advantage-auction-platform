@@ -150,7 +150,7 @@ async function professionalSellers(runner = db) {
   const { rows } = await runner.query(`
     SELECT sp.id, COALESCE(sp.display_name, u.email) AS label, sp.display_name, u.email, sp.seller_type
       FROM seller_profiles sp JOIN users u ON u.id = sp.user_id
-     WHERE sp.seller_type IN ('auction_house','estate_sale_company','professional_liquidator')`);
+     WHERE sp.seller_type = ANY($1::text[])`, [require('../../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES]);
   return rows.map((r) => Object.assign({ entity: 'seller_profile', id: r.id, label: r.label },
     identityOf({ name: r.display_name, website: null, email: r.email, phone: null })));
 }

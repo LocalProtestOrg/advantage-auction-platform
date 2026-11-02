@@ -86,7 +86,7 @@
       m.textContent='Publication gate: '+(g.j.data.blocked?'BLOCKED ('+g.j.data.reason+')':'not blocked ('+g.j.data.reason+')');
       loadDups(); loadReqs(); loadBusiness();
     };
-    var PRO_TYPES = ['auction_house','estate_sale_company','professional_liquidator'];
+    var PRO_TYPES = ['auction_house','estate_sale_company','professional_liquidator','retail_gallery_studio'];
     async function loadBusiness(){
       var b = await H('/api/admin/verification/sellers/'+sp+'/business');
       var card = document.getElementById('bizCard'), el = document.getElementById('bizInfo');

@@ -572,7 +572,7 @@
     var card = document.getElementById('create-card'); if (card) card.style.display = '';
     sellerProfileId = profile.id;
     if (profile.shipping_allowed === true) { var ship = document.getElementById('shipping-settings'); if (ship) ship.style.display = ''; }
-    var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+    var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
     if (PRO_TYPES.indexOf(profile.seller_type) !== -1) {
       var row = document.getElementById('preview-times-row'); if (row) row.style.display = '';
       // Buyer Premium is an auction-level setting the server accepts via PATCH (edit) only,

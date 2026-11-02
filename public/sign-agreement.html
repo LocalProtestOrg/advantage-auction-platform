@@ -115,7 +115,7 @@
 
     var STATUS_LABEL = { sent: 'Awaiting your signature', viewed: 'Awaiting your signature', signed: 'Signed', expired: 'Expired', revoked: 'Withdrawn', superseded: 'Replaced by a newer agreement' };
     var TERM_LABEL = { legal_name: 'Seller', signatory_name: 'Signatory', seller_type: 'Seller type', effective_date: 'Effective date', seller_address: 'Address', seller_phone: 'Phone' };
-    var SELLER_TYPE_LABEL = { auction_house: 'Auction house', estate_sale_company: 'Estate sale company', professional_liquidator: 'Professional liquidator', private: 'Private seller', business: 'Business', other: 'Other' };
+    var SELLER_TYPE_LABEL = { auction_house: 'Auction house', estate_sale_company: 'Estate sale company', professional_liquidator: 'Professional liquidator', retail_gallery_studio: 'Retail shop, gallery or studio', private: 'Private seller', business: 'Business', other: 'Other' };
 
     function el(id) { return document.getElementById(id); }
     function showError(msg) { var m = el('meta'); m.textContent = ''; var s = document.createElement('span'); s.className = 'err'; s.textContent = msg; m.appendChild(s); }

@@ -27,7 +27,7 @@ const seg = require('../eventPartners/relationshipSegmentationService');
 
 // Event Partner statuses at "invited or beyond": the company has entered the EP journey.
 const EP_JOURNEY_STATUSES = ['invited', 'declined', 'expired', 'authorized', 'source_configured', 'collecting', 'paused', 'revoked'];
-const PRO_SELLER_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+const PRO_SELLER_TYPES = require('../../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES;
 
 // ── signals ───────────────────────────────────────────────────────────────────────────────────
 

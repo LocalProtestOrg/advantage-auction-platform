@@ -1975,6 +1975,7 @@
     ['auction_house', 'Auction House'],
     ['estate_sale_company', 'Estate Sale Company'],
     ['professional_liquidator', 'Professional Liquidator'],
+    ['retail_gallery_studio', 'Retail Shop, Gallery or Studio'],
   ];
 
   // SELLER-TYPE PHASE B (decision #4: admin-visible settings need an admin edit
@@ -2045,7 +2046,7 @@
   // shipping; an Individual Seller only when Advantage.Bid enables it here. Saves through the
   // admin-only, audited capabilities endpoint (seller_capabilities_changed). The server's
   // shippingAllowed() check is the real control — this is only the admin edit path.
-  const PROFESSIONAL_SELLER_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+  const PROFESSIONAL_SELLER_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
   function setSellerShipping(sellerProfileId, email, box) {
     const enable = box.checked;
     box.disabled = true;

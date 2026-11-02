@@ -2066,7 +2066,7 @@
        leaves them hidden. Note: this REPLACES the prior business-only reserve
        gate - under the seller-type framework, 'business' is non-professional. */
     (function gateProfessionalControls() {
-      var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+      var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
       function reveal(show) {
         ['starting-bid-form-group', 'bid-increment-form-group', 'reserve-form-group'].forEach(function (id) {
           var el = document.getElementById(id);
@@ -2147,7 +2147,7 @@
         // (mirrors the server-authoritative canMutateAuction rule, which allows isProfessional()).
         // Individual sellers (private / business / other / untyped) stay LOCKED once submitted —
         // the prior `sellerType === 'business'` bypass here was the legacy-classification bug.
-        var PRO_TYPES_LOCK = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+        var PRO_TYPES_LOCK = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
         if (PRO_TYPES_LOCK.indexOf(sellerType) !== -1) return;
 
         applyLotStudioLock(state);

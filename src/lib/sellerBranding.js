@@ -12,7 +12,7 @@
  * The public seller DIRECTORY on advantage.bid is a separate discovery product and is NOT governed here.
  */
 
-const PROFESSIONAL_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'business'];
+const PROFESSIONAL_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio', 'business'];
 
 function isProfessional(sellerType) {
   return PROFESSIONAL_TYPES.indexOf(String(sellerType || '').toLowerCase()) !== -1;
@@ -50,7 +50,7 @@ function scrubRows(rows) {
 function brandedColSql(col, st, pref) {
   st = st || 'sp.seller_type';
   pref = pref || 'sp.show_branding_to_buyers';
-  return `CASE WHEN ${st} IN ('auction_house','estate_sale_company','professional_liquidator','business') `
+  return `CASE WHEN ${st} IN ('auction_house','estate_sale_company','professional_liquidator','retail_gallery_studio','business') `
     + `AND COALESCE(${pref}, true) THEN ${col} ELSE NULL END`;
 }
 
@@ -63,7 +63,7 @@ function brandedColSql(col, st, pref) {
 function brandingVisibleSql(st, pref) {
   st = st || 'sp.seller_type';
   pref = pref || 'sp.show_branding_to_buyers';
-  return `(${st} IN ('auction_house','estate_sale_company','professional_liquidator','business') AND COALESCE(${pref}, true))`;
+  return `(${st} IN ('auction_house','estate_sale_company','professional_liquidator','retail_gallery_studio','business') AND COALESCE(${pref}, true))`;
 }
 
 module.exports = {

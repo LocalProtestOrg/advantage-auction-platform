@@ -395,6 +395,8 @@ async function requireVerificationForProfessional(sellerProfileId, sellerType, a
     await writeAuditLog({
       event_type: 'seller_verification_required_auto', entity_type: 'seller_profile', entity_id: sellerProfileId,
       actor_id: actorId ?? null, metadata: { seller_type: sellerType, reason: 'professional_provisioning' },
+      // Inside the caller's transaction when one is given, so the record commits (or rolls back) with the enrollment.
+      client: runner === db ? null : runner,
     });
   }
   return { applied: true, changed };

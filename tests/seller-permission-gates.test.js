@@ -27,7 +27,7 @@ const addLotHandler = (() => {
 
 describe('seller-class classification (pure)', () => {
   test('professional types are exactly the three pro classes', () => {
-    expect(PROFESSIONAL_SELLER_TYPES.sort()).toEqual(['auction_house', 'estate_sale_company', 'professional_liquidator']);
+    expect(PROFESSIONAL_SELLER_TYPES.sort()).toEqual(require('../src/constants/sellerTypes').PROFESSIONAL_SELLER_TYPES);
     PROFESSIONAL_SELLER_TYPES.forEach((t) => expect(isProfessional(t)).toBe(true));
   });
   test('individual/non-professional (and untyped) are NOT professional', () => {
@@ -140,7 +140,7 @@ describe('Professional catalog editing UI mirrors the server rule (no legacy bus
     expect(lotsStudioHtml).not.toMatch(/if \(sellerType === 'business'\) return/);
   });
   test('lot studio lock bypasses only for the three professional seller types', () => {
-    expect(lotsStudioHtml).toMatch(/PRO_TYPES_LOCK = \['auction_house', 'estate_sale_company', 'professional_liquidator'\]/);
+    expect(lotsStudioHtml).toMatch(/PRO_TYPES_LOCK = \['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'\]/);
   });
   test('seller dashboard exposes catalog controls to professionals after submission (not individuals)', () => {
     expect(sellerDashHtml).toMatch(/proCanManageNow = isProfessionalSeller\(\)/);

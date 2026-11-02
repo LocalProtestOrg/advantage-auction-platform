@@ -11,7 +11,7 @@ const { writeAuditLog } = require('../lib/auditLog');
 
 const AGREEMENT_TYPES = [
   'private', 'business', 'auction_house',
-  'estate_sale_company', 'professional_liquidator', 'custom',
+  'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio', 'custom',
 ];
 
 async function createTemplate({ agreement_type, name, description, created_by }) {

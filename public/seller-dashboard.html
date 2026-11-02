@@ -499,7 +499,7 @@ let sellerProfileId = null;
 // submission/publication (mirrors the server-authoritative canMutateAuction rule). This is
 // UX only — src/routes/{auctions,lots}.js remain authoritative. Failsafe: null → non-pro.
 let sellerType = null;
-const PRO_SELLER_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+const PRO_SELLER_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
 function isProfessionalSeller() { return PRO_SELLER_TYPES.indexOf(sellerType) !== -1; }
 
 // ── Logout ───────────────────────────────────────────────────────────────────

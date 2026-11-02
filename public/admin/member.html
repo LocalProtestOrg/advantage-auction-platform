@@ -55,7 +55,7 @@
     if(!token) location.href='/login.html';
     const ID=new URLSearchParams(location.search).get('id')||'';
     const EID=encodeURIComponent(ID);
-    const PRO_TYPES=[['auction_house','Auction House'],['estate_sale_company','Estate Sale Company'],['professional_liquidator','Professional Liquidator']];
+    const PRO_TYPES=[['auction_house','Auction House'],['estate_sale_company','Estate Sale Company'],['professional_liquidator','Professional Liquidator'],['retail_gallery_studio','Retail Shop, Gallery or Studio']];
     function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
     function usd(c){return c==null?'-':'$'+(Number(c)/100).toFixed(2)}
     function fdate(s){try{return s?new Date(s).toLocaleDateString():'-'}catch(e){return '-'}}

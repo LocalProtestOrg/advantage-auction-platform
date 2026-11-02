@@ -24,7 +24,7 @@ const { normalizeEmail } = require('../lib/emailNormalize');
 
 const ADDENDUM_TEMPLATE_ID = 'a9000000-0000-4000-8000-0000000000a1';
 const MIN_LOTS = 30;   // auctionService.MIN_LOTS_FOR_SUBMISSION (kept literal: this module must not load auctionService)
-const PROFESSIONAL_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+const PROFESSIONAL_TYPES = require('../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES;
 const BASE_URL = () => (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const HOUR = 3600 * 1000; const DAY = 24 * HOUR;
 

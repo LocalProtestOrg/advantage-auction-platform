@@ -39,6 +39,7 @@
           <option value="estate_sale_company">Estate Sale Company</option>
           <option value="auction_house">Auction House</option>
           <option value="professional_liquidator">Professional Liquidator</option>
+          <option value="retail_gallery_studio">Retail Shop, Gallery or Studio</option>
         </select>
 
         <label for="company-name">Company / business name <span class="req">*</span></label>
@@ -95,7 +96,7 @@
     var authToken = localStorage.getItem('token');
     function show(id){ document.getElementById(id).style.display=''; document.getElementById('loading').style.display='none'; }
 
-    var PRO_TYPES = ['estate_sale_company','auction_house','professional_liquidator'];
+    var PRO_TYPES = ['estate_sale_company','auction_house','professional_liquidator','retail_gallery_studio'];
     function requestedType(){
       try { var v = (new URLSearchParams(location.search).get('seller_type')||'').trim().toLowerCase();
         return PRO_TYPES.indexOf(v)!==-1 ? v : null; } catch(e){ return null; }

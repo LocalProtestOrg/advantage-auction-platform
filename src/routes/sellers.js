@@ -196,7 +196,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     // (never silently downgraded) so the caller knows the professional path needs a valid type.
     if (!PROFESSIONAL_SELLER_TYPES.includes(sellerType)) {
       return res.status(400).json({ success: false, code: 'INVALID_PROFESSIONAL_TYPE',
-        message: 'Please choose a valid professional seller type (auction house, estate sale company, or professional liquidator).' });
+        message: 'Please choose a valid professional seller type (auction house, estate sale company, professional liquidator, or retail shop, gallery or studio).' });
     }
     const companyName = (body.company_name || body.display_name || '').toString().trim();
     const legalName   = (body.legal_name || body.full_name || '').toString().trim() || null;
