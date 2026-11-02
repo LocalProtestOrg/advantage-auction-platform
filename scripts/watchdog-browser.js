@@ -101,7 +101,11 @@ async function checkOne(browser, t) {
 
 /** One result for the isolated journeys (jest --json output): every failing test becomes a critical finding. */
 function journeysResult(file) {
-  const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+  let j;
+  // No results at all (the test run never started, e.g. the browser could not be installed) is itself a finding.
+  try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
+    return { check_id: 'browser-journeys', status: 'fail', issues: [{ code: 'JOURNEY_RUN_FAILED', severity: 'critical', detail: 'the isolated journeys produced no results: ' + e.message.slice(0, 200), evidence: { key: 'no-results' } }], reproduce: 'npx jest tests/browser --forceExit (isolated test environment)', duration_ms: 0 };
+  }
   const issues = [];
   for (const s of j.testResults || []) {
     for (const a of s.assertionResults || []) {

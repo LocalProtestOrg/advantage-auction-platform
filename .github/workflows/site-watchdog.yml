@@ -28,7 +28,7 @@ env:
 jobs:
   production:
     if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '7 * * * *' && vars.WATCHDOG_SCHEDULE_ENABLED == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # ubuntu-latest moved to 26.04, which Playwright 1.59 cannot install browsers on
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
 
   journeys:
     if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '37 */6 * * *' && vars.WATCHDOG_SCHEDULE_ENABLED == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # ubuntu-latest moved to 26.04, which Playwright 1.59 cannot install browsers on
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
