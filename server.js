@@ -238,7 +238,6 @@ app.get('/sitemap.xml', async (req, res) => {
     '/how-it-works',
     '/how-to-buy.html',
     '/start-selling.html',
-    '/sell-online',
     '/faq.html',
     '/buyer-faq.html',
     '/seller-faq.html',
@@ -260,6 +259,7 @@ app.get('/sitemap.xml', async (req, res) => {
     '/buyer-terms.html',
   ];
 
+  if (process.env.SELL_ONLINE_PAGE_ENABLED === 'true') staticPaths.push('/sell-online');   // listed once launched
   const urls = staticPaths.map(p => urlEl(base + p, null));
 
   try {
@@ -446,7 +446,12 @@ app.get('/free-event-promotion.html', (req, res) => res.redirect(301, '/free-eve
 // /how-it-works: served with res.send so the analytics patch tags it; canonical clean URL, .html redirects to it.
 const SELL_ONLINE_FILE = path.join(__dirname, 'public', 'sell-online.html');
 let _sellOnlineHtml = null;
+// Staged until the owner launches it (with verified online purchasing): SELL_ONLINE_PAGE_ENABLED=true. Until then the
+// address answers 404 and the page is left out of the sitemap.
+const sellOnlineLive = () => process.env.SELL_ONLINE_PAGE_ENABLED === 'true';
+const sellOnlineStaged = (req, res) => require('./src/middleware/notFound').notFoundHandler(req, res);   // never the static file
 app.get('/sell-online', (req, res) => {
+  if (!sellOnlineLive()) return sellOnlineStaged(req, res);
   try {
     if (_sellOnlineHtml == null) _sellOnlineHtml = fs.readFileSync(SELL_ONLINE_FILE, 'utf8');
     return res.type('html').send(_sellOnlineHtml);
@@ -454,7 +459,7 @@ app.get('/sell-online', (req, res) => {
     return res.sendFile(SELL_ONLINE_FILE);
   }
 });
-app.get('/sell-online.html', (req, res) => res.redirect(301, '/sell-online'));
+app.get('/sell-online.html', (req, res) => (sellOnlineLive() ? res.redirect(301, '/sell-online') : sellOnlineStaged(req, res)));
 
 // Route legacy signed-in pages into the unified member shell (/app.html). Additive + reversible: the
 // old page files remain in the repo, but these redirects win because they run before express.static.

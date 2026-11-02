@@ -26,7 +26,7 @@ async function open(ctxOpts = {}) {
   return { ctx, page };
 }
 
-beforeAll(async () => { stack = await startStack(); browser = await chromium.launch(); });
+beforeAll(async () => { stack = await startStack({ env: { SELL_ONLINE_PAGE_ENABLED: 'true' } }); browser = await chromium.launch(); });
 afterAll(async () => { if (browser) await browser.close(); if (stack) await stack.stop(); });
 
 test('served at the clean address; the .html address redirects to it; listed in the sitemap', async () => {
@@ -50,6 +50,18 @@ test.each([['desktop', {}], ['phone', devices['iPhone 13']]])('%s: renders clean
   const small = await page.$$eval('main p, main li, main summary', (els) => els.filter((e) => e.offsetParent && parseFloat(getComputedStyle(e).fontSize) < 18).map((e) => e.textContent.trim().slice(0, 40)));
   expect(small).toEqual([]);
   await ctx.close();
+});
+
+test('staged (launch switch off): both addresses answer 404 and the sitemap leaves it out, never the static file', async () => {
+  const off = await startStack();
+  try {
+    for (const p of ['/sell-online', '/sell-online.html']) {
+      const r = await fetch(off.baseUrl + p, { redirect: 'manual', headers: { Accept: 'text/html' } });
+      expect([p, r.status]).toEqual([p, 404]);
+      expect(await r.text()).not.toMatch(/Your Shop\. Your Website\./);
+    }
+    expect(await (await fetch(off.baseUrl + '/sitemap.xml')).text()).not.toMatch(/sell-online/);
+  } finally { await off.stop(); }
 });
 
 test('one H1, ordered headings, a canonical address and a description', async () => {
@@ -107,6 +119,7 @@ test('copy keeps to approved pricing and the public language rules', () => {
   expect(text).not.toMatch(/\bA\.?I\.?\b|artificial intelligence|machine learning|OpenAI|GPT|Stripe|Cloudinary|Railway/i);
   expect(SRC).not.toMatch(/[–—]/);
   expect(text).not.toMatch(/guarantee|nationwide|zero fees|free forever/i);
-  // Purchasing is described honestly: checkout is turned on by Advantage.Bid; until then shoppers contact the seller.
-  expect(text).toMatch(/until then, shoppers contact you to buy/);
+  // Written for the finished service (no temporary or coming-soon wording); the new professional type is named.
+  expect(text).not.toMatch(/coming soon|until then|not yet available|launching soon/i);
+  expect(text).toMatch(/Retail Shop, Gallery or Studio/);
 });
