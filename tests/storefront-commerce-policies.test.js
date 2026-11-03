@@ -242,6 +242,7 @@ describe('the storefront agreement at first publication', () => {
   // gus: a long-standing seller whose earlier auctions open the dashboard, but who never signed (no waiver).
   beforeAll(async () => {
     await q('UPDATE seller_profiles SET agreement_waived_at = NULL WHERE id = $1', [SP.gus]);
+    await q('DELETE FROM agreements WHERE seller_profile_id = $1', [SP.gus]);   // the test harness signs every seller by default
     await q(`INSERT INTO auctions (seller_id, title, state) VALUES ($1, 'Old auction', 'closed')`, [SP.gus]);
   });
   test('drafts, edits and imports need no signature; publishing is refused until the agreement is signed', async () => {
@@ -300,8 +301,18 @@ describe('the storefront agreement at first publication', () => {
     const doc = require('fs').readFileSync(require('path').join(__dirname, '..', 'docs', 'seller-agreement-v1-content.md'), 'utf8');
     expect(doc).toContain('(a "Website Sale")');
   });
-  test('an Advantage.Bid waiver also counts', async () => {
-    expect((await require('../src/services/agreementService').storefrontAgreementStatus(SP.sue)).reason).toBe('waived');
+  test('a waiver alone does NOT count for storefront publishing (owner decision 2026-11-03); it still opens the dashboard', async () => {
+    const AG = require('../src/services/agreementService');
+    await q('DELETE FROM agreements WHERE seller_profile_id = $1', [SP.nora]);
+    await q('UPDATE seller_profiles SET agreement_waived_at = now() WHERE id = $1', [SP.nora]);
+    expect(await AG.storefrontAgreementStatus(SP.nora)).toEqual({ ok: false, reason: 'agreement_update_required', agreement_id: null });
+    expect((await AG.dashboardAccess(SP.nora)).access).toBe(true);
+    const draft = await items.createDirectListing(U.nora.id, { title: 'Waived seller draft', price_cents: 5000, status: 'draft' });
+    expect(draft.status).toBe('draft');
+    await expect(items.updateItem(draft.id, U.nora.id, { status: 'active' })).rejects.toMatchObject({ code: 'AGREEMENT_REQUIRED', agreement_reason: 'agreement_update_required' });
+    // the version 4 send reaches waived sellers too (the onboarding send still skips them)
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'agreementService.js'), 'utf8');
+    expect(src).toMatch(/if \(sp\.agreement_waived_at && !currentTermsOnly\) return \{ status: 'waived' \};/);
   });
 });
 

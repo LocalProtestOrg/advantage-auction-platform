@@ -293,12 +293,16 @@ describe('agreement and payouts must be in place before a seller can be paid by 
   test('no agreement in place (not signed, not waived, no earlier auctions): refused with the same neutral answer', async () => {
     const it = await listing('sue');
     await q('UPDATE seller_profiles SET agreement_waived_at = NULL WHERE id = $1', [SP.sue]);
+    await q(`UPDATE agreements SET status = 'revoked' WHERE seller_profile_id = $1`, [SP.sue]);   // the harness signs every seller by default
     try {
       const r = await order(it.id);
       expect([r.status, r.body.code]).toEqual([409, 'SELLER_NOT_ACCEPTING_ORDERS']);
       expect(r.body.message).toBe('This seller is not accepting orders right now.');
       expect(await orderCount(it.id)).toBe(0);
-    } finally { await q('UPDATE seller_profiles SET agreement_waived_at = now() WHERE id = $1', [SP.sue]); }
+    } finally {
+      await q('UPDATE seller_profiles SET agreement_waived_at = now() WHERE id = $1', [SP.sue]);
+      await q(`UPDATE agreements SET status = 'signed' WHERE seller_profile_id = $1`, [SP.sue]);
+    }
   });
   test('payout account not ready (missing, onboarding unfinished, or payouts disabled): refused, also for a checkout already started', async () => {
     const it = await listing('sue');

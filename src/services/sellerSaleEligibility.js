@@ -8,7 +8,7 @@
  *   - its owner account is active (users.is_active is not false; a suspended owner suspends the company's sales);
  *   - it has passed Advantage.Bid business verification where verification is required — the SAME
  *     verificationService.publicationGate that gates a Professional Seller's first auction (no second system);
- *   - its storefront agreement is in place: a signed Seller Agreement or an Advantage.Bid waiver
+ *   - its storefront agreement is in place: a signed Seller Agreement version with the current storefront terms (a waiver alone does not count)
  *     (agreementService.storefrontAgreementStatus; earlier auctions alone do not count, owner decision 2026-11-02);
  *   - it can be paid: the owner's payout account is connected and can receive transfers and pay them out (the same
  *     readiness the settlement "Pay Seller" step requires), so a buyer's money is never taken for a seller who cannot

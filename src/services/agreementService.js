@@ -309,15 +309,16 @@ function autoSendParty(sp, ident = {}) {
 // Storefront agreement (owner decisions 2026-11-02 and 2026-11-03): before a seller's storefront items can go live or be
 // bought, the seller must have SIGNED a Seller Agreement version that states the CURRENT storefront commission (5% website
 // / 9% marketplace: agreement_template_versions.storefront_fee_schedule, migration 216; versions 1-3 state the old flat 11%
-// and do not count), or have an explicit Advantage.Bid waiver. A seller who signed only an earlier version keeps that
-// signature, the dashboard and their auctions; only new storefront publishing (and storefront sales) wait for the updated
-// version. Earlier auctions alone do not count. Drafts never need it.
+// and do not count). An agreement WAIVER does not count here (owner decision 2026-11-03, Release 1): it still opens the
+// dashboard and auctions, but new storefront publishing needs the signed current version like everyone else. A seller who
+// signed only an earlier version (or was waived) keeps that signature or waiver, the dashboard and their auctions; only new
+// storefront publishing (and storefront sales) wait for the current version. Live items are never unpublished by this.
+// Earlier auctions alone do not count. Drafts, imports, photos and storefront settings never need it.
 // Returns { ok, reason, agreement_id }: reason 'agreement_required' (never signed) or 'agreement_update_required' (signed an
 // earlier version); agreement_id is the pending CURRENT-terms agreement to sign when there is one.
 async function storefrontAgreementStatus(sellerProfileId, runner = db) {
   const sp = (await runner.query('SELECT id, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
   if (!sp) return { ok: false, reason: 'seller_not_found', agreement_id: null };
-  if (sp.agreement_waived_at) return { ok: true, reason: 'waived', agreement_id: null };
   const rows = (await runner.query(
     `SELECT a.id, a.status, (v.storefront_fee_schedule IS NOT NULL) AS current_terms
        FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
@@ -327,7 +328,7 @@ async function storefrontAgreementStatus(sellerProfileId, runner = db) {
   const current = rows.find((r) => isSigned(r) && r.current_terms);
   if (current) return { ok: true, reason: 'signed', agreement_id: current.id };
   const pending = rows.find((r) => !isSigned(r) && r.current_terms);
-  const signedEarlier = rows.some((r) => isSigned(r));
+  const signedEarlier = rows.some((r) => isSigned(r)) || !!sp.agreement_waived_at;
   return { ok: false, reason: signedEarlier ? 'agreement_update_required' : 'agreement_required', agreement_id: pending ? pending.id : null };
 }
 
@@ -342,7 +343,8 @@ async function autoSendAgreement(sellerProfileId, actorId = null, { currentTerms
       `SELECT sp.id, sp.seller_type, sp.display_name, sp.agreement_waived_at, u.email, u.full_name
          FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1`, [sellerProfileId])).rows[0];
     if (!sp) return { status: 'no_seller' };
-    if (sp.agreement_waived_at) return { status: 'waived' };
+    // A waiver skips the onboarding send, but not the storefront version (owner decision 2026-11-03).
+    if (sp.agreement_waived_at && !currentTermsOnly) return { status: 'waived' };
     // currentTermsOnly (storefront publishing, owner decision 2026-11-03): an agreement on an earlier version (old storefront
     // terms) does not count, so a seller who signed only an earlier version is sent the current one. Their earlier signed
     // agreement is never changed (sending creates a new agreement; nothing is superseded).

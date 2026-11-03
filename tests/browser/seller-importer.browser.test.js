@@ -32,6 +32,7 @@ beforeAll(async () => {
     storefront_slug: 'ida-auctions', storefront_published: true, agreement_waived_at: new Date(),
     default_pickup_address_line1: '100 Main St', default_pickup_city: 'Houston', default_pickup_state: 'TX', default_pickup_postal_code: '77002',
     default_pickup_country: 'US', default_pickup_confirmed_at: new Date() } });
+  await seed.signedStorefrontAgreement(stack, sellerId);   // storefront publishing needs the current agreement version
   browser = await chromium.launch();
   const ctx = await browser.newContext();
   page = await ctx.newPage();

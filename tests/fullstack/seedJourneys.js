@@ -40,6 +40,7 @@ async function publishedStorefront(stack, { email = 'shop-owner@fullstack.test',
     default_pickup_address_line1: '100 Main St', default_pickup_city: 'Houston', default_pickup_state: 'TX', default_pickup_postal_code: '77002',
     default_pickup_confirmed_at: new Date(),
   } });
+  await seed.signedStorefrontAgreement(stack, sellerProfileId);   // storefront publishing needs the current agreement version
   return { userId, sellerProfileId, slug, email };
 }
 

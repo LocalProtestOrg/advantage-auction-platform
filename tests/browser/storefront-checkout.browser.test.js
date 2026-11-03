@@ -29,6 +29,7 @@ const STRIPE_JS_SHIM = `window.Stripe=function(){return{elements:function(){retu
   handleCardAction:function(){return Promise.resolve({});}};};`;
 
 async function makeReady(sellerProfileId, userId, website) {
+  await seed.signedStorefrontAgreement(stack, sellerProfileId);   // a waiver alone no longer counts for storefront sales
   await stack.query(`UPDATE seller_profiles SET agreement_waived_at = now(), storefront = jsonb_set(coalesce(storefront, '{}'::jsonb), '{website}', to_jsonb($2::text)) WHERE id = $1`, [sellerProfileId, website]);
   await stack.query(`INSERT INTO seller_payout_preferences (seller_user_id, payout_method, stripe_account_id, stripe_account_livemode, connect_status,
                        connect_details_submitted, connect_transfers_active, connect_payouts_enabled)

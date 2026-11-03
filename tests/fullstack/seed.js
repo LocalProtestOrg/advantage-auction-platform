@@ -57,6 +57,22 @@ async function sellerProfile(stack, { userId, sellerType = 'auction_house', disp
   return (await stack.query(`INSERT INTO seller_profiles (${cols.join(', ')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(', ')}) RETURNING id`, vals)).rows[0].id;
 }
 
+// A signed Seller Agreement on a version with the current storefront terms (5% / 9%), the requirement for storefront
+// publishing and sales (migration 216; a waiver alone does not count). Test data only, in the isolated database.
+const STOREFRONT_TERMS_TEMPLATE = 'ab000000-0000-4000-8000-0000000000f4';
+async function signedStorefrontAgreement(stack, sellerProfileId) {
+  await stack.query(`INSERT INTO agreement_templates (id, agreement_type, name, description, is_active)
+    VALUES ($1, 'private', 'Seller Agreement (test, current storefront terms)', 'test', false) ON CONFLICT (id) DO NOTHING`, [STOREFRONT_TERMS_TEMPLATE]);
+  let v = (await stack.query('SELECT id FROM agreement_template_versions WHERE template_id = $1 LIMIT 1', [STOREFRONT_TERMS_TEMPLATE])).rows[0];
+  if (!v) {
+    v = (await stack.query(`INSERT INTO agreement_template_versions (template_id, version_int, body_markdown, variable_schema, effective_terms_defaults)
+      VALUES ($1, 4, $2, '[]'::jsonb, '{}'::jsonb) RETURNING id, storefront_fee_schedule`, [STOREFRONT_TERMS_TEMPLATE, sellerAgreementBody()])).rows[0];
+    if (!v.storefront_fee_schedule) throw new Error('the agreement text does not state the current storefront terms');
+  }
+  return (await stack.query(`INSERT INTO agreements (template_version_id, seller_profile_id, status, signed_at) VALUES ($1, $2, 'signed', now()) RETURNING id`,
+    [v.id, sellerProfileId])).rows[0].id;
+}
+
 /** Log in through the API; returns the session token (Bearer). */
 async function apiLogin(stack, email, password = TEST_PASSWORD) {
   const r = await fetch(stack.baseUrl + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
@@ -73,4 +89,4 @@ async function browserLogin(page, stack, email, password = TEST_PASSWORD, next =
   await Promise.all([page.waitForURL((u) => !/\/login\.html/.test(String(u)), { timeout: 20000 }), page.click('#login-btn')]);
 }
 
-module.exports = { TEST_PASSWORD, SELLER_AGREEMENT_TEMPLATE, sellerAgreementBody, sellerAgreementTemplate, user, sellerProfile, apiLogin, browserLogin };
+module.exports = { TEST_PASSWORD, SELLER_AGREEMENT_TEMPLATE, sellerAgreementBody, sellerAgreementTemplate, signedStorefrontAgreement, user, sellerProfile, apiLogin, browserLogin };

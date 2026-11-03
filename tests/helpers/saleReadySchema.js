@@ -3,9 +3,10 @@
 /**
  * Test-schema addition for real-database storefront checkout tests (PGlite harnesses that create their own minimal
  * users/seller_profiles tables). A storefront order needs a seller whose agreement is in place and whose payout account
- * can be paid (sellerSaleEligibility, 2026-11-02). Here every test seller starts READY: the agreement is waived and a
- * connected (test-mode) payout account is created with the seller. A test that needs a not-ready seller turns either
- * off explicitly (UPDATE seller_profiles SET agreement_waived_at = NULL / UPDATE seller_payout_preferences ...).
+ * can be paid (sellerSaleEligibility, 2026-11-02). Here every test seller starts READY: a signed Seller Agreement on a
+ * version with the current storefront terms (migration 216; a waiver alone no longer counts, owner decision 2026-11-03)
+ * and a connected (test-mode) payout account are created with the seller. A test that needs a not-ready seller removes
+ * either explicitly (DELETE FROM agreements WHERE seller_profile_id = ... / UPDATE seller_payout_preferences ...).
  * Applied after the harness creates seller_profiles. Test data only.
  */
 const SALE_READY_SQL = `
@@ -46,6 +47,23 @@ BEGIN
 END $$;
 DROP TRIGGER IF EXISTS test_sale_ready_payouts ON seller_profiles;
 CREATE TRIGGER test_sale_ready_payouts AFTER INSERT ON seller_profiles FOR EACH ROW EXECUTE FUNCTION test_sale_ready_payouts();
+-- One test agreement version with the current storefront terms; every new test seller has signed it.
+DO $$ BEGIN
+  INSERT INTO agreement_template_versions (id, template_id, storefront_fee_schedule)
+    VALUES ('5a1e0000-0000-4000-8000-000000000004', '5a1e0000-0000-4000-8000-00000000000a', 'storefront-2026-11') ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN others THEN NULL;   -- a harness with the full agreement schema seeds its own
+END $$;
+CREATE OR REPLACE FUNCTION test_sale_ready_agreement() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  BEGIN
+    INSERT INTO agreements (seller_profile_id, template_version_id, status, signed_at)
+    VALUES (NEW.id, '5a1e0000-0000-4000-8000-000000000004', 'signed', now());
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS test_sale_ready_agreement ON seller_profiles;
+CREATE TRIGGER test_sale_ready_agreement AFTER INSERT ON seller_profiles FOR EACH ROW EXECUTE FUNCTION test_sale_ready_agreement();
 `;
 
 module.exports = { SALE_READY_SQL };
