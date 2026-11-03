@@ -57,6 +57,7 @@
   <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
   <script>
     // Canonical URL /shop/item/<id>/<slug> (server-rendered); older /item.html?id=<id> links are redirected to it.
+    var FROM_WIDGET=false; try{FROM_WIDGET=new URLSearchParams(location.search).get('ref')==='widget';}catch(e){}
     var ID=new URLSearchParams(location.search).get('id')||((location.pathname.match(/^\/shop\/item\/([0-9a-f-]{36})/i)||[])[1])||'';
     var token=localStorage.getItem('token')||'';
     var CFG={checkout_enabled:false,stripe_publishable_key:null};
@@ -187,8 +188,13 @@
       var methodSel=it.shippable?
         '<label>Fulfillment</label><select id="fm"><option value="pickup">Local pickup</option><option value="shipping">Shipping</option></select>':
         '<input type="hidden" id="fm" value="pickup"><div class="meta">Local pickup only</div>';
+      // Quantity (migration 212): offered when more than one is available; the server reserves exactly this many.
+      var avail=Math.max(1,parseInt(it.quantity,10)||1), maxQ=Math.min(avail,50), opts='';
+      for(var i=1;i<=maxQ;i++)opts+='<option value="'+i+'"'+(i===QTY?' selected':'')+'>'+i+'</option>';
+      var qtySel=avail>1?('<label>Quantity</label><select id="qty">'+opts+'</select><div class="meta">'+avail+' available</div>'):'<input type="hidden" id="qty" value="1">';
       openModal(
-        '<h3>Checkout</h3><div class="meta">'+esc(it.title)+' · '+money(it.price_cents)+'</div>'+
+        '<h3>Checkout</h3><div class="meta">'+esc(it.title)+' · '+money(it.price_cents)+(avail>1?' each':'')+'</div>'+
+        qtySel+
         methodSel+
         '<div id="addrWrap"></div>'+
         '<div class="err" id="coErr"></div>'+
@@ -217,21 +223,22 @@
 
     function toReview(){
       var it=ITEM, method=document.getElementById('fm').value, addr=collectAddr();
+      QTY=Math.max(1,parseInt((document.getElementById('qty')||{}).value,10)||1);
       var errEl=document.getElementById('coErr'); errEl.textContent='';
       document.getElementById('toReview').disabled=true;
       fetch('/api/marketplace/orders/quote',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),
-        body:JSON.stringify({item_id:it.id,fulfillment_method:method,address:addr,ship_to:method==='shipping'?addr:undefined})})
+        body:JSON.stringify({item_id:it.id,quantity:QTY,fulfillment_method:method,address:addr,ship_to:method==='shipping'?addr:undefined})})
         .then(function(r){return r.json();}).then(function(res){
           document.getElementById('toReview').disabled=false;
           if(!res.success){errEl.textContent=res.message||'Could not calculate your order.';return;}
-          REVIEWED=res.data.breakdown; showReview(res.data,method,addr);
+          REVIEWED=res.data.breakdown; REVIEWED_UNIT=res.data.item&&res.data.item.unit_price_cents; showReview(res.data,method,addr);
         }).catch(function(){document.getElementById('toReview').disabled=false;errEl.textContent='Network error.';});
     }
 
     function showReview(q,method,addr){
       var b=q.breakdown;
       var lines='<table class="lines">'+
-        '<tr><td>Item</td><td align="right">'+money(b.item_price_cents)+'</td></tr>'+
+        '<tr><td>'+(QTY>1?('Item ('+QTY+' &times; '+money(REVIEWED_UNIT!=null?REVIEWED_UNIT:ITEM.price_cents)+')'):'Item')+'</td><td align="right">'+money(b.item_price_cents)+'</td></tr>'+
         (b.shipping_cents>0?'<tr><td>Shipping</td><td align="right">'+money(b.shipping_cents)+'</td></tr>':'')+
         (b.tax_cents>0?'<tr><td>Sales tax</td><td align="right">'+money(b.tax_cents)+'</td></tr>':(q.tax_enabled?'<tr><td>Sales tax</td><td align="right">'+money(0)+'</td></tr>':''))+
         '<tr class="tot"><td>Total</td><td align="right">'+money(b.total_charge_cents)+'</td></tr></table>';
@@ -259,12 +266,13 @@
     // Server-confirmed card flow: the browser only turns the card field into a payment method; the server checks
     // the card (debit/credit only) and confirms the charge. "Try again" reuses the same order + payment.
     var ORDER_KEY=null; var REVIEWED=null;   // the price and shipping the buyer reviewed (the server refuses if they changed)
-    function orderKey(method,addr){return method+'|'+(method==='shipping'?JSON.stringify(addr):'');}
+    var QTY=1, REVIEWED_UNIT=null;          // units chosen, and the unit price reviewed (the server compares the unit price)
+    function orderKey(method,addr){return method+'|'+QTY+'|'+(method==='shipping'?JSON.stringify(addr):'');}
     function ensureOrder(method,addr){
       var key=orderKey(method,addr);
       if(ORDER&&ORDER_KEY===key&&ORDER.payment_status==='pending')return Promise.resolve(ORDER);
-      var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
-      if(REVIEWED){body.expected_item_price_cents=REVIEWED.item_price_cents;body.expected_shipping_cents=REVIEWED.shipping_cents;}
+      var body={item_id:ITEM.id,quantity:QTY,fulfillment_method:method,address:addr};
+      if(REVIEWED){body.expected_item_price_cents=(REVIEWED_UNIT!=null?REVIEWED_UNIT:ITEM.price_cents);body.expected_shipping_cents=REVIEWED.shipping_cents;}
       var ack=document.getElementById('ackPol'); body.policies_acknowledged=!!(ack&&ack.checked);
       body.expected_policy_versions=ITEM.policy_versions||{store_terms:null,shipping_pickup:null};   // the versions this buyer was shown
       if(method==='shipping')body.ship_to=addr;
@@ -325,11 +333,15 @@
       var next=(o&&o.fulfillment_method==='shipping')?'The seller will prepare and ship your item.':'The seller will prepare your item and mark it ready for pickup.';
       openModal('<h3 class="ok">✓ Order confirmed</h3>'+
         '<div class="meta">Order '+esc(o?o.order_number:'')+'</div>'+
-        '<p style="margin:12px 0"><b>'+esc(ITEM.title)+'</b></p>'+
+        '<p style="margin:12px 0"><b>'+esc(ITEM.title)+'</b>'+(o&&o.quantity>1?' &times; '+o.quantity:'')+'</p>'+
         (o?'<table class="lines"><tr class="tot"><td>Paid</td><td align="right">'+money(o.total_charge_cents)+'</td></tr></table>':'')+
         '<p class="meta" style="margin:10px 0">'+esc(next)+'</p>'+
         (slow?'<p class="meta">Your payment is processing. You will see it in your purchases shortly.</p>':'')+
-        '<div style="margin-top:16px;display:flex;gap:8px"><a class="btn btn-primary" href="/marketplace-purchases.html">My Purchases</a><button class="btn btn-ghost" onclick="location.reload()">Done</button></div>');
+        '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-primary" href="/marketplace-purchases.html">My Purchases</a>'+
+          // Started from the seller's own website (the shop widget opened this page): offer the way back. The address is the
+          // seller's own website from their storefront settings (server), never one taken from the browser.
+          (FROM_WIDGET&&ITEM.seller_website&&/^https?:\/\//i.test(ITEM.seller_website)?'<a class="btn btn-ghost" id="backToSeller" href="'+esc(ITEM.seller_website)+'" rel="noopener">Return to '+esc(ITEM.seller_name||'the seller')+'&#39;s website</a>':'')+
+          '<button class="btn btn-ghost" onclick="location.reload()">Done</button></div>');
     }
   </script>
 <script src="/widgets/shared/analytics.js" defer></script>

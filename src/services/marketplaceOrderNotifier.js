@@ -37,7 +37,7 @@ function totalsBlock(o) {
   const taxLine = o.tax_cents > 0 ? `<tr><td>Sales tax</td><td align="right">${money(o.tax_cents)}</td></tr>` : '';
   const shipLine = o.shipping_cents > 0 ? `<tr><td>Shipping</td><td align="right">${money(o.shipping_cents)}</td></tr>` : '';
   return `<table style="width:100%;max-width:420px;border-collapse:collapse">
-    <tr><td>Item</td><td align="right">${money(o.item_price_cents)}</td></tr>
+    <tr><td>${Number(o.quantity) > 1 ? `Item (${Number(o.quantity)} &times; ${money(o.unit_price_cents)})` : 'Item'}</td><td align="right">${money(o.item_price_cents)}</td></tr>
     ${shipLine}${taxLine}
     <tr><td style="border-top:1px solid #ddd;padding-top:6px"><b>Total</b></td>
         <td align="right" style="border-top:1px solid #ddd;padding-top:6px"><b>${money(o.total_charge_cents)}</b></td></tr>
@@ -69,7 +69,7 @@ async function sendPaid(orderId) {
     const html = `<div style="font-family:system-ui,Arial,sans-serif;color:#222">
       <h2 style="margin:0 0 4px">Order confirmed</h2>
       <p style="color:#555;margin:0 0 16px">Order <b>${esc(o.order_number)}</b> · ${esc(o.seller_name || 'Seller')}</p>
-      <p style="font-size:16px;margin:0 0 12px"><b>${esc(o.item_title)}</b></p>
+      <p style="font-size:16px;margin:0 0 12px"><b>${esc(o.item_title)}</b>${Number(o.quantity) > 1 ? ` &times; ${Number(o.quantity)}` : ''}</p>
       ${totalsBlock(o)}
       <p style="margin:16px 0 4px"><b>Fulfillment:</b> ${method}</p>
       <p style="color:#555;margin:0 0 16px">${esc(next)}</p>
@@ -78,7 +78,7 @@ async function sendPaid(orderId) {
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
     await sendEmail({ to: o.buyer_email, subject: `Order confirmed — ${o.item_title} (${o.order_number})`, html,
-      text: `Order ${o.order_number} confirmed. ${o.item_title}. Total ${money(o.total_charge_cents)}. Fulfillment: ${method}. ${next}` });
+      text: `Order ${o.order_number} confirmed. ${o.item_title}${Number(o.quantity) > 1 ? ' x ' + Number(o.quantity) : ''}. Total ${money(o.total_charge_cents)}. Fulfillment: ${method}. ${next}` });
   }
 
   // The seller "item sold" notice is no longer sent here: it is queued in the paid transaction and delivered with retries

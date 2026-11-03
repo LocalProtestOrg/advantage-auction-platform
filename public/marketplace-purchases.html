@@ -94,7 +94,7 @@
       var seller=o.storefront_slug?('<a href="/pro/'+esc(o.storefront_slug)+'">'+esc(o.seller_name||'Seller')+'</a>'):esc(o.seller_name||'Seller');
       var img=o.thumbnail_url?'<img src="'+esc(o.thumbnail_url)+'" alt="'+esc(o.item_title)+'">':'<div style="width:76px;height:76px;border-radius:10px;background:#eef2f7"></div>';
       var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
-      return '<div class="order">'+img+'<div style="flex:1"><div class="t">'+esc(o.item_title||'Item')+'</div>'+
+      return '<div class="order">'+img+'<div style="flex:1"><div class="t">'+esc(o.item_title||'Item')+(o.quantity>1?' &times; '+o.quantity:'')+'</div>'+
         '<div class="meta">Sold by '+seller+'</div>'+
         '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
         track+

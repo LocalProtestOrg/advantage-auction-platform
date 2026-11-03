@@ -741,6 +741,20 @@ async function markOrderPaid(intent) {
   // Buyer receipt + seller "item sold" notice (best-effort; never breaks the webhook ack).
   try { await require('./marketplaceOrderNotifier').sendPaid(paidOrder.id); }
   catch (e) { console.error('[marketplace] paid notification failed', paidOrder.id, e.message); }
+  // Owner text (roadmap §13.G): once per order per configured owner number (owner_alert_log), never for a demo order. No
+  // buyer details; the fee and proceeds come from the order record. Email to Admin/Finance goes through the outbox above.
+  if (!paidOrder.is_demo) {
+    try {
+      const oa = require('./ownerAlertService');
+      const snap = paidOrder.item_snapshot || {};
+      const m = (c) => '$' + (Number(c || 0) / 100).toFixed(2);
+      const qty = Number(paidOrder.quantity) > 1 ? ' x' + Number(paidOrder.quantity) : '';
+      const message = `Advantage.Bid: storefront sale paid ${paidOrder.order_number}. ${String(snap.title || 'Item').slice(0, 60)}${qty}`
+        + `${snap.inventory_number ? ' #' + String(snap.inventory_number).slice(0, 20) : ''}. Sale ${m(paidOrder.item_price_cents)}, fee ${m(paidOrder.platform_fee_cents)},`
+        + ` est. seller proceeds ${m(paidOrder.seller_proceeds_cents)}. ${(process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '')}/admin/marketplace-orders.html`;
+      await oa.sendOwnerAlertOnce({ alertType: oa.ALERT_TYPES.STOREFRONT_SALE_PAID, entityType: 'marketplace_order', entityId: paidOrder.id, message });
+    } catch (e) { console.error('[marketplace] owner sale text failed', paidOrder.id, e.message); }
+  }
 }
 
 // A charge succeeded for an order that can no longer be fulfilled (its hold was lost). Refund it in full

@@ -346,16 +346,17 @@ async function setRisk(sellerProfileId, actorId, { risk_level, risk_notes, verif
   return row;
 }
 
-async function hasApprovedVerification(sellerProfileId) {
-  return (await db.query(`SELECT 1 FROM verification_requests WHERE seller_profile_id=$1 AND status='approved' LIMIT 1`, [sellerProfileId])).rowCount > 0;
+async function hasApprovedVerification(sellerProfileId, runner = db) {
+  return (await runner.query(`SELECT 1 FROM verification_requests WHERE seller_profile_id=$1 AND status='approved' LIMIT 1`, [sellerProfileId])).rowCount > 0;
 }
 
 // Returns { blocked, reason } — true ONLY when the seller is flagged
 // verification_required_before_publication AND has no approved verification.
-async function publicationGate(sellerProfileId) {
-  const sp = (await db.query('SELECT verification_required_before_publication FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
+// runner: an open transaction's client when the caller checks under its own lock (default: the pool).
+async function publicationGate(sellerProfileId, runner = db) {
+  const sp = (await runner.query('SELECT verification_required_before_publication FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
   if (!sp || !sp.verification_required_before_publication) return { blocked: false, reason: 'not_required' };
-  if (await hasApprovedVerification(sellerProfileId)) return { blocked: false, reason: 'verified' };
+  if (await hasApprovedVerification(sellerProfileId, runner)) return { blocked: false, reason: 'verified' };
   return { blocked: true, reason: 'verification_required' };
 }
 

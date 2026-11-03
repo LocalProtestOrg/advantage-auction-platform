@@ -49,8 +49,8 @@ async function upsertSellerPayoutPreference(sellerUserId, payload) {
 // Readers (settlement, Direct Deposit release, seller views) only ever see provider references from the
 // CURRENT payment mode: a TEST connected account / bank reference is hidden under LIVE keys, so no TEST id
 // can be used for a LIVE transfer and the seller is asked to set up direct deposit again.
-async function getSellerPayoutPreference(sellerUserId) {
-  const result = await db.query(
+async function getSellerPayoutPreference(sellerUserId, runner = db) {   // runner: a transaction client, or the pool
+  const result = await runner.query(
     'SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1',
     [sellerUserId]
   );

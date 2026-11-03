@@ -280,18 +280,18 @@ async function emailSignedPdf(agreement, buffer) {
 // a current signed agreement, OR they are grandfathered (already have a non-draft
 // auction). Otherwise access is blocked and we surface any pending signable
 // agreement so the client can route them to sign it.
-async function dashboardAccess(sellerProfileId) {
-  const sp = (await db.query('SELECT id, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
+async function dashboardAccess(sellerProfileId, runner = db) {   // runner: a transaction client, or the pool
+  const sp = (await runner.query('SELECT id, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
   if (!sp) return { access: false, reason: 'seller_not_found', agreement_id: null };
   if (sp.agreement_waived_at) return { access: true, reason: 'waived', agreement_id: null };
-  const signed = (await db.query(
+  const signed = (await runner.query(
     `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
       WHERE a.seller_profile_id = $1 AND a.status IN ('signed','countersigned') AND v.template_id <> $2
       ORDER BY a.signed_at DESC NULLS LAST LIMIT 1`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
   if (signed) return { access: true, reason: 'signed', agreement_id: signed.id };
-  const gf = (await db.query(`SELECT 1 FROM auctions WHERE seller_id = $1 AND state <> 'draft' LIMIT 1`, [sellerProfileId])).rowCount;
+  const gf = (await runner.query(`SELECT 1 FROM auctions WHERE seller_id = $1 AND state <> 'draft' LIMIT 1`, [sellerProfileId])).rowCount;
   if (gf) return { access: true, reason: 'grandfathered', agreement_id: null };
-  const pending = (await db.query(
+  const pending = (await runner.query(
     `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
       WHERE a.seller_profile_id = $1 AND a.status IN ('sent','viewed') AND v.template_id <> $2
       ORDER BY a.created_at DESC LIMIT 1`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];

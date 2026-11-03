@@ -29,11 +29,12 @@ async function assertSellerCanSell(sellerProfileId, runner = db) {
   // A suspended and a not-yet-verified seller get the SAME answer, so a buyer cannot learn a seller's account status.
   const refuse = () => err(409, 'SELLER_NOT_ACCEPTING_ORDERS', 'This seller is not accepting orders right now.');
   if (sp.owner_active === false) throw refuse();
-  const gate = await require('./verificationService').publicationGate(sp.id);
+  // Every read uses the caller's connection, so a check made under the order's row lock sees one consistent state.
+  const gate = await require('./verificationService').publicationGate(sp.id, runner);
   if (gate.blocked) throw refuse();
-  const agreement = await require('./agreementService').dashboardAccess(sp.id);
+  const agreement = await require('./agreementService').dashboardAccess(sp.id, runner);
   if (!agreement || !agreement.access) throw refuse();
-  if (!payoutReady(await require('./payoutPreferenceService').getSellerPayoutPreference(sp.user_id))) throw refuse();
+  if (!payoutReady(await require('./payoutPreferenceService').getSellerPayoutPreference(sp.user_id, runner))) throw refuse();
   return true;
 }
 
