@@ -89,6 +89,60 @@ So under both rates a refunded sale costs Advantage.Bid the full card fee, and t
 instead of 11%). A partial refund recovers proportionally up to the seller's paid amount; the commission is not
 reduced, so Advantage.Bid keeps its commission on the part not refunded. A chargeback adds the $15 dispute fee.
 
-**Decision for the owner (not implemented):** whether a seller-caused refund (item not as described, not available,
-not handed over) should also recover the card fee and/or the commission from the seller. Not changed without your
-authorization.
+**Seller-caused refunds (owner direction 2026-11-03; built, switched off):** an administrator refund records who caused it.
+For a seller-caused refund the order shows the documented card fee as eligible for recovery; it is deducted from the
+seller's next payout only when `STOREFRONT_SELLER_FAULT_RECOVERY_ENABLED=true`, after counsel approves the clause
+(`docs/legal/seller-caused-refund-cost-recovery-clause-draft.md`) and it is in a published Seller Agreement version. With it
+on, a seller-caused refund of a $100 sale costs Advantage.Bid $0 in card fees instead of $3.20 (the commission is still
+returned to the buyer).
+
+## 4. Small-order economics with every known transaction cost (2026-11-03 update)
+
+Commission unchanged (5% website / 9% marketplace; no minimum fee, per owner decision). Expected Advantage.Bid margin per
+order, standard published Stripe pricing (confirm in the Dashboard; actual card fees are recorded per order from the first
+sale):
+
+- card processing 2.9% + $0.30 on the **whole charge** (item + shipping + sales tax);
+- Stripe Tax 0.5% of the charge where tax is calculated (confirm whether the account is billed only in registered states);
+- Connect: one weekly payout to the seller (0.25% of the payout + $0.25) and $2 per month per active seller (~$0.46 a week),
+  shared across that seller's orders that week ("1 order/week" is the worst case);
+- refund exposure 3% (assumed): on a refunded order the commission goes back to the buyer and Stripe keeps the card fee;
+- dispute exposure 0.5% x $15 (assumed).
+
+**Pickup, 8.25% sales tax, the seller's only sale that week** (the most likely case for a small seller):
+
+| Item | 5% commission | Card fee | Stripe Tax | Payout + account | Refund + dispute | **Net 5%** | **Net 9%** |
+|---|---|---|---|---|---|---|---|
+| $10 | $0.50 | $0.61 | $0.05 | $0.74 | $0.09 | **-$0.99** | **-$0.60** |
+| $20 | $1.00 | $0.93 | $0.11 | $0.76 | $0.10 | **-$0.90** | **-$0.12** |
+| $30 | $1.50 | $1.24 | $0.16 | $0.78 | $0.12 | **-$0.81** | **$0.36** |
+| $50 | $2.50 | $1.87 | $0.27 | $0.83 | $0.15 | **-$0.62** | **$1.32** |
+| $100 | $5.00 | $3.44 | $0.54 | $0.95 | $0.22 | **-$0.15** | **$3.74** |
+| $500 | $25.00 | $16.00 | $2.71 | $1.90 | $0.82 | **$3.57** | **$23.02** |
+| $1,000 | $50.00 | $31.69 | $5.41 | $3.09 | $1.57 | **$8.23** | **$47.13** |
+
+Other cases (net per order, 5% / 9%):
+
+| Item | No tax, 1 order/week | $12 shipping + tax, 1 order/week | Tax, 10 orders/week |
+|---|---|---|---|
+| $10 | -$0.92 / -$0.53 | -$1.47 / -$1.08 | -$0.35 / $0.04 |
+| $20 | -$0.74 / $0.03 | -$1.37 / -$0.59 | -$0.26 / $0.52 |
+| $30 | -$0.57 / $0.59 | -$1.28 / -$0.11 | -$0.17 / $1.00 |
+| $50 | -$0.23 / $1.71 | -$1.09 / $0.85 | $0.02 / $1.96 |
+| $100 | $0.63 / $4.52 | -$0.63 / $3.26 | $0.49 / $4.38 |
+| $500 | $7.48 / $26.93 | $3.10 / $22.55 | $4.21 / $23.66 |
+| $1,000 | $16.04 / $54.94 | $7.76 / $46.66 | $8.87 / $47.77 |
+
+**Break-even item price for a seller-website (5%) sale**: about **$63** with no tax and one sale a week; **$117** with
+8.25% tax; **$167** with $12 shipping and tax; **$48** with tax when the seller has ten sales a week; **$26** with no tax and
+ten a week. Marketplace (9%) sales break even at roughly **$8-$32**.
+
+What drives the loss on small website sales (in order): the fixed per-payout and per-account Connect costs when a seller
+has one sale a week; card fees on tax and shipping (not in the commission base); Stripe Tax; the fixed $0.30.
+
+**Recommendation (not implemented; owner approval needed).** The simplest transparent safeguard that keeps 5% / 9%
+unchanged is a **minimum payout amount**: a weekly payout is sent only when the seller's balance is at least $50 (otherwise
+it rolls into the next week, never lost, and is always paid within a stated period such as 30 days). It removes most of the
+fixed Connect cost on small sellers without any fee. If that is not enough, the next simplest is a **minimum item price of
+$20 for storefront checkout** (smaller items can still be listed but sell by contacting the seller). Also confirm with Stripe
+whether Stripe Tax is billed only where Advantage.Bid is registered; if so, the Stripe Tax column falls to $0 in most states.

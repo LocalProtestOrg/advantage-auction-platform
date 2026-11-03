@@ -133,7 +133,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -264,12 +264,41 @@ describe('the storefront agreement at first publication', () => {
     const r = await buy(it.id, 'bea');
     expect([r.status, r.body.code]).toEqual([409, 'SELLER_NOT_ACCEPTING_ORDERS']);
   });
-  test('once signed (any Seller Agreement version) there is no second signature: publishing works', async () => {
-    const v = (await one(`INSERT INTO agreement_template_versions (template_id) VALUES (gen_random_uuid()) RETURNING id`)).id;
-    await q(`INSERT INTO agreements (seller_profile_id, template_version_id, status, signed_at) VALUES ($1, $2, 'signed', now())`, [SP.gus, v]);
-    const it = await items.createDirectListing(U.gus.id, { title: 'Signed vase', price_cents: 5000 });
-    expect(it.status).toBe('active');
-    expect((await require('../src/services/agreementService').storefrontAgreementStatus(SP.gus)).reason).toBe('signed');
+  test('a seller who signed only an earlier version (old 11% terms) keeps that signature but must accept the current version before new items go live', async () => {
+    const AG = require('../src/services/agreementService');
+    const v3 = (await one(`INSERT INTO agreement_template_versions (template_id) VALUES (gen_random_uuid()) RETURNING id`)).id;   // no storefront_fee_schedule: version 1-3
+    const signedV3 = (await one(`INSERT INTO agreements (seller_profile_id, template_version_id, status, signed_at) VALUES ($1, $2, 'signed', now()) RETURNING id`, [SP.gus, v3])).id;
+    expect(await AG.storefrontAgreementStatus(SP.gus)).toEqual({ ok: false, reason: 'agreement_update_required', agreement_id: null });
+    const e = await items.createDirectListing(U.gus.id, { title: 'Needs v4 vase', price_cents: 5000 }).catch((x) => x);
+    expect(e).toMatchObject({ code: 'AGREEMENT_REQUIRED', status: 409, agreement_reason: 'agreement_update_required' });
+    expect(e.message).toMatch(/updated Professional Seller Agreement with the current storefront commission/);
+    // drafts and the dashboard are unaffected; the version 3 signature is untouched
+    expect((await items.createDirectListing(U.gus.id, { title: 'Draft while waiting', price_cents: 5000, status: 'draft' })).status).toBe('draft');
+    expect((await AG.dashboardAccess(SP.gus)).access).toBe(true);
+    expect((await one('SELECT status FROM agreements WHERE id = $1', [signedV3])).status).toBe('signed');
+    // a pending current-version agreement is the one named for signing
+    const v4 = (await one(`INSERT INTO agreement_template_versions (template_id, storefront_fee_schedule) VALUES (gen_random_uuid(), 'storefront-2026-11') RETURNING id`)).id;
+    const sentV4 = (await one(`INSERT INTO agreements (seller_profile_id, template_version_id, status) VALUES ($1, $2, 'sent') RETURNING id`, [SP.gus, v4])).id;
+    expect(await AG.storefrontAgreementStatus(SP.gus)).toEqual({ ok: false, reason: 'agreement_update_required', agreement_id: sentV4 });
+    // once version 4 is signed: publishing works, with no further signature; version 3 is still on record as signed
+    await q(`UPDATE agreements SET status = 'signed', signed_at = now() WHERE id = $1`, [sentV4]);
+    expect((await items.createDirectListing(U.gus.id, { title: 'Signed v4 vase', price_cents: 5000 })).status).toBe('active');
+    expect((await AG.storefrontAgreementStatus(SP.gus))).toEqual({ ok: true, reason: 'signed', agreement_id: sentV4 });
+    expect((await one('SELECT status FROM agreements WHERE id = $1', [signedV3])).status).toBe('signed');
+  });
+  test('the updated agreement is sent automatically only as the current version, never another old one, and never supersedes a signed one', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'agreementService.js'), 'utf8');
+    expect(src).toMatch(/async function autoSendAgreement\(sellerProfileId, actorId = null, \{ currentTermsOnly = false \} = \{\}\)/);
+    expect(src).toMatch(/currentTermsOnly \? 'AND v\.storefront_fee_schedule IS NOT NULL' : ''/);
+    expect(src).toMatch(/if \(!cur \|\| !cur\.storefront_fee_schedule\) return \{ status: 'no_current_terms' \};/);
+    const item = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'marketplaceItemService.js'), 'utf8');
+    expect(item).toMatch(/autoSendAgreement\(e\.sellerToSend, null, \{ currentTermsOnly: true \}\)/);
+  });
+  test('a published version is marked from its own text: the 5% / 9% section defines "Website Sale" (migration 216)', () => {
+    const mig = require('fs').readFileSync(require('path').join(__dirname, '..', 'db', 'migrations', '216_storefront_agreement_terms_and_refund_fault.sql'), 'utf8');
+    expect(mig).toMatch(/NEW\.body_markdown LIKE '%\(a "Website Sale"\)%'/);
+    const doc = require('fs').readFileSync(require('path').join(__dirname, '..', 'docs', 'seller-agreement-v1-content.md'), 'utf8');
+    expect(doc).toContain('(a "Website Sale")');
   });
   test('an Advantage.Bid waiver also counts', async () => {
     expect((await require('../src/services/agreementService').storefrontAgreementStatus(SP.sue)).reason).toBe('waived');

@@ -40,7 +40,7 @@ test('served at the clean address; the .html address redirects to it; listed in 
   expect(map).toMatch(/<loc>[^<]*\/sell-online<\/loc>/);
 });
 
-test.each([['desktop', {}], ['phone', devices['iPhone 13']]])('%s: renders cleanly, readable, no sideways scrolling', async (label, ctxOpts) => {
+test.each([['desktop', {}], ['tablet', devices['iPad Mini']], ['phone', devices['iPhone 13']]])('%s: renders cleanly, readable, no sideways scrolling', async (label, ctxOpts) => {
   const { ctx, page } = await open(ctxOpts);
   const probe = health.attach(page, { origin: stack.baseUrl });
   await page.goto(stack.baseUrl + '/sell-online', { waitUntil: 'networkidle' });
@@ -86,7 +86,7 @@ test('calls to action go to the existing professional registration, with Title C
   for (const c of ctas) {
     const minor = new Set(['a', 'an', 'the', 'and', 'or', 'of', 'to', 'in', 'on', 'for']);
     expect(c.text).toBe(c.text.split(' ').map((w, i) => (i > 0 && minor.has(w.toLowerCase()) ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1))).join(' '));
-    if (/Start Selling|Create Your Storefront/.test(c.text)) expect(c.href).toBe('/become-professional-seller.html');
+    if (/Start Selling|Create Your Storefront/.test(c.text)) expect(c.href).toBe('/become-professional-seller.html?seller_type=retail_gallery_studio');
   }
   const internal = await page.$$eval('a[href^="/"]', (as) => [...new Set(as.map((a) => a.getAttribute('href').split('#')[0]))].filter(Boolean));
   for (const href of internal) {
@@ -122,4 +122,29 @@ test('copy keeps to approved pricing and the public language rules', () => {
   // Written for the finished service (no temporary or coming-soon wording); the new professional type is named.
   expect(text).not.toMatch(/coming soon|until then|not yet available|launching soon/i);
   expect(text).toMatch(/Retail Shop, Gallery or Studio/);
+});
+
+test('the registration it opens offers Retail Shop, Gallery or Studio, already chosen (the seller can change it)', async () => {
+  const { ctx, page } = await open();
+  await page.goto(stack.baseUrl + '/sell-online', { waitUntil: 'networkidle' });
+  await page.click('a.so-btn[data-cta="hero-start"]');
+  await page.waitForLoadState('networkidle');
+  expect(page.url()).toContain('/become-professional-seller.html?seller_type=retail_gallery_studio');
+  expect(await page.$eval('#seller-type', (s) => s.value)).toBe('retail_gallery_studio');
+  expect(await page.$eval('#seller-type option[value="retail_gallery_studio"]', (o) => o.textContent.trim())).toBe('Retail Shop, Gallery or Studio');
+  // signing in first keeps the choice (the login link carries the address back)
+  const login = await page.$eval('#login-link', (a) => a.getAttribute('href'));
+  expect(decodeURIComponent(login)).toContain('seller_type=retail_gallery_studio');
+  await ctx.close();
+});
+
+test('pricing shows the 5% website / 9% marketplace commission, no monthly or listing fee; social cards point at the page', async () => {
+  const { ctx, page } = await open();
+  await page.goto(stack.baseUrl + '/sell-online', { waitUntil: 'networkidle' });
+  const prices = await page.$$eval('.so-price .so-big', (e) => e.map((x) => x.textContent.trim()));
+  expect(prices).toEqual(['No monthly fee', 'No listing fees', '5%', '9%']);
+  expect(await page.$eval('meta[property="og:url"]', (m) => m.content)).toBe('https://bid.advantage.bid/sell-online');
+  expect(await page.$eval('meta[name="twitter:card"]', (m) => m.content)).toBe('summary_large_image');
+  expect(await page.textContent('body')).not.toMatch(/coming soon|not available yet|checkout is (not|un)available/i);
+  await ctx.close();
 });

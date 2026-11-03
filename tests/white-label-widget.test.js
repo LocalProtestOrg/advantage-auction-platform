@@ -137,8 +137,8 @@ describe('routes', () => {
 });
 
 // ── Embed host page: white-label, XSS-safe, links out, safe postMessage ──────────
-describe('embed host page (/embed/auctions.html)', () => {
-  const page = read('public', 'embed', 'auctions.html');
+describe('embed host page (/embed/auctions.html + /embed/auctions.js)', () => {
+  const page = [read('public', 'embed', 'auctions.html'), read('public', 'embed', 'auctions.js')].join(' ');
   test('is white-label — no Advantage.Bid logo/wordmark as the visual brand', () => {
     expect(page).not.toMatch(/Advantage<span|class="brand"|logo/i);
     expect(page).not.toMatch(/>Advantage\.Bid</);
@@ -148,9 +148,16 @@ describe('embed host page (/embed/auctions.html)', () => {
     expect(page).toMatch(/esc\(a\.title/);
     expect(page).not.toMatch(/email|phone|contact_/i);
   });
-  test('links open the auction on the identified bid.advantage.bid platform (target _top)', () => {
-    expect(page).toMatch(/target="_top"/);
-    expect(page).toMatch(/a\.href/);
+  test('catalog and lots open inside the frame; Advantage.Bid pages (bidding) open in a new tab, never replacing the host page', () => {
+    expect(page).not.toMatch(/target="_top"/);
+    expect(page).toMatch(/Bid on Advantage\.Bid<\/a>/);
+    expect(page).toMatch(/target="_blank" rel="noopener">Bid on Advantage\.Bid/);
+    expect(page).toMatch(/history\.pushState/);
+    expect(page).toMatch(/addEventListener\('popstate'/);
+    expect(page).toMatch(/AdvGallery\.mount/);
+  });
+  test('the page has no inline script (closing-tag text in an inline script breaks pages)', () => {
+    expect(read('public', 'embed', 'auctions.html')).not.toMatch(/<script>/);
   });
   test('only ever posts a numeric height to the parent (no data exfiltration)', () => {
     expect(page).toMatch(/type: 'adv-wl-height', height: h/);
@@ -162,8 +169,12 @@ describe('loader (/widgets/company-auctions.js)', () => {
   const js = read('public', 'widgets', 'company-auctions.js');
   test('validates message origin AND exact iframe source AND numeric height', () => {
     expect(js).toMatch(/if \(e\.origin !== ORIGIN\) return/);
-    expect(js).toMatch(/f\.contentWindow === e\.source/);
-    expect(js).toMatch(/typeof d\.height !== 'number'/);
+    expect(js).toMatch(/_advIframe\.contentWindow === e\.source/);
+    expect(js).toMatch(/if \(!f\) return;/);
+    expect(js).toMatch(/d\.type === 'adv-wl-height' && typeof d\.height === 'number'/);
+    // the only other messages: bring the widget's top into view, and the photo viewer open/closed (a boolean)
+    expect(js).toMatch(/d\.type === 'adv-wl-viewer' && typeof d\.open === 'boolean'/);
+    expect(js).not.toMatch(/innerHTML|eval\(|location\s*=|\.src\s*=\s*d\./);
   });
   test('only mounts a valid wgt_ key (never injects an arbitrary iframe URL) and encodes it', () => {
     expect(js).toMatch(/KEY_RE = \/\^wgt_\[a-f0-9\]\{36\}\$\//);
@@ -188,13 +199,14 @@ describe('white-label marketing copy (post-certification)', () => {
 });
 
 // ── Dashboard install card ───────────────────────────────────────────────────────
-describe('seller dashboard install card', () => {
-  const dash = read('public', 'seller-dashboard.html');
-  test('fetches the owner-scoped config, shows install code + copy + preview, hidden for non-pros', () => {
-    expect(dash).toMatch(/\/api\/sellers\/me\/widget/);
-    expect(dash).toMatch(/Add Auctions to Your Website/);
-    expect(dash).toMatch(/Copy Code/);
-    expect(dash).toMatch(/if \(!d\.eligible\) return/); // section stays hidden for non-professional (non-demo) sellers
-    expect(dash).toMatch(/preview_url/);
+describe('seller install card (Website Widgets panel)', () => {
+  const ww = read('public', 'widgets', 'shared', 'website-widgets.js');
+  test('fetches the owner-scoped config, shows install code + copy + link + preview, not listed for non-pros', () => {
+    expect(ww).toMatch(/'\/api\/sellers\/me\/widget'/);
+    expect(ww).toMatch(/title: 'Auctions widget'/);
+    expect(ww).toMatch(/Copy Embed Code/);
+    expect(ww).toMatch(/Copy Widget Link/);
+    expect(ww).toMatch(/if \(!d\.eligible\) return null;/);   // not listed for non-professional (non-demo) sellers
+    expect(ww).toMatch(/preview: d\.preview_url/);
   });
 });

@@ -132,7 +132,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -438,14 +438,22 @@ describe('My Website Widget panel (owner only, automatic)', () => {
 
   test('the dashboard tab: owner only (hidden from staff), copy buttons, install steps, no banned wording', () => {
     const html = fs.readFileSync(path.join(ROOT, 'public', 'seller-storefront.html'), 'utf8');
-    expect(html).toContain('<button id="t-widget" onclick="tab(\'widget\')">My Website Widget</button>');
-    expect(html).toContain('>Copy Embed Code</button>');
-    expect(html).toContain('>Copy Storefront Link</button>');
+    const dash = fs.readFileSync(path.join(ROOT, 'public', 'seller-dashboard.html'), 'utf8');
+    const ww = fs.readFileSync(path.join(ROOT, 'public', 'widgets', 'shared', 'website-widgets.js'), 'utf8');
+    expect(html).toContain('<button id="t-widget" onclick="tab(\'widget\')">Website Widgets</button>');
     expect(html).toMatch(/\['t-store','t-leads','t-widget','pane-store','pane-leads','pane-widget','loc-card'\]/);
-    expect(html).toMatch(/api\('GET','\/api\/seller-storefront\/widget'\)/);
+    // one shared component on both pages (auctions and storefront widgets together, the same controls)
+    expect(html).toContain('<script src="/widgets/shared/website-widgets.js"></script>');
+    expect(dash).toContain('<script src="/widgets/shared/website-widgets.js"></script>');
+    expect(html).toMatch(/AdvWebsiteWidgets\.mount\(document\.getElementById\('website-widgets'\),\{token:token,first:'storefront'\}\)/);
+    expect(dash).toMatch(/AdvWebsiteWidgets\.mount\(document\.getElementById\('widget-body'\), \{ token: tok, first: 'auctions' \}\)/);
+    expect(ww).toMatch(/'\/api\/seller-storefront\/widget'/);
+    expect(ww).toMatch(/'\/api\/sellers\/me\/widget'/);
+    for (const label of ['Copy Embed Code', 'Copy Widget Link', 'Preview Widget', 'How to add it to your website']) expect(ww).toContain(label);
+    expect(ww).toMatch(/WordPress[\s\S]*Squarespace[\s\S]*Wix[\s\S]*Brilliant Directories/);
+    expect(ww).not.toMatch(/innerHTML/);   // DOM calls only
     const pane = html.slice(html.indexOf('<div id="pane-widget"'), html.indexOf('<script>'));
-    expect(pane).toMatch(/WordPress[\s\S]*Squarespace[\s\S]*Wix[\s\S]*Brilliant Directories/);
-    expect(pane).not.toMatch(/[–—]|\bA\.?I\b|artificial intelligence|cloudinary|railway/i);
+    for (const t of [pane, ww]) expect(t).not.toMatch(/[–—]|\bA\.?I\b|artificial intelligence|cloudinary|railway/i);
   });
 });
 

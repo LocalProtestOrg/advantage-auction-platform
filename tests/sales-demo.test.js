@@ -148,7 +148,7 @@ describe('admin/CRM isolation unchanged', () => {
 // ── FINAL POLISH: example company website + safe website-widget demonstration ─────
 describe('example company website (website-widget sales demonstration)', () => {
   const example = read('public', 'demo', 'example-company-website.html');
-  const embed = read('public', 'embed', 'auctions.html');
+  const embed = [read('public', 'embed', 'auctions.html'), read('public', 'embed', 'auctions.js')].join(' ');   // page + its script
 
   test('the example company website exists and is noindex (not publicly promoted)', () => {
     expect(example).toMatch(/name="robots" content="noindex, nofollow"/);
@@ -173,14 +173,14 @@ describe('example company website (website-widget sales demonstration)', () => {
   });
 
   test('the certified embed page adds a demo-only branch that reuses the SAME rendering (no key, no fetch)', () => {
-    expect(embed).toMatch(/q\('demo'\) === '1'/);
-    expect(embed).toMatch(/render\(demoData\(\)\)/);
+    expect(embed).toMatch(/var DEMO=q\('demo'\)==='1';/);
+    expect(embed).toMatch(/if\(DEMO\)\{LIST=demoData\(\);renderList\(\);/);
     // demoData carries NO key and links to a real PUBLIC auction (bidding on the platform)
     expect(embed).toMatch(/0000000d0003/);
     expect(embed).not.toMatch(/wgt_[a-f0-9]{36}/);
   });
   test('the certified KEYED production path is unchanged (still fetches the tenant feed by key)', () => {
-    expect(embed).toMatch(/fetch\('\/api\/public\/widget\/auctions\?key=' \+ encodeURIComponent\(KEY\)\)/);
+    expect(embed).toMatch(/fetch\('\/api\/public\/widget\/auctions\?key='\+encodeURIComponent\(KEY\),\{credentials:'omit'\}\)/);
   });
 });
 
@@ -194,7 +194,7 @@ describe('demo landing links prospects to the website-widget preview', () => {
 
 describe('demo-seller dashboard widget experience (safe accommodation, prod path intact)', () => {
   const sellers = read('src', 'routes', 'sellers.js');
-  const dash = read('public', 'seller-dashboard.html');
+  const dash = read('public', 'widgets', 'shared', 'website-widgets.js');   // the Website Widgets panel (dashboard + Storefront Settings)
 
   test('/me/widget short-circuits demo accounts to a safe example (NO real key issued)', () => {
     // The isDemoUser check must appear before any ensureWidgetKey call and return demo:true w/o a key.
@@ -212,11 +212,13 @@ describe('demo-seller dashboard widget experience (safe accommodation, prod path
     expect(body).toMatch(/preview_url:/);
   });
   test('dashboard renders a demo example link (no Copy Code) for demo accounts, keeps Copy Code for real pros', () => {
-    expect(dash).toMatch(/d\.demo/);
+    expect(dash).toMatch(/if \(d\.demo\) \{/);
     expect(dash).toMatch(/See How This Looks on Your Website/);
-    // the certified installable path (Copy Code / Install code) is still present for eligible pros
-    expect(dash).toMatch(/Copy Code/);
-    expect(dash).toMatch(/Install code/);
+    // the demo card has no install code; the installable path is still present for eligible pros
+    const demoCard = dash.slice(dash.indexOf('if (d.demo) {'), dash.indexOf('if (!d.eligible) return null;'));
+    expect(demoCard).not.toMatch(/embed_code|Copy Embed Code/);
+    expect(dash).toMatch(/Copy Embed Code/);
+    expect(dash).toMatch(/code: d\.embed_code/);
   });
 });
 

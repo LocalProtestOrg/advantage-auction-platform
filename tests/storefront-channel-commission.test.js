@@ -137,7 +137,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -361,5 +361,40 @@ describe('seller isolation', () => {
     expect(other.find((x) => x.id === o.body.data.order.id)).toBeUndefined();
     const adm = (await orders.listForAdmin({})).find((x) => x.id === o.body.data.order.id);
     expect(adm).toMatchObject({ sales_channel: 'seller_website', sales_channel_basis: 'website_pass', fee_schedule: 'storefront-2026-11' });
+  });
+});
+
+describe('seller-caused refunds: recorded and reviewable; the card cost is recovered only when the owner turns it on', () => {
+  const S = () => require('../src/services/storefrontSettlementService');
+  afterEach(() => { delete process.env.STOREFRONT_SELLER_FAULT_RECOVERY_ENABLED; });
+  test('switch off (as shipped): the reason and who caused it are recorded; the eligible card cost is shown, nothing is deducted', async () => {
+    const id = await paidAndPickedUp((await listQ(1)).id, 'bea');
+    await orders.refundOrder(id, { adminId: U.admin.id, reason: 'Item was not available', fault: 'seller', faultNote: 'Seller sold it elsewhere' });
+    expect(await row(id)).toMatchObject({ refund_fault: 'seller', refund_fault_note: 'Seller sold it elsewhere', refund_fault_set_by: U.admin.id, processing_fee_cents: 320 });
+    expect(await one(`SELECT count(*)::int n FROM storefront_payout_recoveries WHERE marketplace_order_id = $1`, [id])).toEqual({ n: 0 });
+    const adm = (await orders.listForAdmin({})).find((x) => x.id === id);
+    expect(adm).toMatchObject({ refund_fault: 'seller', seller_fault_eligible_cents: 320 });
+    expect(require('../src/services/auditService').logEvent).toHaveBeenCalledWith(expect.anything(),
+      expect.objectContaining({ eventType: 'marketplace_order.refund_fault_recorded', entityId: id }));
+  });
+  test('switch on: exactly the recorded card cost, once, deducted from the next payout; never for a buyer- or platform-caused refund', async () => {
+    process.env.STOREFRONT_SELLER_FAULT_RECOVERY_ENABLED = 'true';
+    const seller = await paidAndPickedUp((await listQ(1)).id, 'bea');
+    const buyer = await paidAndPickedUp((await listQ(1)).id, 'ben');
+    await orders.refundOrder(seller, { adminId: U.admin.id, reason: 'Materially misdescribed', fault: 'seller' });
+    await orders.refundOrder(seller, { adminId: U.admin.id, reason: 'Repeat click', fault: 'seller' });   // idempotent
+    await orders.refundOrder(buyer, { adminId: U.admin.id, reason: 'Buyer changed their mind', fault: 'buyer' });
+    expect(await q(`SELECT kind, amount_cents FROM storefront_payout_recoveries WHERE marketplace_order_id = $1`, [seller])).toEqual([{ kind: 'processing_fee', amount_cents: 320 }]);
+    expect(await one(`SELECT count(*)::int n FROM storefront_payout_recoveries WHERE marketplace_order_id = $1`, [buyer])).toEqual({ n: 0 });
+    // applied by the next prepared payout like any other recovery
+    const next = await paidAndPickedUp((await listQ(1, 20000)).id, 'bea');
+    await S().prepareWeek({ cutoff: new Date(Date.now() + 3 * 864e5) });
+    const p = await one(`SELECT p.* FROM storefront_payouts p JOIN storefront_payout_lines l ON l.storefront_payout_id = p.id WHERE l.marketplace_order_id = $1`, [next]);
+    expect(Number(p.recovery_cents)).toBeGreaterThanOrEqual(320);
+  });
+  test('who caused it must be one of the listed answers', async () => {
+    const id = await paidAndPickedUp((await listQ(1)).id, 'bea');
+    await expect(orders.refundOrder(id, { adminId: U.admin.id, reason: 'Something happened', fault: 'everyone' })).rejects.toMatchObject({ code: 'FAULT_INVALID' });
+    expect((await row(id)).refund_status).not.toBe('refunded');
   });
 });

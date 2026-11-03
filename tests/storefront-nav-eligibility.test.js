@@ -11,7 +11,7 @@ const Nav = require('../public/widgets/shared/member-nav-config');
 const { isProfessional } = require('../src/services/sellerTypeRules');
 
 const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
-const STOREFRONT_IDS = ['storefront', 'addItem', 'mpOrders'];
+const STOREFRONT_IDS = ['storefront', 'addItem', 'mpOrders', 'websiteWidgets'];
 const ids = (ctx) => Nav.visibleNavFor(ctx).map((i) => i.id);
 
 describe('member nav — Storefront items for Professional Sellers only', () => {

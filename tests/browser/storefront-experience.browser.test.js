@@ -232,6 +232,8 @@ describe('website sales are recognised by the browser, not by the link (5% commi
     const ctx = await browser.newContext(); const page = await ctx.newPage(); await serveFakePhotos(page);
     const fake = 'v1.' + Buffer.from(JSON.stringify({ s: shop.sellerProfileId, o: 'x', iat: Date.now(), exp: Date.now() + 3600e3, n: '0'.repeat(32) })).toString('base64url') + '.sig';
     await page.goto(stack.baseUrl + '/item.html?id=' + P.item + '#wp=' + encodeURIComponent(fake), { waitUntil: 'networkidle' });
+    // removed from the address bar by the page's first script (allow a loaded machine a moment)
+    await page.waitForFunction(() => !location.hash.includes('wp='), null, { timeout: 15000 });
     expect(page.url()).not.toContain('#wp=');
     const kept = await page.evaluate((k) => localStorage.getItem(k), 'adv-wp-' + shop.sellerProfileId.toLowerCase());
     expect(JSON.parse(kept)).toMatchObject({ t: fake });

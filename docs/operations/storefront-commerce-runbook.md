@@ -20,6 +20,11 @@ owner authorizes activation. Nothing here moves money except an administrator's 
 | Sales tax responsibility | Admin > Storefront Tax Rules, one rule per state (remitter + the advice relied on); a taxed order in a state without a rule is refused | with Stripe Tax |
 | Refund after payout | recorded once, deducted from the seller's next payout, released if that payout is voided | with payouts |
 | Buyer Terms version per order | `marketplace_orders.buyer_terms_version_int` | with checkout |
+| Auction website widget | auctions, catalogs, lots and photos inside the auctioneer's own website (`/embed/auctions.html` + `.js`, key-scoped feeds `/api/public/widget/auctions/:id/lots`, `/lots/:id`); bidding opens Advantage.Bid in a new tab | always on |
+| Website Widgets panel | both widgets (auctions, storefront) with Copy Embed Code, Copy Widget Link, Preview Widget, install steps (`widgets/shared/website-widgets.js`); member menu "Website Widgets" | always on |
+| Smart Catalog Tools for items | suggestions (title, description, category) from the first photo, same service as auction lots; Save as Draft | always on (needs the description service key) |
+| Agreement version for storefront | storefront publishing and sales need a signed version stating the 5% / 9% commission (migration 216); earlier signatures kept | always on |
+| Refund responsibility | admin refund records who caused it; seller-caused card cost shown as eligible; deduction only with `STOREFRONT_SELLER_FAULT_RECOVERY_ENABLED=true` (off) | record always; deduction off |
 | Commission by sales channel | 5% website sale / 9% marketplace sale on the item price (migration 215, `storefrontChannelService`); fixed on each order with how it was decided; actual card fee recorded per order | with checkout |
 
 ## Sales channel: how an order's commission is decided (owner decision 2026-11-03)
@@ -40,11 +45,15 @@ owner authorizes activation. Nothing here moves money except an administrator's 
 
 ## Deploy (owner approval)
 1. Neon backup branch (console), counts recorded.
-2. `railway run node scripts/prod-migrate-211-215.js --check`, then `--dry-run`, then apply (one transaction; rolls back on any failure).
+2. `railway run node scripts/prod-migrate-211-216.js --check`, then `--dry-run`, then apply (one transaction; rolls back on any failure).
 3. Push `main`; verify health, the storefront, the widget (in-frame item view) and the admin Storefront Payouts page (read-only).
 4. Seller Agreement with the 5% / 9% commission (owner approval of the text first): `railway run node
    scripts/prod-publish-seller-agreement-version.js` (dry run), then `--apply --reason="Storefront commission 5% / 9%"`.
    This adds version 4 for FUTURE agreements only; versions 1-3 and every signed agreement stay exactly as they are.
+   Do this right after step 3: from migration 216 on, a seller who signed only versions 1-3 (today: Lewis & Maese) cannot
+   publish NEW storefront items until they sign version 4, and version 4 must exist to be sent. Their auctions, dashboard
+   and drafts are not affected; existing live items stay live. The first time they publish, version 4 is sent to them
+   automatically (or send it from Admin > Agreements).
 Rollback: redeploy the previous deployment; the migrations are additive except the 212 index swap (reverse statements in each header).
 
 ## Before enabling live purchasing (Release 2 gates)

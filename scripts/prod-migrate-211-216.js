@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* prod-migrate-211-215.js — PRODUCTION-guarded apply of the storefront commerce migrations, in order, in ONE transaction:
+/* prod-migrate-211-216.js — PRODUCTION-guarded apply of the storefront commerce migrations, in order, in ONE transaction:
      211_retail_gallery_studio_seller_type.sql  (widen two seller-type CHECKs; no row changes)
      212_marketplace_multi_quantity.sql         (stock columns, order quantity, stock history; replaces the one-live-order index)
      213_storefront_payouts.sql                 (storefront payout records; admin sale-notice event)
@@ -8,16 +8,20 @@
                                                  remitter + Buyer Terms version, payout tax and refund recoveries)
      215_storefront_channel_commission.sql      (order sales channel + commission record, website-pass binding, actual
                                                  processing fee per order, storefront fee article text)
+     216_storefront_agreement_terms_and_refund_fault.sql
+                                                (which agreement versions state the 5% / 9% storefront terms; refund
+                                                 responsibility; recovery kinds)
    Moves no money. Existing orders keep quantity 1; items already sold through a paid order are recorded as one unit sold
    with none left (212 backfill).
 
-   --check    READ-ONLY: 210 applied, 211-215 not recorded, the new objects absent, and what the backfill will touch.
-   --dry-run  applies all five inside a transaction, runs every verification, then ROLLS BACK (nothing is kept).
-   (none)     applies all five in one transaction, then verifies; any failure rolls everything back.
-   Usage: railway run node scripts/prod-migrate-211-215.js [--check | --dry-run] */
+   --check    READ-ONLY: 210 applied, 211-216 not recorded, the new objects absent, and what the backfill will touch.
+   --dry-run  applies all six inside a transaction, runs every verification, then ROLLS BACK (nothing is kept).
+   (none)     applies all six in one transaction, then verifies; any failure rolls everything back.
+   Usage: railway run node scripts/prod-migrate-211-216.js [--check | --dry-run] */
 const fs = require('fs'); const path = require('path');
 const FILES = ['211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql',
-  '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql'];
+  '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql',
+  '216_storefront_agreement_terms_and_refund_fault.sql'];
 const PROD_EP = 'ep-proud-leaf-an8pzkib'; const STG_EP = 'ep-royal-dawn-anarou3f';
 const CHECK = process.argv.includes('--check');
 const DRY = process.argv.includes('--dry-run');
@@ -36,7 +40,7 @@ const DRY = process.argv.includes('--dry-run');
       migration_210_applied: await has(`SELECT 1 AS x FROM schema_migrations WHERE filename = '210_site_watchdog.sql'`),
       already_recorded: (await c.query('SELECT filename FROM schema_migrations WHERE filename = ANY($1)', [FILES])).rows.map((r) => r.filename),
       new_objects_present: await n(`SELECT ((SELECT count(*) FROM information_schema.tables WHERE table_name IN ('marketplace_stock_events','storefront_payouts','storefront_payout_lines','marketplace_tax_jurisdictions','storefront_payout_recoveries','storefront_channel_passes'))
-        + (SELECT count(*) FROM information_schema.columns WHERE table_name = 'marketplace_orders' AND column_name IN ('unit_price_cents','hold_expires_at','stock_released_at','storefront_payout_id','tax_remitter','buyer_terms_version_id','sales_channel','processing_fee_cents')))::int n`),
+        + (SELECT count(*) FROM information_schema.columns WHERE table_name = 'marketplace_orders' AND column_name IN ('unit_price_cents','hold_expires_at','stock_released_at','storefront_payout_id','tax_remitter','buyer_terms_version_id','sales_channel','processing_fee_cents','refund_fault')))::int n`),
       items: await n('SELECT count(*)::int n FROM marketplace_items'),
       orders: await n('SELECT count(*)::int n FROM marketplace_orders'),
       paid_orders_to_mark_sold: await n(`SELECT count(DISTINCT marketplace_item_id)::int n FROM marketplace_orders WHERE payment_status = 'paid' AND refund_status <> 'refunded'`),
@@ -59,6 +63,12 @@ const DRY = process.argv.includes('--dry-run');
     if (!p.migration_210_applied) { console.error('REFUSE: migration 210 must be applied first'); return 1; }
     if (p.already_recorded.length) { console.error('REFUSE: already recorded: ' + p.already_recorded.join(', ')); return 1; }
     const before = await snap();
+    // agreement versions, agreements and signatures: never changed by these migrations (216 only adds a column)
+    const agreementSnap = async () => (await one(`SELECT md5(
+        (SELECT coalesce(string_agg(id::text || version_int || md5(body_markdown), ',' ORDER BY id), '') FROM agreement_template_versions) || ':' ||
+        (SELECT coalesce(string_agg(id::text || status || template_version_id || coalesce(signed_at::text, ''), ',' ORDER BY id), '') FROM agreements) || ':' ||
+        (SELECT coalesce(string_agg(id::text || content_sha256, ',' ORDER BY id), '') FROM agreement_signatures)) h`)).h;
+    const agreementsBefore = await agreementSnap();
     const verify = async () => ({
       seller_type_accepts_retail: await has(`SELECT 1 AS x FROM pg_constraint WHERE conname = 'seller_profiles_seller_type_check' AND pg_get_constraintdef(oid) LIKE '%retail_gallery_studio%'`),
       agreement_type_accepts_retail: await has(`SELECT 1 AS x FROM pg_constraint WHERE conname = 'agreement_templates_agreement_type_check' AND pg_get_constraintdef(oid) LIKE '%retail_gallery_studio%'`),
@@ -84,6 +94,13 @@ const DRY = process.argv.includes('--dry-run');
       channel_fixed_on_orders: await has(`SELECT 1 AS x FROM pg_trigger WHERE tgname = 'marketplace_orders_channel_guard'`),
       channel_passes_empty: (await n('SELECT count(*)::int n FROM storefront_channel_passes')) === 0,
       fee_article_states_new_rates: !(await has(`SELECT 1 AS x FROM cs_kb_articles WHERE slug = 'professional-storefront-fee' AND body LIKE '%flat 11% seller fee, calculated on the item selling price only%'`)),
+      agreement_terms_column: await has(`SELECT 1 AS x FROM information_schema.columns WHERE table_name = 'agreement_template_versions' AND column_name = 'storefront_fee_schedule'`),
+      agreement_terms_trigger: await has(`SELECT 1 AS x FROM pg_trigger WHERE tgname = 'agreement_versions_storefront_terms'`),
+      no_existing_version_marked: (await n(`SELECT count(*)::int n FROM agreement_template_versions WHERE storefront_fee_schedule IS NOT NULL`)) === 0,
+      agreement_texts_unchanged: agreementsBefore === await agreementSnap(),
+      refund_fault_columns: (await n(`SELECT count(*)::int n FROM information_schema.columns WHERE table_name = 'marketplace_orders'
+        AND column_name IN ('refund_fault','refund_fault_note','refund_fault_set_by','refund_fault_set_at')`)) === 4,
+      recovery_kinds: await has(`SELECT 1 AS x FROM pg_indexes WHERE indexname = 'uq_storefront_payout_recoveries_order_kind'`),
       no_negative_stock: (await n(`SELECT count(*)::int n FROM marketplace_items WHERE quantity < 0 OR quantity_sold < 0`)) === 0,
       records_unchanged: before === await snap(),
     });

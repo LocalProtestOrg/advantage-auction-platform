@@ -30,6 +30,7 @@ ALTER TABLE seller_payout_preferences ADD COLUMN IF NOT EXISTS connect_payouts_e
 CREATE UNIQUE INDEX IF NOT EXISTS test_sale_ready_payouts_user ON seller_payout_preferences (seller_user_id);
 -- What the agreement check reads when a seller has no waiver (agreementService.dashboardAccess).
 CREATE TABLE IF NOT EXISTS agreement_template_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), template_id uuid);
+ALTER TABLE agreement_template_versions ADD COLUMN IF NOT EXISTS storefront_fee_schedule text;   -- migration 216: which storefront terms a version states
 CREATE TABLE IF NOT EXISTS agreements (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_profile_id uuid, template_version_id uuid,
   status text, signed_at timestamptz, created_at timestamptz DEFAULT now());
 DO $$ BEGIN
