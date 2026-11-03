@@ -18,6 +18,14 @@ router.get('/me', auth, role(['seller']), async (req, res, next) => {
   catch (err) { next(err); }
 });
 
+// Storefront (fixed-price) payouts for the signed-in seller's own company (migration 213). Declared before /me/:auctionId.
+router.get('/me/storefront', auth, role(['seller']), async (req, res, next) => {
+  try {
+    const sp = (await require('../db').query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    res.json({ success: true, data: sp ? await require('../services/storefrontSettlementService').listForSeller(sp.id) : [] });
+  } catch (err) { next(err); }
+});
+
 // Detailed statement for one of the seller's own auctions.
 router.get('/me/:auctionId', auth, role(['seller']), async (req, res, next) => {
   try {

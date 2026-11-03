@@ -77,6 +77,8 @@ const ALERT_TYPES = {
   // Storefront milestone 2: a buyer reported a listing / opened an issue on an order (no customer details in the text).
   STOREFRONT_ITEM_REPORT: 'storefront_item_report',
   STOREFRONT_ORDER_ISSUE: 'storefront_order_issue',
+  // A storefront order was confirmed paid (roadmap §13.G): owner text, once per order per recipient.
+  STOREFRONT_SALE_PAID: 'storefront_sale_paid',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -98,6 +100,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.SASHA_IMAP_HEALTH]: null,
   [ALERT_TYPES.FOUNDING_PARTNER_INTRO_ENDING]: null,
   [ALERT_TYPES.AUCTION_PARTNER_SIGNED]: null,
+  [ALERT_TYPES.STOREFRONT_SALE_PAID]: null,
 };
 
 // Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:

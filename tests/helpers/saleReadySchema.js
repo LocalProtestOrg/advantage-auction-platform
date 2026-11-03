@@ -11,6 +11,7 @@
 const SALE_READY_SQL = `
 ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS agreement_waived_at timestamptz DEFAULT now();
 ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS agreement_waived_by uuid;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false;
 CREATE TABLE IF NOT EXISTS seller_payout_preferences (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_user_id uuid UNIQUE, payout_method text,
   stripe_account_id text, stripe_account_livemode boolean DEFAULT false, connect_status text,

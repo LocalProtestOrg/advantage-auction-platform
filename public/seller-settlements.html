@@ -51,6 +51,12 @@
         <div id="history"></div>
       </div>
 
+      <div class="card" id="sf-payouts-card">
+        <h2>Storefront Payouts</h2>
+        <p class="muted" style="font-size:.88rem">Your fixed-price storefront sales are paid weekly: each payout includes the orders picked up or delivered before Wednesday at 11:59 PM Eastern. You receive the item price plus shipping, less the flat 11% selling fee (which includes card processing). Sales tax is never part of your proceeds.</p>
+        <div id="sf-payouts" class="muted">Loading…</div>
+      </div>
+
       <div class="card" id="tax-card">
         <h2>Tax Documents</h2>
         <p class="muted" style="font-size:.88rem">Coming in a Future Update.</p>
@@ -85,6 +91,7 @@
   </div></div>
 
   <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/seller-storefront-payouts.js" defer></script>
   <script src="/widgets/shared/buyer-nav.js"></script>
   <script>
   (function () {

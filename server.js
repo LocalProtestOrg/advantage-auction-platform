@@ -731,6 +731,7 @@ app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
 app.use('/api/admin/settlements', adminSettlementsRoutes);
+app.use('/api/admin/storefront-payouts', require('./src/routes/adminStorefrontPayouts')); // storefront seller payouts (admin; mig 213)
 app.use('/api/admin/subscribers', require('./src/routes/adminSubscribers'));
 app.use('/api/admin/marketing-campaigns', require('./src/routes/adminMarketingCampaigns'));
 app.use('/api/admin/audiences', require('./src/routes/adminAudiences'));

@@ -1067,6 +1067,22 @@ async function runStorefrontHoldSweep() {
 setInterval(runStorefrontHoldSweep, STOREFRONT_HOLD_SWEEP_INTERVAL_MS);
 runStorefrontHoldSweep();
 
+// ── Storefront payouts: prepare the weekly records (migration 213) ─────────────────────────────────────
+// Hourly; prepares (never pays) one payout record per seller for storefront orders completed before the latest
+// Wednesday 11:59 PM Eastern cutoff. Idempotent. Self-gated: seller settlements AND storefront checkout switched on.
+// Money moves only when an administrator approves Pay Seller.
+const STOREFRONT_PAYOUT_PREP_INTERVAL_MS = 60 * 60 * 1000;
+async function runStorefrontPayoutPrep() {
+  try {
+    const out = await require('../services/storefrontSettlementService').weeklyTick();
+    if (out.ran && out.prepared) console.log('[storefront-payouts] prepared', out.prepared, 'for cutoff', out.cutoff);
+  } catch (err) {
+    console.error(`[storefront-payouts] prepare failed: ${err.message}`);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+  }
+}
+setInterval(runStorefrontPayoutPrep, STOREFRONT_PAYOUT_PREP_INTERVAL_MS);
+
 // ── Sasha staff notifications: retry failed deliveries ────────────────────────────────────────────────
 // The actionable message is already in the staff inbox; this retries its email / text notice (bounded attempts, 24 h).
 const STAFF_ALERT_RETRY_INTERVAL_MS = 2 * 60 * 1000;

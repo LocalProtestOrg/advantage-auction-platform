@@ -40,6 +40,52 @@ async function enqueueSalePaid(client, orderId) {
        FROM marketplace_orders o JOIN seller_profiles sp ON sp.id = o.seller_id JOIN users u ON u.id = sp.user_id
       WHERE o.id = $1 AND o.payment_status = 'paid' AND u.email IS NOT NULL
      ON CONFLICT (order_id, event, recipient_email) DO NOTHING`, [orderId]);
+  // Owner and Admin/Finance notice (roadmap §13.G): active administrators and finance staff with a verified email, once per
+  // order per recipient. Never for a demo order. (Migration 213 allows the event; before it, nothing is queued.)
+  await client.query('SAVEPOINT sale_admin_notice');
+  try {
+    await client.query(
+      `INSERT INTO storefront_notifications (seller_id, order_id, event, recipient_user_id, recipient_email)
+       SELECT o.seller_id, o.id, 'sale_paid_admin', u.id, lower(u.email)
+         FROM marketplace_orders o CROSS JOIN users u
+        WHERE o.id = $1 AND o.payment_status = 'paid' AND COALESCE(o.is_demo, false) = false
+          AND (u.role = 'admin' OR u.staff_role IN ('super_admin', 'finance'))
+          AND u.is_active IS NOT FALSE AND u.staff_active IS NOT FALSE AND u.email_verified = true AND u.email IS NOT NULL
+       ON CONFLICT (order_id, event, recipient_email) DO NOTHING`, [orderId]);
+    await client.query('RELEASE SAVEPOINT sale_admin_notice');
+  } catch (e) {
+    await client.query('ROLLBACK TO SAVEPOINT sale_admin_notice');   // never blocks the sale or the seller's notice
+    console.error('[storefront-notify] admin sale notice not queued:', e.message);
+  }
+}
+
+// Owner and Admin/Finance notice: who sold what, the sale amount, the flat fee and the ESTIMATED seller proceeds, with the
+// signed-in admin link. No buyer contact, card, pickup address or taxpayer details.
+function renderSaleAdmin(o) {
+  const snap = o.item_snapshot && typeof o.item_snapshot === 'object' ? o.item_snapshot : {};
+  const title = snap.title || 'Item';
+  const inv = snap.inventory_number || null;
+  const seller = (o.seller_snapshot && o.seller_snapshot.display_name) || 'a Professional Seller';
+  const pct = (Number(o.platform_fee_bps) || 0) / 100;
+  const link = `${APP_BASE}/admin/marketplace-orders.html`;
+  const qty = Number(o.quantity) > 1 ? ` x ${Number(o.quantity)}` : '';
+  const subject = `Storefront sale paid: ${title}${qty} (${o.order_number})`;
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;color:#222">
+      <h2 style="margin:0 0 4px">Storefront sale paid</h2>
+      <p style="color:#555;margin:0 0 12px">Order <b>${esc(o.order_number)}</b> · ${esc(seller)}</p>
+      <p style="margin:0 0 6px"><b>${esc(title)}</b>${esc(qty)}${inv ? ` · inventory #${esc(inv)}` : ''}</p>
+      <table style="border-collapse:collapse;margin:8px 0">
+        <tr><td style="padding:2px 12px 2px 0">Sale amount (item price)</td><td align="right"><b>${money(o.item_price_cents)}</b></td></tr>
+        <tr><td style="padding:2px 12px 2px 0">Storefront fee (${esc(pct)}%, includes card processing)</td><td align="right">${money(o.platform_fee_cents)}</td></tr>
+        <tr><td style="padding:2px 12px 2px 0">Estimated seller proceeds</td><td align="right">${money(o.seller_proceeds_cents)}</td></tr>
+      </table>
+      <p style="color:#555;font-size:13px;margin:8px 0">The proceeds are an estimate, not the final deposit: refunds, chargebacks and holds can change it.</p>
+      <p><a href="${link}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Open Storefront Orders</a></p>
+    </div>`;
+  const text = [`Storefront sale paid: ${title}${qty}${inv ? ' (inventory #' + inv + ')' : ''}, order ${o.order_number}, seller ${seller}.`,
+    `Sale ${money(o.item_price_cents)}; fee ${money(o.platform_fee_cents)} (${pct}%); estimated seller proceeds ${money(o.seller_proceeds_cents)} (estimate, not the final deposit).`,
+    `Admin: ${link}`].join('\n');
+  return { subject, html, text };
 }
 
 function renderSalePaid(o) {
@@ -63,6 +109,7 @@ function renderSalePaid(o) {
       ${inv ? `<p style="margin:0 0 6px">Your inventory number: <b>${esc(inv)}</b></p>` : ''}
       ${desc ? `<p style="color:#555;margin:0 0 12px">${esc(desc)}</p>` : ''}
       <table style="border-collapse:collapse;margin:8px 0">
+        ${Number(o.quantity) > 1 ? `<tr><td style="padding:2px 12px 2px 0">Quantity</td><td align="right"><b>${Number(o.quantity)} &times; ${money(o.unit_price_cents)}</b></td></tr>` : ''}
         <tr><td style="padding:2px 12px 2px 0">Sale price</td><td align="right"><b>${money(o.item_price_cents)}</b></td></tr>
         <tr><td style="padding:2px 12px 2px 0">Advantage.Bid fee (${esc(pct)}% of the item price, includes card processing)</td><td align="right">−${money(o.platform_fee_cents)}</td></tr>
         ${o.shipping_cents > 0 ? `<tr><td style="padding:2px 12px 2px 0">Shipping collected</td><td align="right">${money(o.shipping_cents)}</td></tr>` : ''}
@@ -74,7 +121,7 @@ function renderSalePaid(o) {
       <p><a href="${link}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Manage this order</a></p>
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
-  const text = [`You sold ${title}${inv ? ' (inventory #' + inv + ')' : ''} — order ${o.order_number}, payment confirmed.`,
+  const text = [`You sold ${Number(o.quantity) > 1 ? Number(o.quantity) + ' x ' : ''}${title}${inv ? ' (inventory #' + inv + ')' : ''} — order ${o.order_number}, payment confirmed.`,
     `Sale price ${money(o.item_price_cents)}; Advantage.Bid fee ${money(o.platform_fee_cents)} (${pct}% of the item price); estimated proceeds ${money(o.seller_proceeds_cents)} (not your final deposit; confirmed in your settlement statement).`,
     `Fulfillment: ${method}. ${action}`, `Manage: ${link}`].join('\n');
   return { subject, html, text };
@@ -148,8 +195,8 @@ async function deliverMessageNotice(row, deps) {
 async function deliverOne(row, deps) {
   if (row.event === 'message_to_seller' || row.event === 'message_to_buyer') return deliverMessageNotice(row, deps);
   const o = (await db.query(
-    `SELECT o.id, o.seller_id, o.order_number, o.item_snapshot, o.item_price_cents, o.shipping_cents, o.platform_fee_bps, o.platform_fee_cents,
-            o.seller_proceeds_cents, o.fulfillment_method, o.payment_status
+    `SELECT o.id, o.seller_id, o.order_number, o.item_snapshot, o.seller_snapshot, o.item_price_cents, o.shipping_cents, o.platform_fee_bps,
+            o.platform_fee_cents, o.seller_proceeds_cents, o.fulfillment_method, o.payment_status, o.quantity, o.unit_price_cents
        FROM marketplace_orders o WHERE o.id = $1 AND o.seller_id = $2`, [row.order_id, row.seller_id])).rows[0];
   // Only a still-paid order is announced (a sale refunded before delivery is not "You sold an item").
   if (!o || o.payment_status !== 'paid') {
@@ -157,7 +204,7 @@ async function deliverOne(row, deps) {
       [row.id, o ? 'order ' + o.payment_status : 'order not found']);
     return 'skipped';
   }
-  const msg = renderSalePaid(o);
+  const msg = row.event === 'sale_paid_admin' ? renderSaleAdmin(o) : renderSalePaid(o);
   const mail = deps.emailService || require('./emailService');
   let r;
   try {
@@ -196,4 +243,4 @@ function start() {
   if (timer.unref) timer.unref();
 }
 
-module.exports = { enqueueSalePaid, renderSalePaid, renderMessageNotice, tick, start, MAX_ATTEMPTS, backoffMinutes };
+module.exports = { enqueueSalePaid, renderSalePaid, renderSaleAdmin, renderMessageNotice, tick, start, MAX_ATTEMPTS, backoffMinutes };

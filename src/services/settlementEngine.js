@@ -619,7 +619,10 @@ async function applyTransferEvent(eventType, transfer) {
     const r = await db.query(
       `UPDATE seller_payouts SET payout_status='released', updated_at=now()
          WHERE stripe_transfer_id=$1 AND payout_status='processing'`, [transfer.id]);
-    return { updated: r.rowCount, payout_status: 'released' };
+    // Storefront payouts (migration 213) use the same transfer events, matched the same way.
+    const s = await storefrontTransferUpdate(`UPDATE storefront_payouts SET payout_status='released', updated_at=now()
+         WHERE stripe_transfer_id=$1 AND payout_status='processing' RETURNING id`, [transfer.id]);
+    return { updated: r.rowCount + s.length, payout_status: 'released' };
   }
   if (eventType === 'transfer.reversed') {
     const r = await db.query(
@@ -629,6 +632,19 @@ async function applyTransferEvent(eventType, transfer) {
     // Owner operational SMS (ADMIN ACTION REQUIRED): a seller payout transfer was REVERSED — an authoritative
     // financial exception requiring admin intervention. Fire once per reversed payout (entity = payout id).
     // Best-effort; never affects webhook processing. (Dormant until STRIPE_CONNECT_ENABLED transfers exist.)
+    const sf = await storefrontTransferUpdate(`UPDATE storefront_payouts SET payout_status='reversed', transfer_failure_message=$2, updated_at=now()
+         WHERE stripe_transfer_id=$1 RETURNING id`, [transfer.id, 'Transfer reversed by Stripe/platform']);
+    if (sf.length) {
+      (async () => {
+        try {
+          const oa = require('./ownerAlertService');
+          await oa.notifyAdminActionRequired({ actionType: oa.ALERT_TYPES.SETTLEMENT_EXCEPTION, entityType: 'storefront_payout',
+            entityId: `${sf[0].id}:reversed`, headline: 'Storefront payout transfer reversed: action needed',
+            context: 'A storefront seller payout was reversed and needs review.', adminPath: '/admin/storefront-payouts.html',
+            adminId: sf[0].id, adminParam: 'payout', actionLabel: 'Investigate' });
+        } catch (e) { console.error('[settlement] owner-alert best-effort failed:', e.message); }
+      })().catch(() => {});
+    }
     const row = r.rows && r.rows[0];
     if (row) {
       (async () => {
@@ -646,9 +662,14 @@ async function applyTransferEvent(eventType, transfer) {
         } catch (e) { console.error('[settlement] owner-alert best-effort failed:', e.message); }
       })().catch(() => {});
     }
-    return { updated: r.rowCount, payout_status: 'reversed' };
+    return { updated: r.rowCount + sf.length, payout_status: 'reversed' };
   }
   return { updated: 0 };
+}
+// Storefront payouts table may not exist yet (migration 213 not applied): then there is nothing to update.
+async function storefrontTransferUpdate(sql, params) {
+  try { return (await db.query(sql, params)).rows || []; }
+  catch (e) { if (e && e.code === '42P01') return []; throw e; }
 }
 
 module.exports = {

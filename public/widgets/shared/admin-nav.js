@@ -102,6 +102,7 @@
       { href: '/admin/site-watchdog.html', label: 'Site Watchdog' },
       { href: '/admin/invoices.html', label: 'Invoices' },
       { href: '/admin/marketplace-orders.html', label: 'Storefront Orders' },
+      { href: '/admin/storefront-payouts.html', label: 'Storefront Payouts' },
       { href: '/admin/storefront-moderation.html', label: 'Storefront Moderation', perm: 'marketplace.moderate' },
     ] },
     { key: 'people', label: 'People & Sellers', title: 'People & Sellers', links: [
