@@ -95,6 +95,75 @@ async function listPublicAuctions(sellerProfileId, runner = db) {
   };
 }
 
+// ── In-frame catalog browsing (owner request 2026-11-03) ─────────────────────────────────────────────────────────
+// A shopper on the company's own website opens an auction's catalog and a lot's details inside the widget. Both reads are
+// keyed exactly like the list: the key resolves to one organization, and the auction must belong to THAT organization's
+// seller and pass the same public-auction rule (activeNativeAuctionSql). Anything else is "not found", whatever id is
+// asked for. Only public-safe lot fields leave here (never bidder, winner, reserve or seller account data). Bidding is
+// on bid.advantage.bid (the lot page opens in a new tab), so the frame never takes a bid or a payment.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function publicAuctionForKey(key, auctionId, runner = db) {
+  if (!UUID_RE.test(String(auctionId || ''))) return null;
+  const org = await resolveKeyToOrg(key, runner);
+  if (!org || !org.linked_seller_profile_id) return null;
+  const a = (await runner.query(
+    `SELECT a.id, a.title, a.description, a.state, a.start_time, a.end_time, a.cover_image_url, a.city, a.address_state
+       FROM auctions a WHERE a.id = $1 AND a.seller_id = $2 AND ${activeNativeAuctionSql('a')}`,
+    [auctionId, org.linked_seller_profile_id])).rows[0];
+  return a ? { org, auction: a } : null;
+}
+async function buyerPremiumBps(auctionId) {
+  try { return (await require('./billingTermsService').resolveEffectiveTerms(auctionId)).buyer_premium_bps; }
+  catch (e) { return null; }   // unknown: the widget then says the premium is shown on the bidding page
+}
+const auctionShape = (a, bp) => ({
+  id: a.id, title: a.title, description: a.description || null, state: a.state, start_time: a.start_time, end_time: a.end_time,
+  cover_image_url: a.cover_image_url || null, city: a.city || null, region: a.address_state || null,
+  buyer_premium_bps: bp == null ? null : Number(bp),
+  url: APP_BASE + '/auction-view.html?auctionId=' + encodeURIComponent(a.id),
+});
+const lotCard = (l) => ({
+  id: l.id, lot_number: l.lot_number_display || (l.lot_number != null ? String(l.lot_number) : null), title: l.title,
+  image: l.thumbnail_url || l.first_image || null,
+  current_bid_cents: l.current_bid_cents == null ? null : Number(l.current_bid_cents),
+  starting_bid_cents: l.starting_bid_cents == null ? null : Number(l.starting_bid_cents),
+  bid_count: Number(l.bid_count) || 0, closes_at: l.extended_until || l.closes_at || null, state: l.state,
+  url: APP_BASE + '/lot.html?id=' + encodeURIComponent(l.id),
+});
+async function auctionCatalog(key, auctionId, runner = db) {
+  const found = await publicAuctionForKey(key, auctionId, runner);
+  if (!found) return null;
+  const lots = (await runner.query(
+    `SELECT l.id, l.lot_number, l.lot_number_display, l.title, l.thumbnail_url, l.current_bid_cents, l.starting_bid_cents, l.bid_count,
+            l.closes_at, l.extended_until, l.state,
+            (SELECT li.image_url FROM lot_images li WHERE li.lot_id = l.id ORDER BY li.sort_order ASC LIMIT 1) AS first_image
+       FROM lots l
+      WHERE l.auction_id = $1 AND l.state <> 'withdrawn' AND l.is_withdrawn IS NOT TRUE
+      ORDER BY l.lot_number ASC NULLS LAST, l.lot_number_display ASC NULLS LAST, l.created_at ASC
+      LIMIT 2000`, [auctionId])).rows;
+  return { company: { name: found.org.name }, auction: auctionShape(found.auction, await buyerPremiumBps(auctionId)), lots: lots.map(lotCard) };
+}
+async function lotDetail(key, lotId, runner = db) {
+  if (!UUID_RE.test(String(lotId || ''))) return null;
+  const l = (await runner.query(
+    `SELECT l.id, l.auction_id, l.lot_number, l.lot_number_display, l.title, l.description, l.category, l.condition, l.material, l.era,
+            l.maker_artist, l.dimensions, l.size_category, l.shippable, l.thumbnail_url, l.current_bid_cents, l.starting_bid_cents,
+            l.bid_count, l.closes_at, l.extended_until, l.state, l.is_withdrawn
+       FROM lots l WHERE l.id = $1`, [lotId])).rows[0];
+  if (!l || l.state === 'withdrawn' || l.is_withdrawn) return null;
+  const found = await publicAuctionForKey(key, l.auction_id, runner);
+  if (!found) return null;
+  const images = (await runner.query('SELECT image_url FROM lot_images WHERE lot_id = $1 ORDER BY sort_order ASC, created_at ASC LIMIT 40', [lotId]))
+    .rows.map((r) => r.image_url).filter((u) => /^https?:\/\//i.test(String(u || '')));
+  if (!images.length && l.thumbnail_url) images.push(l.thumbnail_url);
+  return {
+    company: { name: found.org.name }, auction: auctionShape(found.auction, await buyerPremiumBps(l.auction_id)),
+    lot: { ...lotCard(l), description: l.description || null, category: l.category || null, condition: l.condition || null,
+      material: l.material || null, era: l.era || null, maker_artist: l.maker_artist || null, dimensions: l.dimensions || null,
+      size_category: l.size_category || null, shippable: !!l.shippable, images },
+  };
+}
+
 // Pure — the single embed snippet a seller copies. The key is a public opaque token (no secret). The
 // loader creates the iframe; auto-resize is handled with a validated postMessage handshake.
 function buildEmbedCode(key, base = APP_BASE) {
@@ -105,4 +174,5 @@ function buildEmbedCode(key, base = APP_BASE) {
 module.exports = {
   KEY_PREFIX, APP_BASE, generateKey, isValidKeyShape,
   resolveKeyToOrg, eligibilityForUser, ensureWidgetKey, rotateWidgetKey, listPublicAuctions, buildEmbedCode,
+  auctionCatalog, lotDetail,
 };

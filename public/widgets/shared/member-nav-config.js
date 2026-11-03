@@ -80,7 +80,9 @@
     var storefront = (ctx && ctx.storefrontEligible) ? [
       { id: 'storefront',    label: 'My Storefront',          emoji: '🏪', href: '/seller-storefront.html', external: true, primaryMobile: true },
       { id: 'addItem',       label: 'Add Item',               emoji: '🏷️', href: '/seller-storefront.html?tab=market', external: true, primaryMobile: true },
-      { id: 'mpOrders',      label: 'Store Orders',           emoji: '📦', href: '/seller-orders.html', external: true }
+      { id: 'mpOrders',      label: 'Store Orders',           emoji: '📦', href: '/seller-orders.html', external: true },
+      // Both website widgets (auctions and storefront) in one place (owner request 2026-11-03).
+      { id: 'websiteWidgets', label: 'Website Widgets',       emoji: '🧩', href: '/seller-storefront.html?tab=widget', external: true }
     ] : [];
     return storefront.concat([
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },

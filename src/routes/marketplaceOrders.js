@@ -166,7 +166,7 @@ router.get('/admin/orders', roleMiddleware(['admin']), async (req, res, next) =>
 
 // Admin overrides: a named administrator and a written reason, both kept in the order's permanent history.
 router.post('/admin/orders/:id/refund', roleMiddleware(['admin']), async (req, res, next) => {
-  try { return res.json({ success: true, data: await orders.refundOrder(req.params.id, { adminId: req.user.id, reason: (req.body || {}).reason }) }); }
+  try { const b = req.body || {}; return res.json({ success: true, data: await orders.refundOrder(req.params.id, { adminId: req.user.id, reason: b.reason, fault: b.fault, faultNote: b.fault_note }) }); }
   catch (e) { fail(res, e, next); }
 });
 router.post('/admin/orders/:id/payout-hold', roleMiddleware(['admin']), async (req, res, next) => {

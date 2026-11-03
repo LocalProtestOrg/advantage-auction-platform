@@ -54,7 +54,7 @@
         <button id="t-market" onclick="tab('market')">Items for Sale</button>
         <button id="t-unsold" onclick="tab('unsold')">From Auctions</button>
         <button id="t-leads" onclick="tab('leads')">Inquiries</button>
-        <button id="t-widget" onclick="tab('widget')">My Website Widget</button>
+        <button id="t-widget" onclick="tab('widget')">Website Widgets</button>
       </div>
       <div class="msg" id="msg"></div>
 
@@ -122,6 +122,12 @@
           <div id="m-photos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem"></div>
           <label class="btn b-ghost" style="display:inline-block;cursor:pointer;margin-bottom:.4rem">➕ Add Photos<input type="file" id="m-file" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label>
           <span class="hint" id="upStatus" style="margin-left:.5rem"></span>
+          <div id="m-smart" hidden style="border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;padding:.7rem .8rem;margin:.4rem 0 .6rem">
+            <b>Smart Catalog Tools</b>
+            <p class="hint" style="margin:.2rem 0 .5rem;color:#334155">Suggest a title, description and category from your first photo. Review and edit everything before you save. Suggestions describe only what the photo shows: add the maker, age, history and condition yourself, and only if you know them.</p>
+            <button class="btn b-blue" type="button" id="m-smart-btn" onclick="smartSuggest(this)">Suggest Details from Photo</button>
+            <span class="hint" id="m-smart-msg" role="status" style="margin-left:.5rem"></span>
+          </div>
           <label>Title</label><input id="m-title" placeholder="e.g. Victorian Walnut Side Table">
           <label for="m-inv">Your inventory number / SKU (optional)</label><input id="m-inv" maxlength="64" placeholder="e.g. HH-1042">
           <div class="row2"><div><label for="m-price">Sale Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label for="m-cat">Category</label><select id="m-cat" class="cat-select"><option value="">Choose automatically</option></select></div></div>
@@ -150,7 +156,9 @@
           </fieldset>
           <div id="m-shipbox"></div>
           <button class="btn b-ghost" type="button" id="m-usedef" hidden onclick="useShipDefaults('m')">Use my store shipping default</button>
-          <div style="margin-top:.8rem"><button class="btn b-blue" onclick="addItem(this)">Add Item</button></div>
+          <div style="margin-top:.8rem;display:flex;gap:8px;flex-wrap:wrap"><button class="btn b-blue" onclick="addItem(this)">Add Item</button>
+            <button class="btn b-ghost" type="button" onclick="addItem(this,'draft')">Save as Draft</button></div>
+          <p class="hint" style="margin:.4rem 0 0">Add Item puts it live in your shop. Save as Draft keeps it private until you publish it from Your items.</p>
         </div>
         <div class="card"><h3 style="margin-bottom:.5rem">Your items</h3>
           <input id="itemSearch" type="search" placeholder="Search by inventory number or title" aria-label="Search your items" style="max-width:320px;margin-bottom:.6rem" oninput="clearTimeout(window.__isq);window.__isq=setTimeout(loadItems,300)"><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Pickup location</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
@@ -169,34 +177,15 @@
       <!-- My Website Widget (roadmap 7.5): automatic for every Professional Seller; nothing to request. -->
       <div id="pane-widget" style="display:none">
         <div class="card">
-          <h3 style="margin-bottom:.4rem">Show your items on your own website</h3>
-          <p class="hint" style="margin-bottom:.6rem">Your website widget shows the items you have for sale on Advantage.Bid. It updates by itself when you add, change, sell or remove an item. Shoppers open each item's details and photos right inside your website, and checkout is handled securely by Advantage.Bid.</p>
-          <p class="hint" style="margin-bottom:.6rem;color:#334155"><b>Your lowest commission:</b> a sale that starts in this embedded storefront on your website and continues to Advantage.Bid checkout is a website sale (5% of the item price). Sales from the storefront link below, the Advantage.Bid marketplace, search engines or shared links are marketplace sales (9%). Both include card processing.</p>
-          <div id="w-status" class="msg"></div>
-          <label for="w-code">Embed code (paste into your website)</label>
-          <textarea id="w-code" rows="5" readonly style="font-family:ui-monospace,Consolas,monospace;font-size:.78rem"></textarea>
-          <div style="margin-top:.5rem"><button class="btn b-blue" id="w-copy-code" type="button">Copy Embed Code</button> <span class="hint" id="w-code-msg"></span></div>
-          <label for="w-link">Storefront link (for websites that cannot embed)</label>
-          <input id="w-link" readonly>
-          <div style="margin-top:.5rem"><button class="btn b-ghost" id="w-copy-link" type="button">Copy Storefront Link</button> <span class="hint" id="w-link-msg"></span></div>
-        </div>
-        <div class="card">
-          <h3 style="margin-bottom:.4rem">How to add it to your website</h3>
-          <ol style="margin:.2rem 0 .2rem 1.2rem;font-size:.88rem;line-height:1.6">
-            <li>Click <b>Copy Embed Code</b>.</li>
-            <li>In your website editor, add a block for custom HTML or embed code (WordPress: "Custom HTML" block; Squarespace: "Code" block; Wix: "Embed HTML" or "Embed a site"; Brilliant Directories: a custom HTML widget or content area).</li>
-            <li>Paste the code, save, and publish your page.</li>
-            <li>If your website does not allow embed code, use <b>Copy Storefront Link</b> and add it as a link or button instead.</li>
-          </ol>
-        </div>
-        <div class="card">
-          <h3 style="margin-bottom:.4rem">Preview</h3>
-          <div id="w-preview-wrap" class="hint">The preview appears once your storefront is published.</div>
+          <h3 style="margin-bottom:.4rem">Website Widgets</h3>
+          <p class="hint" style="margin-bottom:.6rem">Show your Advantage.Bid inventory on your own website: copy one code, paste it into your site, and it stays up to date by itself. Shoppers browse inside your website. The same widgets are on your seller dashboard.</p>
+          <div id="website-widgets"></div>
         </div>
       </div>
     </div>
   </div>
   <script src="/widgets/shared/agreement-prompt.js"></script>
+  <script src="/widgets/shared/website-widgets.js"></script>
   <script>
     var token=null;try{token=localStorage.getItem('token');}catch(e){}
     if(!token)location.href='/login.html?next='+encodeURIComponent('/seller-storefront.html');
@@ -208,29 +197,7 @@
     function msg(t,ok){var e=document.getElementById('msg');e.textContent=t;e.style.color=ok?'#166534':'#b91c1c';}
     function tab(n){['store','market','unsold','leads','widget'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});if(n==='market')loadItems();if(n==='unsold')loadUnsold();if(n==='leads')loadLeads();if(n==='widget')loadWidget();}
     // My Website Widget: the server builds the embed code and link for THIS company (from the session).
-    function copyText(id,msgId){var el=document.getElementById(id),m=document.getElementById(msgId);var v=el.value;if(!v)return;
-      function done(ok){m.textContent=ok?'Copied.':'Select the text and copy it.';setTimeout(function(){m.textContent='';},2500);}
-      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v).then(function(){done(true);},function(){el.select();done(false);});}
-      else{el.select();try{done(document.execCommand('copy'));}catch(e){done(false);}}}
-    async function loadWidget(){
-      var st=document.getElementById('w-status');st.textContent='Loading...';st.style.color='#64748b';
-      var r=await api('GET','/api/seller-storefront/widget');
-      if(!r.success){st.textContent=r.message||'Your website widget is not available.';st.style.color='#b91c1c';return;}
-      var d=r.data;
-      document.getElementById('w-code').value=d.embed_code||'';
-      document.getElementById('w-link').value=d.storefront_url||'';
-      document.getElementById('w-copy-code').disabled=!d.embed_code;document.getElementById('w-copy-link').disabled=!d.storefront_url;
-      if(!d.eligible){st.textContent='The website widget is available to Professional Sellers.';st.style.color='#b91c1c';}
-      else if(!d.storefront_url){st.textContent='Choose your storefront address on the Storefront tab to get your widget.';st.style.color='#92400e';}
-      else if(!d.active){st.textContent='Publish your storefront (Storefront tab) to turn on your widget. Until then it shows "not available" on your website.';st.style.color='#92400e';}
-      else if(d.shop_hidden){st.textContent='Your Shop section is hidden on your storefront, so your widget shows no items. Turn the Shop section back on (Storefront tab) to show them.';st.style.color='#92400e';}
-      else{st.textContent='Your widget is on and showing '+d.item_count+' item'+(d.item_count===1?'':'s')+'.';st.style.color='#166534';}
-      var pw=document.getElementById('w-preview-wrap');
-      if(d.active){pw.className='';pw.innerHTML='<iframe src="'+esc(d.embed_url)+'" title="Website widget preview" style="border:0;width:100%;height:640px;background:#fff;border-radius:8px"></iframe>';}
-      else{pw.className='hint';pw.textContent='The preview appears once your storefront is published.';}
-    }
-    document.getElementById('w-copy-code').addEventListener('click',function(){copyText('w-code','w-code-msg');});
-    document.getElementById('w-copy-link').addEventListener('click',function(){copyText('w-link','w-link-msg');});
+    function loadWidget(){ if(window.AdvWebsiteWidgets) AdvWebsiteWidgets.mount(document.getElementById('website-widgets'),{token:token,first:'storefront'}); }
 
     var CFG=null, CATS=[];
     // ── Shipping controls (src/lib/storefrontShipping.js is the authority; this only collects the seller's choices) ──
@@ -362,7 +329,7 @@
         var hv=document.getElementById('headerView'); if(hv){hv.href=d.public_url; hv.style.display=d.published?'':'none';}}
       renderDefaultLoc();
       // Deep-link straight to a tab (e.g. the "Add Item" nav → ?tab=market) so listing an item is one click.
-      try{var qp=new URLSearchParams(location.search).get('tab'); if(qp&&['store','market','unsold','leads'].indexOf(qp)>=0)tab(qp);}catch(e){}
+      try{var qp=new URLSearchParams(location.search).get('tab'); if(qp&&['store','market','unsold','leads','widget'].indexOf(qp)>=0)tab(qp);}catch(e){}
     }
     // Storefront Branding: logo (the seller's logo record) and banner photo, uploaded straight to permanent image storage.
     function showBrand(kind,url){var pv=document.getElementById('pv-'+kind);while(pv.firstChild)pv.removeChild(pv.firstChild);
@@ -514,8 +481,29 @@
         return '<div style="position:relative"><img src="'+esc(u)+'" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e6eaef">'
           +'<button type="button" onclick="rmPhoto('+i+')" title="Remove" style="position:absolute;top:-6px;right:-6px;background:#b91c1c;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:12px;line-height:1;cursor:pointer">×</button></div>';
       }).join('');
+      var sm=document.getElementById('m-smart'); if(sm)sm.hidden=!UPLOADED.length;
     }
     function rmPhoto(i){UPLOADED.splice(i,1);renderPhotos();}
+    // Smart Catalog Tools: suggestions from the first photo (the same description service as auction lots). They only fill
+    // the form; the seller reviews and edits them, and nothing is saved until Add Item or Save as Draft.
+    async function smartSuggest(btn){
+      var m=document.getElementById('m-smart-msg');
+      if(!UPLOADED.length){m.textContent='Add a photo first.';return;}
+      var t=document.getElementById('m-title'),d=document.getElementById('m-desc'),c=document.getElementById('m-cat');
+      btn.disabled=true;m.textContent='Looking at your photo...';
+      try{
+        var r=await api('POST','/api/seller-storefront/items/smart-catalog',{image_url:UPLOADED[0]});
+        if(!r.success){m.textContent=r.message||'Suggestions are not available right now.';return;}
+        var s=r.data;
+        if((t.value.trim()||d.value.trim())&&!confirm('Replace the title and description you have typed with the suggestions?')){m.textContent='Kept what you typed.';return;}
+        if(s.title)t.value=s.title;
+        if(s.description)d.value=s.description;
+        if(s.category_key&&!c.value&&Array.prototype.some.call(c.options,function(o){return o.value===s.category_key;}))c.value=s.category_key;
+        m.textContent='Suggestions added. Please check and edit them before you save.';
+        t.focus();
+      }catch(e){m.textContent='Suggestions are not available right now.';}
+      finally{btn.disabled=false;}
+    }
     async function uploadPhotos(input){
       var files=Array.prototype.slice.call(input.files||[]); input.value='';
       if(!files.length)return;
@@ -536,33 +524,36 @@
     function pickupMissing(p){var m=[];if(!p.line1)m.push('street address');if(!p.city)m.push('city');
       if(STATES.indexOf((p.state||'').toUpperCase())<0)m.push('state');if(!/^\d{5}(-\d{4})?$/.test(p.zip||''))m.push('ZIP code');return m;}
     function pickupBody(p){return {pickup_address_line1:p.line1,pickup_address_line2:p.line2||null,pickup_city:p.city,pickup_state:(p.state||'').toUpperCase(),pickup_postal_code:p.zip,pickup_country:'US'};}
-    async function addItem(btn){
+    async function addItem(btn,mode){
+      var draft=mode==='draft';
       var g=function(id){return document.getElementById(id).value.trim();};
       var price=Math.round(parseFloat(g('m-price'))*100);
       if(!g('m-title')){msg('Please add a title.');return;}
-      if(!(price>0)){msg('Please add a price.');return;}
+      if(!(price>0)&&!draft){msg('Please add a price.');return;}
       var pk=ITEM_LOC_OPEN?readLoc('m-'):null;
       if(pk){var pkMissing=pickupMissing(pk);if(pkMissing.length){msg('This item\'s location is missing: '+pkMissing.join(', ')+'.');document.getElementById('m-pk1').focus();return;}}
       else if(!DEFLOC){msg('Confirm your storefront pickup location first (top of this page), or change the location for this item.');document.getElementById('loc-card').scrollIntoView({behavior:'smooth'});return;}
       var ship=readShip('m'); if(ship.error){msg(ship.error);return;}
-      var body=Object.assign({title:g('m-title'),price_cents:price,category_key:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
+      var body=Object.assign({title:g('m-title'),price_cents:price>0?price:null,category_key:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
         images:UPLOADED.slice(),
         condition_type:document.getElementById('m-ctype').value||null,era_or_period:g('m-era'),brand:g('m-brand'),manufacturer:g('m-maker'),
         material:g('m-material'),mpn:g('m-mpn'),gtin:g('m-gtin'),inventory_number:g('m-inv')},ship);
       if(pk)Object.assign(body,pickupBody(pk));
-      if(btn){btn.disabled=true;btn.textContent='Adding…';}
+      if(draft)body.status='draft';
+      var label=btn?btn.textContent:'';
+      if(btn){btn.disabled=true;btn.textContent=draft?'Saving…':'Adding…';}
       try{var r=await api('POST','/api/seller-storefront/items',body);
         if(r.success){
           ADDED++; document.getElementById('addedCount').textContent='· '+ADDED+' added this session';
-          msg('✓ Item added — it’s live in your shop. Add another below.',true);
+          msg(draft?'Saved as a draft. It is not live yet: publish it from Your items when it is ready.':'✓ Item added — it’s live in your shop. Add another below.',true);
           // Clear item-specific fields; KEEP the shipping choice. The next item uses the storefront location again.
           if(ITEM_LOC_OPEN)toggleItemLoc();
           ['m-title','m-inv','m-price','m-cat','m-cond','m-desc','m-ctype','m-era','m-brand','m-maker','m-material','m-mpn','m-gtin'].forEach(function(i){document.getElementById(i).value='';});
-          UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent='';
+          UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent=''; document.getElementById('m-smart-msg').textContent='';
           document.getElementById('m-title').focus(); loadItems();
         } else msg(r.message||'Failed');
       }catch(e){msg('Error');}
-      if(btn){btn.disabled=false;btn.textContent='Add Item';}
+      if(btn){btn.disabled=false;btn.textContent=label;}
     }
     async function setPriceShare(id,box){box.disabled=true;var r=await api('PATCH','/api/seller-storefront/items/'+id,{show_realized_price_to_members:!!box.checked});
       box.disabled=false;if(r.success){msg(box.checked?'Signed-in members can now see this sale price.':'This sale price is private again.',true);}else{box.checked=!box.checked;msg(r.message||'Could not save');}}

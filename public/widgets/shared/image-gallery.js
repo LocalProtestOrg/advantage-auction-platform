@@ -1,7 +1,9 @@
 /*
  * AdvGallery — the product photo gallery (standalone item page and the embedded seller storefront).
  *
- *   AdvGallery.mount(container, { images: [url, ...], alts: [text, ...], title: 'Item title' })
+ *   AdvGallery.mount(container, { images: [url, ...], alts: [text, ...], title: 'Item title', onViewer: fn(open) })
+ *   onViewer (optional) is called with true when the full-screen viewer opens and false when it closes (the auction
+ *   website widget uses it to have its frame fill the screen while the viewer is open).
  *
  * - The main photo is shown whole (scaled to fit, never cropped); thumbnails switch it.
  * - Clicking the main photo opens a full-screen viewer: Previous / Next, a thumbnail strip, "2 of 5", arrow keys,
@@ -134,6 +136,7 @@
         if (stripBtns[idx] && stripBtns[idx].scrollIntoView) { try { stripBtns[idx].scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { /* older browsers */ } }
       }
       function done() {
+        if (typeof opts.onViewer === 'function') { try { opts.onViewer(false); } catch (e) { /* host page only */ } }
         document.removeEventListener('keydown', onKey, true);
         if (box.parentNode) box.parentNode.removeChild(box);
         document.documentElement.style.overflow = prevOverflow;
@@ -163,6 +166,7 @@
       });
       var prevOverflow = document.documentElement.style.overflow;
       document.documentElement.style.overflow = 'hidden';
+      if (typeof opts.onViewer === 'function') { try { opts.onViewer(true); } catch (e) { /* host page only */ } }
       document.body.appendChild(box);
       document.addEventListener('keydown', onKey, true);
       go(idx);

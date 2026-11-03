@@ -7,8 +7,9 @@
 <title>Auctions</title>
 <style>
   /* White-label: the embedded presentation carries NO Advantage.Bid visual branding. The host company's
-     brand stays front-and-center on its own page; this iframe shows only their auctions. Transaction,
-     auth, and legal identification happen on the linked bid.advantage.bid platform (necessary + truthful). */
+     brand stays front-and-center on its own page; this iframe shows only their auctions, catalogs and lots.
+     Bidding, sign-in and legal identification happen on the bid.advantage.bid platform, opened in a new tab.
+     The script lives in /embed/auctions.js. */
   *,*::before,*::after{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;background:transparent}
@@ -27,94 +28,36 @@
   .wl-cta:hover{background:#374151}
   .wl-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:.9rem}
   .wl-sec{font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;margin:14px 4px 6px}
+  /* In-frame catalog and lot views (owner request 2026-11-03): same pattern as the storefront widget. */
+  a.wl-card{text-decoration:none;color:inherit}
+  a.wl-card:hover,a.wl-card:focus{border-color:#9ca3af;outline:none}
+  a.wl-card:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+  .wl-lots{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+  .wl-sq{aspect-ratio:1/1}
+  .wl-noimg{display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:.8rem}
+  .wl-bid{font-weight:800;font-size:.9rem;color:#111827}
+  .wl-big{font-size:1.15rem;margin:6px 0}
+  .wl-link{margin-top:auto;font-weight:700;font-size:.82rem;color:#1d4ed8}
+  .wl-back{display:inline-flex;align-items:center;gap:6px;margin:4px 4px 12px;padding:.5rem .85rem;border:1px solid #d1d5db;border-radius:9px;background:#fff;color:#111827;font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;min-height:40px}
+  .wl-back:hover{background:#f9fafb}
+  .wl-ahead{margin:0 4px 6px}
+  .wl-h1{font-size:1.3rem;line-height:1.25;margin:2px 0 6px;color:#111827}
+  .wl-desc{white-space:pre-line;font-size:.92rem;line-height:1.55;color:#374151;margin:10px 4px}
+  .wl-item{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;margin:0 4px}
+  @media (max-width:720px){.wl-item{grid-template-columns:1fr}}
+  .wl-item .wl-desc{margin:12px 0}
+  .wl-fact{font-size:.88rem;color:#374151;margin:4px 0}
+  .wl-buy{border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin:12px 0;background:#fff}
+  .wl-btn{display:block;text-align:center;text-decoration:none;font-weight:800;font-size:.95rem;padding:.75rem 1rem;border-radius:10px;background:#111827;color:#fff;min-height:44px}
+  .wl-btn:hover{background:#374151}
+  .wl-btn-mut{background:#e5e7eb;color:#111827}
+  .wl-small{font-size:.78rem;color:#6b7280;margin:8px 4px 0}
+  .wl-small a{color:#1d4ed8}
 </style>
 </head>
 <body>
 <div class="wl-wrap"><div id="wl-root"><div class="wl-empty">Loading auctions…</div></div></div>
-<script>
-(function () {
-  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function q(name){try{return new URLSearchParams(location.search).get(name)||'';}catch(e){return '';}}
-  var KEY = q('key');
-  // Demo-only presentation mode (?demo=1): reuses the EXACT certified rendering below, fed by protected
-  // illustrative data — NO key, NO API call, NO install code. Used only inside the private sales demo's
-  // example company website so a prospect can SEE what the widget looks like in context. The keyed
-  // production path (below) is unchanged. View buttons link to a real PUBLIC auction on the platform.
-  var DEMO = q('demo') === '1';
-  function demoCover(a, b) {
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300">'
-      + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
-      + '<stop offset="0" stop-color="' + a + '"/><stop offset="1" stop-color="' + b + '"/>'
-      + '</linearGradient></defs><rect width="480" height="300" fill="url(#g)"/></svg>';
-    return 'data:image/svg+xml,' + encodeURIComponent(svg);
-  }
-  function demoData() {
-    var MAPLE = '/auction-view.html?auctionId=00000000-0000-4000-a000-0000000d0003';
-    return {
-      company: { name: 'Brookfield Estate Auctions' },
-      current: [
-        { title: 'The Maplewood Estate Collection', lots: 146, city: 'Maplewood', state: 'NJ',
-          cover_image_url: demoCover('#1e3a5f', '#0f172a'), href: MAPLE },
-      ],
-      upcoming: [
-        { title: 'Fine Art & Antiques — Fall Sale', lots: 88, city: 'Ridgewood', state: 'NJ',
-          start_time: '2026-10-04T15:00:00Z', cover_image_url: demoCover('#334155', '#1e293b'), href: MAPLE },
-        { title: 'Mid-Century Modern & Design', lots: 54, city: 'Montclair', state: 'NJ',
-          start_time: '2026-10-18T15:00:00Z', cover_image_url: demoCover('#3f6212', '#1a2e05'), href: MAPLE },
-        { title: 'Jewelry, Coins & Collectibles', lots: 120, city: 'Summit', state: 'NJ',
-          start_time: '2026-11-01T15:00:00Z', cover_image_url: demoCover('#7c2d12', '#431407'), href: MAPLE },
-      ],
-    };
-  }
-  // Only ever send a numeric height to the parent; the loader validates source + shape. No data leaves here.
-  function postHeight(){
-    try {
-      var h = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
-      if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'adv-wl-height', height: h }, '*');
-    } catch(e){}
-  }
-  function fmtDate(t){ if(!t) return ''; try{return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}catch(e){return '';} }
-
-  function card(a, live){
-    var loc = [a.city, a.state].filter(Boolean).map(esc).join(', ');
-    var when = live ? 'Bidding open now' : (a.start_time ? ('Starts ' + esc(fmtDate(a.start_time))) : 'Upcoming');
-    var img = a.cover_image_url ? '<img class="wl-thumb" src="' + esc(a.cover_image_url) + '" alt="' + esc(a.title||'Auction') + '" loading="lazy">' : '<div class="wl-thumb"></div>';
-    return '<div class="wl-card">' + img + '<div class="wl-body">'
-      + '<span class="wl-chip ' + (live?'wl-live':'wl-up') + '">' + (live?'Live':'Upcoming') + '</span>'
-      + '<p class="wl-title">' + esc(a.title||'Auction') + '</p>'
-      + '<div class="wl-meta">' + esc(when) + (a.lots?(' · ' + a.lots + ' lot' + (a.lots===1?'':'s')):'') + '</div>'
-      + (loc?('<div class="wl-meta">' + loc + '</div>'):'')
-      // target=_top so a click navigates the visitor to the auction on bid.advantage.bid (auth/bidding there)
-      + '<a class="wl-cta" href="' + esc(a.href) + '" target="_top" rel="noopener">' + (live?'Bid Now':'View Auction') + '</a>'
-      + '</div></div>';
-  }
-
-  function render(data){
-    var root = document.getElementById('wl-root');
-    var cur = (data && data.current) || [], up = (data && data.upcoming) || [];
-    if (!cur.length && !up.length){
-      root.innerHTML = '<div class="wl-empty">No auctions are scheduled right now. Please check back soon.</div>';
-      postHeight(); return;
-    }
-    var html = '';
-    if (data.company && data.company.name) html += '<div class="wl-co">' + esc(data.company.name) + ' — Auctions</div>';
-    if (cur.length){ html += '<div class="wl-sec">Live now</div><div class="wl-grid">' + cur.map(function(a){return card(a,true);}).join('') + '</div>'; }
-    if (up.length){ html += '<div class="wl-sec">Upcoming</div><div class="wl-grid">' + up.map(function(a){return card(a,false);}).join('') + '</div>'; }
-    root.innerHTML = html;
-    postHeight();
-  }
-
-  if (DEMO){ render(demoData()); window.addEventListener('load', postHeight); window.addEventListener('resize', postHeight); setTimeout(postHeight, 300); return; }
-  if (!KEY){ document.getElementById('wl-root').innerHTML = '<div class="wl-empty">Auction widget is not configured.</div>'; postHeight(); return; }
-  fetch('/api/public/widget/auctions?key=' + encodeURIComponent(KEY))
-    .then(function(r){ return r.json(); })
-    .then(function(d){ render(d || {}); })
-    .catch(function(){ document.getElementById('wl-root').innerHTML = '<div class="wl-empty">Auctions are temporarily unavailable.</div>'; postHeight(); });
-
-  window.addEventListener('load', postHeight);
-  window.addEventListener('resize', postHeight);
-  setTimeout(postHeight, 1200);
-})();
-</script>
+<script src="/widgets/shared/image-gallery.js"></script>
+<script src="/embed/auctions.js"></script>
 </body>
 </html>

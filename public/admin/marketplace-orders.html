@@ -92,11 +92,17 @@
           action = pendingConfirm === o.id
             ? '<div class="confirm">Refund '+money(remaining)+' to the buyer? This cannot be undone.</div>'+
               '<input type="text" maxlength="500" id="rr-'+esc(o.id)+'" placeholder="Reason for the refund (required)" aria-label="Reason for the refund" style="width:100%;margin:4px 0">'+
+              '<select id="rf-'+esc(o.id)+'" aria-label="Who caused the refund" style="width:100%;margin:0 0 4px"><option value="">Who caused it? (optional)</option>'+
+                '<option value="seller">The seller (did not hand over, or the item was materially misdescribed)</option><option value="buyer">The buyer</option>'+
+                '<option value="platform">Advantage.Bid</option><option value="other">Other or unclear</option></select>'+
               '<button class="btn btn-danger" data-act="refund-yes" data-id="'+esc(o.id)+'">Yes, refund</button>'+
               '<button class="btn btn-mut" data-act="refund-no">Cancel</button>'
             : '<button class="btn btn-danger" data-act="refund" data-id="'+esc(o.id)+'">Refund</button>';
         }
-        const reason = o.refund_reason ? '<div class="small">Reason: '+esc(o.refund_reason)+'</div>' : '';
+        const FAULT = { seller: 'the seller', buyer: 'the buyer', platform: 'Advantage.Bid', other: 'other or unclear' };
+        const reason = (o.refund_reason ? '<div class="small">Reason: '+esc(o.refund_reason)+'</div>' : '')
+          + (o.refund_fault ? '<div class="small">Caused by: '+esc(FAULT[o.refund_fault]||o.refund_fault)+(o.refund_fault_note?' ('+esc(o.refund_fault_note)+')':'')+'</div>' : '')
+          + (o.seller_fault_eligible_cents != null ? '<div class="small">Card cost eligible for recovery: '+money(o.seller_fault_eligible_cents)+' (not deducted unless recovery is turned on)</div>' : '');
         const review = o.review_required ? '<div class="note">Needs review: '+esc(o.review_note||'')+'</div>' : '';
         const tracking = o.tracking_number ? '<div class="small">'+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>' : '';
         return '<tr>'+
@@ -144,7 +150,8 @@
         const why = rr ? rr.value.trim() : '';
         if (why.length < 5){ const m = document.getElementById('m-' + id); if (m) m.textContent = 'Give a short reason for this refund.'; return; }
         b.disabled = true; b.textContent = 'Refunding…';
-        api('POST', '/api/marketplace/admin/orders/' + encodeURIComponent(id) + '/refund', { reason: why })
+        const rf = document.getElementById('rf-' + id);
+        api('POST', '/api/marketplace/admin/orders/' + encodeURIComponent(id) + '/refund', { reason: why, fault: rf ? rf.value : '' })
           .then(res => {
             if (!res.success){
               b.disabled = false; b.textContent = 'Yes, refund';

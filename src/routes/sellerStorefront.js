@@ -82,6 +82,35 @@ router.get('/items', sellerRead('company.inventory.view'), asyncRoute(async (req
     return { ...m, photo_count: photoCount, visibility: { advantage_bid: onSite, widget: onSite && storefrontOpen && (!!(sp && sp.is_demo) || !m.is_demo) } };
   }), storefront_open: storefrontOpen });
 }));
+// Smart Catalog Tools for a storefront item (owner request 2026-11-03): the SAME photo description service the auction lot
+// builders use (aiDescriptionService.generateDescriptionFromImage; one service, no second tool). Suggestions only: the
+// seller reviews and edits them in the form before saving a draft or publishing; nothing is saved here. Only the title,
+// description and a category from the storefront taxonomy are returned (never a maker, age, provenance or value). When the
+// service is unavailable the seller is told so (no sample text is ever substituted).
+const smartLimiter = require('express-rate-limit')({ windowMs: 60 * 1000, max: 20, standardHeaders: false, legacyHeaders: false,
+  keyGenerator: (req) => 'smart:' + ((req.user && req.user.id) || req.ip),
+  handler: (req, res) => res.status(429).json({ success: false, code: 'TOO_MANY', message: 'Please wait a moment before asking for more suggestions.' }) });
+router.post('/items/smart-catalog', seller('company.inventory.edit'), smartLimiter, express.json({ limit: '8kb' }), async (req, res, next) => {
+  try {
+    const imageUrl = String((req.body && req.body.image_url) || '');
+    if (!/^https:\/\/[^\s]+$/i.test(imageUrl) || imageUrl.length > 1000) {
+      return res.status(422).json({ success: false, code: 'PHOTO_REQUIRED', message: 'Add a photo of the item first.' });
+    }
+    const svc = require('../services/aiDescriptionService');
+    let out;
+    try { out = await svc.generateDescriptionFromImage(imageUrl); }
+    catch (e) {
+      if (e instanceof svc.AIUnavailableError) return res.status(503).json({ success: false, code: 'SMART_TOOLS_UNAVAILABLE', message: 'Smart Catalog Tools are temporarily unavailable. Please try again shortly, or write the details yourself.' });
+      throw e;
+    }
+    const cats = require('../constants/lotCategories');
+    const key = cats.normalizeToCategoryKey(out.category) || null;
+    const cat = key ? cats.CATEGORIES.find((c) => c.key === key) : null;
+    return res.json({ success: true, data: { title: String(out.title || '').slice(0, 200), description: String(out.description || '').slice(0, 4000),
+      category_key: key, category_label: cat ? cat.label : null } });
+  } catch (e) { fail(res, e, next); }
+});
+
 router.post('/items', seller('company.inventory.edit'), async (req, res, next) => {
   try { return res.status(201).json({ success: true, data: shape(req, await items.createDirectListing(req.sellerCtx, req.body || {})) }); }
   catch (e) { fail(res, e, next); }

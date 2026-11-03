@@ -281,9 +281,9 @@ async function recordRecovery(orderId) {
   if (!o || !o.settled_at || !(Number(o.paid_cents) > 0) || !(Number(o.refunded_amount_cents) > 0)) return null;
   const amount = Math.min(Number(o.refunded_amount_cents), Number(o.paid_cents));
   const row = (await db.query(
-    `INSERT INTO storefront_payout_recoveries (marketplace_order_id, seller_profile_id, amount_cents, reason)
-     VALUES ($1, $2, $3, 'refund after payout')
-     ON CONFLICT (marketplace_order_id) DO UPDATE SET amount_cents = GREATEST(storefront_payout_recoveries.amount_cents, EXCLUDED.amount_cents)
+    `INSERT INTO storefront_payout_recoveries (marketplace_order_id, seller_profile_id, amount_cents, reason, kind)
+     VALUES ($1, $2, $3, 'refund after payout', 'refund')
+     ON CONFLICT (marketplace_order_id, kind) DO UPDATE SET amount_cents = GREATEST(storefront_payout_recoveries.amount_cents, EXCLUDED.amount_cents)
        WHERE storefront_payout_recoveries.applied_payout_id IS NULL
      RETURNING *`, [o.id, o.seller_id, amount])).rows[0];
   if (!row) {
@@ -291,6 +291,22 @@ async function recordRecovery(orderId) {
       [o.id, 'A further refund came after this order\'s recovery was already deducted; adjust the seller manually.']).catch(() => {});
   }
   return row || null;
+}
+
+// Seller-caused refund (owner policy direction 2026-11-03): the documented, nonrefundable card processing cost of the
+// order (processing_fee_cents, recorded from the processor) may be recovered from the seller's next payout, ONLY when the
+// owner has turned on STOREFRONT_SELLER_FAULT_RECOVERY_ENABLED (off until approved with counsel-reviewed seller terms),
+// only for a refund an administrator marked as the seller's responsibility, and never more than that recorded cost.
+// Recorded once per order (kind 'processing_fee'); applied by prepareWeek like any other recovery. Returns the row or null.
+function sellerFaultRecoveryEnabled() { return process.env.STOREFRONT_SELLER_FAULT_RECOVERY_ENABLED === 'true'; }
+async function recordSellerFaultCost(orderId) {
+  if (!sellerFaultRecoveryEnabled()) return null;
+  const o = (await db.query('SELECT id, seller_id, refund_fault, processing_fee_cents FROM marketplace_orders WHERE id = $1', [orderId])).rows[0];
+  if (!o || o.refund_fault !== 'seller' || !(Number(o.processing_fee_cents) > 0)) return null;
+  return (await db.query(
+    `INSERT INTO storefront_payout_recoveries (marketplace_order_id, seller_profile_id, amount_cents, reason, kind)
+     VALUES ($1, $2, $3, 'card processing cost of a seller-caused refund', 'processing_fee')
+     ON CONFLICT (marketplace_order_id, kind) DO NOTHING RETURNING *`, [o.id, o.seller_id, Number(o.processing_fee_cents)])).rows[0] || null;
 }
 
 // Weekly preparation tick (a worker calls this; it is safe to call often). Runs on Thursday (Eastern) and later; prepares
@@ -301,4 +317,4 @@ async function weeklyTick(now = new Date()) {
   return { ran: true, ...(await prepareWeek({ cutoff: cutoffFor(now) })) };
 }
 
-module.exports = { recordRecovery, cutoffFor, prepareWeek, listForAdmin, getForAdmin, setHold, voidPayout, payPayout, listForSeller, weeklyTick, ELIGIBLE_SQL, PayError };
+module.exports = { recordRecovery, recordSellerFaultCost, sellerFaultRecoveryEnabled, cutoffFor, prepareWeek, listForAdmin, getForAdmin, setHold, voidPayout, payPayout, listForSeller, weeklyTick, ELIGIBLE_SQL, PayError };

@@ -943,11 +943,17 @@ async function tryHandleChargeRefunded(charge) {
 }
 
 // ── Admin refund (the remaining balance) — reuses the existing refund + tax reversal primitives ──────
+const REFUND_FAULTS = ['seller', 'buyer', 'platform', 'other'];
 async function refundOrder(orderId, opts = {}) {
   // An admin refund is an override of a real sale: it needs a named admin and a written reason (kept in the order history).
   const note = String(opts.reason || '').trim().slice(0, 500);
   if (!opts.adminId) throw err(403, 'ADMIN_REQUIRED', 'Only an administrator can refund an order.');
   if (note.length < 5) throw err(422, 'REASON_REQUIRED', 'Give a short reason for this refund.');
+  // Who caused the refund (migration 216), reviewable by an administrator. Optional; 'seller' marks the order's card
+  // processing cost as eligible for recovery (applied only when the owner turns that on).
+  const fault = opts.fault == null || opts.fault === '' ? null : String(opts.fault);
+  if (fault && !REFUND_FAULTS.includes(fault)) throw err(422, 'FAULT_INVALID', 'Choose who caused the refund: seller, buyer, Advantage.Bid or other.');
+  const faultNote = opts.faultNote == null ? null : String(opts.faultNote).trim().slice(0, 500) || null;
   if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1', [orderId])).rows[0];
   if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
@@ -963,7 +969,17 @@ async function refundOrder(orderId, opts = {}) {
       { payment_intent: o.stripe_payment_intent_id, amount: remaining },
       { idempotencyKey: prior === 0 ? ('mo-refund:' + o.id) : ('mo-refund:' + o.id + ':' + prior) });
   }
+  if (fault) {
+    await db.query(`UPDATE marketplace_orders SET refund_fault = $2, refund_fault_note = $3, refund_fault_set_by = $4, refund_fault_set_at = now() WHERE id = $1`,
+      [o.id, fault, faultNote, opts.adminId]);
+    await auditService.logEvent(db, { eventType: 'marketplace_order.refund_fault_recorded', entityType: 'marketplace_order', entityId: o.id,
+      metadata: { fault, note: faultNote, admin_id: opts.adminId, processing_fee_cents: o.processing_fee_cents == null ? null : Number(o.processing_fee_cents) } });
+  }
   const updated = await recordRefund(o, { cumulativeRefundedCents: o.total_charge_cents, adminId: opts.adminId, reason: 'admin_refund', note });
+  if (fault === 'seller') {
+    try { await require('./storefrontSettlementService').recordSellerFaultCost(o.id); }
+    catch (e) { console.error('[marketplace] seller-fault cost not recorded', o.id, e.message); }
+  }
   try { await require('./marketplaceOrderNotifier').sendRefunded(o.id); } catch (e) { /* best-effort */ }
   return updated;
 }
@@ -1278,6 +1294,10 @@ async function listForAdmin({ status, limit } = {}) {
     refunded_at: r.refunded_at || null, is_demo: !!r.is_demo,
     // Commission accounting (admin only): how the channel was decided, and the card processing cost Advantage.Bid paid.
     sales_channel_basis: r.sales_channel_basis || null, channel_embedding_site: r.channel_embedding_site || null,
+    // Refund responsibility (migration 216) and the card cost eligible for recovery when the seller caused it (review only
+    // unless the owner turns recovery on).
+    refund_fault: r.refund_fault || null, refund_fault_note: r.refund_fault_note || null,
+    seller_fault_eligible_cents: r.refund_fault === 'seller' && r.processing_fee_cents != null ? Number(r.processing_fee_cents) : null,
     fee_schedule: r.fee_schedule || null, processing_fee_cents: r.processing_fee_cents == null ? null : Number(r.processing_fee_cents),
     // Admin/staff operations: the item's effective pickup location (full address; admin-only route).
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));

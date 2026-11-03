@@ -306,24 +306,29 @@ function autoSendParty(sp, ident = {}) {
   return { legal_name: company || who, signatory_name: (ident.signatory_name || '').trim() || who };
 }
 
-// Storefront agreement (owner decision 2026-11-02): before a seller's storefront items can go live or be bought, the seller
-// must have a SIGNED Seller Agreement (every version includes the storefront terms and fee; versions 1-3 state the old flat 11%, later versions the 5% website / 9% marketplace commission) or an explicit
-// Advantage.Bid waiver. Unlike the dashboard gate, earlier auctions alone do not count. Drafts never need it.
-// Returns { ok, reason, agreement_id } — agreement_id is the pending agreement to sign when there is one.
+// Storefront agreement (owner decisions 2026-11-02 and 2026-11-03): before a seller's storefront items can go live or be
+// bought, the seller must have SIGNED a Seller Agreement version that states the CURRENT storefront commission (5% website
+// / 9% marketplace: agreement_template_versions.storefront_fee_schedule, migration 216; versions 1-3 state the old flat 11%
+// and do not count), or have an explicit Advantage.Bid waiver. A seller who signed only an earlier version keeps that
+// signature, the dashboard and their auctions; only new storefront publishing (and storefront sales) wait for the updated
+// version. Earlier auctions alone do not count. Drafts never need it.
+// Returns { ok, reason, agreement_id }: reason 'agreement_required' (never signed) or 'agreement_update_required' (signed an
+// earlier version); agreement_id is the pending CURRENT-terms agreement to sign when there is one.
 async function storefrontAgreementStatus(sellerProfileId, runner = db) {
   const sp = (await runner.query('SELECT id, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
   if (!sp) return { ok: false, reason: 'seller_not_found', agreement_id: null };
   if (sp.agreement_waived_at) return { ok: true, reason: 'waived', agreement_id: null };
-  const signed = (await runner.query(
-    `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
-      WHERE a.seller_profile_id = $1 AND a.status IN ('signed','countersigned') AND v.template_id <> $2 LIMIT 1`,
-    [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
-  if (signed) return { ok: true, reason: 'signed', agreement_id: signed.id };
-  const pending = (await runner.query(
-    `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
-      WHERE a.seller_profile_id = $1 AND a.status IN ('sent','viewed') AND v.template_id <> $2 ORDER BY a.created_at DESC LIMIT 1`,
-    [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
-  return { ok: false, reason: 'agreement_required', agreement_id: pending ? pending.id : null };
+  const rows = (await runner.query(
+    `SELECT a.id, a.status, (v.storefront_fee_schedule IS NOT NULL) AS current_terms
+       FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+      WHERE a.seller_profile_id = $1 AND a.status IN ('signed','countersigned','sent','viewed') AND v.template_id <> $2
+      ORDER BY a.created_at DESC`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows;
+  const isSigned = (r) => r.status === 'signed' || r.status === 'countersigned';
+  const current = rows.find((r) => isSigned(r) && r.current_terms);
+  if (current) return { ok: true, reason: 'signed', agreement_id: current.id };
+  const pending = rows.find((r) => !isSigned(r) && r.current_terms);
+  const signedEarlier = rows.some((r) => isSigned(r));
+  return { ok: false, reason: signedEarlier ? 'agreement_update_required' : 'agreement_required', agreement_id: pending ? pending.id : null };
 }
 
 // Auto-send the current Seller Agreement to a seller who has none yet. Idempotent
@@ -331,22 +336,31 @@ async function storefrontAgreementStatus(sellerProfileId, runner = db) {
 // signed agreement. Never throws (onboarding/registration must not crash). Resolves
 // the template's required variables from platform defaults (effective_terms_defaults)
 // + the seller's account identity, so no admin is needed.
-async function autoSendAgreement(sellerProfileId, actorId = null) {
+async function autoSendAgreement(sellerProfileId, actorId = null, { currentTermsOnly = false } = {}) {
   try {
     const sp = (await db.query(
       `SELECT sp.id, sp.seller_type, sp.display_name, sp.agreement_waived_at, u.email, u.full_name
          FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1`, [sellerProfileId])).rows[0];
     if (!sp) return { status: 'no_seller' };
     if (sp.agreement_waived_at) return { status: 'waived' };
+    // currentTermsOnly (storefront publishing, owner decision 2026-11-03): an agreement on an earlier version (old storefront
+    // terms) does not count, so a seller who signed only an earlier version is sent the current one. Their earlier signed
+    // agreement is never changed (sending creates a new agreement; nothing is superseded).
     const existing = (await db.query(
       `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
         WHERE a.seller_profile_id = $1 AND a.status IN ('draft','sent','viewed','signed','countersigned') AND v.template_id <> $2
+          ${currentTermsOnly ? 'AND v.storefront_fee_schedule IS NOT NULL' : ''}
         ORDER BY a.created_at DESC LIMIT 1`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
     if (existing) return { status: 'exists', agreement_id: existing.id };
 
     // Type-specific template, else fall back to any active general seller agreement.
     const tplId = await resolveActiveTemplateId(sp.seller_type);
     const tpl = tplId ? { id: tplId } : null;
+    // Never send a seller an agreement version that still has the old storefront terms in its place.
+    if (tpl && currentTermsOnly) {
+      const cur = (await db.query(`SELECT v.storefront_fee_schedule FROM agreement_templates t JOIN agreement_template_versions v ON v.id = t.current_version_id WHERE t.id = $1`, [tpl.id])).rows[0];
+      if (!cur || !cur.storefront_fee_schedule) return { status: 'no_current_terms' };
+    }
     if (!tpl) {
       await writeAuditLog({ event_type: 'seller_agreement_autosend_no_template', entity_type: 'seller_profile', entity_id: sellerProfileId, actor_id: actorId,
         metadata: { seller_type: sp.seller_type, alert: 'No active agreement template for this seller_type. Staff must author/activate one or send manually.' } });

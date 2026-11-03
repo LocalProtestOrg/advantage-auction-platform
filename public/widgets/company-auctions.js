@@ -38,12 +38,22 @@
   window.addEventListener('message', function (e) {
     if (e.origin !== ORIGIN) return;                                   // only our widget origin
     var d = e.data;
-    if (!d || d.type !== 'adv-wl-height' || typeof d.height !== 'number') return;
-    var h = Math.max(120, Math.min(20000, d.height | 0));              // clamp to a sane range
-    var nodes = document.querySelectorAll('[data-adv-wl-mounted="1"]');
-    for (var i = 0; i < nodes.length; i++) {
-      var f = nodes[i]._advIframe;
-      if (f && f.contentWindow === e.source) { f.style.height = h + 'px'; break; }  // match the exact sender
+    if (!d || typeof d !== 'object') return;
+    var f = null, nodes = document.querySelectorAll('[data-adv-wl-mounted="1"]');
+    for (var i = 0; i < nodes.length; i++) { if (nodes[i]._advIframe && nodes[i]._advIframe.contentWindow === e.source) { f = nodes[i]._advIframe; break; } }  // the exact sender
+    if (!f) return;
+    if (d.type === 'adv-wl-height' && typeof d.height === 'number') {
+      var h = Math.max(120, Math.min(20000, d.height | 0));            // clamp to a sane range
+      f._advHeight = h;
+      if (!f._advFull) f.style.height = h + 'px';
+    } else if (d.type === 'adv-wl-top') {
+      // the shopper opened another view (catalog, lot): bring the top of the widget into view if it is above the screen
+      try { if (f.getBoundingClientRect().top < 0) f.scrollIntoView({ block: 'start' }); } catch (err) { /* older browsers */ }
+    } else if (d.type === 'adv-wl-viewer' && typeof d.open === 'boolean') {
+      // the photo viewer: the frame fills the screen while it is open (only this frame, only its own size and position)
+      f._advFull = d.open;
+      if (d.open) { f.style.position = 'fixed'; f.style.top = '0'; f.style.left = '0'; f.style.width = '100%'; f.style.height = '100%'; f.style.zIndex = '2147483000'; }
+      else { f.style.position = ''; f.style.top = ''; f.style.left = ''; f.style.width = '100%'; f.style.zIndex = ''; f.style.height = (f._advHeight || 320) + 'px'; }
     }
   }, false);
 

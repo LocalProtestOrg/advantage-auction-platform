@@ -21,4 +21,21 @@ router.get('/auctions', asyncRoute(async (req, res) => {
   return res.json({ success: true, company: { name: org.name }, current: a.current, upcoming: a.upcoming, total: a.current.length + a.upcoming.length });
 }));
 
+// GET /api/public/widget/auctions/:auctionId/lots?key=wgt_... — one of THIS company's public auctions and its catalog.
+// GET /api/public/widget/lots/:lotId?key=wgt_...               — one lot of such an auction, with all its photos.
+// Anything not belonging to the key's company (or not public) answers the same 404, so ids cannot be probed.
+const notFound = (res) => res.status(404).json({ success: false, code: 'NOT_AVAILABLE', message: 'This auction is not available here.' });
+router.get('/auctions/:auctionId/lots', asyncRoute(async (req, res) => {
+  const data = await widget.auctionCatalog(String(req.query.key || ''), req.params.auctionId);
+  if (!data) return notFound(res);
+  res.set('Cache-Control', 'no-cache');   // live bids: revalidate each time
+  return res.json({ success: true, data });
+}));
+router.get('/lots/:lotId', asyncRoute(async (req, res) => {
+  const data = await widget.lotDetail(String(req.query.key || ''), req.params.lotId);
+  if (!data) return notFound(res);
+  res.set('Cache-Control', 'no-cache');
+  return res.json({ success: true, data });
+}));
+
 module.exports = router;

@@ -114,7 +114,10 @@ async function checkStorefrontAgreement(sellerId, client) {
   if (!st.ok) throw agreementRequired(sellerId, st);
 }
 function agreementRequired(sellerId, st) {
-  const e = err(409, 'AGREEMENT_REQUIRED', 'Before your first item goes live, please review and sign your Professional Seller Agreement. Your drafts are saved.');
+  const e = err(409, 'AGREEMENT_REQUIRED', st && st.reason === 'agreement_update_required'
+    ? 'Before new items go live, please review and sign the updated Professional Seller Agreement with the current storefront commission. Your drafts are saved.'
+    : 'Before your first item goes live, please review and sign your Professional Seller Agreement. Your drafts are saved.');
+  e.agreement_reason = (st && st.reason) || 'agreement_required';
   e.agreement_id = st.agreement_id || null;
   Object.defineProperty(e, 'sellerToSend', { value: sellerId, enumerable: false });
   return e;
@@ -123,7 +126,7 @@ function agreementRequired(sellerId, st) {
 async function sendAgreementIfNeeded(e) {
   if (e && e.code === 'AGREEMENT_REQUIRED' && e.sellerToSend && !e.agreement_id) {
     const agreements = require('./agreementService');
-    await agreements.autoSendAgreement(e.sellerToSend, null);
+    await agreements.autoSendAgreement(e.sellerToSend, null, { currentTermsOnly: true });
     e.agreement_id = (await agreements.storefrontAgreementStatus(e.sellerToSend)).agreement_id || null;
   }
   throw e;
