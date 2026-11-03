@@ -246,6 +246,7 @@
     <div class="msg" id="edMsg" role="status"></div>
   </div></div>
 
+  <script src="/widgets/shared/agreement-prompt.js"></script>
   <script>
     var token=localStorage.getItem('token');
     if(!token) location.href='/login.html?next=%2Fseller-inventory.html';
@@ -259,7 +260,9 @@
     async function req(m,u,body,isForm){var o={method:m,headers:{Authorization:'Bearer '+token}};
       if(body!==undefined){if(isForm)o.body=body;else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(body);}}
       var r=await fetch(u,o);if(r.status===401){location.href='/login.html?next=%2Fseller-inventory.html';throw new Error('auth');}
-      var j={};try{j=await r.json();}catch(e){}j.httpStatus=r.status;return j;}
+      var j={};try{j=await r.json();}catch(e){}j.httpStatus=r.status;
+      if(window.AdvAgreementPrompt)AdvAgreementPrompt.show(j);   // publishing needs the signed agreement first
+      return j;}
     // A small web-sized version of a stored photo for the list (the original is untouched).
     function small(u,w){return /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(u)&&!/\/upload\/[a-z]_/.test(u)?u.replace('/upload/','/upload/c_fill,w_'+w+',h_'+w+',f_auto,q_auto/'):u;}
     function tab(n){['inv','imp','pho','his'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});

@@ -306,6 +306,26 @@ function autoSendParty(sp, ident = {}) {
   return { legal_name: company || who, signatory_name: (ident.signatory_name || '').trim() || who };
 }
 
+// Storefront agreement (owner decision 2026-11-02): before a seller's storefront items can go live or be bought, the seller
+// must have a SIGNED Seller Agreement (every version includes the storefront terms and the 11% fee) or an explicit
+// Advantage.Bid waiver. Unlike the dashboard gate, earlier auctions alone do not count. Drafts never need it.
+// Returns { ok, reason, agreement_id } — agreement_id is the pending agreement to sign when there is one.
+async function storefrontAgreementStatus(sellerProfileId, runner = db) {
+  const sp = (await runner.query('SELECT id, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
+  if (!sp) return { ok: false, reason: 'seller_not_found', agreement_id: null };
+  if (sp.agreement_waived_at) return { ok: true, reason: 'waived', agreement_id: null };
+  const signed = (await runner.query(
+    `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+      WHERE a.seller_profile_id = $1 AND a.status IN ('signed','countersigned') AND v.template_id <> $2 LIMIT 1`,
+    [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
+  if (signed) return { ok: true, reason: 'signed', agreement_id: signed.id };
+  const pending = (await runner.query(
+    `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+      WHERE a.seller_profile_id = $1 AND a.status IN ('sent','viewed') AND v.template_id <> $2 ORDER BY a.created_at DESC LIMIT 1`,
+    [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
+  return { ok: false, reason: 'agreement_required', agreement_id: pending ? pending.id : null };
+}
+
 // Auto-send the current Seller Agreement to a seller who has none yet. Idempotent
 // and side-effect-safe: skips waived sellers and sellers who already have a live or
 // signed agreement. Never throws (onboarding/registration must not crash). Resolves
@@ -444,5 +464,5 @@ module.exports = {
   AgreementError, hashToken, ADDENDUM_TEMPLATE_ID, resolveBaseTemplateId: resolveActiveTemplateId,
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
   signAgreement, resend, reissue, revoke, revokeLink, expireOverdue,
-  emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate, autoSendAgreement, autoSendParty,
+  emailSignedPdf, dashboardAccess, storefrontAgreementStatus, getOnboardingStatus, waiveSellerGate, autoSendAgreement, autoSendParty,
 };

@@ -13,12 +13,16 @@
  *   • Items listed before migration 201 with a set shipping price keep that price; without a method or destinations they
  *     cannot be shipped until the seller completes the details (the listing itself is not changed).
  *   • The seller fee is never computed here: it stays on the item price only (shipping and tax are outside the fee base).
+ *   • More than one unit (migration 214, owner decision 2026-11-02): a set shipping price applies per the seller's own
+ *     choice, `shipping_quantity_rule`: 'per_order' (one charge for the order) or 'per_unit' (the charge for each unit).
+ *     Without that choice a multi-unit shipping purchase is refused (never assumed); free shipping stays free.
  * Pure (no DB).
  */
 
 const METHODS = { parcel: 'Parcel shipping', freight: 'Freight shipping', white_glove: 'White-glove delivery', local_delivery: 'Local delivery' };
 const DESTINATIONS = { us_contiguous: 'the contiguous United States', us_all: 'anywhere in the United States', listed_states: 'selected states' };
 const PRICE_MODES = ['flat', 'free'];
+const QUANTITY_RULES = { per_order: 'one shipping charge per order', per_unit: 'a shipping charge for each item' };
 const NON_CONTIGUOUS = new Set(['AK', 'HI', 'PR', 'VI', 'GU', 'AS', 'MP']);
 const US_STATES = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR VI GU AS MP'.split(' '));
 const MAX_HANDLING_DAYS = 60;
@@ -44,7 +48,8 @@ function shippingOffer(item) {
   const complete = method && dest && cents !== null && (dest !== 'listed_states' || states.length > 0);
   if (!complete) return { available: false, reason: 'SHIPPING_DETAILS_INCOMPLETE', ...base };
   return { available: true, method, method_label: METHODS[method], price_mode: cents === 0 ? 'free' : 'flat', shipping_cents: cents,
-    destinations: dest, states: dest === 'listed_states' ? states : [], handling_days: Number.isInteger(item.handling_days) ? item.handling_days : null, ...base };
+    destinations: dest, states: dest === 'listed_states' ? states : [], handling_days: Number.isInteger(item.handling_days) ? item.handling_days : null,
+    quantity_rule: QUANTITY_RULES[item.shipping_quantity_rule] ? item.shipping_quantity_rule : null, ...base };
 }
 
 function destinationAllowed(offer, state, country = 'US') {
@@ -60,7 +65,7 @@ function destinationAllowed(offer, state, country = 'US') {
  * The shipping charge for a purchase, or a refusal. Never returns $0 unless the seller chose free shipping.
  * method 'pickup' → 0. Throws 422 SHIPPING_UNAVAILABLE / SHIPPING_DETAILS_INCOMPLETE / SHIPPING_DESTINATION_NOT_SERVED.
  */
-function shippingChargeFor(item, method, shipToState, shipToCountry = 'US') {
+function shippingChargeFor(item, method, shipToState, shipToCountry = 'US', units = 1) {
   if (method !== 'shipping') return { shippingCents: 0, offer: shippingOffer(item) };
   const offer = shippingOffer(item);
   if (offer.reason === 'PICKUP_ONLY') throw err('SHIPPING_UNAVAILABLE', 'This item is pickup only.');
@@ -68,7 +73,17 @@ function shippingChargeFor(item, method, shipToState, shipToCountry = 'US') {
   if (shipToState !== undefined && !destinationAllowed(offer, shipToState, shipToCountry)) {
     throw err('SHIPPING_DESTINATION_NOT_SERVED', 'The seller does not ship this item to that location. Choose local pickup or another address.');
   }
-  return { shippingCents: offer.shipping_cents, offer };
+  return { shippingCents: chargeForUnits(offer, units), offer };
+}
+
+// The shipping charge for `units` of an available offer, by the seller's own rule (never assumed). Throws when a set price
+// has no rule for more than one unit.
+function chargeForUnits(offer, units = 1) {
+  const n = Math.max(1, Number(units) || 1);
+  if (n === 1 || offer.shipping_cents === 0) return offer.shipping_cents;
+  if (offer.quantity_rule === 'per_unit') return offer.shipping_cents * n;
+  if (offer.quantity_rule === 'per_order') return offer.shipping_cents;
+  throw err('SHIPPING_QUANTITY_RULE_MISSING', 'The seller has not set shipping for more than one of this item. Buy one at a time, choose local pickup, or ask the seller.');
 }
 
 /**
@@ -84,6 +99,11 @@ function normalizeShippingInput(input = {}, current = {}) {
     const m = input.shipping_method == null || input.shipping_method === '' ? null : String(input.shipping_method);
     if (m !== null && !METHODS[m]) throw err('SHIPPING_METHOD_INVALID', 'Choose a shipping method from the list.');
     out.shipping_method = m;
+  }
+  if (has('shipping_quantity_rule')) {
+    const r = input.shipping_quantity_rule == null || input.shipping_quantity_rule === '' ? null : String(input.shipping_quantity_rule);
+    if (r !== null && !QUANTITY_RULES[r]) throw err('SHIPPING_QUANTITY_RULE_INVALID', 'Choose one shipping charge per order or a charge for each item.');
+    out.shipping_quantity_rule = r;
   }
   if (has('shipping_price_mode')) {
     const p = input.shipping_price_mode == null || input.shipping_price_mode === '' ? null : String(input.shipping_price_mode);
@@ -154,7 +174,8 @@ function normalizeStoreDefaults(input = {}) {
   return { enabled: true, shipping_method: cols.shipping_method, shipping_price_mode: cols.shipping_price_mode || 'flat',
     shipping_cost_cents: cols.shipping_price_mode === 'free' ? null : cols.shipping_cost_cents, shipping_destinations: cols.shipping_destinations,
     shipping_states: cols.shipping_states || [], handling_days: cols.handling_days == null ? null : cols.handling_days,
-    is_oversized: !!cols.is_oversized, is_fragile: !!cols.is_fragile, shipping_notes: cols.shipping_notes || null };
+    is_oversized: !!cols.is_oversized, is_fragile: !!cols.is_fragile, shipping_notes: cols.shipping_notes || null,
+    shipping_quantity_rule: cols.shipping_quantity_rule || null };
 }
 
 // The item columns a store default produces for a NEW item (only when the default is on).
@@ -164,7 +185,8 @@ function columnsFromStoreDefaults(defs) {
     shippable: true, shipping_method: defs.shipping_method, shipping_price_mode: defs.shipping_price_mode,
     shipping_cost_cents: defs.shipping_price_mode === 'free' ? null : defs.shipping_cost_cents, shipping_destinations: defs.shipping_destinations,
     shipping_states: defs.shipping_states || [], handling_days: defs.handling_days == null ? null : defs.handling_days,
-    is_oversized: !!defs.is_oversized, is_fragile: !!defs.is_fragile, shipping_notes: defs.shipping_notes || null };
+    is_oversized: !!defs.is_oversized, is_fragile: !!defs.is_fragile, shipping_notes: defs.shipping_notes || null,
+    shipping_quantity_rule: defs.shipping_quantity_rule || null };
 }
 
 function money(c) { return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -175,15 +197,16 @@ function publicShipping(item) {
   const pickup = 'Local pickup available';
   if (!o.available) {
     return { pickup: true, shipping: null, pickup_only: o.reason === 'PICKUP_ONLY',
-      summary: o.reason === 'PICKUP_ONLY' ? 'Pickup only — this item is not shipped' : 'Local pickup available · shipping not offered yet',
+      summary: o.reason === 'PICKUP_ONLY' ? 'Pickup only. This item is not shipped.' : 'Local pickup available · shipping not offered yet',
       oversized: o.oversized, fragile: o.fragile };
   }
   const where = o.destinations === 'listed_states' ? `ships to ${o.states.join(', ')}` : `ships to ${DESTINATIONS[o.destinations]}`;
-  const price = o.shipping_cents === 0 ? 'Free shipping' : `Shipping ${money(o.shipping_cents)}`;
+  const price = o.shipping_cents === 0 ? 'Free shipping'
+    : `Shipping ${money(o.shipping_cents)}${o.quantity_rule === 'per_unit' ? ' per item' : o.quantity_rule === 'per_order' ? ' per order' : ''}`;
   const handling = o.handling_days != null ? ` · ships within ${o.handling_days} business day${o.handling_days === 1 ? '' : 's'}` : '';
   return { pickup: true, pickup_only: false,
     shipping: { method: o.method, method_label: o.method_label, price_mode: o.price_mode, shipping_cents: o.shipping_cents,
-      destinations: o.destinations, states: o.states, handling_days: o.handling_days },
+      destinations: o.destinations, states: o.states, handling_days: o.handling_days, quantity_rule: o.quantity_rule },
     summary: `${price} (${o.method_label}) · ${where}${handling} · ${pickup}`, oversized: o.oversized, fragile: o.fragile, notes: o.notes };
 }
 
@@ -200,13 +223,13 @@ function shippingDetailsJsonLd(item) {
 }
 
 // The shipping terms recorded permanently on an order (what was offered and what the buyer chose).
-function snapshotTerms(item, method, shippingCents) {
+function snapshotTerms(item, method, shippingCents, units = 1) {
   const o = shippingOffer(item);
-  return { selected: method, shipping_cents: method === 'shipping' ? shippingCents : 0,
+  return { selected: method, shipping_cents: method === 'shipping' ? shippingCents : 0, units,
     offered: o.available ? { method: o.method, price_mode: o.price_mode, shipping_cents: o.shipping_cents, destinations: o.destinations,
-      states: o.states, handling_days: o.handling_days } : null,
+      states: o.states, handling_days: o.handling_days, quantity_rule: o.quantity_rule } : null,
     oversized: o.oversized, fragile: o.fragile, notes: o.notes };
 }
 
-module.exports = { METHODS, DESTINATIONS, PRICE_MODES, US_STATES, NON_CONTIGUOUS, shippingOffer, destinationAllowed, shippingChargeFor,
+module.exports = { QUANTITY_RULES, chargeForUnits, METHODS, DESTINATIONS, PRICE_MODES, US_STATES, NON_CONTIGUOUS, shippingOffer, destinationAllowed, shippingChargeFor,
   normalizeShippingInput, normalizeStoreDefaults, columnsFromStoreDefaults, publicShipping, shippingDetailsJsonLd, snapshotTerms };

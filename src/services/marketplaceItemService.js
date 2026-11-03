@@ -99,6 +99,36 @@ function publishProblems(item) {
   if (item.quantity != null && Number(item.quantity) < 1) out.push({ code: 'QUANTITY_ZERO', message: 'Quantity is 0. Set how many you have before publishing.' });
   return out;
 }
+// Before a storefront item goes live: the seller's storefront agreement must be in place (signed or waived). When it is
+// not, the seller is sent the current agreement if they have none pending, and the error names the agreement to sign.
+// Called outside any transaction (it may send the agreement by email). Drafts never call this.
+async function assertStorefrontAgreement(sellerId) {
+  const st = await require('./agreementService').storefrontAgreementStatus(sellerId);
+  if (st.ok) return true;
+  return sendAgreementIfNeeded(agreementRequired(sellerId, st));
+}
+// The same check inside a transaction (read-only): throws AGREEMENT_REQUIRED; the caller passes the error to
+// sendAgreementIfNeeded after the transaction, so an email is never sent from inside one.
+async function checkStorefrontAgreement(sellerId, client) {
+  const st = await require('./agreementService').storefrontAgreementStatus(sellerId, client);
+  if (!st.ok) throw agreementRequired(sellerId, st);
+}
+function agreementRequired(sellerId, st) {
+  const e = err(409, 'AGREEMENT_REQUIRED', 'Before your first item goes live, please review and sign your Professional Seller Agreement. Your drafts are saved.');
+  e.agreement_id = st.agreement_id || null;
+  Object.defineProperty(e, 'sellerToSend', { value: sellerId, enumerable: false });
+  return e;
+}
+// Rethrows e; for AGREEMENT_REQUIRED with no pending agreement, sends the current one first and names it on the error.
+async function sendAgreementIfNeeded(e) {
+  if (e && e.code === 'AGREEMENT_REQUIRED' && e.sellerToSend && !e.agreement_id) {
+    const agreements = require('./agreementService');
+    await agreements.autoSendAgreement(e.sellerToSend, null);
+    e.agreement_id = (await agreements.storefrontAgreementStatus(e.sellerToSend)).agreement_id || null;
+  }
+  throw e;
+}
+
 function assertPublishable(item) {
   const p = publishProblems(item);
   if (p.length) { const e = err(422, p[0].code, p.map((x) => x.message).join(' ')); e.problems = p; throw e; }
@@ -287,6 +317,7 @@ async function createDirectListing(actingUserId, data = {}, opts = {}) {
   // Location: the seller's confirmed default storefront location, automatically — unless the seller chose a location
   // for THIS item ("Change Location"). Never inferred from the seller's legal address.
   const status = data.status === 'draft' ? 'draft' : 'active';
+  if (status === 'active') await assertStorefrontAgreement(seller.id);   // a live item needs the storefront agreement
   const own = hasPickupInput(data);
   const eff = own ? { address: saleLocation.fromInput(data), source: 'item' } : saleLocation.forItem({ ...seller, pickup_location_source: 'default' });
   const missing = own ? saleLocation.missingParts(eff.address) : (eff.missing || []);
@@ -324,6 +355,10 @@ async function createDirectListing(actingUserId, data = {}, opts = {}) {
      cat.category_status || null, cat.category_input || null, catCols ? new Date() : null,
      shortText(opts.sourceLotNumber, 64, 'Lot number') || null,
      ...(opts.importBatchId ? [opts.importBatchId, opts.importRow] : [])]).catch(inventoryConflict);
+  // Multi-unit shipping rule (migration 214), set only when the seller chose one.
+  if (sh.shipping_quantity_rule) {
+    return (await db.query('UPDATE marketplace_items SET shipping_quantity_rule = $2 WHERE id = $1 RETURNING *', [rows[0].id, sh.shipping_quantity_rule])).rows[0];
+  }
   return rows[0];
 }
 
@@ -375,6 +410,8 @@ async function updateItem(id, actingUserId, patch = {}) {
     if (!allowed.includes(patch.status) || (fullySold && ['draft', 'active', 'paused'].includes(patch.status))) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     }
+    // Publishing (draft, paused or removed -> active) needs the storefront agreement; editing and drafts never do.
+    if (patch.status === 'active' && item.status !== 'active') await checkStorefrontAgreement(seller.id, client);
   }
   // The seller's choice to show a sold item's realized price to signed-in members may be changed at any time.
   if (fullySold && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {
@@ -454,7 +491,7 @@ async function updateItem(id, actingUserId, patch = {}) {
       [id, item.seller_id, Number(rows[0].quantity) - Number(item.quantity), Number(rows[0].quantity), require('../lib/sellerActor').actorUserId(actingUserId) || null]);
   }
   return rows[0];
-  });
+  }).catch(sendAgreementIfNeeded);
 }
 
 // ── Photos (migration 207) ──────────────────────────────────────────────────────────────────────────────────────────
@@ -652,7 +689,7 @@ async function listingForLot(lotId, runner = db) {
   return rows[0] || null;
 }
 
-module.exports = {
+module.exports = { assertStorefrontAgreement, checkStorefrontAgreement, sendAgreementIfNeeded,
   appendPhotos, setItemPhotos, MAX_PHOTOS, SELLER_TRANSITIONS, _normalizeInventoryNumber: normalizeInventoryNumber,
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
   listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, UNSOLD_JOIN,

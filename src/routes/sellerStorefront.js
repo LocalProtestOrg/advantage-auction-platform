@@ -20,7 +20,7 @@ const { optionalSellerPermission: sellerRead } = require('../middleware/requireS
 router.use(auth);
 // Staff never receive the private pickup street address (or internal ids) in any item response.
 const shape = (req, row) => (req.sellerCtx && req.sellerCtx.staff ? items.staffItemView(row) : row);
-const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message, missing: e.missing || undefined }); next(e); };
+const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message, missing: e.missing || undefined, agreement_id: e.agreement_id || undefined }); next(e); };
 
 // ── Storefront config ──────────────────────────────────────────────────────────
 router.get('/config', sellerRead('company.inventory.view'), asyncRoute(async (req, res) => {
@@ -234,6 +234,8 @@ router.post('/items/bulk', seller('company.inventory.edit'), async (req, res, ne
       patch = { quantity: q };
     }
     if (!patch) return res.status(422).json({ success: false, code: 'ACTION_INVALID', message: 'Choose publish, pause, unpublish, remove, set category, set price or set quantity.' });
+    // Publishing needs the storefront agreement: one answer for the whole selection (no item changes).
+    if (b.action === 'publish') await items.assertStorefrontAgreement(req.sellerCtx.sellerId);
     const results = [];
     for (const id of ids) {
       try { await items.updateItem(id, req.sellerCtx, { ...patch }); results.push({ id, ok: true }); }

@@ -195,12 +195,15 @@
       </div>
     </div>
   </div>
+  <script src="/widgets/shared/agreement-prompt.js"></script>
   <script>
     var token=null;try{token=localStorage.getItem('token');}catch(e){}
     if(!token)location.href='/login.html?next='+encodeURIComponent('/seller-storefront.html');
     function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
     function money(c){return c==null?'Not set':'$'+((c||0)/100).toLocaleString();}
-    async function api(m,u,b){var o={method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};if(b)o.body=JSON.stringify(b);var r=await fetch(u,o);if(r.status===401){location.href='/login.html';throw new Error('auth');}return r.json();}
+    async function api(m,u,b){var o={method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};if(b)o.body=JSON.stringify(b);var r=await fetch(u,o);if(r.status===401){location.href='/login.html';throw new Error('auth');}
+      var j=await r.json(); if(window.AdvAgreementPrompt)AdvAgreementPrompt.show(j);   // publishing needs the signed agreement first
+      return j;}
     function msg(t,ok){var e=document.getElementById('msg');e.textContent=t;e.style.color=ok?'#166534':'#b91c1c';}
     function tab(n){['store','market','unsold','leads','widget'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});if(n==='market')loadItems();if(n==='unsold')loadUnsold();if(n==='leads')loadLeads();if(n==='widget')loadWidget();}
     // My Website Widget: the server builds the embed code and link for THIS company (from the session).
@@ -234,12 +237,13 @@
     // free shipping. A blank price is never treated as free.
     var SHIP_METHODS=[['parcel','Parcel shipping'],['freight','Freight shipping (large or heavy items)'],['white_glove','White-glove delivery'],['local_delivery','Local delivery']];
     var SHIP_DEST=[['us_contiguous','Contiguous United States'],['us_all','Anywhere in the United States'],['listed_states','Only the states I list']];
+    var SHIP_QTY=[['per_order','One shipping charge for the whole order'],['per_unit','The shipping price for each item']];
     function opts(list,val){return list.map(function(o){return '<option value="'+o[0]+'"'+(val===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');}
     function shipFields(p,v,alwaysOn){
       v=v||{}; var on=alwaysOn||!!v.shippable; var free=v.shipping_price_mode==='free';
       var price=(v.shipping_cost_cents!=null&&!free)?(v.shipping_cost_cents/100):'';
       return '<fieldset class="pickup"><legend>Shipping &amp; pickup</legend>'
-        +(alwaysOn?'':'<label class="toggle"><input type="radio" name="'+p+'-sm" id="'+p+'-off" style="width:auto"'+(on?'':' checked')+'> Pickup only — not shipped</label>'
+        +(alwaysOn?'':'<label class="toggle"><input type="radio" name="'+p+'-sm" id="'+p+'-off" style="width:auto"'+(on?'':' checked')+'> Pickup only (not shipped)</label>'
           +'<label class="toggle"><input type="radio" name="'+p+'-sm" id="'+p+'-on" style="width:auto"'+(on?' checked':'')+'> Offer shipping (buyers can still pick up)</label>')
         +'<div id="'+p+'-sbox"'+(on?'':' hidden')+'>'
         +'<div class="row2"><div><label for="'+p+'-meth">Shipping method</label><select id="'+p+'-meth"><option value="">Choose…</option>'+opts(SHIP_METHODS,v.shipping_method)+'</select></div>'
@@ -247,7 +251,8 @@
         +'<div id="'+p+'-strow"'+(v.shipping_destinations==='listed_states'?'':' hidden')+'><label for="'+p+'-states">States (e.g. TX, OK, LA)</label><input id="'+p+'-states" value="'+esc((v.shipping_states||[]).join(', '))+'"></div>'
         +'<div class="row2"><div><label for="'+p+'-cost">Shipping price (USD)</label><input id="'+p+'-cost" type="number" min="0.01" step="0.01" value="'+esc(price)+'"'+(free?' disabled':'')+'></div>'
         +'<div><label for="'+p+'-hd">Ships within (business days)</label><input id="'+p+'-hd" type="number" min="0" max="60" step="1" value="'+esc(v.handling_days==null?'':v.handling_days)+'"></div></div>'
-        +'<label class="toggle"><input type="checkbox" id="'+p+'-free" style="width:auto"'+(free?' checked':'')+'> Free shipping — I will pay for shipping myself</label>'
+        +'<label for="'+p+'-qty">When a buyer orders more than one</label><select id="'+p+'-qty"><option value="">Not set (more than one can only be picked up)</option>'+opts(SHIP_QTY,v.shipping_quantity_rule)+'</select>'
+        +'<label class="toggle"><input type="checkbox" id="'+p+'-free" style="width:auto"'+(free?' checked':'')+'> Free shipping (I will pay for shipping myself)</label>'
         +'</div>'
         +'<label class="toggle"><input type="checkbox" id="'+p+'-big" style="width:auto"'+(v.is_oversized?' checked':'')+'> Oversized or heavy (e.g. large furniture)</label>'
         +'<label class="toggle"><input type="checkbox" id="'+p+'-frag" style="width:auto"'+(v.is_fragile?' checked':'')+'> Fragile (e.g. glass, porcelain, antiques)</label>'
@@ -275,6 +280,7 @@
       return Object.assign(base,{shippable:true,shipping_method:el('meth').value,shipping_destinations:dest,
         shipping_states:dest==='listed_states'?el('states').value.split(/[\s,]+/).filter(Boolean):[],
         shipping_price_mode:free?'free':'flat',shipping_cost_cents:free?null:Math.round(parseFloat(cost)*100),
+        shipping_quantity_rule:el('qty')?(el('qty').value||null):undefined,
         handling_days:el('hd').value.trim()===''?null:parseInt(el('hd').value,10)});
     }
     function setupShipUI(){

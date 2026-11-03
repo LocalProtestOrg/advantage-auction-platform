@@ -8,8 +8,8 @@
  *   - its owner account is active (users.is_active is not false; a suspended owner suspends the company's sales);
  *   - it has passed Advantage.Bid business verification where verification is required — the SAME
  *     verificationService.publicationGate that gates a Professional Seller's first auction (no second system);
- *   - its seller agreement is in place: the SAME agreementService.dashboardAccess gate as the seller dashboard (signed,
- *     waived by Advantage.Bid, or a long-standing seller with earlier auctions);
+ *   - its storefront agreement is in place: a signed Seller Agreement or an Advantage.Bid waiver
+ *     (agreementService.storefrontAgreementStatus; earlier auctions alone do not count, owner decision 2026-11-02);
  *   - it can be paid: the owner's payout account is connected and can receive transfers and pay them out (the same
  *     readiness the settlement "Pay Seller" step requires), so a buyer's money is never taken for a seller who cannot
  *     be paid (2026-11-02).
@@ -32,8 +32,8 @@ async function assertSellerCanSell(sellerProfileId, runner = db) {
   // Every read uses the caller's connection, so a check made under the order's row lock sees one consistent state.
   const gate = await require('./verificationService').publicationGate(sp.id, runner);
   if (gate.blocked) throw refuse();
-  const agreement = await require('./agreementService').dashboardAccess(sp.id, runner);
-  if (!agreement || !agreement.access) throw refuse();
+  const agreement = await require('./agreementService').storefrontAgreementStatus(sp.id, runner);
+  if (!agreement || !agreement.ok) throw refuse();
   if (!payoutReady(await require('./payoutPreferenceService').getSellerPayoutPreference(sp.user_id, runner))) throw refuse();
   return true;
 }

@@ -151,6 +151,25 @@ async function resolveTaxLocation({ method, item, shipTo }) {
   return { address: origin, shipFrom: origin };
 }
 
+// Who remits the sales tax on a storefront order (migration 214, owner decision 2026-11-02): decided per jurisdiction from
+// the administrator-maintained rules (marketplace_tax_jurisdictions), never assumed. No tax collected -> 'none'. Tax in a
+// state without a rule (or the rules table missing) -> refused before anything is charged.
+// The platform Buyer Terms version in force when the order was placed (recorded on the order with the seller's policy
+// versions; migration 214). Null when no version is published.
+async function currentBuyerTerms(runner = db) {
+  try { return (await runner.query(`SELECT id, version_int FROM terms_versions WHERE kind = 'buyer_terms' AND is_current LIMIT 1`)).rows[0] || null; }
+  catch (e) { return null; }
+}
+async function taxResponsibility(state, taxCents, runner = db) {
+  if (!(Number(taxCents) > 0)) return { remitter: 'none', jurisdiction: state ? String(state).toUpperCase() : null };
+  const st = String(state || '').toUpperCase();
+  let row = null;
+  try { row = (await runner.query('SELECT remitter FROM marketplace_tax_jurisdictions WHERE state = $1 AND effective_from <= CURRENT_DATE', [st])).rows[0]; }
+  catch (e) { if (!(e && e.code === '42P01')) throw e; }
+  if (!row) throw err(409, 'TAX_RESPONSIBILITY_UNSET', 'Online purchase is not available for this location yet. Choose local pickup or contact the seller.');
+  return { remitter: row.remitter, jurisdiction: st };
+}
+
 // Load an item joined to its seller, with the purchase-eligibility validations that don't need a lock.
 // Shipping is decided ONLY by src/lib/storefrontShipping.js: pickup-only items cannot be shipped, incomplete shipping
 // terms refuse shipping (a blank price is never $0), and a destination the seller does not serve is refused. The seller
@@ -160,7 +179,7 @@ async function resolveTaxLocation({ method, item, shipTo }) {
 // for every quote, order and payment; the item page and buttons are never the gate.
 const { assertSellerCanSell } = require('./sellerSaleEligibility');
 
-async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db, { shipToState, shipToCountry } = {}) {
+async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db, { shipToState, shipToCountry, units = 1 } = {}) {
   const row = (await runner.query(
     `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps, sp.storefront_slug, sp.show_branding_to_buyers,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_display_name,
@@ -174,7 +193,7 @@ async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runne
   await assertSellerCanSell(row.seller_id, runner);
   if (!(Number(row.price_cents) > 0)) throw err(422, 'PRICE_INVALID', 'This item has no valid price.');
   const method = fulfillmentMethod === 'shipping' ? 'shipping' : 'pickup';
-  const { shippingCents } = shipping.shippingChargeFor(row, method, shipToState, shipToCountry);
+  const { shippingCents } = shipping.shippingChargeFor(row, method, shipToState, shipToCountry, units);
   return { item: row, method, shippingCents, feeBps: feeBpsForSeller(row) };
 }
 
@@ -189,7 +208,7 @@ function purchaseSnapshot(item, method = 'pickup', shippingCents = 0, units = 1)
       shipping_notes: item.shipping_notes || null, source_lot_id: item.source_lot_id || null, listed_price_cents: Number(item.price_cents),
       inventory_number: item.inventory_number || null,   // the seller's own number, fixed with the sale (migration 204)
       // the shipping or pickup terms offered and the one the buyer chose, fixed at purchase (migration 201)
-      shipping_terms: shipping.snapshotTerms(item, method, shippingCents) },
+      shipping_terms: shipping.snapshotTerms(item, method, shippingCents, units) },
     seller: { seller_profile_id: item.seller_id, seller_user_id: item.seller_user_id, display_name: item.seller_display_name || null,
       seller_type: item.seller_type, storefront_slug: item.storefront_slug || null },
     pickup: eff && eff.address && eff.address.line1 ? { source: eff.source, ...eff.address } : null,
@@ -211,10 +230,10 @@ async function recordEvent(runner, orderId, eventType, { actorUserId = null, act
 async function quote(itemId, buyerUserId, opts = {}) {
   if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
   const qShip = opts.fulfillment_method === 'shipping' ? normalizeAddress(parseJson(opts.ship_to || opts.address)) : null;
-  const { item, method, shippingCents, feeBps } = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db,
-    qShip ? { shipToState: qShip.state || '', shipToCountry: qShip.country } : {});
-  if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
   const units = unitsOf(opts.quantity);
+  const { item, method, shippingCents, feeBps } = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db,
+    qShip ? { shipToState: qShip.state || '', shipToCountry: qShip.country, units } : { units });
+  if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
   if (Number(item.quantity == null ? 1 : item.quantity) < units) throw err(409, 'NOT_ENOUGH_AVAILABLE', availabilityMessage(item.quantity));
   const goods = Number(item.price_cents) * units;
   // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
@@ -279,11 +298,11 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   }
   const wantShip = opts.fulfillment_method === 'shipping';
   const shipToObj = wantShip && opts.ship_to ? normalizeAddress(opts.ship_to) : null;
-  const dest = shipToObj ? { shipToState: shipToObj.state || '', shipToCountry: shipToObj.country } : {};
+  const units = unitsOf(opts.quantity);
+  const dest = shipToObj ? { shipToState: shipToObj.state || '', shipToCountry: shipToObj.country, units } : { units };
   const pre = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db, dest);
   const { method, shippingCents, feeBps } = pre;
   if (method === 'shipping' && !shipToObj) throw err(422, 'SHIP_TO_REQUIRED', 'A shipping address is required.');
-  const units = unitsOf(opts.quantity);
   // Check the sale location BEFORE any unit is held, so a blocked sale never claims inventory.
   if (taxActive()) await resolveTaxLocation({ method, item: pre.item, shipTo: shipToObj });
 
@@ -378,8 +397,18 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     await releaseOrder(order.id, 'tax:' + (taxErr.code || 'error'));
     throw taxErr;
   }
+  // Who remits the tax (jurisdiction rule). Refused, and the units released, before any payment is started.
+  let resp;
+  try {
+    const taxedState = taxActive() ? (await resolveTaxLocation({ method, item: pre.item, shipTo: order.ship_to || shipToObj }) || {}).address : null;
+    resp = await taxResponsibility(taxedState && taxedState.state, tax.taxCents);
+  } catch (respErr) {
+    await releaseOrder(order.id, 'tax:' + (respErr.code || 'error'));
+    throw respErr;
+  }
   const finalB = computeBreakdown({ itemPriceCents: order.item_price_cents, shippingCents: order.shipping_cents,
     taxCents: tax.taxCents, feeBps: order.platform_fee_bps });
+  const buyerTerms = await currentBuyerTerms();
 
   // ── PaymentIntent OUTSIDE any tx (idempotent by the client key or the order id). MANUAL confirmation: the
   // browser only ever creates a PaymentMethod; the server inspects it (prepaid refusal) and confirms. ──
@@ -401,9 +430,11 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   const updated = (await db.query(
     `UPDATE marketplace_orders
         SET stripe_payment_intent_id = $2, stripe_tax_calculation_id = $3,
-            tax_cents = $4, total_charge_cents = $5, updated_at = now()
+            tax_cents = $4, total_charge_cents = $5, tax_remitter = $6, tax_jurisdiction = $7,
+            buyer_terms_version_id = $8, buyer_terms_version_int = $9, updated_at = now()
       WHERE id = $1 RETURNING *`,
-    [order.id, intent.id, tax.calculationId, finalB.tax_cents, finalB.total_charge_cents])).rows[0];
+    [order.id, intent.id, tax.calculationId, finalB.tax_cents, finalB.total_charge_cents, resp.remitter, resp.jurisdiction,
+     buyerTerms ? buyerTerms.id : null, buyerTerms ? buyerTerms.version_int : null])).rows[0];
 
   return { order: buyerOrder(updated), client_secret: intent.client_secret, breakdown: buyerBreakdown(finalB),
     tax_enabled: tax.enabled, tax_exempt: tax.exempt };
@@ -825,7 +856,11 @@ async function recordRefund(o, { cumulativeRefundedCents, adminId, reason, note 
     }
   }
 
-  if (full) return applyRefundState(o.id, cumulative, reversalId, adminId, { reason, reviewNote, note });
+  if (full) {
+    const out = await applyRefundState(o.id, cumulative, reversalId, adminId, { reason, reviewNote, note });
+    await recoverFromSeller(o.id);
+    return out;
+  }
 
   // Partial: the order stays paid; proceeds need a person before settlement (payout is manual anyway).
   let out;
@@ -849,7 +884,17 @@ async function recordRefund(o, { cumulativeRefundedCents, adminId, reason, note 
     }
     out = upd || o;
   });
+  await recoverFromSeller(o.id);
   return publicOrder(out);
+}
+// The seller was already paid for this order (storefront payout paid): record the recovery for their next payout.
+async function recoverFromSeller(orderId) {
+  try { await require('./storefrontSettlementService').recordRecovery(orderId); }
+  catch (e) {
+    console.error('[marketplace] payout recovery not recorded', orderId, e.message);
+    await db.query(`UPDATE marketplace_orders SET review_required = true, review_note = $2 WHERE id = $1`,
+      [orderId, 'Refund after payout: the recovery from the seller could not be recorded automatically; review required.']).catch(() => {});
+  }
 }
 
 // charge.refunded reconcile (admin refunds, conflict refunds and refunds made outside the app, full or partial).
@@ -945,6 +990,7 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
 
 // Seller explicitly relists a refunded/removed/draft item. Preserves all historical orders.
 async function relistItem(itemId, sellerActorRef) {
+  const itemSvc = require('./marketplaceItemService');
   return withTransaction(async (client) => {
     const seller = await sellerActor.sellerRow(sellerActorRef, client);
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
@@ -967,8 +1013,11 @@ async function relistItem(itemId, sellerActorRef) {
     // Marked sold (by the seller, or a sale not refunded in full): never relisted here. A mistake is corrected by Advantage.Bid.
     if (item.sold_at) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again. If it was marked sold by mistake, contact Advantage.Bid to correct it.');
     // The same publishing rules as any other way of going live: a Sale Price and something to sell (migration 209).
-    const problems = require('./marketplaceItemService').publishProblems(item);
+    const problems = itemSvc.publishProblems(item);
     if (problems.length) throw err(422, problems[0].code, problems.map((x) => x.message).join(' '));
+    // Putting an item back on sale needs the storefront agreement (after the item's own checks; the agreement email, if
+    // one is needed, is sent after the transaction).
+    await itemSvc.checkStorefrontAgreement(seller.id, client);
     const upd = (await client.query(
       `UPDATE marketplace_items SET status = 'active', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
         WHERE id = $1 RETURNING *`, [itemId]).catch((e) => {
@@ -978,7 +1027,7 @@ async function relistItem(itemId, sellerActorRef) {
       throw e;
     })).rows[0];
     return upd;
-  });
+  }).catch(itemSvc.sendAgreementIfNeeded);
 }
 
 // ── Seller fulfillment transitions → payout ELIGIBILITY (never money movement) ────────────────────────
@@ -1044,6 +1093,8 @@ function publicOrder(o) {
     tracking_carrier: o.tracking_carrier, tracking_number: o.tracking_number,
     payment_status: o.payment_status, refund_status: o.refund_status, refunded_amount_cents: o.refunded_amount_cents,
     payout_eligible: o.payout_eligible, ship_to: o.ship_to || null,
+    tax_remitter: o.tax_remitter || null,
+    buyer_terms_version: o.buyer_terms_version_int == null ? null : Number(o.buyer_terms_version_int),   // who remits the sales tax: platform, seller or none (migration 214)
     created_at: o.created_at, paid_at: o.paid_at,
   };
 }
@@ -1204,7 +1255,7 @@ async function listForAdmin({ status, limit } = {}) {
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
 
-module.exports = {
+module.exports = { taxResponsibility,
   STOREFRONT_FEE_BPS, STOREFRONT_FEE_ADVANTAGE_BPS, STOREFRONT_FEE_PROCESSING_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
