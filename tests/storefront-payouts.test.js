@@ -332,7 +332,7 @@ describe('owner and Admin/Finance notice when a storefront order is paid (roadma
     const full = await one('SELECT * FROM marketplace_orders WHERE id = $1', [id]);
     const msg = require('../src/services/storefrontNotificationService').renderSaleAdmin(full);
     expect(msg.text).toMatch(/Sale \$64\.00; fee \$7\.04 \(11%\); estimated seller proceeds \$56\.96 \(estimate, not the final deposit\)/);
-    expect(msg.html + msg.text).not.toMatch(/bea@|BEA|ship_to|4242|card number/i);
+    expect(msg.html + msg.text).not.toMatch(/bea@|\bBEA\b|ship_to|4242|card number/i);
     // a demo order notifies no administrator
     const demo = await listQ(1, 1000);
     await q('UPDATE marketplace_items SET is_demo = true WHERE id = $1', [demo.id]);

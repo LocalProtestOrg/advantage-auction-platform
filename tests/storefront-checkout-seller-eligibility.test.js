@@ -284,7 +284,7 @@ describe('enforced on the server for every path (source guard)', () => {
     const payFn = src.slice(src.indexOf('async function payOrder'), src.indexOf('const stripe = getStripe();', src.indexOf('async function payOrder')));
     expect(payFn).toMatch(/await assertSellerCanSell\(o\.seller_id\)/);
     const elig = fs.readFileSync(path.join(ROOT, 'src', 'services', 'sellerSaleEligibility.js'), 'utf8');
-    expect(elig).toMatch(/require\('\.\/verificationService'\)\.publicationGate\(sp\.id\)/);
+    expect(elig).toMatch(/require\('\.\/verificationService'\)\.publicationGate\(sp\.id, runner\)/);
   });
 });
 
@@ -318,8 +318,8 @@ describe('agreement and payouts must be in place before a seller can be paid by 
   });
   test('the gate is the existing agreement check and the settlement payout readiness, not a new system', () => {
     const src = require('fs').readFileSync('src/services/sellerSaleEligibility.js', 'utf8');
-    expect(src).toMatch(/require\('\.\/agreementService'\)\.dashboardAccess\(sp\.id\)/);
-    expect(src).toMatch(/getSellerPayoutPreference\(sp\.user_id\)/);
+    expect(src).toMatch(/require\('\.\/agreementService'\)\.dashboardAccess\(sp\.id, runner\)/);
+    expect(src).toMatch(/getSellerPayoutPreference\(sp\.user_id, runner\)/);
     expect(require('../src/services/sellerSaleEligibility').payoutReady({ stripe_account_id: 'acct_1', connect_transfers_active: true, connect_payouts_enabled: true })).toBe(true);
     expect(require('../src/services/sellerSaleEligibility').payoutReady({ stripe_account_id: 'acct_1', connect_transfers_active: true, connect_payouts_enabled: false })).toBe(false);
   });

@@ -57,7 +57,7 @@ describe('brandedColSql — SQL gate matches brandingVisible', () => {
   test('emits a CASE gated on professional types AND the preference', () => {
     const sql = b.brandedColSql('sp.display_name');
     expect(sql).toContain('CASE WHEN');
-    expect(sql).toContain("IN ('auction_house','estate_sale_company','professional_liquidator','business')");
+    expect(sql).toContain("IN ('auction_house','estate_sale_company','professional_liquidator','retail_gallery_studio','business')");
     expect(sql).toContain('COALESCE(sp.show_branding_to_buyers, true)');
     expect(sql).toContain('ELSE NULL END');
   });

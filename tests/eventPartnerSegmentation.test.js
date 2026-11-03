@@ -137,7 +137,8 @@ describe('every relationship that forbids cold outreach is screened', () => {
   });
 
   test('professional sellers and existing event partners are screened too', () => {
-    expect(code).toMatch(/seller_type IN \('auction_house','estate_sale_company','professional_liquidator'\)/);
+    // the canonical professional list (src/constants/sellerTypes.js), passed as a parameter
+    expect(code).toMatch(/seller_type = ANY\(\$1::text\[\]\)`, \[require\('\.\.\/\.\.\/constants\/sellerTypes'\)\.PROFESSIONAL_SELLER_TYPES\]/);
     expect(code).toMatch(/FROM authorized_event_sources/);
   });
 

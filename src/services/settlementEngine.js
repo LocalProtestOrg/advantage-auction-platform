@@ -668,7 +668,7 @@ async function applyTransferEvent(eventType, transfer) {
 }
 // Storefront payouts table may not exist yet (migration 213 not applied): then there is nothing to update.
 async function storefrontTransferUpdate(sql, params) {
-  try { return (await db.query(sql, params)).rows || []; }
+  try { const r = await db.query(sql, params); return (r && r.rows) || []; }
   catch (e) { if (e && e.code === '42P01') return []; throw e; }
 }
 
