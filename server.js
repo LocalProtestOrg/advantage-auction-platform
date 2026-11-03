@@ -461,6 +461,11 @@ app.get('/sell-online', (req, res) => {
 });
 app.get('/sell-online.html', (req, res) => (sellOnlineLive() ? res.redirect(301, '/sell-online') : sellOnlineStaged(req, res)));
 
+// Professional Seller website widget page. When the BROWSER reports it is loading this page as a frame on another website
+// (Fetch Metadata), the server signs a website pass for that seller into the page; Buy Now hands it to checkout, where
+// it sets the 5% website commission (storefrontChannelService; owner decision 2026-11-03). Never cached: each load is its own.
+app.get('/embed/storefront.html', require('./src/routes/embedStorefrontPage'));
+
 // Route legacy signed-in pages into the unified member shell (/app.html). Additive + reversible: the
 // old page files remain in the repo, but these redirects win because they run before express.static.
 // Does NOT modify the BD auth bridge — the bridge still lands on /dashboard.html, which now forwards

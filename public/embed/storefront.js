@@ -9,6 +9,13 @@
   var SELLER='';try{SELLER=new URLSearchParams(location.search).get('seller')||'';}catch(e){}
   if(!UUID.test(SELLER)){root.innerHTML='<div class="sw-empty">This shop is not available right now.</div>';return;}
   var FEED=null, CHECKOUT=false, listScroll=0;
+  // Website pass: signed by the server only when the browser loaded this page inside another website's frame. It is handed
+  // to checkout in the link's #fragment (never sent to a server by the browser); the server verifies it. Kept for this
+  // frame's session so moving between items here keeps it.
+  var PASS='';
+  try{var mp=document.querySelector('meta[name="adv-website-pass"]');PASS=(mp&&mp.getAttribute('content'))||'';}catch(e){}
+  try{if(PASS)sessionStorage.setItem('adv-wp-'+SELLER,PASS);else PASS=sessionStorage.getItem('adv-wp-'+SELLER)||'';}catch(e){}
+  function withPass(u){return PASS?u+'#wp='+encodeURIComponent(PASS):u;}
 
   function itemFromUrl(){try{var v=new URLSearchParams(location.search).get('item')||'';return UUID.test(v)?v.toLowerCase():'';}catch(e){return '';}}
   function urlFor(id){var p=new URLSearchParams(location.search);if(id)p.set('item',id);else p.delete('item');return location.pathname+'?'+p.toString();}
@@ -46,7 +53,7 @@
     var ship=(it.shipping&&it.shipping.summary)||(it.shippable?'Shipping available':'Local pickup');
     var canonical=safeUrl(it.url);
     var buy=CHECKOUT
-      ? '<div class="sw-buy"><a class="sw-btn" href="'+esc(canonical+(canonical.indexOf('?')<0?'?':'&')+'ref=widget')+'" target="_blank" rel="noopener">Buy Now</a>'
+      ? '<div class="sw-buy"><a class="sw-btn" href="'+esc(withPass(canonical+(canonical.indexOf('?')<0?'?':'&')+'ref=widget'))+'" target="_blank" rel="noopener">Buy Now</a>'
         +'<p class="sw-small">Secure checkout through Advantage.Bid opens in a new tab, so this page stays open.</p></div>'
       : '<div class="sw-buy"><a class="sw-btn" href="'+esc(safeUrl(s.storefront_url)+'#contact')+'" target="_blank" rel="noopener">Contact Seller</a>'
         +'<p class="sw-small">Ask '+esc(s.name||'the seller')+' about this item.</p></div>';
@@ -61,7 +68,7 @@
       +(it.material?'<p class="sw-facts"><b>Material:</b> '+esc(it.material)+'</p>':'')
       +buy
       +(it.description?'<div class="sw-desc">'+esc(it.description)+'</div>':'')
-      +'<p class="sw-small"><a href="'+esc(canonical)+'" target="_blank" rel="noopener">View this item on Advantage.Bid</a></p>'
+      +'<p class="sw-small"><a href="'+esc(withPass(canonical))+'" target="_blank" rel="noopener">View this item on Advantage.Bid</a></p>'
       +'</div></div>'+foot();
     if(window.AdvGallery)AdvGallery.mount(document.getElementById('sw-gallery'),{images:it.images||[],alts:it.image_alt||[],title:it.title});
     var back=document.getElementById('sw-back');

@@ -156,7 +156,7 @@ const TOPICS = {
     ],
   }),
   storefront: (p) => ({
-    source: 'marketplaceOrderService.STOREFRONT_FEE_BPS / seller agreement §6.9 / launchGuards',
+    source: 'storefrontChannelService.FEE_BPS / seller agreement §6.9 / launchGuards',
     facts: [
       'Storefronts are a Professional Seller feature only; Individual Sellers do not have Storefronts.',
       'How a storefront purchase is paid for: do not describe it (storefront checkout is being finalized). Never say storefront purchases are charged to the card on file like auction purchases, never walk a caller through storefront checkout, and never offer a payment link for a storefront item (payment links are only for unpaid auction invoices). If asked how to pay for a storefront item, say the item\'s listing shows how it can be purchased, or they can contact the seller through the storefront.',
@@ -211,8 +211,7 @@ const TOPICS = {
 };
 
 function storefrontFeeText() {
-  const bps = require('../../marketplaceOrderService').STOREFRONT_FEE_BPS;
-  return `Professional Storefront fixed-price sales have a flat ${bps / 100}% seller fee on the item selling price only. It includes card processing; shipping and sales tax are not part of the fee calculation. It is the same for every Professional Seller.`;
+  return require('../../storefrontChannelService').commissionSummary();
 }
 
 const TOPIC_NAMES = Object.keys(TOPICS);

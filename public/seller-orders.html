@@ -91,6 +91,7 @@
         (o.ship_to?'<div class="meta">Ship to: '+esc(JSON.stringify(o.ship_to).replace(/[{}"]/g,' '))+'</div>':'')+
         track+
         '</div><div style="text-align:right"><div class="money">'+money(o.item_price_cents)+'</div>'+
+        (o.platform_fee_cents!=null?'<div class="meta">Commission: '+money(o.platform_fee_cents)+' ('+((o.platform_fee_bps||0)/100)+'%'+(o.sales_channel==='seller_website'?', your website':o.sales_channel==='marketplace'?', Advantage.Bid marketplace':'')+')</div>':'')+
         (o.seller_proceeds_cents!=null?'<div class="meta">Your proceeds: '+money(o.seller_proceeds_cents)+'</div>':'')+'</div></div>'+
         '<div style="margin-top:8px">'+pay+ful+elig+'</div>'+
         '<div>'+actions(o)+'</div>'+issuesFor(o)+'</div>';

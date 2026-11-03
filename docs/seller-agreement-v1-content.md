@@ -6,7 +6,7 @@
 
 ## Variable schema (author into `variable_schema` JSONB)
 
-The financial and governing terms (0% commission, 3% processing fee, 18% Buyer's Premium, professional auction fees, 11% Professional Storefront fee, Thursday payout cycle, Michigan governing law) are written as **fixed prose** in the body, so they are NOT template variables and cannot leave an unresolved placeholder. Only per-seller identity/date values remain as variables, and every one of them resolves at auto-send (overrides) or from defaults:
+The financial and governing terms (0% commission, 3% processing fee, 18% Buyer's Premium, professional auction fees, Professional Storefront commission (5% seller website / 9% marketplace), Thursday payout cycle, Michigan governing law) are written as **fixed prose** in the body, so they are NOT template variables and cannot leave an unresolved placeholder. Only per-seller identity/date values remain as variables, and every one of them resolves at auto-send (overrides) or from defaults:
 
 | key | type | source | required | notes |
 |---|---|---|---|---|
@@ -112,7 +112,12 @@ These two fees are stated and itemized separately on the Seller's settlement sta
 
 6.8 **Professional sellers — business verification before first sale.** A professional Seller may register for an account, access the seller dashboard, create an auction, and build a catalog before Advantage completes verification of the Seller's business. However, a professional Seller cannot publish an auction, and its first sale cannot become publicly sellable, until Advantage has verified and approved the Seller's business. After verification, the professional Seller publishes its own auctions as described in Section 1.3.
 
-6.9 **Professional sellers — Storefront fixed-price seller fee.** Fixed-price items that a professional Seller sells through its Advantage.Bid Professional Storefront (not by auction) are subject to a flat seller fee of **11% of the item selling price** (the "Storefront Fee"). The Storefront Fee includes card and payment processing; no separate Processing Fee applies to Storefront fixed-price sales. Shipping charges and sales tax are not included in the amount on which the Storefront Fee is calculated. The Storefront Fee is charged only when an item sells through Advantage.Bid checkout. The Storefront Fee is separate from, and does not change, the auction Platform Fee and Processing Fee in Section 6.7, which apply only to auction (hammer-price) sales.
+6.9 **Professional sellers — Storefront fixed-price commission.** Fixed-price items that a professional Seller sells through its Advantage.Bid Professional Storefront (not by auction) are subject to a commission on the item selling price (the "Storefront Fee"), which depends on where the sale originates:
+
+- **5% of the item selling price** for a sale that originates on the Seller's own website through the Advantage.Bid embedded storefront, where the shopper continues from that embedded storefront to Advantage.Bid checkout (a "Website Sale"); and
+- **9% of the item selling price** for every other sale, including a sale that originates on the Advantage.Bid marketplace or website, a search engine, or a direct or shared link (a "Marketplace Sale").
+
+Advantage determines whether a sale is a Website Sale or a Marketplace Sale using the information its systems record at the time the order is created, and records the classification and the applicable rate on each order; that record governs the Storefront Fee for the order. The Seller must not attempt to cause a Marketplace Sale to be recorded as a Website Sale. The Storefront Fee includes card and payment processing; no separate Processing Fee applies to Storefront fixed-price sales. Shipping charges and sales tax are not included in the amount on which the Storefront Fee is calculated. There is no monthly storefront subscription and no listing fee. The Storefront Fee is charged only when an item sells through Advantage.Bid checkout. The Storefront Fee is separate from, and does not change, the auction Platform Fee and Processing Fee in Section 6.7, which apply only to auction (hammer-price) sales.
 
 ## 7. Buyer Payment, Settlement, and Payout
 
@@ -212,7 +217,7 @@ Signature, date, and authentication metadata are captured electronically by the 
 ---
 
 ### Authoring notes (not part of the signed body)
-- Financial + governing terms (0% commission §6.1, 18% Buyer's Premium §6.2, 3% processing fee §6.3, marketing §6.4, professional auction fees §6.7, 11% Professional Storefront fee §6.9, Thursday payout cycle §7.3, Michigan §16.1) are FIXED PROSE, not variables — they can never leave an unresolved placeholder. To change a rate, publish a new template version.
+- Financial + governing terms (0% commission §6.1, 18% Buyer's Premium §6.2, 3% processing fee §6.3, marketing §6.4, professional auction fees §6.7, Professional Storefront commission §6.9 (5% Website Sale / 9% Marketplace Sale; replaced the flat 11% in the version published after 2026-11-03), Thursday payout cycle §7.3, Michigan §16.1) are FIXED PROSE, not variables — they can never leave an unresolved placeholder. To change a rate, publish a new template version.
 - `effective_terms_defaults` only needs `seller_address` and `seller_phone` (default "On file with Advantage Auction"). Auto-send supplies `effective_date`, `seller_type`, `legal_name`, `signatory_name` per seller (account name). No financial variable is required, so auto-send never blocks on missing terms.
 - Maintain one template per `seller_type` (private, business, auction_house, estate_sale_company, professional_liquidator). The professional templates may add classification-specific scheduling/exemption language (e.g. professional pickup-timing autonomy) in Section 8; the body above is the base.
 - Keep the content em-dash-free (content SOP); `check-dashes.js` should pass on any HTML surface that renders it.

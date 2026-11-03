@@ -48,9 +48,9 @@ async function getInt(key) {
 
 // The full CURRENT standard pricing model. Components stay separate; totals are derived here.
 async function getPricing() {
-  const [proPlatform, processing, indPlatform, indBp, storefront, estate, appraiser] = await Promise.all([
+  const [proPlatform, processing, indPlatform, indBp, estate, appraiser] = await Promise.all([
     getInt(KEYS.PRO_PLATFORM_BPS), getInt(KEYS.PROCESSING_BPS), getInt(KEYS.INDIVIDUAL_PLATFORM_BPS),
-    getInt(KEYS.INDIVIDUAL_BP_BPS), getInt(KEYS.STOREFRONT_FEE_BPS), getInt(KEYS.ESTATE_SALE_CENTS),
+    getInt(KEYS.INDIVIDUAL_BP_BPS), getInt(KEYS.ESTATE_SALE_CENTS),
     getInt(KEYS.APPRAISER_CENTS),
   ]);
   return {
@@ -67,7 +67,10 @@ async function getPricing() {
         total_seller_deduction_bps: indPlatform + processing, // DERIVED
       },
     },
-    storefront: { seller_fee_bps: storefront, processing_included: true },
+    // Storefront commission by sales channel (owner decision 2026-11-03): fixed in code (storefrontChannelService.FEE_BPS) and
+    // recorded on each order; the old single-rate key (pricing.storefront.seller_fee_bps) is no longer used.
+    storefront: { website_fee_bps: require('./storefrontChannelService').FEE_BPS.seller_website,
+      marketplace_fee_bps: require('./storefrontChannelService').FEE_BPS.marketplace, processing_included: true },
     estate_sale: { price_cents: estate },
     appraiser: { price_cents: appraiser },
   };

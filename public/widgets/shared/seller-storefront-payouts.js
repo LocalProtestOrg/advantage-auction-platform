@@ -17,9 +17,12 @@
       var wrap = el('div', null, 'border-top:1px solid #e5e7eb;padding:.7rem 0');
       var cutoff = new Date(p.period_cutoff_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'long', day: 'numeric', year: 'numeric' });
       wrap.appendChild(el('div', 'Week ending ' + cutoff + ' · ' + (STATUS[p.settlement_status] || p.settlement_status) + (p.payout_status && SENT[p.payout_status] ? ' · ' + SENT[p.payout_status] : ''), 'font-weight:700;color:#111827'));
-      wrap.appendChild(el('div', p.order_count + ' order' + (p.order_count === 1 ? '' : 's') + ' · sales ' + money(p.goods_cents) + ' · fee ' + money(p.platform_fee_cents) + ' · your payout ' + money(p.seller_payout_cents), 'font-size:.9rem;margin-top:.2rem'));
+      wrap.appendChild(el('div', p.order_count + ' order' + (p.order_count === 1 ? '' : 's') + ' · sales ' + money(p.goods_cents) + ' · commission ' + money(p.platform_fee_cents)
+        + (p.recovery_cents > 0 ? ' · refund adjustment ' + money(p.recovery_cents) : '') + ' · your payout ' + money(p.seller_payout_cents), 'font-size:.9rem;margin-top:.2rem'));
       (p.lines || []).forEach(function (l) {
-        wrap.appendChild(el('div', (l.order_number || '') + ' · ' + (l.title || 'Item') + (l.quantity > 1 ? ' x ' + l.quantity : '') + ' · ' + money(l.amount_cents), 'font-size:.82rem;color:#475569'));
+        var ch = l.sales_channel === 'seller_website' ? 'your website' : l.sales_channel === 'marketplace' ? 'marketplace' : '';
+        wrap.appendChild(el('div', (l.order_number || '') + ' · ' + (l.title || 'Item') + (l.quantity > 1 ? ' x ' + l.quantity : '') + ' · ' + money(l.amount_cents)
+          + (ch ? ' · ' + ch + ' ' + ((Number(l.platform_fee_bps) || 0) / 100) + '%' : ''), 'font-size:.82rem;color:#475569'));
       });
       box.appendChild(wrap);
     });

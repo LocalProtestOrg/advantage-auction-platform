@@ -34,7 +34,7 @@
   <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
     <h1>Storefront Orders</h1>
-    <p class="sub">Fixed-price Professional Storefront sales. Flat 11% selling fee on the item price (includes card processing); shipping and sales tax are excluded from the fee. Payouts are settled manually — nothing here moves money except an explicit refund.</p>
+    <p class="sub">Fixed-price Professional Storefront sales. Commission on the item price: 5% when the sale came through the seller's own website (embedded storefront), 9% through the Advantage.Bid marketplace; card processing is included, and shipping and sales tax are excluded. Each order keeps the channel and rate it was created with. Processing is the card fee actually charged for the order (paid by Advantage.Bid out of the commission). Payouts are settled manually — nothing here moves money except an explicit refund.</p>
     <div class="bar">
       <select id="status">
         <option value="">All orders</option>
@@ -52,7 +52,7 @@
         <thead><tr>
           <th>Order</th><th>Item / Seller</th><th>Buyer</th><th>Payment</th>
           <th class="num">Item</th><th class="num">Shipping</th><th class="num">Tax</th><th class="num">Buyer total</th>
-          <th class="num">Fee</th><th class="num">Seller proceeds</th>
+          <th class="num">Commission</th><th class="num">Processing</th><th class="num">Seller proceeds</th>
           <th>Fulfillment</th><th>Payout</th><th>Refund</th><th></th>
         </tr></thead>
         <tbody id="rows"></tbody>
@@ -83,7 +83,7 @@
 
     function render(){
       const tb = document.getElementById('rows');
-      if (!ORDERS.length){ tb.innerHTML = '<tr><td colspan="14" class="small">No orders.</td></tr>'; return; }
+      if (!ORDERS.length){ tb.innerHTML = '<tr><td colspan="15" class="small">No orders.</td></tr>'; return; }
       tb.innerHTML = ORDERS.map(o => {
         const canRefund = o.payment_status === 'paid' && o.refund_status !== 'refunded';
         const remaining = (o.total_charge_cents||0) - (o.refunded_amount_cents||0);
@@ -108,7 +108,9 @@
           '<td class="num">'+money(o.shipping_cents)+'</td>'+
           '<td class="num">'+money(o.tax_cents)+'</td>'+
           '<td class="num"><b>'+money(o.total_charge_cents)+'</b></td>'+
-          '<td class="num">'+money(o.platform_fee_cents)+'<div class="small">'+((o.platform_fee_bps||0)/100).toFixed(2)+'%</div></td>'+
+          '<td class="num">'+money(o.platform_fee_cents)+'<div class="small">'+((o.platform_fee_bps||0)/100).toFixed(2)+'% '+esc(o.sales_channel==='seller_website'?'website':o.sales_channel==='marketplace'?'marketplace':'')+'</div>'+
+            (o.sales_channel==='seller_website'&&o.channel_embedding_site?'<div class="small">'+esc(o.channel_embedding_site)+'</div>':'')+'</td>'+
+          '<td class="num">'+(o.processing_fee_cents==null?'<span class="small">not recorded</span>':money(o.processing_fee_cents)+'<div class="small">net '+money((o.platform_fee_cents||0)-o.processing_fee_cents)+'</div>')+'</td>'+
           '<td class="num">'+money(o.seller_proceeds_cents)+'</td>'+
           '<td>'+esc(o.fulfillment_method)+'<div class="small">'+esc(o.fulfillment_status)+'</div>'+tracking+'</td>'+
           '<td>'+(o.payout_eligible?'<span class="badge ok">Eligible</span>':'<span class="badge neutral">Not yet</span>')+'</td>'+

@@ -38,6 +38,7 @@ const taxService = require('./taxCalculationService');
 const { isProfessional } = require('./sellerTypeRules');
 const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 const saleLocation = require('../lib/saleLocation');
+const channels = require('./storefrontChannelService');
 
 const STRIPE_API_VERSION = '2026-03-25.dahlia'; // matches paymentService/taxCalculationService pin
 const CLAIM_TTL_MINUTES = 30;                    // an in-flight checkout holds its units this long
@@ -59,16 +60,15 @@ async function stockEvent(runner, { itemId, sellerId, orderId = null, delta = 0,
                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [itemId, sellerId, orderId, delta, soldDelta, availableAfter, reason, actorUserId]);
 }
 
-// FLAT Professional Storefront selling fee (owner-authoritative): 11% of the ITEM PRICE, INCLUSIVE of
-// credit-card/payment processing. Customer-facing promise: "Flat 11% selling fee, including credit card
-// processing." The 8% Advantage.Bid + 3% processing split is an internal BUSINESS ALLOCATION only — the
-// seller is never charged 11% + a separate processing %. This is DECOUPLED from the auction professional
-// fee (seller_profiles.platform_fee_bps, ~4% of hammer, used by billingTermsService for AUCTION
-// settlement): storefront/Buy-Now sales use this flat rate, so auction economics are unaffected.
-const STOREFRONT_FEE_BPS = 1100; // 11.00%
-// Internal accounting allocation of the flat fee (reporting only; NOT extra deductions).
-const STOREFRONT_FEE_ADVANTAGE_BPS = 800; // 8% Advantage.Bid
-const STOREFRONT_FEE_PROCESSING_BPS = 300; // 3% processing allocation (Advantage.Bid absorbs any real-cost delta)
+// Professional Storefront commission (owner decision 2026-11-03, replaces the flat 11%): a percentage of the ITEM PRICE by
+// sales channel, INCLUSIVE of card processing: 5% when the shopper began in the seller's embedded storefront on the
+// seller's own website, 9% for every other order (the Advantage.Bid marketplace). The seller is never charged a separate
+// processing percentage; Advantage.Bid pays the actual processing cost out of the commission (recorded per order as
+// processing_fee_cents, migration 215). The channel and rate are decided on the server for each order
+// (storefrontChannelService) and fixed on it. DECOUPLED from the auction professional fee (seller_profiles.platform_fee_bps,
+// billingTermsService): auction economics are unaffected.
+const STOREFRONT_FEE_WEBSITE_BPS = channels.FEE_BPS.seller_website;       // 5.00%
+const STOREFRONT_FEE_MARKETPLACE_BPS = channels.FEE_BPS.marketplace;      // 9.00%
 
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; return e; }
 function getStripe() {
@@ -77,14 +77,14 @@ function getStripe() {
 }
 
 // ── Money ────────────────────────────────────────────────────────────────────────────────────────────
-// The Professional Storefront selling fee is a FLAT 11% for every fixed-price sale — NOT the per-seller
-// auction platform_fee_bps (which stays exclusively an auction-settlement input). The `seller` arg is
-// accepted for call-site compatibility but the storefront rate is intentionally uniform.
+// The storefront commission is NOT the per-seller auction platform_fee_bps (which stays exclusively an auction-settlement
+// input), and it does not depend on the seller. Before an order exists (a quote) the marketplace rate is used; the order's
+// own rate comes from its channel (createOrder).
 function feeBpsForSeller(/* seller */) {
-  return STOREFRONT_FEE_BPS;
+  return STOREFRONT_FEE_MARKETPLACE_BPS;
 }
 // STOREFRONT PRICING IS SEPARATE FROM AUCTION PRICING (owner rule 2026-10-16). A fixed-price Buy Now purchase NEVER has a
-// buyer's premium: the buyer pays the listed item price + shipping + sales tax, and the seller pays the flat 11% fee on the
+// buyer's premium: the buyer pays the listed item price + shipping + sales tax, and the seller pays the commission on the
 // item price only. This module deliberately does not load any auction pricing module (billing terms, seller terms, pricing
 // config), so no auction buyer's premium, auction fee or auction default can reach a storefront total.
 const STOREFRONT_BUYER_PREMIUM_BPS = 0;
@@ -329,7 +329,10 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
       throw err(409, 'PRICE_CHANGED', 'The price or shipping for this item changed since you reviewed it. Please review your order again.');
     }
     if (lockedMethod !== method) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
-    const b = computeBreakdown({ itemPriceCents: Number(item.price_cents) * units, shippingCents: lockedShipping, taxCents: 0, feeBps });
+    // Sales channel and commission (owner decision 2026-11-03): decided here, on the server, from the signed website pass
+    // the item page received from the seller's embedded storefront (if any); bound to this buyer in this transaction.
+    const channel = await channels.resolveForOrder({ passes: opts.channelPasses, sellerId: item.seller_id, buyerUserId }, client);
+    const b = computeBreakdown({ itemPriceCents: Number(item.price_cents) * units, shippingCents: lockedShipping, taxCents: 0, feeBps: channel.fee_bps });
     const shipTo = shipToObj ? JSON.stringify(shipToObj) : null;
     const snap = purchaseSnapshot(item, lockedMethod, lockedShipping, units);
     // The seller's policies apply only when the buyer could see them (seller branding shown). The buyer confirmed the
@@ -352,22 +355,30 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
           platform_fee_bps, platform_fee_cents, seller_proceeds_cents, total_charge_cents,
           fulfillment_method, ship_to, payment_status, is_demo, idempotency_key,
           item_snapshot, seller_snapshot, pickup_snapshot, policy_snapshot, policies_acknowledged_at,
-          quantity, unit_price_cents, hold_expires_at)
+          quantity, unit_price_cents, hold_expires_at,
+          sales_channel, sales_channel_basis, channel_pass_id, channel_embedding_site, fee_schedule)
        VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13,$14::jsonb,$15::jsonb,$16::jsonb,$17::jsonb, now(),
-               $18, $19, now() + interval '${CLAIM_TTL_MINUTES} minutes')
+               $18, $19, now() + interval '${CLAIM_TTL_MINUTES} minutes', $20, $21, $22, $23, $24)
        RETURNING *`,
       [itemId, item.seller_id, buyerUserId, b.item_price_cents, b.shipping_cents,
        b.platform_fee_bps, b.platform_fee_cents, b.seller_proceeds_cents, b.total_charge_cents,
        method, shipTo, !!item.is_demo, opts.idempotencyKey || null,
        JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null,
-       JSON.stringify(policySnap), units, Number(item.price_cents)])
+       JSON.stringify(policySnap), units, Number(item.price_cents),
+       channel.channel, channel.basis, channel.pass_id, channel.embedding_site, channels.FEE_SCHEDULE])
       .catch((e) => {
         if (e && e.code === '23514' && /own seller/.test(e.message || '')) throw err(409, 'POLICIES_CHANGED', 'The seller updated their store policies since you reviewed them. Please review them again.');
         throw e;
       });
     order = inserted.rows[0];
     await recordEvent(client, order.id, 'created', { actorUserId: buyerUserId, actorRole: 'buyer',
-      data: { item_id: itemId, seller_id: item.seller_id, total_charge_cents: b.total_charge_cents, method, quantity: units } });
+      data: { item_id: itemId, seller_id: item.seller_id, total_charge_cents: b.total_charge_cents, method, quantity: units,
+        sales_channel: channel.channel, channel_basis: channel.basis, platform_fee_bps: b.platform_fee_bps } });
+    // A pass that fails its signature check may be an attempt to alter the commission: kept for review.
+    if (channel.basis === 'pass_invalid') {
+      await auditService.logEvent(client, { eventType: 'marketplace_order.channel_pass_rejected', entityType: 'marketplace_order',
+        entityId: order.id, metadata: { reason: channel.basis, seller_id: item.seller_id } });
+    }
     // Reserve the units. When none are left, the item shows "sale in progress" until every hold is paid or released.
     const after = (await client.query(
       `UPDATE marketplace_items
@@ -769,6 +780,16 @@ async function markOrderPaid(intent) {
     const txId = await taxService.recordTransaction({ calculationId: paidOrder.stripe_tax_calculation_id, reference: 'marketplace-order:' + paidOrder.order_number });
     if (txId) await db.query('UPDATE marketplace_orders SET stripe_tax_transaction_id = $2 WHERE id = $1', [paidOrder.id, txId]);
   } catch (e) { console.error('[marketplace] tax transaction record failed', paidOrder.id, e.message); }
+  // The card processing fee the processor actually charged (Advantage.Bid's cost, paid out of the commission; never
+  // charged to the seller). Best-effort, recorded once (migration 215).
+  try {
+    const stripe = getStripe();
+    if (chargeId && stripe.charges && typeof stripe.charges.retrieve === 'function') {
+      const ch = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
+      const fee = ch && ch.balance_transaction && typeof ch.balance_transaction === 'object' ? Number(ch.balance_transaction.fee) : NaN;
+      if (Number.isFinite(fee) && fee >= 0) await db.query('UPDATE marketplace_orders SET processing_fee_cents = $2 WHERE id = $1 AND processing_fee_cents IS NULL', [paidOrder.id, Math.round(fee)]);
+    }
+  } catch (e) { console.error('[marketplace] processing fee not recorded', paidOrder.id, e.message); }
   // Buyer receipt + seller "item sold" notice (best-effort; never breaks the webhook ack).
   try { await require('./marketplaceOrderNotifier').sendPaid(paidOrder.id); }
   catch (e) { console.error('[marketplace] paid notification failed', paidOrder.id, e.message); }
@@ -781,7 +802,8 @@ async function markOrderPaid(intent) {
       const m = (c) => '$' + (Number(c || 0) / 100).toFixed(2);
       const qty = Number(paidOrder.quantity) > 1 ? ' x' + Number(paidOrder.quantity) : '';
       const message = `Advantage.Bid: storefront sale paid ${paidOrder.order_number}. ${String(snap.title || 'Item').slice(0, 60)}${qty}`
-        + `${snap.inventory_number ? ' #' + String(snap.inventory_number).slice(0, 20) : ''}. Sale ${m(paidOrder.item_price_cents)}, fee ${m(paidOrder.platform_fee_cents)},`
+        + `${snap.inventory_number ? ' #' + String(snap.inventory_number).slice(0, 20) : ''}. Sale ${m(paidOrder.item_price_cents)}, commission ${m(paidOrder.platform_fee_cents)}`
+        + ` (${(Number(paidOrder.platform_fee_bps) || 0) / 100}%${paidOrder.sales_channel === 'seller_website' ? ' website' : paidOrder.sales_channel === 'marketplace' ? ' marketplace' : ''}),`
         + ` est. seller proceeds ${m(paidOrder.seller_proceeds_cents)}. ${(process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '')}/admin/marketplace-orders.html`;
       await oa.sendOwnerAlertOnce({ alertType: oa.ALERT_TYPES.STOREFRONT_SALE_PAID, entityType: 'marketplace_order', entityId: paidOrder.id, message });
     } catch (e) { console.error('[marketplace] owner sale text failed', paidOrder.id, e.message); }
@@ -1095,6 +1117,8 @@ function publicOrder(o) {
     payout_eligible: o.payout_eligible, ship_to: o.ship_to || null,
     tax_remitter: o.tax_remitter || null,
     buyer_terms_version: o.buyer_terms_version_int == null ? null : Number(o.buyer_terms_version_int),   // who remits the sales tax: platform, seller or none (migration 214)
+    // The sales channel that set this order's commission (migration 215): seller_website (5%) or marketplace (9%).
+    sales_channel: o.sales_channel || null,
     created_at: o.created_at, paid_at: o.paid_at,
   };
 }
@@ -1104,6 +1128,7 @@ function buyerOrder(o) {
   const p = publicOrder(o);
   if (!p) return null;
   delete p.platform_fee_bps; delete p.platform_fee_cents; delete p.seller_proceeds_cents; delete p.payout_eligible;
+  delete p.sales_channel;
   return p;
 }
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1251,12 +1276,15 @@ async function listForAdmin({ status, limit } = {}) {
   return rows.map((r) => ({ ...publicOrder(r), item_title: r.item_title, seller_name: r.seller_name, buyer_email: r.buyer_email,
     refund_reason: r.refund_reason || null, review_required: !!r.review_required, review_note: r.review_note || null,
     refunded_at: r.refunded_at || null, is_demo: !!r.is_demo,
+    // Commission accounting (admin only): how the channel was decided, and the card processing cost Advantage.Bid paid.
+    sales_channel_basis: r.sales_channel_basis || null, channel_embedding_site: r.channel_embedding_site || null,
+    fee_schedule: r.fee_schedule || null, processing_fee_cents: r.processing_fee_cents == null ? null : Number(r.processing_fee_cents),
     // Admin/staff operations: the item's effective pickup location (full address; admin-only route).
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
 
 module.exports = { taxResponsibility,
-  STOREFRONT_FEE_BPS, STOREFRONT_FEE_ADVANTAGE_BPS, STOREFRONT_FEE_PROCESSING_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
+  STOREFRONT_FEE_WEBSITE_BPS, STOREFRONT_FEE_MARKETPLACE_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
   relistItem, updateFulfillment, releaseOrder, listForBuyer, listForSeller,

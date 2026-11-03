@@ -11,7 +11,7 @@
  *   - the record is not paid, void or on hold; no included order was refunded, disputed or held since it was prepared;
  *   - the admin confirms the amount, which must equal the record; one Stripe transfer, idempotency-keyed by the record;
  *   - transfer webhooks (transfer.created / transfer.reversed) update payout_status (settlementEngine.applyTransferEvent).
- * Amounts per order: the order's seller proceeds (item price + shipping - the flat 11% fee), plus the collected sales tax
+ * Amounts per order: the order's seller proceeds (item price + shipping - the order's storefront commission: 5% website or 9% marketplace, fixed on the order), plus the collected sales tax
  * ONLY when the seller remits it (tax_remitter 'seller', migration 214). Tax Advantage.Bid remits is never paid to the seller,
  * and sales tax is never platform revenue or part of the fee base.
  * A partially refunded order is under review (review_required) and is not included until an administrator clears it.
@@ -136,7 +136,7 @@ function view(p) {
 async function lines(payoutId, runner = db) {
   return (await runner.query(
     `SELECT l.marketplace_order_id AS order_id, l.order_number, l.goods_cents, l.platform_fee_cents, l.amount_cents, l.active,
-            l.tax_to_seller_cents, o.tax_cents, o.tax_remitter, o.tax_jurisdiction,
+            l.tax_to_seller_cents, o.tax_cents, o.tax_remitter, o.tax_jurisdiction, o.sales_channel, o.platform_fee_bps,
             o.quantity, o.item_snapshot->>'title' AS title, o.paid_at, o.fulfillment_status
        FROM storefront_payout_lines l JOIN marketplace_orders o ON o.id = l.marketplace_order_id
       WHERE l.storefront_payout_id = $1 ORDER BY o.paid_at`, [payoutId])).rows;

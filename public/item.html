@@ -58,6 +58,18 @@
   <script>
     // Canonical URL /shop/item/<id>/<slug> (server-rendered); older /item.html?id=<id> links are redirected to it.
     var FROM_WIDGET=false; try{FROM_WIDGET=new URLSearchParams(location.search).get('ref')==='widget';}catch(e){}
+    // Website pass from the seller's embedded storefront (#wp=...): kept in this browser for that seller until it expires,
+    // and removed from the address at once. The server verifies it; it only decides which commission the SELLER pays,
+    // never the buyer's price.
+    (function(){try{var m=/(?:^#|&)wp=([^&]+)/.exec(location.hash||'');if(!m)return;var t=decodeURIComponent(m[1]);
+      var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+      if(p&&p.s&&p.exp>Date.now())localStorage.setItem('adv-wp-'+String(p.s).toLowerCase(),JSON.stringify({t:t,exp:p.exp}));
+      history.replaceState(null,'',location.pathname+location.search);}catch(e){}})();
+    // Every unexpired pass this browser holds (the item page does not know the seller's id; the server uses only the pass
+    // signed for this item's seller). Expired ones are removed.
+    function websitePasses(){var out=[];try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(!k||k.indexOf('adv-wp-')!==0)continue;
+      var v=null;try{v=JSON.parse(localStorage.getItem(k)||'null');}catch(e){}
+      if(v&&v.t&&v.exp>Date.now())out.push(v.t);else localStorage.removeItem(k);}}catch(e){}return out.slice(0,10);}
     var ID=new URLSearchParams(location.search).get('id')||((location.pathname.match(/^\/shop\/item\/([0-9a-f-]{36})/i)||[])[1])||'';
     var token=localStorage.getItem('token')||'';
     var CFG={checkout_enabled:false,stripe_publishable_key:null};
@@ -276,6 +288,7 @@
       var ack=document.getElementById('ackPol'); body.policies_acknowledged=!!(ack&&ack.checked);
       body.expected_policy_versions=ITEM.policy_versions||{store_terms:null,shipping_pickup:null};   // the versions this buyer was shown
       if(method==='shipping')body.ship_to=addr;
+      var wp=websitePasses(); if(wp.length)body.channel_passes=wp;
       return fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
         .then(function(r){return r.json();}).then(function(res){
           if(!res.success){

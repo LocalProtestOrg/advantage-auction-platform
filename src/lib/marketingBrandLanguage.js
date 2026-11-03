@@ -19,9 +19,9 @@ const TEMPLATES = Object.freeze({
   // Professional auction: platform + processing shown SEPARATELY (never "7% commission").
   professional_auction_fees:
     'Advantage.Bid platform/software fee: {{platform_pct}} of the hammer price. Payment processing: {{processing_pct}} of the hammer price. These are shown separately and are not a single combined commission.',
-  // Professional storefront: 11% inclusive of processing (never append another 3%).
+  // Professional storefront: a commission by sales channel, inclusive of processing (never append another 3%).
   storefront_fees:
-    'Professional Storefront seller fee: {{storefront_pct}} of the item price, inclusive of payment processing.',
+    'Professional Storefront commission: {{storefront_website_pct}} of the item price for sales through your own website, {{storefront_marketplace_pct}} through the Advantage.Bid marketplace, inclusive of payment processing.',
 });
 
 // Render a fixed-language template. Missing/blank placeholder → throw (placeholder safety).

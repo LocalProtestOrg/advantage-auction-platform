@@ -72,7 +72,7 @@
           <dt>Advantage.Bid auction platform fee</dt><dd>0%</dd>
           <dt>Payment processing</dt><dd>Actual card-processing cost, passed through at cost with no markup</dd>
           <dt>Buyer's premium</dt><dd>Seller sets and keeps it</dd>
-          <dt>Storefront sales</dt><dd><span id="sf-fee">11%</span> seller fee, unchanged</dd>
+          <dt>Storefront sales</dt><dd>5% (seller's website) or 9% (marketplace) commission, unchanged by the program</dd>
         </dl>
         <p class="econ-note">Applies to qualifying auctions of an <b>active</b> Auction Partner (signed agreement, approved and activated here) during the agreement term.
           Each auction keeps the terms it was published with. The settlement cannot be paid until the actual processing cost is recorded.</p>
@@ -177,7 +177,7 @@
       if(!d.success){ msg('rows-msg',d.message||d.error||'Could not load.'); return; }
       var p=d.pricing||{};
       var pctShort=function(b){ return b==null?'—':(Number(b)/100).toString()+'%'; };
-      if(p['pricing.storefront.seller_fee_bps']!=null) document.getElementById('sf-fee').textContent=pctShort(p['pricing.storefront.seller_fee_bps']);
+
       if(p['pricing.auction.professional.platform_fee_bps']!=null) document.getElementById('std-platform').textContent=pctShort(p['pricing.auction.professional.platform_fee_bps']);
       if(p['pricing.auction.processing_fee_bps']!=null) document.getElementById('std-processing').textContent=pctShort(p['pricing.auction.processing_fee_bps']);
       var rows=d.data||[], tb=document.getElementById('rows'), alerts=[];

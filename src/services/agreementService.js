@@ -307,7 +307,7 @@ function autoSendParty(sp, ident = {}) {
 }
 
 // Storefront agreement (owner decision 2026-11-02): before a seller's storefront items can go live or be bought, the seller
-// must have a SIGNED Seller Agreement (every version includes the storefront terms and the 11% fee) or an explicit
+// must have a SIGNED Seller Agreement (every version includes the storefront terms and fee; versions 1-3 state the old flat 11%, later versions the 5% website / 9% marketplace commission) or an explicit
 // Advantage.Bid waiver. Unlike the dashboard gate, earlier auctions alone do not count. Drafts never need it.
 // Returns { ok, reason, agreement_id } — agreement_id is the pending agreement to sign when there is one.
 async function storefrontAgreementStatus(sellerProfileId, runner = db) {

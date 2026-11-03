@@ -253,12 +253,12 @@ async function getMySellerTerms(_a, ctx) {
       processing_fee: 'the actual card-processing charges on your buyers\' payments for that auction, deducted from your proceeds at cost with no markup',
       buyers_premium: 'you set it per auction and keep it', taxes: 'sales tax is collected and remitted separately and is not part of your proceeds',
       payouts: 'Advantage.Bid processes eligible seller payouts every Thursday',
-      storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
+      storefront_fee: `${require('../storefrontChannelService').FEE_BPS.seller_website / 100}% of the item price on Storefront fixed-price sales through your own website (your embedded storefront), ${require('../storefrontChannelService').FEE_BPS.marketplace / 100}% through the Advantage.Bid marketplace (both include card processing; shipping and tax excluded), separate from your auction fees` };
   }
   return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement; a team member can confirm it',
     processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : processingBps) + ' of the hammer price',
     buyers_premium: 'you set it per auction and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
-    storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
+    storefront_fee: `${require('../storefrontChannelService').FEE_BPS.seller_website / 100}% of the item price on Storefront fixed-price sales through your own website (your embedded storefront), ${require('../storefrontChannelService').FEE_BPS.marketplace / 100}% through the Advantage.Bid marketplace (both include card processing; shipping and tax excluded), separate from your auction fees` };
 }
 
 async function getMyStorefrontOrders(_a, ctx) {

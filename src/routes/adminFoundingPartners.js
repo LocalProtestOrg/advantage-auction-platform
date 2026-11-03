@@ -33,7 +33,7 @@ router.use(auth, requirePermission('listings.view'));
 router.get('/', wrap(async (req, res) => {
   const rows = await fp.list({ includeEnded: req.query.include_ended !== '0' });
   const pricing = (await db.query(
-    `SELECT key, value FROM platform_config WHERE key IN ('pricing.auction.processing_fee_bps','pricing.auction.professional.platform_fee_bps','pricing.storefront.seller_fee_bps')`)).rows
+    `SELECT key, value FROM platform_config WHERE key IN ('pricing.auction.processing_fee_bps','pricing.auction.professional.platform_fee_bps')`)).rows
     .reduce((m, r) => { m[r.key] = r.value; return m; }, {});
   res.json({ success: true, data: rows, pricing, remind_days: fp.REMIND_DAYS });
 }));

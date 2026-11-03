@@ -81,7 +81,7 @@
     <div class="card">
       <h2>Professional Storefront (fixed-price)</h2>
       <div class="row">
-        <div class="lbl">Seller Fee <span class="pill ro">Read-only</span><small>On item price only — shipping &amp; tax excluded; processing included (no extra 3%)</small></div>
+        <div class="lbl">Commission <span class="pill ro">Read-only</span><small>By sales channel, on the item price only; shipping &amp; tax excluded; processing included (no extra 3%)</small></div>
         <div class="val" id="sf-fee">—</div>
       </div>
     </div>
@@ -109,7 +109,7 @@
     document.getElementById('ind-proc').textContent = pct(i.processing_fee_bps);
     document.getElementById('ind-bp').textContent = pct(i.buyer_premium_bps);
     document.getElementById('ind-total').textContent = pct(i.total_seller_deduction_bps);
-    document.getElementById('sf-fee').textContent = pct(d.storefront.seller_fee_bps) + ' (processing included)';
+    document.getElementById('sf-fee').textContent = pct(d.storefront.website_fee_bps) + ' seller website / ' + pct(d.storefront.marketplace_fee_bps) + ' marketplace (processing included)';
     document.getElementById('estate').textContent = money(d.estate_sale.price_cents);
     document.getElementById('appraiser').textContent = money(d.appraiser.price_cents) + ' / year';
   }

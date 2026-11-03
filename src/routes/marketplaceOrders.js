@@ -54,13 +54,15 @@ router.post('/orders/quote', async (req, res, next) => {
 // Create the order + PaymentIntent (reserves the units, migration 212). Idempotency-Key header collapses retries.
 router.post('/orders', async (req, res, next) => {
   try {
-    const { item_id, fulfillment_method, ship_to, address, expected_item_price_cents, expected_shipping_cents, policies_acknowledged, expected_policy_versions, quantity } = req.body || {};
+    const { item_id, fulfillment_method, ship_to, address, expected_item_price_cents, expected_shipping_cents, policies_acknowledged, expected_policy_versions, quantity, channel_passes } = req.body || {};
     if (!item_id) return res.status(400).json({ success: false, message: 'item_id is required.' });
     const idempotencyKey = req.get('Idempotency-Key') || undefined;
     // expected_*: what the buyer saw on the review screen. Used ONLY to refuse a changed price — never to set one.
     const result = await orders.createOrder(item_id, req.user.id, { fulfillment_method, ship_to, address, idempotencyKey,
       expectedItemPriceCents: expected_item_price_cents, expectedShippingCents: expected_shipping_cents,
-      policiesAcknowledged: policies_acknowledged === true, expectedPolicyVersions: expected_policy_versions, quantity });
+      policiesAcknowledged: policies_acknowledged === true, expectedPolicyVersions: expected_policy_versions, quantity,
+      // signed website passes from sellers' embedded storefronts, if any: verified on the server (never trusted as is)
+      channelPasses: Array.isArray(channel_passes) ? channel_passes.filter((p) => typeof p === 'string').slice(0, 10).map((p) => p.slice(0, 2000)) : [] });
     return res.json({ success: true, data: result });
   } catch (e) { fail(res, e, next); }
 });

@@ -11,7 +11,7 @@
  *   start()                         — runs tick() on an interval (in-process).
  *
  * Content (owner rules 2026-10-16): the sold item (title, description excerpt, real https thumbnail when available), the
- * seller's inventory number, sale price, order number, fulfilment method, the 11% platform fee on the item price and the
+ * seller's inventory number, sale price, order number, fulfilment method, the order's storefront commission (5% website or 9% marketplace) on the item price and the
  * estimated proceeds, and a link to the authenticated seller order page. NEVER the buyer's name, email, phone or address,
  * and never payment data. Rendered from the order's own fixed purchase snapshot, so it describes exactly what was sold.
  * Recipient: the company owner's account email (staff recipients and preferences are a later milestone).
@@ -59,7 +59,12 @@ async function enqueueSalePaid(client, orderId) {
   }
 }
 
-// Owner and Admin/Finance notice: who sold what, the sale amount, the flat fee and the ESTIMATED seller proceeds, with the
+// Where the sale came from (migration 215): it set the order's commission. Older orders have no channel.
+const CHANNEL_TEXT = { seller_website: { admin: "Seller's website (embedded storefront)", seller: 'Your website' },
+  marketplace: { admin: 'Advantage.Bid marketplace', seller: 'Advantage.Bid marketplace' } };
+const channelText = (o, who) => (CHANNEL_TEXT[o.sales_channel] || {})[who] || null;
+
+// Owner and Admin/Finance notice: who sold what, the sale amount, the commission and the ESTIMATED seller proceeds, with the
 // signed-in admin link. No buyer contact, card, pickup address or taxpayer details.
 function renderSaleAdmin(o) {
   const snap = o.item_snapshot && typeof o.item_snapshot === 'object' ? o.item_snapshot : {};
@@ -76,14 +81,15 @@ function renderSaleAdmin(o) {
       <p style="margin:0 0 6px"><b>${esc(title)}</b>${esc(qty)}${inv ? ` · inventory #${esc(inv)}` : ''}</p>
       <table style="border-collapse:collapse;margin:8px 0">
         <tr><td style="padding:2px 12px 2px 0">Sale amount (item price)</td><td align="right"><b>${money(o.item_price_cents)}</b></td></tr>
-        <tr><td style="padding:2px 12px 2px 0">Storefront fee (${esc(pct)}%, includes card processing)</td><td align="right">${money(o.platform_fee_cents)}</td></tr>
+        ${channelText(o, 'admin') ? `<tr><td style="padding:2px 12px 2px 0">Sales channel</td><td align="right">${esc(channelText(o, 'admin'))}</td></tr>` : ''}
+        <tr><td style="padding:2px 12px 2px 0">Storefront commission (${esc(pct)}%, includes card processing)</td><td align="right">${money(o.platform_fee_cents)}</td></tr>
         <tr><td style="padding:2px 12px 2px 0">Estimated seller proceeds</td><td align="right">${money(o.seller_proceeds_cents)}</td></tr>
       </table>
       <p style="color:#555;font-size:13px;margin:8px 0">The proceeds are an estimate, not the final deposit: refunds, chargebacks and holds can change it.</p>
       <p><a href="${link}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Open Storefront Orders</a></p>
     </div>`;
   const text = [`Storefront sale paid: ${title}${qty}${inv ? ' (inventory #' + inv + ')' : ''}, order ${o.order_number}, seller ${seller}.`,
-    `Sale ${money(o.item_price_cents)}; fee ${money(o.platform_fee_cents)} (${pct}%); estimated seller proceeds ${money(o.seller_proceeds_cents)} (estimate, not the final deposit).`,
+    `Sale ${money(o.item_price_cents)}; commission ${money(o.platform_fee_cents)} (${pct}%${channelText(o, 'admin') ? ', ' + channelText(o, 'admin') : ''}); estimated seller proceeds ${money(o.seller_proceeds_cents)} (estimate, not the final deposit).`,
     `Admin: ${link}`].join('\n');
   return { subject, html, text };
 }
@@ -111,7 +117,8 @@ function renderSalePaid(o) {
       <table style="border-collapse:collapse;margin:8px 0">
         ${Number(o.quantity) > 1 ? `<tr><td style="padding:2px 12px 2px 0">Quantity</td><td align="right"><b>${Number(o.quantity)} &times; ${money(o.unit_price_cents)}</b></td></tr>` : ''}
         <tr><td style="padding:2px 12px 2px 0">Sale price</td><td align="right"><b>${money(o.item_price_cents)}</b></td></tr>
-        <tr><td style="padding:2px 12px 2px 0">Advantage.Bid fee (${esc(pct)}% of the item price, includes card processing)</td><td align="right">−${money(o.platform_fee_cents)}</td></tr>
+        ${channelText(o, 'seller') ? `<tr><td style="padding:2px 12px 2px 0">Sold through</td><td align="right">${esc(channelText(o, 'seller'))}</td></tr>` : ''}
+        <tr><td style="padding:2px 12px 2px 0">Advantage.Bid commission (${esc(pct)}% of the item price, includes card processing)</td><td align="right">−${money(o.platform_fee_cents)}</td></tr>
         ${o.shipping_cents > 0 ? `<tr><td style="padding:2px 12px 2px 0">Shipping collected</td><td align="right">${money(o.shipping_cents)}</td></tr>` : ''}
         <tr><td style="padding:2px 12px 2px 0">Estimated proceeds</td><td align="right"><b>${money(o.seller_proceeds_cents)}</b></td></tr>
       </table>
@@ -122,7 +129,7 @@ function renderSalePaid(o) {
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
   const text = [`You sold ${Number(o.quantity) > 1 ? Number(o.quantity) + ' x ' : ''}${title}${inv ? ' (inventory #' + inv + ')' : ''} — order ${o.order_number}, payment confirmed.`,
-    `Sale price ${money(o.item_price_cents)}; Advantage.Bid fee ${money(o.platform_fee_cents)} (${pct}% of the item price); estimated proceeds ${money(o.seller_proceeds_cents)} (not your final deposit; confirmed in your settlement statement).`,
+    `Sale price ${money(o.item_price_cents)}; Advantage.Bid commission ${money(o.platform_fee_cents)} (${pct}% of the item price${channelText(o, 'seller') ? ', sold through ' + channelText(o, 'seller').replace(/^Your/, 'your') : ''}); estimated proceeds ${money(o.seller_proceeds_cents)} (not your final deposit; confirmed in your settlement statement).`,
     `Fulfillment: ${method}. ${action}`, `Manage: ${link}`].join('\n');
   return { subject, html, text };
 }
@@ -196,7 +203,7 @@ async function deliverOne(row, deps) {
   if (row.event === 'message_to_seller' || row.event === 'message_to_buyer') return deliverMessageNotice(row, deps);
   const o = (await db.query(
     `SELECT o.id, o.seller_id, o.order_number, o.item_snapshot, o.seller_snapshot, o.item_price_cents, o.shipping_cents, o.platform_fee_bps,
-            o.platform_fee_cents, o.seller_proceeds_cents, o.fulfillment_method, o.payment_status, o.quantity, o.unit_price_cents
+            o.platform_fee_cents, o.seller_proceeds_cents, o.fulfillment_method, o.payment_status, o.quantity, o.unit_price_cents, o.sales_channel
        FROM marketplace_orders o WHERE o.id = $1 AND o.seller_id = $2`, [row.order_id, row.seller_id])).rows[0];
   // Only a still-paid order is announced (a sale refunded before delivery is not "You sold an item").
   if (!o || o.payment_status !== 'paid') {
