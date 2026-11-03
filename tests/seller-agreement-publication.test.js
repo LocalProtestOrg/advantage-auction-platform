@@ -94,7 +94,9 @@ describe('nothing else changed', () => {
     expect(body).toMatch(/responsible for a payment processing fee of 3%/);
     expect(body).toMatch(/Advantage\.Bid platform\/software fee of 4% of the hammer price/);
     expect(body).toMatch(/credit-card\/payment-processing fee of 3% of the hammer price/);
-    expect(body).toMatch(/flat seller fee of \*\*11% of the item selling price\*\*/);
+    expect(body).toMatch(/\*\*5% of the item selling price\*\* for a sale that originates on the Seller's own website/);
+    expect(body).toMatch(/\*\*9% of the item selling price\*\* for every other sale/);
+    expect(body).not.toMatch(/11% of the item selling price/);
     expect(body).toMatch(/Advantage processes seller payouts on a weekly cycle, every \*\*Thursday\*\*/);
     expect(body).toMatch(/7\.4 Taxes are calculated after auction close in accordance with applicable law\./);
     expect(body).toMatch(/governed by the laws of the State of Michigan/);

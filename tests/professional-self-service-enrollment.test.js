@@ -100,8 +100,10 @@ describe('POST /api/sellers/apply-professional — safety properties', () => {
 // ── Public landing page copy + safety ───────────────────────────────────────────
 describe('professional-sellers.html landing', () => {
   const page = read('public', 'professional-sellers.html');
-  test('states the certified flat 11% Storefront fee, NOT 8% + 3%', () => {
-    expect(page).toMatch(/Flat 11%/);
+  test('states the Storefront commission (5% website / 9% marketplace, processing included), NOT 8% + 3%', () => {
+    expect(page).toMatch(/5% or 9%/);
+    expect(page).toMatch(/<b>5%<\/b> when the sale comes through your own website/);
+    expect(page).not.toMatch(/11%/);
     expect(page).not.toMatch(/8%\s*\+\s*3%/);
   });
   test('does not perpetuate the legacy auction-fee conflicts', () => {

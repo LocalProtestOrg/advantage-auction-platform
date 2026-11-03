@@ -20,11 +20,31 @@ owner authorizes activation. Nothing here moves money except an administrator's 
 | Sales tax responsibility | Admin > Storefront Tax Rules, one rule per state (remitter + the advice relied on); a taxed order in a state without a rule is refused | with Stripe Tax |
 | Refund after payout | recorded once, deducted from the seller's next payout, released if that payout is voided | with payouts |
 | Buyer Terms version per order | `marketplace_orders.buyer_terms_version_int` | with checkout |
+| Commission by sales channel | 5% website sale / 9% marketplace sale on the item price (migration 215, `storefrontChannelService`); fixed on each order with how it was decided; actual card fee recorded per order | with checkout |
+
+## Sales channel: how an order's commission is decided (owner decision 2026-11-03)
+- **Website sale (5%)**: the browser loaded `/embed/storefront.html` as a frame on a site that is not Advantage.Bid
+  (`Sec-Fetch-Dest: iframe`, `Sec-Fetch-Site: cross-site`, set by the browser, not by page scripts). Only then the
+  server signs a website pass into the page; Buy Now passes it to the item page in the `#fragment`; the order verifies it
+  (signature, 24-hour expiry, same seller) and binds it to the first buyer.
+- **Marketplace sale (9%)**: everything else, including direct or shared links, search engines, the `/pro/<slug>`
+  storefront link, Advantage.Bid pages, a widget shown on advantage.bid/www.advantage.bid, a copied pass used by another
+  buyer, an expired, altered or other seller's pass. `?ref=widget` only changes the "Return to the seller" button.
+- Returning shopper: the same browser within 24 hours of the website visit keeps the website rate for that seller.
+  Checkout recovery ("Try again", another card): the same order, same rate.
+- Review: Admin > Storefront Orders shows the channel, the rate, the website host and the actual processing cost;
+  `marketplace_orders.sales_channel_basis` records why (`website_pass`, `no_pass`, `pass_expired`, `pass_invalid`,
+  `pass_other_seller`, `pass_other_buyer`); a pass that fails its signature is also written to the audit log.
+- Browsers without Fetch Metadata (very old Safari) never get a pass: those sales count as marketplace sales.
+- Economics and refund consequences: `docs/operations/storefront-commission-economics.md`.
 
 ## Deploy (owner approval)
 1. Neon backup branch (console), counts recorded.
-2. `railway run node scripts/prod-migrate-211-214.js --check`, then `--dry-run`, then apply (one transaction; rolls back on any failure).
+2. `railway run node scripts/prod-migrate-211-215.js --check`, then `--dry-run`, then apply (one transaction; rolls back on any failure).
 3. Push `main`; verify health, the storefront, the widget (in-frame item view) and the admin Storefront Payouts page (read-only).
+4. Seller Agreement with the 5% / 9% commission (owner approval of the text first): `railway run node
+   scripts/prod-publish-seller-agreement-version.js` (dry run), then `--apply --reason="Storefront commission 5% / 9%"`.
+   This adds version 4 for FUTURE agreements only; versions 1-3 and every signed agreement stay exactly as they are.
 Rollback: redeploy the previous deployment; the migrations are additive except the 212 index swap (reverse statements in each header).
 
 ## Before enabling live purchasing (Release 2 gates)

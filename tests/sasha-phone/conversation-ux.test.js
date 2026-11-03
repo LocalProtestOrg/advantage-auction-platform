@@ -828,7 +828,7 @@ describe('round 6: refer instead of guessing; verified facts stated exactly', ()
   test('seller-menu calls preload the storefront rules (the flat storefront fee is a stated fact, not a referral)', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'src', 'services', 'sasha', 'phone', 'callSession.js'), 'utf8');
     expect(src).toMatch(/seller: \['selling', 'seller_benefits', 'seller_fees', 'payouts', 'storefront', 'programs', 'contact'\]/);
-    expect(platformFacts.getFacts('storefront').storefront.facts.join('\n')).toMatch(/flat 11% seller fee on the item selling price only/);
+    expect(platformFacts.getFacts('storefront').storefront.facts.join('\n')).toMatch(/commission on the item selling price only: 5% when the sale comes through the seller's own website.*and 9% when it comes through the Advantage\.Bid marketplace/);
   });
 });
 
@@ -946,7 +946,7 @@ describe('multi-turn reliability on the live socket', () => {
       expect(await waitFor(() => answered(s.got, /^Two\./), 3000)).toBe(true);
       expect(spy.mock.calls.filter((c) => c[0] === 'all').length).toBe(1);   // not reloaded per turn
       const sys = m.calls[0].system.map((b) => b.text).join('\n');
-      expect(sys).toMatch(/\[storefront\] .*flat 11% seller fee/);
+      expect(sys).toMatch(/\[storefront\] .*5% when the sale comes through the seller's own website/);
     } finally { spy.mockRestore(); await s.close(); }
   });
 });

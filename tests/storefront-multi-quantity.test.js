@@ -126,7 +126,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -182,7 +182,7 @@ const events = (id) => q('SELECT reason, delta, sold_delta, available_after, ord
 const orderRow = (id) => one('SELECT * FROM marketplace_orders WHERE id = $1', [id]);
 
 describe('reserving units', () => {
-  test('an order reserves its units at once; the totals are unit price x quantity; the 11% fee is on the goods only', async () => {
+  test('an order reserves its units at once; the totals are unit price x quantity; the commission (9% marketplace) is on the goods only', async () => {
     const it = await listQ(5, 2000);
     const quote = await call('bea', 'POST', '/api/marketplace/orders/quote', { item_id: it.id, quantity: 3 });
     expect(quote.status).toBe(200);
@@ -191,7 +191,7 @@ describe('reserving units', () => {
     const r = await buy(it.id, 'bea', 3);
     expect(r.status).toBe(200);
     const o = await orderRow(r.body.data.order.id);
-    expect(o).toMatchObject({ quantity: 3, unit_price_cents: 2000, item_price_cents: 6000, platform_fee_cents: 660, seller_proceeds_cents: 5340, payment_status: 'pending' });
+    expect(o).toMatchObject({ quantity: 3, unit_price_cents: 2000, item_price_cents: 6000, platform_fee_cents: 540, seller_proceeds_cents: 5460, payment_status: 'pending' });
     expect(o.hold_expires_at).toBeTruthy();
     expect(o.item_snapshot.quantity).toBe(3);
     expect(await stock(it.id)).toMatchObject({ status: 'active', quantity: 2, quantity_sold: 0 });

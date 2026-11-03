@@ -131,7 +131,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -222,10 +222,10 @@ describe('preparing payouts', () => {
     const [p] = await payoutsOf();
     const ls = await q('SELECT marketplace_order_id, goods_cents, platform_fee_cents, amount_cents FROM storefront_payout_lines WHERE storefront_payout_id = $1', [p.id]);
     expect(ls.map((l) => l.marketplace_order_id)).toEqual([good]);
-    expect(ls[0]).toMatchObject({ goods_cents: 10000, platform_fee_cents: 1100, amount_cents: 8900 });
-    expect(p).toMatchObject({ order_count: 1, goods_cents: 10000, platform_fee_cents: 1100, seller_payout_cents: 8900, settlement_status: 'pending_review', payout_status: 'pending' });
+    expect(ls[0]).toMatchObject({ goods_cents: 10000, platform_fee_cents: 900, amount_cents: 9100 });   // marketplace sale: 9%
+    expect(p).toMatchObject({ order_count: 1, goods_cents: 10000, platform_fee_cents: 900, seller_payout_cents: 9100, settlement_status: 'pending_review', payout_status: 'pending' });
     for (const id of [notFulfilled, late, held, disputed]) expect((await one('SELECT storefront_payout_id FROM marketplace_orders WHERE id = $1', [id])).storefront_payout_id).toBeNull();
-  });
+   }, 30000);   // five paid sales: allow for a loaded machine during the full suite
 
   test('preparing again adds new orders to the same record and never includes an order twice', async () => {
     await S().prepareWeek({ cutoff: future });
@@ -236,7 +236,7 @@ describe('preparing payouts', () => {
     const after = await payoutsOf();
     expect(after).toHaveLength(1);
     expect(after[0].order_count).toBe(before.order_count + 1);
-    expect(after[0].seller_payout_cents).toBe(before.seller_payout_cents + 1780);
+    expect(after[0].seller_payout_cents).toBe(before.seller_payout_cents + 1820);
     expect((await one('SELECT count(*)::int n FROM storefront_payout_lines WHERE marketplace_order_id = $1', [extra])).n).toBe(1);
   });
 
@@ -246,7 +246,7 @@ describe('preparing payouts', () => {
     const gus = await S().listForSeller(SP.gus);
     expect(gus).toHaveLength(1);
     expect(gus[0].lines.every((l) => l.title.startsWith('Payout item'))).toBe(true);
-    expect(gus[0].seller_payout_cents).toBe(2670);
+    expect(gus[0].seller_payout_cents).toBe(2730);
     expect(gus[0]).not.toHaveProperty('stripe_transfer_id');
     const sue = await S().listForSeller(SP.sue);
     expect(sue.every((p) => p.seller_profile_id === SP.sue)).toBe(true);
@@ -331,7 +331,7 @@ describe('owner and Admin/Finance notice when a storefront order is paid (roadma
     // the content: amounts from the order, labelled estimate, no buyer contact
     const full = await one('SELECT * FROM marketplace_orders WHERE id = $1', [id]);
     const msg = require('../src/services/storefrontNotificationService').renderSaleAdmin(full);
-    expect(msg.text).toMatch(/Sale \$64\.00; fee \$7\.04 \(11%\); estimated seller proceeds \$56\.96 \(estimate, not the final deposit\)/);
+    expect(msg.text).toMatch(/Sale \$64\.00; commission \$5\.76 \(9%, Advantage\.Bid marketplace\); estimated seller proceeds \$58\.24 \(estimate, not the final deposit\)/);
     expect(msg.html + msg.text).not.toMatch(/bea@|\bBEA\b|ship_to|4242|card number/i);
     // a demo order notifies no administrator
     const demo = await listQ(1, 1000);

@@ -110,10 +110,10 @@ test('structured data is valid JSON and the FAQ markup matches the visible FAQ e
 
 test('copy keeps to approved pricing and the public language rules', () => {
   const text = SRC.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ');
-  expect(text).toMatch(/flat 11% selling fee, which includes credit card processing/i);
+  expect(text).toMatch(/5% when the sale comes through your own website using your Advantage\.Bid embedded storefront, and 9% when it comes through the Advantage\.Bid marketplace\. Both include credit card processing/);
   expect(text).toMatch(/not on shipping or sales tax/);
   // No other percentage, price or subscription amount is advertised.
-  expect((text.match(/\d+(\.\d+)?%/g) || []).every((p) => p === '11%')).toBe(true);
+  expect((text.match(/\d+(\.\d+)?%/g) || []).every((p) => p === '5%' || p === '9%')).toBe(true);
   expect(text).not.toMatch(/\$\s?\d/);
   // No artificial-intelligence wording, no vendor names, no long dashes, no guarantees or nationwide claims.
   expect(text).not.toMatch(/\bA\.?I\.?\b|artificial intelligence|machine learning|OpenAI|GPT|Stripe|Cloudinary|Railway/i);

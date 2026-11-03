@@ -127,7 +127,7 @@ beforeAll(async () => {
   await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('199_seller_staff_accounts.sql'));   // idempotent
@@ -488,12 +488,12 @@ describe('6. the database keeps memberships attributable', () => {
 });
 
 describe('7. staff do not change pricing', () => {
-  test('a staff-created item is sold with the storefront pricing: no buyer\'s premium, 11% seller fee', async () => {
+  test('a staff-created item is sold with the storefront pricing: no buyer\'s premium, the storefront commission (9% marketplace sale)', async () => {
     const r = await call('ivy', 'POST', '/api/seller-storefront/items', { title: 'Mirror', price_cents: 20000 });
     const o = await beaBuys(r.body.data);
     expect(o.seller_id).toBe(SP.nora);
     expect(o.total_charge_cents).toBe(20000 + (o.shipping_cents || 0) + (o.tax_cents || 0));
-    expect(o.platform_fee_bps).toBe(1100);
+    expect(o.platform_fee_bps).toBe(900);
   });
 });
 

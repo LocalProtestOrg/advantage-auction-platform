@@ -132,7 +132,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -390,7 +390,9 @@ describe('embedding: the frame is embeddable and noindex; the rest of the site i
     // (same address with ?item=); the item view links the canonical Advantage.Bid page.
     expect(js).toMatch(/href="'\+esc\(urlFor\(it\.id\)\)\+'"/);
     expect(js).toMatch(/var canonical=safeUrl\(it\.url\);/);
-    expect(js).toMatch(/href="'\+esc\(canonical\)\+'" target="_blank" rel="noopener">View this item on Advantage\.Bid/);
+    // the canonical page, carrying the website pass (if the server issued one) in the #fragment (storefrontChannelService)
+    expect(js).toMatch(/href="'\+esc\(withPass\(canonical\)\)\+'" target="_blank" rel="noopener">View this item on Advantage\.Bid/);
+    expect(js).toMatch(/function withPass\(u\)\{return PASS\?u\+'#wp='\+encodeURIComponent\(PASS\):u;\}/);
     expect(js).toMatch(/src="'\+esc\(it\.image\)\+'"/);
   });
 

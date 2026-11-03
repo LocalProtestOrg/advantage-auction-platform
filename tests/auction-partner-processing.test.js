@@ -250,10 +250,10 @@ describe('everything else is unchanged', () => {
     expect([s.platform_fee_cents, s.processing_fee_cents, s.seller_payout_cents]).toEqual([0, 300, 9700]);
   });
 
-  test('H. Storefront stays a flat 11% (Auction Partner terms never reach it)', () => {
-    expect(marketplaceOrders.STOREFRONT_FEE_BPS).toBe(1100);
-    expect(marketplaceOrders.feeBpsForSeller({ platform_fee_bps: 0 })).toBe(1100);
-    expect(marketplaceOrders.computeBreakdown({ itemPriceCents: 10000, shippingCents: 0, taxCents: 0, feeBps: 1100 }).platform_fee_cents).toBe(1100);
+  test('H. Storefront keeps its own commission (5% website / 9% marketplace; Auction Partner terms never reach it)', () => {
+    expect([marketplaceOrders.STOREFRONT_FEE_WEBSITE_BPS, marketplaceOrders.STOREFRONT_FEE_MARKETPLACE_BPS]).toEqual([500, 900]);
+    expect(marketplaceOrders.feeBpsForSeller({ platform_fee_bps: 0 })).toBe(900);
+    expect(marketplaceOrders.computeBreakdown({ itemPriceCents: 10000, shippingCents: 0, taxCents: 0, feeBps: 900 }).platform_fee_cents).toBe(900);
     const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'marketplaceOrderService.js'), 'utf8');
     expect(src).not.toMatch(/processing_fee_basis|actualProcessing/);
   });

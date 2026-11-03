@@ -116,7 +116,7 @@ beforeAll(async () => {
   await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -218,7 +218,7 @@ describe('2. orders: tied to the purchased item and its verified seller, with a 
     expect(o.item_price_cents).toBe(10000);
     expect(o.shipping_cents).toBe(1500);
     expect(o.total_charge_cents).toBe(11500);
-    expect(o.platform_fee_bps).toBe(1100);
+    expect(o.platform_fee_bps).toBe(900);   // the marketplace commission: a fee in the request body changes nothing
     expect(mockStripe.intents.get(o.stripe_payment_intent_id).amount).toBe(11500);
     // the snapshot names the real item and seller
     expect(o.item_snapshot.item_id).toBe(it.id);
@@ -499,7 +499,7 @@ describe('storefront Buy Now never has a buyer\'s premium (separate from auction
     await q('UPDATE auctions SET buyer_premium_bps = $2 WHERE seller_id = $1', [SP.nora, auctionBps]);
     await q('UPDATE seller_profiles SET platform_fee_bps = $2 WHERE id = $1', [SP.nora, platformBps]);
   };
-  test('whatever the seller\'s auction premium, default terms or auction fee, the Buy Now total is item + shipping + tax and the fee is 11% of the item', async () => {
+  test('whatever the seller\'s auction premium, default terms or auction fee, the Buy Now total is item + shipping + tax and the commission is 9% of the item (marketplace sale)', async () => {
     await q(`INSERT INTO auctions (seller_id, title, state, buyer_premium_bps) VALUES ($1, 'Nora auction', 'draft', 1800)`, [SP.nora]);
     const totals = [];
     for (const cfg of [{ pct: null, auctionBps: null, platformBps: null }, { pct: 18, auctionBps: 1800, platformBps: 400 },
@@ -511,7 +511,7 @@ describe('storefront Buy Now never has a buyer\'s premium (separate from auction
       const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
       const o = await one('SELECT * FROM marketplace_orders WHERE id = $1', [c.order.id]);
       expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, tax_cents: 0, total_charge_cents: 11500,
-        platform_fee_bps: 1100, platform_fee_cents: 1100, seller_proceeds_cents: 10400 });
+        platform_fee_bps: 900, platform_fee_cents: 900, seller_proceeds_cents: 10600 });
       expect(mockStripe.intents.get(o.stripe_payment_intent_id).amount).toBe(11500);
       totals.push(o.total_charge_cents);
     }
@@ -522,7 +522,7 @@ describe('storefront Buy Now never has a buyer\'s premium (separate from auction
     const o = await beaBuys(await noraItem());
     await setAuctionPricing({ pct: 60, auctionBps: 6000, platformBps: 0 });
     const after = await one('SELECT item_price_cents, total_charge_cents, platform_fee_cents, seller_proceeds_cents FROM marketplace_orders WHERE id = $1', [o.id]);
-    expect(after).toEqual({ item_price_cents: 10000, total_charge_cents: 10000, platform_fee_cents: 1100, seller_proceeds_cents: 8900 });
+    expect(after).toEqual({ item_price_cents: 10000, total_charge_cents: 10000, platform_fee_cents: 900, seller_proceeds_cents: 9100 });
     const before = mockStripe.refunds.length;
     await orders.refundOrder(o.id, { adminId: U.admin.id, reason: 'Separation regression test' });
     expect(mockStripe.refunds.slice(before)).toEqual([expect.objectContaining({ payment_intent: o.stripe_payment_intent_id, amount: 10000 })]);
@@ -796,15 +796,15 @@ describe('shipping: what the buyer can choose', () => {
     expect(bad.status).toBe(422); expect(bad.body.code).toBe('SHIPPING_DESTINATION_NOT_SERVED');
     expect(await one(`SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1`, [lower48.id])).toEqual({ n: 0 });
   });
-  test('the 11% fee is on the item price only; shipping is charged as set and recorded with the terms on the order', async () => {
+  test('the commission is on the item price only; shipping is charged as set and recorded with the terms on the order', async () => {
     const it = await noraItem({ title: 'Fee base', handling_days: 3, is_fragile: true });
     const o = await (async () => {
       const created = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
       await orders.payOrder(created.order.id, U.bea.id, { paymentMethodId: 'pm_bea' });
       return one('SELECT * FROM marketplace_orders WHERE id = $1', [created.order.id]);
     })();
-    expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, total_charge_cents: 11500, platform_fee_bps: 1100, platform_fee_cents: 1100,
-      seller_proceeds_cents: 10000 - 1100 + 1500, fulfillment_method: 'shipping' });
+    expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, total_charge_cents: 11500, platform_fee_bps: 900, platform_fee_cents: 900,
+      seller_proceeds_cents: 10000 - 900 + 1500, fulfillment_method: 'shipping' });
     expect(o.item_snapshot.shipping_terms).toEqual({ selected: 'shipping', shipping_cents: 1500,
       offered: { method: 'parcel', price_mode: 'flat', shipping_cents: 1500, destinations: 'us_all', states: [], handling_days: 3, quantity_rule: null },
       oversized: false, fragile: true, notes: null, units: 1 });
@@ -1155,7 +1155,7 @@ describe('milestone N: reliable paid-sale notifications', () => {
     const sent = mail.sendEmail.mock.calls.map((x) => x[0]).filter((m) => m.to === 'nora@test.example' && /Notice desk/.test(m.subject));
     expect(sent).toHaveLength(1);
     const body = sent[0].subject + sent[0].html + sent[0].text;
-    for (const s of ['ND-7', o.order_number, '$100.00', '11% of the item price', '$11.00', 'Estimated proceeds', '/seller-orders.html']) expect(body).toContain(s);
+    for (const s of ['ND-7', o.order_number, '$100.00', '9% of the item price', '$9.00', 'Advantage.Bid marketplace', 'Estimated proceeds', '/seller-orders.html']) expect(body).toContain(s);
     for (const bad of [/bea@test/, /BEA/, /5 Buyer Rd/]) expect(body).not.toMatch(bad);
     expect(await one('SELECT status, attempts FROM storefront_notifications WHERE order_id = $1', [o.id])).toEqual({ status: 'sent', attempts: 1 });
     await notify.tick();

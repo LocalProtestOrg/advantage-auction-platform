@@ -213,11 +213,12 @@ describe('publish snapshot uses the agreement-aware resolver + preserves history
   });
 });
 
-// ── 8. Storefront (11%) + Individual economics unchanged ─────────────────────────────
-describe('regression: Storefront 11% and Individual economics untouched', () => {
-  test('storefront service still flat 1100 bps; no auction platform/processing added', () => {
+// ── 8. Storefront (own commission) + Individual economics unchanged ──────────────────
+describe('regression: Storefront commission and Individual economics untouched', () => {
+  test('storefront service uses its own 5% / 9% channel commission; no auction platform/processing added', () => {
     const mo = read('src', 'services', 'marketplaceOrderService.js');
-    expect(mo).toMatch(/STOREFRONT_FEE_BPS = 1100/);
+    expect(mo).toMatch(/STOREFRONT_FEE_MARKETPLACE_BPS = channels\.FEE_BPS\.marketplace/);
+    expect(mo).not.toMatch(/sellerPricingAgreementService/);
   });
   test('this workflow never reads/writes storefront or individual pricing config keys', () => {
     const s = read('src', 'services', 'sellerPricingAgreementService.js');

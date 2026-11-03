@@ -115,7 +115,7 @@ describe('pricingConfigService — separate components; derived total', () => {
   jest.doMock('../src/services/configService', () => ({ get: jest.fn().mockResolvedValue(null), setPlatformConfig: jest.fn() }));
   const svc = require('../src/services/pricingConfigService');
   afterAll(() => jest.dontMock('../src/services/configService'));
-  test('defaults resolve to 4% / 3% / 0% / 18% / 11% / $39 / $19.99', async () => {
+  test('defaults resolve to 4% / 3% / 0% / 18% / 5%+9% storefront / $39 / $19.99', async () => {
     const p = await svc.getPricing();
     expect(p.auction.professional.platform_fee_bps).toBe(400);
     expect(p.auction.professional.processing_fee_bps).toBe(300);
@@ -123,7 +123,7 @@ describe('pricingConfigService — separate components; derived total', () => {
     expect(p.auction.individual.platform_fee_bps).toBe(0);
     expect(p.auction.individual.processing_fee_bps).toBe(300);
     expect(p.auction.individual.buyer_premium_bps).toBe(1800);
-    expect(p.storefront.seller_fee_bps).toBe(1100);
+    expect(p.storefront).toEqual({ website_fee_bps: 500, marketplace_fee_bps: 900, processing_included: true });
     expect(p.estate_sale.price_cents).toBe(3900);
     expect(p.appraiser.price_cents).toBe(1999);
   });
@@ -167,11 +167,12 @@ describe('publish freezes the v2 snapshot exactly once', () => {
   });
 });
 
-// ── Storefront unchanged (11% inclusive, no +3%) ───────────────────────────────────
+// ── Storefront commission (5% website / 9% marketplace, inclusive, no +3%) ─────────
 describe('storefront economics unchanged', () => {
   const mo = read('src', 'services', 'marketplaceOrderService.js');
-  test('still a flat 1100 bps on item price; no auction platform/processing applied', () => {
-    expect(mo).toMatch(/STOREFRONT_FEE_BPS = 1100/);
+  test('5% / 9% on the item price by channel; no auction platform/processing applied', () => {
+    expect(read('src', 'services', 'storefrontChannelService.js')).toMatch(/FEE_BPS = \{ seller_website: 500, marketplace: 900 \}/);
+    expect(mo).toMatch(/STOREFRONT_FEE_WEBSITE_BPS = channels\.FEE_BPS\.seller_website/);
     expect(mo).not.toMatch(/\+ 300\b|processing_fee_bps \* |platform_fee_bps.*processing/);
   });
 });

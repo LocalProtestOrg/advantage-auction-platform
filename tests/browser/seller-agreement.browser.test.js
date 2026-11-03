@@ -72,7 +72,8 @@ describe('the signing link shows a legible, complete agreement (never raw script
     expect(terms).toMatch(/\(v3\)/);
     // Fee information comes from the agreement itself (fixed prose).
     expect(doc.text).toMatch(/platform\/software fee of 4% of the hammer price/);
-    expect(doc.text).toMatch(/11% of the item selling price/);
+    expect(doc.text).toMatch(/5% of the item selling price for a sale that originates on the Seller's own website/);
+    expect(doc.text).toMatch(/9% of the item selling price for every other sale/);
     // The private token is not left in the address bar.
     expect(page.url()).not.toMatch(/token=/);
     // Signed in as the agreement's seller: the signing form is offered once the document is confirmed.

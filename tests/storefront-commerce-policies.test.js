@@ -133,7 +133,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -291,20 +291,20 @@ describe('sales tax responsibility (decided per jurisdiction, never assumed)', (
     global.__TAX = { cents: 825 };
     const id = await paidAndPickedUp(10000);
     expect(await one('SELECT tax_cents, tax_remitter, tax_jurisdiction, seller_proceeds_cents FROM marketplace_orders WHERE id = $1', [id]))
-      .toEqual({ tax_cents: 825, tax_remitter: 'seller', tax_jurisdiction: 'TX', seller_proceeds_cents: 8900 });
+      .toEqual({ tax_cents: 825, tax_remitter: 'seller', tax_jurisdiction: 'TX', seller_proceeds_cents: 9100 });   // marketplace sale: 9%
     global.__TAX = null;
     await S().prepareWeek({ cutoff: future });
     const line = await one('SELECT amount_cents, tax_to_seller_cents FROM storefront_payout_lines WHERE marketplace_order_id = $1', [id]);
-    expect(line).toEqual({ amount_cents: 8900 + 825, tax_to_seller_cents: 825 });
+    expect(line).toEqual({ amount_cents: 9100 + 825, tax_to_seller_cents: 825 });
   });
   test('Advantage.Bid remits: the tax is never paid to the seller and never counted as fee', async () => {
     await q(`UPDATE marketplace_tax_jurisdictions SET remitter = 'platform' WHERE state = 'TX'`);
     global.__TAX = { cents: 825 };
     const id = await paidAndPickedUp(10000);
     global.__TAX = null;
-    expect((await one('SELECT tax_remitter, platform_fee_cents FROM marketplace_orders WHERE id = $1', [id]))).toEqual({ tax_remitter: 'platform', platform_fee_cents: 1100 });
+    expect((await one('SELECT tax_remitter, platform_fee_cents FROM marketplace_orders WHERE id = $1', [id]))).toEqual({ tax_remitter: 'platform', platform_fee_cents: 900 });
     await S().prepareWeek({ cutoff: future });
-    expect(await one('SELECT amount_cents, tax_to_seller_cents FROM storefront_payout_lines WHERE marketplace_order_id = $1', [id])).toEqual({ amount_cents: 8900, tax_to_seller_cents: 0 });
+    expect(await one('SELECT amount_cents, tax_to_seller_cents FROM storefront_payout_lines WHERE marketplace_order_id = $1', [id])).toEqual({ amount_cents: 9100, tax_to_seller_cents: 0 });
   });
   test('no tax collected: recorded as none', async () => {
     const id = await paidAndPickedUp(3000);
@@ -322,15 +322,15 @@ describe('a refund after the seller was paid is recovered from the next payout',
     // the buyer is refunded after the seller was paid
     await orders.refundOrder(first, { adminId: U.admin.id, reason: 'Returned after payout' });
     const rec = await one('SELECT amount_cents, applied_payout_id FROM storefront_payout_recoveries WHERE marketplace_order_id = $1', [first]);
-    expect(rec).toEqual({ amount_cents: 8900, applied_payout_id: null });
+    expect(rec).toEqual({ amount_cents: 9100, applied_payout_id: null });
     await orders.refundOrder(first, { adminId: U.admin.id, reason: 'Repeat click' });   // idempotent
     expect((await one('SELECT count(*)::int n FROM storefront_payout_recoveries WHERE marketplace_order_id = $1', [first])).n).toBe(1);
-    // next week: a new sale of 200 -> payout 17800 - 8900 recovered
+    // next week: a new sale of 200 -> payout 18200 - 9100 recovered
     const second = await paidAndPickedUp(20000);
     await S().prepareWeek({ cutoff: new Date(Date.now() + 2 * 864e5) });
     const p2 = await one(`SELECT p.* FROM storefront_payouts p JOIN storefront_payout_lines l ON l.storefront_payout_id = p.id WHERE l.marketplace_order_id = $1`, [second]);
-    expect(p2).toMatchObject({ recovery_cents: 8900 });
-    expect(p2.seller_payout_cents).toBe(Number((await one(`SELECT sum(amount_cents)::int a FROM storefront_payout_lines WHERE storefront_payout_id = $1 AND active`, [p2.id])).a) - 8900);
+    expect(p2).toMatchObject({ recovery_cents: 9100 });
+    expect(p2.seller_payout_cents).toBe(Number((await one(`SELECT sum(amount_cents)::int a FROM storefront_payout_lines WHERE storefront_payout_id = $1 AND active`, [p2.id])).a) - 9100);
     await S().voidPayout(p2.id, U.admin.id, { reason: 'Recheck the recovery' });
     expect((await one('SELECT applied_payout_id FROM storefront_payout_recoveries WHERE marketplace_order_id = $1', [first])).applied_payout_id).toBeNull();
   });

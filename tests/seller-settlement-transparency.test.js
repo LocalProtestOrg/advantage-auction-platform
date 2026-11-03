@@ -83,9 +83,9 @@ describe('marketing package + zero/shortfall payout', () => {
 
 // ── Storefront unaffected (11% only, no extra 3%) ────────────────────────────────
 describe('Storefront economics unaffected by the auction settlement fix', () => {
-  test('marketplace order fee remains 1100 bps with no added processing', () => {
+  test('marketplace order commission is the storefront channel rate with no added processing', () => {
     const mo = read('src', 'services', 'marketplaceOrderService.js');
-    expect(mo).toMatch(/STOREFRONT_FEE_BPS = 1100/);
+    expect(mo).toMatch(/STOREFRONT_FEE_WEBSITE_BPS = channels\.FEE_BPS\.seller_website/);
     expect(mo).not.toMatch(/\+ 300\b/);
   });
 });

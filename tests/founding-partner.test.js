@@ -338,10 +338,10 @@ describe('program guards', () => {
 
 // ── 6. Storefront ─────────────────────────────────────────────────────────────────────────────
 describe('Storefront pricing is untouched', () => {
-  test('Storefront stays a flat 11% whatever the seller\'s auction rate (including a 0% Founding Partner)', () => {
-    expect(marketplaceOrders.STOREFRONT_FEE_BPS).toBe(1100);
-    expect(marketplaceOrders.feeBpsForSeller({ platform_fee_bps: 0 })).toBe(1100);
-    expect(marketplaceOrders.computeBreakdown({ itemPriceCents: 10000, shippingCents: 0, taxCents: 0, feeBps: marketplaceOrders.feeBpsForSeller({ platform_fee_bps: 0 }) }).platform_fee_cents).toBe(1100);
+  test('Storefront keeps its own commission whatever the seller\'s auction rate (including a 0% Founding Partner)', () => {
+    expect([marketplaceOrders.STOREFRONT_FEE_WEBSITE_BPS, marketplaceOrders.STOREFRONT_FEE_MARKETPLACE_BPS]).toEqual([500, 900]);
+    expect(marketplaceOrders.feeBpsForSeller({ platform_fee_bps: 0 })).toBe(900);
+    expect(marketplaceOrders.computeBreakdown({ itemPriceCents: 10000, shippingCents: 0, taxCents: 0, feeBps: marketplaceOrders.feeBpsForSeller({ platform_fee_bps: 0 }) }).platform_fee_cents).toBe(900);
   });
   test('the Founding Partner code never reads or writes Storefront, sitewide or processing configuration', () => {
     const src = read('src/services/acquisition/foundingPartnerService.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');   // code only

@@ -203,6 +203,42 @@ describe('the website widget keeps shoppers on the seller\'s website', () => {
   });
 });
 
+describe('website sales are recognised by the browser, not by the link (5% commission; owner decision 2026-11-03)', () => {
+  const passOf = (frameOrPage) => frameOrPage.evaluate(() => { const m = document.querySelector('meta[name="adv-website-pass"]'); return m ? m.getAttribute('content') : null; });
+  const payload = (pass) => JSON.parse(Buffer.from(pass.split('.')[1], 'base64url').toString('utf8'));
+  test('framed on the seller\'s website: the page carries a signed pass for this seller and the item links hand it on', async () => {
+    const ctx = await browser.newContext(); const page = await ctx.newPage(); await serveFakePhotos(page);
+    await page.goto(siteUrl, { waitUntil: 'networkidle' });
+    const frame = page.frame({ url: /embed\/storefront\.html/ });
+    await frame.waitForSelector('a.sw-card');
+    const pass = await passOf(frame);
+    expect(pass).toMatch(/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    expect(payload(pass)).toMatchObject({ s: shop.sellerProfileId, o: 'localhost' });
+    await frame.click('a.sw-card:has-text("Painted Harbor Scene")');
+    await frame.waitForSelector('#sw-back');
+    const href = await frame.$eval('a:has-text("View this item on Advantage.Bid")', (a) => a.getAttribute('href'));
+    expect(href).toContain('#wp=' + encodeURIComponent(pass));
+    await ctx.close();
+  });
+  test('opened directly (not framed by another site): no pass, so any order is a marketplace sale', async () => {
+    const ctx = await browser.newContext(); const page = await ctx.newPage(); await serveFakePhotos(page);
+    await page.goto(`${stack.baseUrl}/embed/storefront.html?seller=${shop.sellerProfileId}&item=${P.item}`, { waitUntil: 'networkidle' });
+    expect(await passOf(page)).toBeNull();
+    const href = await page.$eval('a:has-text("View this item on Advantage.Bid")', (a) => a.getAttribute('href'));
+    expect(href).not.toContain('#wp=');
+    await ctx.close();
+  });
+  test('the item page keeps the pass for that seller and removes it from the address bar at once', async () => {
+    const ctx = await browser.newContext(); const page = await ctx.newPage(); await serveFakePhotos(page);
+    const fake = 'v1.' + Buffer.from(JSON.stringify({ s: shop.sellerProfileId, o: 'x', iat: Date.now(), exp: Date.now() + 3600e3, n: '0'.repeat(32) })).toString('base64url') + '.sig';
+    await page.goto(stack.baseUrl + '/item.html?id=' + P.item + '#wp=' + encodeURIComponent(fake), { waitUntil: 'networkidle' });
+    expect(page.url()).not.toContain('#wp=');
+    const kept = await page.evaluate((k) => localStorage.getItem(k), 'adv-wp-' + shop.sellerProfileId.toLowerCase());
+    expect(JSON.parse(kept)).toMatchObject({ t: fake });
+    await ctx.close();
+  });
+});
+
 describe('product photo gallery', () => {
   async function checkGallery(page, scope) {
     const main = await scope.$('.advg-main');

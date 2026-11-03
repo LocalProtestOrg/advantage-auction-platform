@@ -484,11 +484,11 @@ test('createOrder by the same buyer while their hold is live returns the SAME or
 });
 
 // ── 9. Fee base ─────────────────────────────────────────────────────────────────────────────────────
-test('11% storefront fee is on the ITEM PRICE only — shipping and sales tax excluded', () => {
+test('the storefront commission is on the ITEM PRICE only — shipping and sales tax excluded', () => {
   const b = svc.computeBreakdown({ itemPriceCents: 20000, shippingCents: 2500, taxCents: 1856, feeBps: svc.feeBpsForSeller({ platform_fee_bps: 400 }) });
-  expect(b.platform_fee_cents).toBe(2200);                    // 11% of $200, not of $243.56
-  expect(b.seller_proceeds_cents).toBe(20000 + 2500 - 2200);  // item + shipping − fee (tax never proceeds)
+  expect(b.platform_fee_cents).toBe(1800);                    // 9% (marketplace) of $200, not of $243.56
+  expect(b.seller_proceeds_cents).toBe(20000 + 2500 - 1800);  // item + shipping − fee (tax never proceeds)
   expect(b.total_charge_cents).toBe(20000 + 2500 + 1856);
-  const noShipNoTax = svc.computeBreakdown({ itemPriceCents: 20000, shippingCents: 0, taxCents: 0, feeBps: 1100 });
+  const noShipNoTax = svc.computeBreakdown({ itemPriceCents: 20000, shippingCents: 0, taxCents: 0, feeBps: 900 });
   expect(noShipNoTax.platform_fee_cents).toBe(b.platform_fee_cents);
 });

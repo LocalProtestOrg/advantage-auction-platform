@@ -44,9 +44,9 @@ describe('Tier-3 fixed language + placeholder safety', () => {
     expect(t).toMatch(/not a single combined commission/i);
     expect(() => brand.assertNoBannedFeeClaim('A 7% Advantage.Bid commission applies')).toThrow();
   });
-  test('individual = 0% + 3% + 18%; storefront = 11% inclusive', () => {
+  test('individual = 0% + 3% + 18%; storefront = 5% website / 9% marketplace, inclusive', () => {
     expect(brand.render('individual_auction_fees', { processing_pct: '3%', buyer_premium_pct: '18%' })).toMatch(/no platform or seller fee \(0%\)/);
-    expect(brand.render('storefront_fees', { storefront_pct: '11%' })).toMatch(/11%.*inclusive/i);
+    expect(brand.render('storefront_fees', { storefront_website_pct: '5%', storefront_marketplace_pct: '9%' })).toMatch(/5%.*own website.*9%.*marketplace.*inclusive/i);
   });
 });
 
