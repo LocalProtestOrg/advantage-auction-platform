@@ -26,8 +26,12 @@ const { marketplaceCheckoutEnabled, storefrontMessagingEnabled } = require('../l
 // PUBLIC (no login): the buyer UI reads this to decide whether to show Buy Now to every visitor, including
 // logged-out ones. It exposes only the checkout flag and the publishable (browser-safe) key. Registered BEFORE
 // the auth middleware; every other route below keeps its auth unchanged.
-router.get('/config', (req, res) => res.json({ success: true, data: {
-  checkout_enabled: marketplaceCheckoutEnabled(),
+// During the controlled checkout pilot only a listed, signed-in pilot buyer is told checkout is on (the token is read
+// if present; everyone else, including signed-out visitors and the website widget, gets the general switch: off).
+// The optional sign-in is loaded when first used; if it cannot run, the visitor is treated as signed out (checkout not shown).
+const optionalSignIn = (req, res, next) => { let mw; try { mw = require('../middleware/optionalAuthMiddleware'); } catch (e) { return next(); } return mw(req, res, next); };
+router.get('/config', optionalSignIn, (req, res) => res.json({ success: true, data: {
+  checkout_enabled: require('../lib/launchGuards').marketplaceCheckoutShownTo(req.user && req.user.id),
   messaging_enabled: storefrontMessagingEnabled(),
   stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
 } }));

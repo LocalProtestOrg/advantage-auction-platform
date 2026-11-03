@@ -36,7 +36,16 @@ const taxService = require('./taxCalculationService');
 // Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
 const { isProfessional } = require('./sellerTypeRules');
-const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
+const { marketplaceCheckoutEnabled, marketplaceCheckoutPilot } = require('../lib/launchGuards');
+// The general switch, or the controlled pilot (launchGuards; only listed sellers and signed-in listed buyers).
+const marketplaceCheckoutActive = () => marketplaceCheckoutEnabled() || marketplaceCheckoutPilot().active;
+function marketplaceCheckoutAllowed({ sellerId, userId }) {
+  if (marketplaceCheckoutEnabled()) return true;
+  const p = marketplaceCheckoutPilot();
+  return p.active && !!sellerId && !!userId && p.sellers.includes(String(sellerId).toLowerCase()) && p.users.includes(String(userId).toLowerCase());
+}
+// Checkout off (or this buyer/seller not in the controlled pilot): the same answer everywhere, so nothing is revealed.
+const checkoutOff = () => err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
 const saleLocation = require('../lib/saleLocation');
 const channels = require('./storefrontChannelService');
 
@@ -228,7 +237,11 @@ async function recordEvent(runner, orderId, eventType, { actorUserId = null, act
 // Gated behind the checkout flag: it calls the tax calculation service, which must not be reachable while
 // checkout is off.
 async function quote(itemId, buyerUserId, opts = {}) {
-  if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
+  if (!marketplaceCheckoutActive()) throw checkoutOff();
+  if (!marketplaceCheckoutEnabled()) {   // controlled pilot: only listed sellers and buyers
+    const s = (await db.query('SELECT seller_id FROM marketplace_items WHERE id = $1', [itemId]).catch(() => ({ rows: [] }))).rows[0];
+    if (!s || !marketplaceCheckoutAllowed({ sellerId: s.seller_id, userId: buyerUserId })) throw checkoutOff();
+  }
   const qShip = opts.fulfillment_method === 'shipping' ? normalizeAddress(parseJson(opts.ship_to || opts.address)) : null;
   const units = unitsOf(opts.quantity);
   const { item, method, shippingCents, feeBps } = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db,
@@ -290,7 +303,11 @@ function sameShipTo(a, b) {
 //      so only the server (after inspecting the card) can confirm it — the browser cannot charge an unchecked card.
 // tx2: attach intent id + tax calc id + final tax/total. On failure: release item, fail order.
 async function createOrder(itemId, buyerUserId, opts = {}) {
-  if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
+  if (!marketplaceCheckoutActive()) throw checkoutOff();
+  if (!marketplaceCheckoutEnabled()) {   // controlled pilot: only listed sellers and buyers
+    const s = (await db.query('SELECT seller_id FROM marketplace_items WHERE id = $1', [itemId]).catch(() => ({ rows: [] }))).rows[0];
+    if (!s || !marketplaceCheckoutAllowed({ sellerId: s.seller_id, userId: buyerUserId })) throw checkoutOff();
+  }
   // The buyer must confirm they had access to the seller's Store Terms and Shipping & Pickup Policy and the Advantage.Bid
   // Buyer Terms (migration 203). The exact versions are recorded on the order below and can never change.
   if (opts.policiesAcknowledged !== true) {
@@ -559,7 +576,7 @@ async function releaseExpiredHold(row) {
 // Self-gated: does nothing unless checkout is enabled and a payment key is configured. Idempotent.
 async function sweepExpiredHolds({ limit = 50 } = {}) {
   const summary = { enabled: false, scanned: 0, released: 0, reconciled_paid: 0, skipped: 0, errors: 0 };
-  if (!marketplaceCheckoutEnabled() || !process.env.STRIPE_SECRET_KEY) return summary;
+  if (!marketplaceCheckoutActive() || !process.env.STRIPE_SECRET_KEY) return summary;
   summary.enabled = true;
   // Expired holds are orders (migration 212): pending, units still reserved, hold time passed. A legacy item-level hold
   // without any order is included too.
@@ -606,10 +623,11 @@ function declineError(e) {
 // Step 2 (no payment_method_id): after the browser completed card authentication (3-D Secure), finalize by
 // confirming again server-side. Returns { status, client_secret?, order }.
 async function payOrder(orderId, buyerUserId, { paymentMethodId, idempotencyKey } = {}) {
-  if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
+  if (!marketplaceCheckoutActive()) throw checkoutOff();
   const { isPrepaid, PREPAID_MESSAGE } = require('./cardService');
   if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
+  if (o && !marketplaceCheckoutAllowed({ sellerId: o.seller_id, userId: buyerUserId })) throw checkoutOff();
   if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   if (o.payment_status === 'paid') return { status: 'succeeded', order: buyerOrder(o) };
   if (o.payment_status !== 'pending' || !o.stripe_payment_intent_id) {
@@ -1199,6 +1217,7 @@ async function listForSeller(sellerActorRef) {
 async function getForBuyer(orderId, buyerUserId) {
   if (!isUuid(orderId)) return null;
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
+  if (o && !marketplaceCheckoutAllowed({ sellerId: o.seller_id, userId: buyerUserId })) throw checkoutOff();
   return o ? buyerOrder(o) : null;
 }
 async function getForSeller(orderId, sellerActorRef) {

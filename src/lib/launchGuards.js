@@ -40,6 +40,32 @@ function stripeConnectEnabled(env = process.env) {
 function marketplaceCheckoutEnabled(env = process.env) {
   return !!(env && env.MARKETPLACE_CHECKOUT_ENABLED === 'true');
 }
+// Controlled checkout pilot (Release 2 preparation, 2026-11-03): while MARKETPLACE_CHECKOUT_ENABLED is off, storefront
+// checkout works ONLY when BOTH the seller company is listed in MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS and the signed-in
+// buyer is listed in MARKETPLACE_CHECKOUT_PILOT_USER_IDS (comma-separated ids). Everyone else, including every visitor who
+// is not signed in, sees checkout as off. Both unset (the default) = no pilot. Used for the owner-authorized controlled
+// live purchase and refund before launch; setting the lists is an owner action.
+const checkoutIdList = (v) => String(v || '').split(/[\s,]+/).map((s) => s.trim().toLowerCase())
+  .filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s));
+function marketplaceCheckoutPilot(env = process.env) {
+  const sellers = checkoutIdList(env && env.MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS);
+  const users = checkoutIdList(env && env.MARKETPLACE_CHECKOUT_PILOT_USER_IDS);
+  return { sellers, users, active: sellers.length > 0 && users.length > 0 };
+}
+// Checkout may be in use somewhere (general switch on, or a pilot configured): background work (hold sweeper, payouts).
+function marketplaceCheckoutActive(env = process.env) { return marketplaceCheckoutEnabled(env) || marketplaceCheckoutPilot(env).active; }
+// May THIS buyer check out from THIS seller right now?
+function marketplaceCheckoutAllowed({ sellerId, userId } = {}, env = process.env) {
+  if (marketplaceCheckoutEnabled(env)) return true;
+  const p = marketplaceCheckoutPilot(env);
+  return p.active && !!sellerId && !!userId && p.sellers.includes(String(sellerId).toLowerCase()) && p.users.includes(String(userId).toLowerCase());
+}
+// Should the item page offer Buy Now to this (possibly signed-out) visitor? Only a pilot buyer, never anyone else.
+function marketplaceCheckoutShownTo(userId, env = process.env) {
+  if (marketplaceCheckoutEnabled(env)) return true;
+  const p = marketplaceCheckoutPilot(env);
+  return p.active && !!userId && p.users.includes(String(userId).toLowerCase());
+}
 
 // Individual "$39 Estate Sale Promotion" (Phase 2B, commit 4e52997) is DISABLED by owner decision
 // (2026-10-12: never owner-approved, zero purchases). This is a hard-coded constant on purpose, NOT an
@@ -95,5 +121,6 @@ function storefrontMessagingAllowed({ sellerId, userId = null, side = 'buyer' } 
   return users.length === 0 || (!!userId && users.includes(String(userId).toLowerCase()));
 }
 
-module.exports = { storefrontMessagingEnabled, storefrontMessagingAvailable, storefrontMessagingAllowed, storefrontMessagingPilotSellerIds,
+module.exports = { marketplaceCheckoutPilot, marketplaceCheckoutActive, marketplaceCheckoutAllowed, marketplaceCheckoutShownTo,
+  storefrontMessagingEnabled, storefrontMessagingAvailable, storefrontMessagingAllowed, storefrontMessagingPilotSellerIds,
   storefrontMessagingPilotUserIds, sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };

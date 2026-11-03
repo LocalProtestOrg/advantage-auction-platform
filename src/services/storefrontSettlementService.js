@@ -313,7 +313,7 @@ async function recordSellerFaultCost(orderId) {
 // the week ending at the latest cutoff. Self-gated on seller settlements and storefront checkout being switched on.
 async function weeklyTick(now = new Date()) {
   const guards = require('../lib/launchGuards');
-  if (!guards.sellerSettlementsEnabled() || !guards.marketplaceCheckoutEnabled()) return { ran: false };
+  if (!guards.sellerSettlementsEnabled() || !(guards.marketplaceCheckoutEnabled() || guards.marketplaceCheckoutPilot().active)) return { ran: false };   // includes the controlled pilot
   return { ran: true, ...(await prepareWeek({ cutoff: cutoffFor(now) })) };
 }
 

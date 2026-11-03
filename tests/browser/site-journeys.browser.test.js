@@ -103,7 +103,9 @@ describe('accounts', () => {
   test('sign in through the form reaches the member area (buyer account access)', async () => {
     const ctx = await browser.newContext(); const page = await open(ctx);
     await seed.browserLogin(page, stack, 'bidder@fullstack.test');
-    const r = await visit(page, '/app.html');
+    // the member area renders its main section (it makes several API calls at once; the isolated database answers them one
+    // at a time, so under a full-suite load "network idle" can take longer than the timeout; the page itself is ~0.7 s)
+    const r = await visit(page, '/app.html', { waitFor: '#adv-main' });
     expect(r.critical).toEqual([]);
     const me = await page.evaluate(async () => (await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })).status);
     expect(me).toBe(200);
@@ -164,7 +166,7 @@ describe('Professional Seller storefront (dual distribution)', () => {
   test('the seller dashboard and inventory workspace load for the seller', async () => {
     const ctx = await browser.newContext(); const page = await open(ctx);
     await seed.browserLogin(page, stack, people.shop.email);
-    const app = await visit(page, '/app.html');
+    const app = await visit(page, '/app.html', { waitFor: '#adv-main' });
     expect(app.critical).toEqual([]);
     const inv = await visit(page, '/seller-inventory.html', { waitFor: 'text=Brass Ship Lantern' });
     expect(inv.critical).toEqual([]);

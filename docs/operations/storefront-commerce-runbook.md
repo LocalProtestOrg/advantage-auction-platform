@@ -69,6 +69,29 @@ Rollback: redeploy the previous deployment; the migrations are additive except t
    the Brilliant Directories redirect `www.advantage.bid/sell-online` to `https://bid.advantage.bid/sell-online` and the
    Sell Online menu link).
 
+## Release 2: controlled live purchase, then activation (each step needs the owner's explicit go)
+**Controlled pilot (built, off).** With `MARKETPLACE_CHECKOUT_ENABLED` still off, checkout works only when BOTH
+`MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS` (seller_profiles ids) and `MARKETPLACE_CHECKOUT_PILOT_USER_IDS` (buyer user ids) list the
+seller and the signed-in buyer. Everyone else, signed-out visitors and the website widgets see checkout as off (the same
+"not currently available" answer). The hold sweeper and weekly payout preparation run while a pilot is set.
+
+1. Prerequisites: 40-buyer race test PASS on a disposable Neon branch; counsel-approved Buyer Terms published as the current
+   version; CPA-confirmed tax rules entered (Admin > Storefront Tax Rules) for the pilot seller's state; Seller Agreement v4
+   signed by the pilot seller; the pilot seller's payout account connected in LIVE mode (today no Professional Seller has
+   one; the only connected account is an Individual Seller's, test mode); `SELLER_SETTLEMENTS_ENABLED` / `STRIPE_CONNECT_ENABLED`
+   as they are.
+2. Owner sets the two pilot lists to one seller (e.g. the owner's own professional account) and one buyer account the owner
+   controls. Nothing else changes; check from a private window that an ordinary visitor sees no Buy Now.
+3. Owner buys one low-priced item with a real card: check the receipt, the seller and admin notices, stock (reserved, sold),
+   the order's channel and 5% / 9% commission, tax and its remitter, the actual processing fee recorded, and the item page.
+4. Owner refunds it in Admin > Storefront Orders (record who caused it): check the refund, stock returned, tax reversal,
+   the order history and that the weekly payout excludes it (or records a recovery if already paid).
+5. Optionally the weekly payout for a non-refunded pilot sale: Admin > Storefront Payouts, Pay Seller (the owner approves).
+6. Clear the pilot lists. Activation: `MARKETPLACE_CHECKOUT_ENABLED=true`; then (separately) `SELL_ONLINE_PAGE_ENABLED=true`
+   and the Brilliant Directories redirect and menu link (`docs/operations/sell-online-launch-instructions.md`).
+**Rollback** at any point: unset `MARKETPLACE_CHECKOUT_ENABLED` and the pilot lists (checkout closes at once; existing orders,
+refunds and payouts keep working through Admin).
+
 ## Operating
 - Storefront Payouts (Admin, Operations): records appear after the Thursday preparation; review, Pay Seller (type the amount),
   Hold, Release, Void (its orders return for a later payout). A refund, dispute or hold after preparation blocks payment until
