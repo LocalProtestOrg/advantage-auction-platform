@@ -234,7 +234,7 @@ describe('existing onboarding and economics are unaffected', () => {
   test('the addendum never stands in for the Seller Agreement (auto-send, dashboard gate, template fallback)', () => {
     const svc = read('src/services/agreementService.js');
     expect(svc).toMatch(/is_active = true AND current_version_id IS NOT NULL AND id <> \$1/);           // fallback skips it (it is also inactive)
-    expect((svc.match(/v\.template_id <> \$2/g) || []).length).toBe(3);                                 // signed gate, pending gate, auto-send
+    expect((svc.match(/v\.template_id <> \$2/g) || []).length).toBe(5);                                 // dashboard gate (signed, pending), storefront gate (signed, pending), auto-send
     expect(agreementService.ADDENDUM_TEMPLATE_ID).toBe(ap.TEMPLATE_ID);
   });
   test('sendAgreement still emails the signing link by default (ordinary sellers unchanged)', () => {

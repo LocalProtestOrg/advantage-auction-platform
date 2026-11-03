@@ -116,7 +116,7 @@ beforeAll(async () => {
   await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -708,7 +708,7 @@ describe('shipping: defaults to NO everywhere', () => {
     expect(sp.shipping_defaults).toEqual({ enabled: false });
     const pub = items.publicItem({ ...it, seller_type: 'estate_sale_company' });
     expect(pub.shippable).toBe(false);
-    expect(pub.shipping).toMatchObject({ pickup_only: true, shipping: null, summary: 'Pickup only — this item is not shipped' });
+    expect(pub.shipping).toMatchObject({ pickup_only: true, shipping: null, summary: 'Pickup only. This item is not shipped.' });
   });
   test('a converted auction lot starts pickup only, whatever its auction shipping settings (even if the request asks to ship)', async () => {
     const a = await one(`INSERT INTO auctions (seller_id, title, city, address_state, street_address, zip, state) VALUES ($1,'Ship sale','Houston','TX','1 Nora St','77001','closed') RETURNING id`, [SP.nora]);
@@ -806,8 +806,8 @@ describe('shipping: what the buyer can choose', () => {
     expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, total_charge_cents: 11500, platform_fee_bps: 1100, platform_fee_cents: 1100,
       seller_proceeds_cents: 10000 - 1100 + 1500, fulfillment_method: 'shipping' });
     expect(o.item_snapshot.shipping_terms).toEqual({ selected: 'shipping', shipping_cents: 1500,
-      offered: { method: 'parcel', price_mode: 'flat', shipping_cents: 1500, destinations: 'us_all', states: [], handling_days: 3 },
-      oversized: false, fragile: true, notes: null });
+      offered: { method: 'parcel', price_mode: 'flat', shipping_cents: 1500, destinations: 'us_all', states: [], handling_days: 3, quantity_rule: null },
+      oversized: false, fragile: true, notes: null, units: 1 });
     // the order's record of the terms can never change, and the sold item's shipping can no longer be edited
     const e = await rejects(`UPDATE marketplace_orders SET item_snapshot = jsonb_set(item_snapshot, '{shipping_terms,shipping_cents}', '0') WHERE id = $1`, [o.id]);
     expect(e.message).toMatch(/purchase terms are fixed/);
@@ -878,7 +878,7 @@ describe('shipping: shown accurately to buyers and search engines', () => {
     expect(ld.offers.price).toBe('100.00');   // item price only
     const pickup = await items.createDirectListing(U.nora.id, { title: 'Pickup Hutch', price_cents: 30000, is_oversized: true });
     r = await pages.render(pickup.id, pd.slugify(pickup.title), 'https://bid.advantage.bid');
-    expect(r.html).toContain('Pickup only — this item is not shipped');
+    expect(r.html).toContain('Pickup only. This item is not shipped.');
     expect(r.html).toContain('Oversized item');
     const ld2 = [...r.html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).find((j) => j['@type'] === 'Product');
     expect(ld2.offers.shippingDetails).toBeUndefined();

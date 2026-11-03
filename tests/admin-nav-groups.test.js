@@ -38,6 +38,7 @@ const ADDED = {
   '/admin/event-discovery.html': null,                   // role(['admin']) (provider-neutral event discovery, mig 208)
   '/admin/site-watchdog.html': null,                     // role(['admin']) (site watchdog, mig 210)
   '/admin/storefront-payouts.html': null,                // role(['admin']) (storefront payouts, mig 213)
+  '/admin/tax-jurisdictions.html': null,                 // role(['admin']) (storefront tax rules, mig 214)
 };
 const DETAIL_PAGES = ['/admin/index.html', '/admin/invoice-detail.html', '/admin/event-detail.html', '/admin/settlement-review.html', '/admin/member.html'];
 

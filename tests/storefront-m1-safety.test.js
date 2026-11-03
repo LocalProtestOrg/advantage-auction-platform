@@ -9,6 +9,8 @@
  *   - storefronts and items are public only for Professional Sellers (and a published storefront).
  */
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
+// The storefront agreement (owner decision 2026-11-02) is in place for these sellers; it is tested in storefront-commerce-policies.test.js.
+jest.mock('../src/services/agreementService', () => ({ storefrontAgreementStatus: jest.fn(async () => ({ ok: true, reason: 'signed' })), autoSendAgreement: jest.fn(async () => null) }));
 const db = require('../src/db');
 const items = require('../src/services/marketplaceItemService');
 const storefront = require('../src/services/storefrontService');

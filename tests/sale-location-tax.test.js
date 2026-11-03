@@ -19,6 +19,8 @@ process.env.STRIPE_TAX_ENABLED = 'true';
 const mockCalcCreate = jest.fn(async () => ({ id: 'taxcalc_1', tax_amount_exclusive: 625 }));
 jest.mock('stripe', () => jest.fn(() => ({ tax: { calculations: { create: mockCalcCreate } } })));
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
+// The storefront agreement (owner decision 2026-11-02) is in place for these sellers; it is tested in storefront-commerce-policies.test.js.
+jest.mock('../src/services/agreementService', () => ({ storefrontAgreementStatus: jest.fn(async () => ({ ok: true, reason: 'signed' })), autoSendAgreement: jest.fn(async () => null) }));
 jest.mock('../src/services/auditService', () => ({ logEvent: jest.fn(async () => {}) }));
 jest.mock('../src/services/taxExemptionService', () => ({ effectiveExemptionForSale: jest.fn(async () => null) }));
 jest.mock('../src/services/saleLocationAlerts', () => ({ reportMissingSaleLocation: jest.fn(async () => {}) }));

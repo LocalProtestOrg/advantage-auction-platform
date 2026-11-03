@@ -1,17 +1,21 @@
 #!/usr/bin/env node
-/* prod-migrate-211-213.js — PRODUCTION-guarded apply of the storefront commerce migrations, in order, in ONE transaction:
+/* prod-migrate-211-214.js — PRODUCTION-guarded apply of the storefront commerce migrations, in order, in ONE transaction:
      211_retail_gallery_studio_seller_type.sql  (widen two seller-type CHECKs; no row changes)
      212_marketplace_multi_quantity.sql         (stock columns, order quantity, stock history; replaces the one-live-order index)
      213_storefront_payouts.sql                 (storefront payout records; admin sale-notice event)
+     214_storefront_shipping_quantity_and_tax_responsibility.sql
+                                                (multi-unit shipping rule, per-state tax remitter rules (empty), order tax
+                                                 remitter + Buyer Terms version, payout tax and refund recoveries)
    Moves no money. Existing orders keep quantity 1; items already sold through a paid order are recorded as one unit sold
    with none left (212 backfill).
 
-   --check    READ-ONLY: 210 applied, 211-213 not recorded, the new objects absent, and what the backfill will touch.
-   --dry-run  applies all three inside a transaction, runs every verification, then ROLLS BACK (nothing is kept).
-   (none)     applies all three in one transaction, then verifies; any failure rolls everything back.
-   Usage: railway run node scripts/prod-migrate-211-213.js [--check | --dry-run] */
+   --check    READ-ONLY: 210 applied, 211-214 not recorded, the new objects absent, and what the backfill will touch.
+   --dry-run  applies all four inside a transaction, runs every verification, then ROLLS BACK (nothing is kept).
+   (none)     applies all four in one transaction, then verifies; any failure rolls everything back.
+   Usage: railway run node scripts/prod-migrate-211-214.js [--check | --dry-run] */
 const fs = require('fs'); const path = require('path');
-const FILES = ['211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql'];
+const FILES = ['211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql',
+  '214_storefront_shipping_quantity_and_tax_responsibility.sql'];
 const PROD_EP = 'ep-proud-leaf-an8pzkib'; const STG_EP = 'ep-royal-dawn-anarou3f';
 const CHECK = process.argv.includes('--check');
 const DRY = process.argv.includes('--dry-run');
@@ -29,8 +33,8 @@ const DRY = process.argv.includes('--dry-run');
     const pre = async () => ({
       migration_210_applied: await has(`SELECT 1 AS x FROM schema_migrations WHERE filename = '210_site_watchdog.sql'`),
       already_recorded: (await c.query('SELECT filename FROM schema_migrations WHERE filename = ANY($1)', [FILES])).rows.map((r) => r.filename),
-      new_objects_present: await n(`SELECT ((SELECT count(*) FROM information_schema.tables WHERE table_name IN ('marketplace_stock_events','storefront_payouts','storefront_payout_lines'))
-        + (SELECT count(*) FROM information_schema.columns WHERE table_name = 'marketplace_orders' AND column_name IN ('unit_price_cents','hold_expires_at','stock_released_at','storefront_payout_id')))::int n`),
+      new_objects_present: await n(`SELECT ((SELECT count(*) FROM information_schema.tables WHERE table_name IN ('marketplace_stock_events','storefront_payouts','storefront_payout_lines','marketplace_tax_jurisdictions','storefront_payout_recoveries'))
+        + (SELECT count(*) FROM information_schema.columns WHERE table_name = 'marketplace_orders' AND column_name IN ('unit_price_cents','hold_expires_at','stock_released_at','storefront_payout_id','tax_remitter','buyer_terms_version_id')))::int n`),
       items: await n('SELECT count(*)::int n FROM marketplace_items'),
       orders: await n('SELECT count(*)::int n FROM marketplace_orders'),
       paid_orders_to_mark_sold: await n(`SELECT count(DISTINCT marketplace_item_id)::int n FROM marketplace_orders WHERE payment_status = 'paid' AND refund_status <> 'refunded'`),
@@ -65,6 +69,14 @@ const DRY = process.argv.includes('--dry-run');
       payout_tables: (await n(`SELECT count(*)::int n FROM information_schema.tables WHERE table_name IN ('storefront_payouts','storefront_payout_lines')`)) === 2,
       payouts_empty: (await n('SELECT (SELECT count(*) FROM storefront_payouts) + (SELECT count(*) FROM storefront_payout_lines) AS n')) === 0,
       admin_notice_event: await has(`SELECT 1 AS x FROM pg_constraint WHERE conname = 'storefront_notifications_event_check' AND pg_get_constraintdef(oid) LIKE '%sale_paid_admin%'`),
+      shipping_quantity_rule_column: await has(`SELECT 1 AS x FROM pg_constraint WHERE conname = 'marketplace_items_shipping_quantity_rule_check'`),
+      no_item_has_a_shipping_rule_yet: (await n(`SELECT count(*)::int n FROM marketplace_items WHERE shipping_quantity_rule IS NOT NULL`)) === 0,
+      tax_rules_empty: (await n('SELECT count(*)::int n FROM marketplace_tax_jurisdictions')) === 0,
+      order_tax_and_terms_columns: (await n(`SELECT count(*)::int n FROM information_schema.columns WHERE table_name = 'marketplace_orders'
+        AND column_name IN ('tax_jurisdiction','tax_remitter','buyer_terms_version_id','buyer_terms_version_int')`)) === 4,
+      payout_tax_and_recovery: (await n(`SELECT count(*)::int n FROM information_schema.columns WHERE (table_name = 'storefront_payout_lines' AND column_name = 'tax_to_seller_cents')
+        OR (table_name = 'storefront_payouts' AND column_name = 'recovery_cents')`)) === 2
+        && (await n('SELECT count(*)::int n FROM storefront_payout_recoveries')) === 0,
       no_negative_stock: (await n(`SELECT count(*)::int n FROM marketplace_items WHERE quantity < 0 OR quantity_sold < 0`)) === 0,
       records_unchanged: before === await snap(),
     });

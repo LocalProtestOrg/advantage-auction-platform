@@ -125,7 +125,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -318,7 +318,7 @@ describe('agreement and payouts must be in place before a seller can be paid by 
   });
   test('the gate is the existing agreement check and the settlement payout readiness, not a new system', () => {
     const src = require('fs').readFileSync('src/services/sellerSaleEligibility.js', 'utf8');
-    expect(src).toMatch(/require\('\.\/agreementService'\)\.dashboardAccess\(sp\.id, runner\)/);
+    expect(src).toMatch(/require\('\.\/agreementService'\)\.storefrontAgreementStatus\(sp\.id, runner\)/);
     expect(src).toMatch(/getSellerPayoutPreference\(sp\.user_id, runner\)/);
     expect(require('../src/services/sellerSaleEligibility').payoutReady({ stripe_account_id: 'acct_1', connect_transfers_active: true, connect_payouts_enabled: true })).toBe(true);
     expect(require('../src/services/sellerSaleEligibility').payoutReady({ stripe_account_id: 'acct_1', connect_transfers_active: true, connect_payouts_enabled: false })).toBe(false);

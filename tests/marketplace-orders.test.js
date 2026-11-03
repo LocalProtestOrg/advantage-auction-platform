@@ -9,6 +9,8 @@
 
 let mockClient = null;
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
+// The storefront agreement (owner decision 2026-11-02) is in place for these sellers; it is tested in storefront-commerce-policies.test.js.
+jest.mock('../src/services/agreementService', () => ({ storefrontAgreementStatus: jest.fn(async () => ({ ok: true, reason: 'signed' })), autoSendAgreement: jest.fn(async () => null) }));
 // Seller sale eligibility (active, verified Professional) is tested against a real database in
 // storefront-checkout-seller-eligibility.test.js; these unit tests cover the order logic around it.
 jest.mock('../src/services/sellerSaleEligibility', () => ({ assertSellerCanSell: jest.fn(async () => true) }));

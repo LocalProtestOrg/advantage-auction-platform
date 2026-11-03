@@ -379,7 +379,8 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
       [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [itemRow] }],
       [/INSERT INTO marketplace_orders/, (p) => ({ rows: [ORDER({ fulfillment_method: 'shipping', ship_to: JSON.parse(p[10]) })] })],
       [/UPDATE marketplace_items SET quantity = quantity - \$2/, { rows: [{ quantity: 0 }] }],
-      [/UPDATE marketplace_orders SET stripe_payment_intent_id/, (p) => ({ rows: [ORDER({ tax_cents: p[3], total_charge_cents: p[4] })] })],
+      [/FROM marketplace_tax_jurisdictions WHERE state = \$1/, (p) => ({ rows: p[0] === 'TX' ? [{ remitter: 'seller' }] : [] })],   // migration 214 rule
+      [/UPDATE marketplace_orders SET stripe_payment_intent_id/, (p) => ({ rows: [ORDER({ tax_cents: p[3], total_charge_cents: p[4], tax_remitter: p[5], tax_jurisdiction: p[6] })] })],
     ]);
     await svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: ship,
       address: { line1: '5 Elsewhere', city: 'Portland', state: 'OR', postal_code: '97201', country: 'US' } });
@@ -390,6 +391,9 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
     const pi = mockStripe.paymentIntents.create.mock.calls[0][0];
     expect(pi.amount).toBe(10000 + 1000 + 825);
     expect(pi.confirmation_method).toBe('manual'); // the browser cannot confirm with an unchecked card
+    // who remits the tax comes from the state of the taxed (ship-to) address, never from the request-body address
+    const upd = db.query.mock.calls.find(([sql]) => /SET stripe_payment_intent_id/.test(sql));
+    expect(upd[1].slice(5, 7)).toEqual(['seller', 'TX']);
     expect(pi.payment_method_types).toEqual(['card']);
   });
 });
