@@ -4,7 +4,7 @@
  * storefrontReadinessService — what still stands between a Professional Seller's inventory and being publicly
  * purchasable, in plain words, for the seller's own dashboard. READ-ONLY: it reports the existing gates and never
  * changes, bypasses or duplicates them:
- *   - the seller agreement            agreementService.dashboardAccess (signed / waived / grandfathered)
+ *   - the seller agreement            agreementService.storefrontAgreementStatus (signed current storefront terms; a waiver does not count)
  *   - business verification           verificationService.publicationGate (the one publication gate)
  *   - the storefront pickup location  seller_profiles.default_pickup_confirmed_at
  *   - the public storefront           seller_profiles.storefront_published + slug (the website widget shows it)
@@ -25,7 +25,11 @@ async function forSeller(actor) {
   if (!seller) return null;
   const sp = (await db.query(
     `SELECT id, user_id, seller_type, storefront_slug, storefront_published, default_pickup_confirmed_at FROM seller_profiles WHERE id = $1`, [seller.id])).rows[0];
-  const agreement = await require('./agreementService').dashboardAccess(sp.id).catch(() => ({ access: false, reason: 'unknown' }));
+  // The storefront rule (a signed version with the current storefront terms; a waiver or an earlier version does not count,
+  // owner decision 2026-11-03), the same check that gates storefront publishing and sales, so the list never shows this
+  // step done while publishing is refused.
+  const sf = await require('./agreementService').storefrontAgreementStatus(sp.id).catch(() => ({ ok: false, reason: 'unknown' }));
+  const agreement = { access: !!sf.ok, update: sf.reason === 'agreement_update_required' };
   const gate = await require('./verificationService').publicationGate(sp.id).catch(() => ({ blocked: true, reason: 'unknown' }));
   const pref = (await db.query('SELECT stripe_account_id, connect_transfers_active, connect_payouts_enabled FROM seller_payout_preferences WHERE seller_user_id = $1', [sp.user_id])).rows[0] || null;
   const payoutsReady = require('./settlementEngine').connectPayoutReady ? require('./settlementEngine').connectPayoutReady(pref)
@@ -45,7 +49,10 @@ async function forSeller(actor) {
 
   const company = [
     step('agreement', 'Seller agreement signed', agreement.access,
-      agreement.access ? null : 'Review and sign your seller agreement.', agreement.access ? null : { label: 'Review and sign', href: '/sign-agreement.html?onboarding=1' }),
+      agreement.access ? null : (agreement.update
+        ? 'Sign the updated seller agreement with the current storefront terms before publishing new storefront items. Your auctions, drafts and items already on sale are not affected.'
+        : 'Review and sign your seller agreement.'),
+      agreement.access ? null : { label: 'Review and sign', href: '/sign-agreement.html?onboarding=1' }),
     step('verification', 'Business verified by Advantage.Bid', !gate.blocked,
       gate.blocked ? 'Advantage.Bid verifies your business before your first sale goes live. You can keep preparing your inventory.' : null,
       gate.blocked ? { label: 'Business verification', href: '/verify-documents.html' } : null),

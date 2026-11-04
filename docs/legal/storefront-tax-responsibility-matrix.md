@@ -14,7 +14,7 @@ automation and live purchasing stay off until the treatment is verified and appr
 | Recorded per order | `tax_cents`, `tax_jurisdiction`, `tax_remitter` (`platform` / `seller` / `none`), Stripe Tax calculation, transaction and reversal ids |
 | Seller-remitted tax | Paid to the seller with that order's proceeds (`storefront_payout_lines.tax_to_seller_cents`) |
 | Platform-remitted tax | Never paid to the seller; held for remittance |
-| Revenue | Tax is never in the 11% fee base and never platform revenue |
+| Revenue | Tax is never in the commission base (5% website / 9% marketplace, on the item price only) and never platform revenue |
 | Refunds | Full refund reverses the Stripe Tax transaction; partial refund attempts a partial reversal, else flags review; a refund after payout is recovered from the seller's next payout (capped at what the seller received, which includes seller-remitted tax) |
 
 ## 2. Matrix to be completed by the CPA (one row per state with sales tax)

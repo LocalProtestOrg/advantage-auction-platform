@@ -63,6 +63,12 @@ Rollback: redeploy the previous deployment; the migrations are additive except t
    Admin > Storefront Tax Rules; one live storefront tax calculation verified. Remittance automation stays off until approved.
 3. **Shipping**: sellers who offer set-price shipping on multi-quantity items choose per item or per order.
 4. **Race test on a real database**: create a Neon branch, then `RACE_DATABASE_URL=<branch> CONFIRM_DISPOSABLE=yes node scripts/checkout-race-test.js 40 7` must print PASS.
+   **Done 2026-11-04: PASS** on a disposable branch of production (`race-test-disposable-2026-11-04`), 40 buyers against
+   1, 7 and 39 units: never oversold, never sold twice, duplicate payments charged once, declined cards sell nothing and keep
+   the hold, expired holds return every unit exactly once (two sweepers at once), two administrators refunding the same order
+   at once send one refund. It found one defect, fixed on `feat/release2-payments`: refunding one buyer of a sold-out
+   multi-unit item failed after the refund was sent (the item has other paid orders and stays sold); a refund that cannot be
+   recorded is now also flagged for review. The test turns off every outside service (no email or text is sent).
 5. A real verified seller with a signed agreement and a connected payout account (Connect status ready).
 6. One authorized live test purchase, then refund it; check the receipt, seller notice, admin notice, stock, tax and settlement.
 7. Explicit owner authorization; then set `MARKETPLACE_CHECKOUT_ENABLED=true` (and, at launch, `SELL_ONLINE_PAGE_ENABLED=true`,
@@ -92,7 +98,17 @@ seller and the signed-in buyer. Everyone else, signed-out visitors and the websi
 **Rollback** at any point: unset `MARKETPLACE_CHECKOUT_ENABLED` and the pilot lists (checkout closes at once; existing orders,
 refunds and payouts keep working through Admin).
 
+## Release 2 deploy (migration 217, commission corrections)
+1. `railway run node scripts/prod-migrate-217.js --check`, then `--dry-run`, then apply (2026-11-04: --check and --dry-run PASS).
+   A new empty, append-only table and `storefront_payouts.adjustment_cents` (default 0); no existing row changes.
+2. Push `main` (the refund fix, commission corrections, credential checks, Sell Online and phone-header fixes).
+
 ## Operating
+- Commission corrections (Seller Agreement §6.9, version 4): Admin > Storefront Orders > Correct commission, after the seller
+  asked for a review and the error is verified. Enter the date the seller asked and the reason (shown to the seller). The
+  order keeps its original channel and fee; the difference (credit or charge) goes on the seller's next payout statement.
+  More than 60 days after the payout needs the explicit override, which stays on the record. A wrong correction is corrected
+  by a further correction; nothing is edited or deleted.
 - Storefront Payouts (Admin, Operations): records appear after the Thursday preparation; review, Pay Seller (type the amount),
   Hold, Release, Void (its orders return for a later payout). A refund, dispute or hold after preparation blocks payment until
   the record is voided and prepared again.

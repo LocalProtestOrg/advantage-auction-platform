@@ -173,6 +173,27 @@ router.post('/admin/orders/:id/refund', roleMiddleware(['admin']), async (req, r
   try { const b = req.body || {}; return res.json({ success: true, data: await orders.refundOrder(req.params.id, { adminId: req.user.id, reason: b.reason, fault: b.fault, faultNote: b.fault_note }) }); }
   catch (e) { fail(res, e, next); }
 });
+// Commission correction (Seller Agreement §6.9; migration 217): preview the change, record it, list the order's corrections.
+// The correction is applied to the seller's next storefront payout; the order itself keeps its original channel and fee.
+router.get('/admin/orders/:id/commission-adjustments', roleMiddleware(['admin']), async (req, res, next) => {
+  try {
+    const adj = require('../services/storefrontCommissionAdjustmentService');
+    const out = { adjustments: await adj.listForOrder(req.params.id) };
+    if (req.query.to_channel) {
+      const p = await adj.preview(req.params.id, String(req.query.to_channel));
+      out.preview = { from_channel: p.from_channel, to_channel: p.to_channel, fee_base_cents: p.fee_base_cents, from_fee_cents: p.from_fee_cents,
+        to_fee_cents: p.to_fee_cents, amount_cents: p.amount_cents, paid_out_at: p.paid_out_at };
+    }
+    return res.json({ success: true, data: out });
+  } catch (e) { fail(res, e, next); }
+});
+router.post('/admin/orders/:id/commission-adjustments', roleMiddleware(['admin']), async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    return res.json({ success: true, data: await require('../services/storefrontCommissionAdjustmentService').createAdjustment(req.params.id, req.user.id, {
+      toChannel: b.to_channel, reason: b.reason, sellerRequestedOn: b.seller_requested_on, outsideWindowOverride: b.outside_window_override === true }) });
+  } catch (e) { fail(res, e, next); }
+});
 router.post('/admin/orders/:id/payout-hold', roleMiddleware(['admin']), async (req, res, next) => {
   try {
     const { hold, reason } = req.body || {};

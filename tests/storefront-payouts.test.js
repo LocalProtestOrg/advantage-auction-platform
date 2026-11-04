@@ -131,7 +131,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql', '217_storefront_commission_adjustments.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -342,5 +342,99 @@ describe('owner and Admin/Finance notice when a storefront order is paid (roadma
     await q('UPDATE users SET email_verified = false WHERE id = $1', [U.admin.id]);
     const id3 = await sale(1000);
     expect((await q(`SELECT event FROM storefront_notifications WHERE order_id = $1`, [id3])).map((r) => r.event)).toEqual(['sale_paid']);
+  });
+});
+
+describe('commission corrections (Seller Agreement §6.9; migration 217)', () => {
+  const A = () => require('../src/services/storefrontCommissionAdjustmentService');
+  const today = () => new Date().toISOString().slice(0, 10);
+  const cut = (days) => new Date(Date.now() + days * 864e5);   // distinct cutoffs: one live record per seller per cutoff
+  const open = async (owner) => (await payoutsOf(owner)).find((x) => x.settlement_status === 'pending_review');
+  const payOpen = async (owner) => { const p = await open(owner); await S().payPayout(p.id, { actorId: U.admin.id, confirmedCompleted: true, finalAmountCents: p.seller_payout_cents }); return p; };
+  beforeAll(async () => {   // start gus clean: earlier tests leave an unpaid record
+    for (const p of await payoutsOf('gus')) if (p.settlement_status !== 'paid' && p.settlement_status !== 'void') await S().voidPayout(p.id, U.admin.id, { reason: 'test reset' });
+  });
+
+  test('a verified error: Marketplace Sale corrected to Website Sale credits the 4-point difference; the order keeps its original record', async () => {
+    const id = await sale(10000, { owner: 'gus' });
+    const before = await one('SELECT sales_channel, platform_fee_bps, platform_fee_cents FROM marketplace_orders WHERE id = $1', [id]);
+    expect(before).toMatchObject({ sales_channel: 'marketplace', platform_fee_bps: 900, platform_fee_cents: 900 });
+    const pv = await A().preview(id, 'seller_website');
+    expect(pv).toMatchObject({ from_channel: 'marketplace', to_channel: 'seller_website', fee_base_cents: 10000, from_fee_cents: 900, to_fee_cents: 500, amount_cents: 400 });
+    const a = await A().createAdjustment(id, U.admin.id, { toChannel: 'seller_website', reason: 'Sale came through the seller website widget', sellerRequestedOn: today() });
+    expect(a).toMatchObject({ amount_cents: 400, from_label: 'Marketplace Sale (9%)', to_label: 'Website Sale (5%)', outside_review_window: false, applied_payout_id: null });
+    expect(await one('SELECT sales_channel, platform_fee_bps, platform_fee_cents FROM marketplace_orders WHERE id = $1', [id])).toEqual(before);
+    expect((await q('SELECT event_type FROM marketplace_order_events WHERE order_id = $1', [id])).map((r) => r.event_type)).toContain('commission_corrected');
+    // applied to the next payout and shown on its statement; the transfer includes it
+    await S().prepareWeek({ cutoff: cut(2) });
+    const p = await open('gus');
+    const lineSum = (await q('SELECT coalesce(sum(amount_cents),0)::int a FROM storefront_payout_lines WHERE storefront_payout_id = $1 AND active', [p.id]))[0].a;
+    expect(p).toMatchObject({ adjustment_cents: 400, seller_payout_cents: lineSum + 400 });
+    expect((await S().getForAdmin(p.id)).adjustments).toEqual([expect.objectContaining({ id: a.id, amount_cents: 400 })]);
+    const statement = (await S().listForSeller(SP.gus)).find((x) => x.id === p.id);
+    expect(statement.adjustments).toEqual([expect.objectContaining({ to_label: 'Website Sale (5%)', amount_cents: 400, reason: 'Sale came through the seller website widget' })]);
+    const before2 = mockStripe.transfers.length;
+    await payOpen('gus');
+    expect(mockStripe.transfers.slice(before2)).toEqual([expect.objectContaining({ amount: lineSum + 400 })]);
+  });
+
+  test('refused: no reason, no or future request date, already that channel, a non-administrator, a refunded order', async () => {
+    const id = await sale(5000, { owner: 'gus' });
+    const ok = { toChannel: 'seller_website', reason: 'Verified error', sellerRequestedOn: today() };
+    await expect(A().createAdjustment(id, U.admin.id, { ...ok, reason: '' })).rejects.toMatchObject({ code: 'REASON_REQUIRED' });
+    await expect(A().createAdjustment(id, U.admin.id, { ...ok, sellerRequestedOn: '' })).rejects.toMatchObject({ code: 'REQUEST_DATE_REQUIRED' });
+    await expect(A().createAdjustment(id, U.admin.id, { ...ok, sellerRequestedOn: '2999-01-01' })).rejects.toMatchObject({ code: 'REQUEST_DATE_INVALID' });
+    await expect(A().createAdjustment(id, U.admin.id, { ...ok, toChannel: 'marketplace' })).rejects.toMatchObject({ code: 'SAME_CHANNEL' });
+    await expect(A().createAdjustment(id, null, ok)).rejects.toMatchObject({ code: 'ADMIN_REQUIRED' });
+    const viaApi = await call('gus', 'POST', '/api/marketplace/admin/orders/' + id + '/commission-adjustments', { to_channel: 'seller_website', reason: 'Verified error', seller_requested_on: today() });
+    expect(viaApi.status).toBe(403);
+    await orders.refundOrder(id, { adminId: U.admin.id, reason: 'Buyer returned it' });
+    await expect(A().createAdjustment(id, U.admin.id, ok)).rejects.toMatchObject({ code: 'NOT_CORRECTABLE' });
+    expect(await q('SELECT id FROM storefront_commission_adjustments WHERE marketplace_order_id = $1', [id])).toEqual([]);
+  });
+
+  test('after the payout: a credit alone gets its own payout; a correction the seller owes waits until a payout covers it', async () => {
+    const id = await sale(20000, { owner: 'gus' });
+    await S().prepareWeek({ cutoff: cut(3) }); await payOpen('gus');   // the sale is paid out at 9%
+    await A().createAdjustment(id, U.admin.id, { toChannel: 'seller_website', reason: 'Embedded storefront sale', sellerRequestedOn: today() });
+    await S().prepareWeek({ cutoff: cut(4) });   // no new sales: a payout with only the correction
+    expect(await open('gus')).toMatchObject({ order_count: 0, adjustment_cents: 800, seller_payout_cents: 800 });
+    await payOpen('gus');
+    // reviewed again: the first correction was itself wrong; the chain starts from the corrected channel and the seller owes 800
+    const back = await A().createAdjustment(id, U.admin.id, { toChannel: 'marketplace', reason: 'Further review: shared link, not the widget', sellerRequestedOn: today() });
+    expect(back).toMatchObject({ from_channel: 'seller_website', to_channel: 'marketplace', from_fee_cents: 1000, to_fee_cents: 1800, amount_cents: -800 });
+    await S().prepareWeek({ cutoff: cut(5) });
+    expect(await open('gus')).toBeUndefined();   // nothing to deduct it from yet
+    await sale(10000, { owner: 'gus' });          // proceeds 9,100
+    await S().prepareWeek({ cutoff: cut(6) });
+    expect(await open('gus')).toMatchObject({ order_count: 1, adjustment_cents: -800, seller_payout_cents: 9100 - 800 });
+    expect((await A().listForOrder(id)).map((x) => x.amount_cents)).toEqual([800, -800]);
+    // voiding that payout puts the correction back, unapplied
+    const p = await open('gus');
+    await S().voidPayout(p.id, U.admin.id, { reason: 'test' });
+    expect((await one('SELECT applied_payout_id FROM storefront_commission_adjustments WHERE id = $1', [back.id])).applied_payout_id).toBeNull();
+  });
+
+  test('more than 60 days after the payout: refused unless the administrator confirms the override, which stays on the record', async () => {
+    const id = await sale(10000, { owner: 'gus' });
+    await S().prepareWeek({ cutoff: cut(7) });
+    const p = await payOpen('gus');
+    await q("UPDATE storefront_payouts SET paid_at = now() - interval '70 days' WHERE id = $1", [p.id]);
+    const late = { toChannel: 'seller_website', reason: 'Late request, verified', sellerRequestedOn: today() };
+    await expect(A().createAdjustment(id, U.admin.id, late)).rejects.toMatchObject({ code: 'OUTSIDE_REVIEW_WINDOW' });
+    const a = await A().createAdjustment(id, U.admin.id, { ...late, outsideWindowOverride: true });
+    expect(a.outside_review_window).toBe(true);
+    // a request made within the window but recorded later is not outside it
+    expect(A().windowCheck(new Date(Date.now() - 70 * 864e5), new Date(Date.now() - 20 * 864e5).toISOString().slice(0, 10)).outside).toBe(false);
+  });
+
+  test('a correction is a permanent record: it cannot be edited or deleted, and its amount must equal the fee difference', async () => {
+    const r = await one('SELECT * FROM storefront_commission_adjustments LIMIT 1');
+    await expect(q('UPDATE storefront_commission_adjustments SET amount_cents = 1 WHERE id = $1', [r.id])).rejects.toThrow(/cannot be changed/);
+    await expect(q('DELETE FROM storefront_commission_adjustments WHERE id = $1', [r.id])).rejects.toThrow(/permanent records/);
+    await expect(q(`INSERT INTO storefront_commission_adjustments (marketplace_order_id, seller_profile_id, from_channel, to_channel, fee_base_cents, from_fee_bps,
+      to_fee_bps, from_fee_cents, to_fee_cents, amount_cents, reason, seller_requested_on, created_by_user_id)
+      VALUES ($1, $2, 'marketplace', 'seller_website', 100, 900, 500, 9, 5, 999, 'mismatch test', current_date, $3)`,
+      [r.marketplace_order_id, r.seller_profile_id, U.admin.id])).rejects.toThrow(/amount_matches/);
   });
 });

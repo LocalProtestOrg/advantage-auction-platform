@@ -15,6 +15,10 @@
  * ONLY when the seller remits it (tax_remitter 'seller', migration 214). Tax Advantage.Bid remits is never paid to the seller,
  * and sales tax is never platform revenue or part of the fee base.
  * A partially refunded order is under review (review_required) and is not included until an administrator clears it.
+ * Commission corrections (Seller Agreement §6.9; migration 217; storefrontCommissionAdjustmentService) recorded since the
+ * last payout are applied to the next one and listed on its statement: a correction in the seller's favour always (a
+ * seller owed a correction gets a payout record even in a week without new sales), one the seller owes when the payout
+ * can cover it (oldest first, like refund recoveries).
  */
 
 const db = require('../db');
@@ -67,7 +71,10 @@ async function prepareWeek({ cutoff = cutoffFor(), actorId = null } = {}) {
   const sellers = (await db.query(
     `SELECT DISTINCT o.seller_id FROM marketplace_orders o
       WHERE ${ELIGIBLE_SQL} AND o.payout_eligible_at <= $1
-        AND NOT EXISTS (SELECT 1 FROM storefront_payout_lines l WHERE l.marketplace_order_id = o.id AND l.active)`, [cutoff])).rows;
+        AND NOT EXISTS (SELECT 1 FROM storefront_payout_lines l WHERE l.marketplace_order_id = o.id AND l.active)
+     UNION
+     SELECT a.seller_profile_id FROM storefront_commission_adjustments a
+      WHERE a.applied_payout_id IS NULL AND a.amount_cents > 0 AND a.created_at <= $1`, [cutoff])).rows;
   const prepared = [];
   for (const { seller_id: sellerId } of sellers) {
     const out = await withTransaction(async (client) => {
@@ -79,7 +86,10 @@ async function prepareWeek({ cutoff = cutoffFor(), actorId = null } = {}) {
           WHERE o.seller_id = $1 AND ${ELIGIBLE_SQL} AND o.payout_eligible_at <= $2
             AND NOT EXISTS (SELECT 1 FROM storefront_payout_lines l WHERE l.marketplace_order_id = o.id AND l.active)
           ORDER BY o.paid_at FOR UPDATE OF o`, [sellerId, cutoff])).rows;
-      if (!orders.length) return null;
+      const openAdj = (await client.query(
+        `SELECT id, amount_cents FROM storefront_commission_adjustments WHERE seller_profile_id = $1 AND applied_payout_id IS NULL AND created_at <= $2
+          ORDER BY created_at, id FOR UPDATE`, [sellerId, cutoff])).rows;
+      if (!orders.length && !openAdj.some((a) => Number(a.amount_cents) > 0)) return null;
       let payout = (await client.query(
         `SELECT * FROM storefront_payouts WHERE seller_profile_id = $1 AND period_cutoff_at = $2 AND settlement_status <> 'void' FOR UPDATE`,
         [sellerId, cutoff])).rows[0];
@@ -111,11 +121,21 @@ async function prepareWeek({ cutoff = cutoffFor(), actorId = null } = {}) {
         await client.query('UPDATE storefront_payout_recoveries SET applied_payout_id = $2, applied_at = now() WHERE id = $1', [r.id, payout.id]);
         recovered += Number(r.amount_cents);
       }
+      // Commission corrections: every credit; a correction the seller owes only while the payout still covers it.
+      let adjusted = Number(payout.adjustment_cents) || 0;
+      for (const a of openAdj) {
+        const amt = Number(a.amount_cents);
+        if (amt < 0 && t.a - recovered + adjusted + amt < 0) continue;
+        await client.query('UPDATE storefront_commission_adjustments SET applied_payout_id = $2, applied_at = now() WHERE id = $1', [a.id, payout.id]);
+        adjusted += amt;
+      }
       const upd = (await client.query(
-        `UPDATE storefront_payouts SET order_count = $2, goods_cents = $3, platform_fee_cents = $4, seller_payout_cents = $5, recovery_cents = $6, updated_at = now()
-          WHERE id = $1 RETURNING *`, [payout.id, t.n, t.g, t.f, t.a - recovered, recovered])).rows[0];
+        `UPDATE storefront_payouts SET order_count = $2, goods_cents = $3, platform_fee_cents = $4, seller_payout_cents = $5, recovery_cents = $6,
+                adjustment_cents = $7, updated_at = now()
+          WHERE id = $1 RETURNING *`, [payout.id, t.n, t.g, t.f, t.a - recovered + adjusted, recovered, adjusted])).rows[0];
       await auditService.logEvent(client, { eventType: 'storefront_settlement.prepared', entityType: 'storefront_payout', entityId: payout.id,
-        actorId, metadata: { seller_profile_id: sellerId, cutoff: cutoff.toISOString(), added_orders: orders.length, seller_payout_cents: t.a } });
+        actorId, metadata: { seller_profile_id: sellerId, cutoff: cutoff.toISOString(), added_orders: orders.length, seller_payout_cents: t.a - recovered + adjusted,
+          commission_adjustment_cents: adjusted } });
       return upd;
     });
     if (out) prepared.push(out);
@@ -127,7 +147,7 @@ function view(p) {
   if (!p) return null;
   return { id: p.id, seller_profile_id: p.seller_profile_id, period_cutoff_at: p.period_cutoff_at, order_count: p.order_count,
     goods_cents: p.goods_cents, platform_fee_cents: p.platform_fee_cents, seller_payout_cents: p.seller_payout_cents,
-    recovery_cents: Number(p.recovery_cents) || 0,
+    recovery_cents: Number(p.recovery_cents) || 0, adjustment_cents: Number(p.adjustment_cents) || 0,
     settlement_status: p.settlement_status, on_hold_reason: p.on_hold_reason, void_reason: p.void_reason, payout_status: p.payout_status,
     stripe_transfer_id: p.stripe_transfer_id || null, paid_at: p.paid_at, final_amount_paid_cents: p.final_amount_paid_cents,
     transfer_failure_message: p.transfer_failure_message || null, created_at: p.created_at };
@@ -156,7 +176,7 @@ async function getForAdmin(id) {
   if (!UUID_RE.test(String(id || ''))) throw err(404, 'NOT_FOUND', 'Payout not found.');
   const p = (await db.query('SELECT * FROM storefront_payouts WHERE id = $1', [id])).rows[0];
   if (!p) throw err(404, 'NOT_FOUND', 'Payout not found.');
-  return { ...view(p), lines: await lines(id) };
+  return { ...view(p), lines: await lines(id), adjustments: await require('./storefrontCommissionAdjustmentService').listForPayout(id) };
 }
 
 async function setHold(id, adminId, { hold, reason } = {}) {
@@ -187,6 +207,7 @@ async function voidPayout(id, adminId, { reason } = {}) {
     if (p.settlement_status === 'void') return view(p);
     await client.query('UPDATE storefront_payout_lines SET active = false WHERE storefront_payout_id = $1', [id]);
     await client.query('UPDATE storefront_payout_recoveries SET applied_payout_id = NULL, applied_at = NULL WHERE applied_payout_id = $1', [id]);
+    await client.query('UPDATE storefront_commission_adjustments SET applied_payout_id = NULL, applied_at = NULL WHERE applied_payout_id = $1', [id]);
     await client.query('UPDATE marketplace_orders SET storefront_payout_id = NULL WHERE storefront_payout_id = $1', [id]);
     const upd = (await client.query(`UPDATE storefront_payouts SET settlement_status = 'void', void_reason = $2, updated_at = now() WHERE id = $1 RETURNING *`,
       [id, why])).rows[0];
@@ -222,8 +243,9 @@ async function payPayout(id, { actorId = null, confirmedCompleted = false, final
     if (changed.length) fail('Order ' + changed.map((r) => r.order_number).join(', ') + ' changed since this payout was prepared (refund, dispute, hold or review). Void this payout and prepare it again.');
     const lineSum = Number((await client.query(`SELECT coalesce(sum(amount_cents),0)::int a FROM storefront_payout_lines WHERE storefront_payout_id = $1 AND active`, [id])).rows[0].a);
     const recSum = Number((await client.query(`SELECT coalesce(sum(amount_cents),0)::int a FROM storefront_payout_recoveries WHERE applied_payout_id = $1`, [id])).rows[0].a);
-    const sum = lineSum - recSum;
-    if (sum !== Number(p.seller_payout_cents) || recSum !== (Number(p.recovery_cents) || 0)) fail('The payout total no longer matches its orders. Void it and prepare it again.');
+    const adjSum = Number((await client.query(`SELECT coalesce(sum(amount_cents),0)::int a FROM storefront_commission_adjustments WHERE applied_payout_id = $1`, [id])).rows[0].a);
+    const sum = lineSum - recSum + adjSum;
+    if (sum !== Number(p.seller_payout_cents) || recSum !== (Number(p.recovery_cents) || 0) || adjSum !== (Number(p.adjustment_cents) || 0)) fail('The payout total no longer matches its orders. Void it and prepare it again.');
     if (Math.trunc(Number(finalAmountCents)) !== sum) fail('Final amount (' + finalAmountCents + ') does not match the payout (' + sum + ').');
     if (sum <= 0) fail('Nothing to pay.');
     const pref = await require('./payoutPreferenceService').getSellerPayoutPreference(p.seller_user_id);
@@ -264,7 +286,9 @@ async function listForSeller(sellerProfileId) {
   for (const r of rows) {
     const v = view(r);
     delete v.stripe_transfer_id; delete v.on_hold_reason; delete v.void_reason; delete v.transfer_failure_message;
-    out.push({ ...v, lines: (await lines(r.id)).filter((l) => l.active) });
+    const adjustments = (await require('./storefrontCommissionAdjustmentService').listForPayout(r.id)).map((a) => ({ order_number: a.order_number,
+      from_label: a.from_label, to_label: a.to_label, amount_cents: a.amount_cents, reason: a.reason, seller_requested_on: a.seller_requested_on }));
+    out.push({ ...v, lines: (await lines(r.id)).filter((l) => l.active), adjustments });
   }
   return out;
 }

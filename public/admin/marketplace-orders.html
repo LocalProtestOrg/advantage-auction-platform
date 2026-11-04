@@ -124,6 +124,65 @@
           '<td>'+action+'<div class="msg" id="m-'+esc(o.id)+'"></div></td>'+
         '</tr>';
       }).join('');
+      ORDERS.forEach(mountCorrection);
+    }
+
+    // Commission correction (Seller Agreement 6.9): the seller asked for a review of the Website / Marketplace
+    // classification and Advantage.Bid verified an error. The order keeps its original record; the correction is applied
+    // to the seller's next payout and shown on that statement. Built with DOM calls; every value is set as text.
+    const CH = { seller_website: 'Website Sale (5%)', marketplace: 'Marketplace Sale (9%)' };
+    let pendingCorrect = null;
+    function node(tag, text, cls){ const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+    function mountCorrection(o){
+      const msg = document.getElementById('m-' + o.id); if (!msg) return;
+      const box = node('div');
+      const current = o.corrected_channel || o.sales_channel;
+      if (o.corrected_channel) {
+        box.appendChild(node('div', 'Commission corrected to ' + CH[o.corrected_channel] + ' (' + (o.commission_adjusted_cents >= 0 ? 'credit ' : 'charge ') + money(Math.abs(o.commission_adjusted_cents)) + ' through payouts)', 'small'));
+      }
+      const correctable = o.payment_status === 'paid' && o.refund_status === 'none' && CH[current];
+      if (correctable && pendingCorrect !== o.id) {
+        const b = node('button', 'Correct commission', 'btn btn-mut'); b.type = 'button';
+        b.addEventListener('click', () => { pendingCorrect = o.id; pendingConfirm = null; render(); });
+        box.appendChild(b);
+      }
+      if (correctable && pendingCorrect === o.id) box.appendChild(correctionForm(o, current === 'marketplace' ? 'seller_website' : 'marketplace'));
+      msg.parentNode.insertBefore(box, msg);
+    }
+    function correctionForm(o, to){
+      const f = node('div', null, 'confirm');
+      f.appendChild(node('div', 'Reclassify as ' + CH[to] + ' after a verified review.'));
+      const pv = node('div', 'Calculating…', 'small'); f.appendChild(pv);
+      api('GET', '/api/marketplace/admin/orders/' + encodeURIComponent(o.id) + '/commission-adjustments?to_channel=' + to).then(res => {
+        if (!res.success || !res.data.preview) { pv.textContent = res.message || 'Cannot be corrected.'; return; }
+        const p = res.data.preview;
+        pv.textContent = 'Commission ' + money(p.from_fee_cents) + ' becomes ' + money(p.to_fee_cents) + ': ' + money(Math.abs(p.amount_cents))
+          + (p.amount_cents > 0 ? ' credited to the seller' : ' charged to the seller') + ' on the next payout.';
+      }).catch(() => { pv.textContent = 'Could not calculate the change.'; });
+      const date = node('input'); date.type = 'date'; date.value = new Date().toISOString().slice(0, 10); date.setAttribute('aria-label', 'Date the seller asked for the review');
+      const why = node('input'); why.type = 'text'; why.maxLength = 500; why.placeholder = 'Reason, shown to the seller on the payout statement (required)';
+      why.setAttribute('aria-label', 'Reason for the correction'); why.style.width = '100%'; why.style.margin = '4px 0';
+      const lab = node('label', 'Seller asked on ', 'small'); lab.appendChild(date);
+      const late = node('label', null, 'small'); const lateBox = node('input'); lateBox.type = 'checkbox'; late.appendChild(lateBox);
+      late.appendChild(document.createTextNode(' Accept although the request came after the 60-day review window')); late.style.display = 'none';
+      const ok = node('button', 'Record correction', 'btn btn-danger'); ok.type = 'button';
+      const no = node('button', 'Cancel', 'btn btn-mut'); no.type = 'button';
+      const m = node('div', null, 'msg');
+      no.addEventListener('click', () => { pendingCorrect = null; render(); });
+      ok.addEventListener('click', () => {
+        if (why.value.trim().length < 5) { m.textContent = 'Give the reason for the correction.'; return; }
+        ok.disabled = true;
+        api('POST', '/api/marketplace/admin/orders/' + encodeURIComponent(o.id) + '/commission-adjustments',
+          { to_channel: to, reason: why.value.trim(), seller_requested_on: date.value, outside_window_override: lateBox.checked })
+          .then(res => {
+            ok.disabled = false;
+            if (!res.success) { m.textContent = res.message || 'Not recorded.'; if (res.code === 'OUTSIDE_REVIEW_WINDOW') late.style.display = 'block'; return; }
+            pendingCorrect = null; load();
+          })
+          .catch(err => { ok.disabled = false; m.textContent = err.message || 'Not recorded.'; });
+      });
+      [lab, why, late, ok, no, m].forEach((x) => f.appendChild(x));
+      return f;
     }
 
     function load(){
@@ -143,7 +202,7 @@
     document.getElementById('rows').addEventListener('click', e => {
       const b = e.target.closest('button[data-act]'); if (!b) return;
       const act = b.getAttribute('data-act'); const id = b.getAttribute('data-id');
-      if (act === 'refund'){ pendingConfirm = id; render(); return; }
+      if (act === 'refund'){ pendingConfirm = id; pendingCorrect = null; render(); return; }
       if (act === 'refund-no'){ pendingConfirm = null; render(); return; }
       if (act === 'refund-yes'){
         const rr = document.getElementById('rr-' + id);

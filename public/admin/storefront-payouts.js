@@ -65,6 +65,11 @@
         td.appendChild(el('div', (l.active ? '' : '[removed] ') + l.order_number + ' · ' + (l.title || 'Item') + (l.quantity > 1 ? ' x ' + l.quantity : '')
           + ' · goods ' + money(l.goods_cents) + ' · fee ' + money(l.platform_fee_cents) + ' · seller ' + money(l.amount_cents) + ' · ' + (l.fulfillment_status || '')));
       });
+      (r.data.adjustments || []).forEach(function (a) {
+        td.appendChild(el('div', 'Commission correction · ' + (a.order_number || '') + ' · ' + a.from_label + ' to ' + a.to_label + ' · '
+          + (a.amount_cents > 0 ? 'credit ' : 'charge ') + money(Math.abs(a.amount_cents)) + (a.outside_review_window ? ' · after the 60-day window (override)' : '') + ' · ' + a.reason));
+      });
+      if (r.data.recovery_cents) td.appendChild(el('div', 'Refund recoveries deducted: ' + money(r.data.recovery_cents)));
       row.appendChild(td); tr.parentNode.insertBefore(row, tr.nextSibling);
     });
   }

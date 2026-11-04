@@ -321,6 +321,39 @@ describe('giving units back', () => {
     await orders.refundOrder(a.body.data.order.id, { adminId: U.admin.id, reason: 'Buyer returned it' });
     expect(await stock(it.id)).toMatchObject({ status: 'removed', quantity: 0, quantity_sold: 0 });
   });
+
+  // Found by the 40-buyer race test on a real database (2026-11-04): refunding one of several paid orders of a sold-out
+  // item hit the migration 207 rule (an item with a paid order stays sold) after the refund had been sent, so the order
+  // stayed "paid". The other buyers' sales stand: the item stays sold and only this order's units come off.
+  test('refunding one buyer of a sold-out multi-unit item leaves the other sales standing (the item stays sold)', async () => {
+    const it = await listQ(3);
+    const a = await buy(it.id, 'bea', 2); const b = await buy(it.id, 'ben', 1);
+    await pay(a.body.data.order.id, 'bea'); await pay(b.body.data.order.id, 'ben');
+    expect(await stock(it.id)).toMatchObject({ status: 'sold', quantity: 0, quantity_sold: 3 });
+    await orders.refundOrder(b.body.data.order.id, { adminId: U.admin.id, reason: 'Buyer returned it' });
+    expect(await orderRow(b.body.data.order.id)).toMatchObject({ payment_status: 'refunded', refund_status: 'refunded' });
+    expect(await orderRow(a.body.data.order.id)).toMatchObject({ payment_status: 'paid' });
+    expect(await stock(it.id)).toMatchObject({ status: 'sold', quantity: 0, quantity_sold: 2 });
+    // the last paid order refunded too: now nothing is sold and the item needs an explicit relist, as for one unit
+    await orders.refundOrder(a.body.data.order.id, { adminId: U.admin.id, reason: 'Buyer returned it' });
+    expect(await stock(it.id)).toMatchObject({ status: 'removed', quantity: 0, quantity_sold: 0 });
+  });
+
+  test('a refund the processor accepted but that cannot be recorded is flagged for review, never silent', async () => {
+    const it = await listQ(1);
+    const a = await buy(it.id, 'bea', 1); await pay(a.body.data.order.id, 'bea');
+    await q(`CREATE OR REPLACE FUNCTION test_block_refund() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.refund_status = 'refunded' THEN RAISE EXCEPTION 'simulated database failure'; END IF; RETURN NEW; END $$`);
+    await q(`CREATE TRIGGER test_block_refund BEFORE UPDATE ON marketplace_orders FOR EACH ROW EXECUTE FUNCTION test_block_refund()`);
+    try {
+      await expect(orders.refundOrder(a.body.data.order.id, { adminId: U.admin.id, reason: 'Buyer returned it' })).rejects.toMatchObject({ code: 'REFUND_NOT_RECORDED' });
+      expect(await orderRow(a.body.data.order.id)).toMatchObject({ payment_status: 'paid', review_required: true });
+      expect((await orderRow(a.body.data.order.id)).review_note).toMatch(/Refund sent to the payment processor but not recorded/);
+    } finally { await q('DROP TRIGGER test_block_refund ON marketplace_orders'); }
+    // once the fault is gone the same refund is recorded (the processor answers the same idempotency key)
+    await orders.refundOrder(a.body.data.order.id, { adminId: U.admin.id, reason: 'Buyer returned it' });
+    expect(await orderRow(a.body.data.order.id)).toMatchObject({ payment_status: 'refunded' });
+  });
 });
 
 describe('the seller after partial sales', () => {

@@ -993,7 +993,17 @@ async function refundOrder(orderId, opts = {}) {
     await auditService.logEvent(db, { eventType: 'marketplace_order.refund_fault_recorded', entityType: 'marketplace_order', entityId: o.id,
       metadata: { fault, note: faultNote, admin_id: opts.adminId, processing_fee_cents: o.processing_fee_cents == null ? null : Number(o.processing_fee_cents) } });
   }
-  const updated = await recordRefund(o, { cumulativeRefundedCents: o.total_charge_cents, adminId: opts.adminId, reason: 'admin_refund', note });
+  let updated;
+  try {
+    updated = await recordRefund(o, { cumulativeRefundedCents: o.total_charge_cents, adminId: opts.adminId, reason: 'admin_refund', note });
+  } catch (e) {
+    // The processor has the refund but it could not be recorded here: never leave that silent. Flag the order for an
+    // administrator (the processor's refund notice retries the same recording) and report the failure.
+    console.error('[marketplace] refund sent but not recorded', o.id, e.message);
+    await db.query(`UPDATE marketplace_orders SET review_required = true, review_note = $2, updated_at = now() WHERE id = $1`,
+      [o.id, 'Refund sent to the payment processor but not recorded: ' + String(e.message).slice(0, 300)]).catch(() => {});
+    throw err(500, 'REFUND_NOT_RECORDED', 'The refund was sent, but the order could not be updated. It has been flagged for review.');
+  }
   if (fault === 'seller') {
     try { await require('./storefrontSettlementService').recordSellerFaultCost(o.id); }
     catch (e) { console.error('[marketplace] seller-fault cost not recorded', o.id, e.message); }
@@ -1023,12 +1033,18 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
     // 'removed' and must be explicitly RELISTED; an item still on sale (other units available or held) stays as it is.
     const itemRow = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id])).rows[0] || {};
     const soldMark = 'sold_at' in itemRow;
+    // A multi-quantity item that sold out keeps its other buyers' sales: while another paid order remains it stays
+    // 'sold' (migration 207: an item with a paid order stays sold), and only this order's units come off the sold count.
+    const otherPaid = (await client.query(
+      `SELECT EXISTS (SELECT 1 FROM marketplace_orders WHERE marketplace_item_id = $1 AND id <> $2 AND payment_status = 'paid') AS x`,
+      [o.marketplace_item_id, o.id])).rows[0]?.x === true;
+    const unsell = otherPaid ? 'false' : "status = 'sold'";
     const back = (await client.query(
       `UPDATE marketplace_items SET quantity_sold = GREATEST(quantity_sold - $2, 0),
-              status = CASE WHEN status = 'sold' THEN 'removed' ELSE status END,
-              pending_order_id = CASE WHEN status = 'sold' THEN NULL ELSE pending_order_id END,
-              pending_expires_at = CASE WHEN status = 'sold' THEN NULL ELSE pending_expires_at END,
-              updated_at = now()${soldMark ? ", sold_at = CASE WHEN status = 'sold' THEN NULL ELSE sold_at END" : ''}
+              status = CASE WHEN ${unsell} THEN 'removed' ELSE status END,
+              pending_order_id = CASE WHEN ${unsell} THEN NULL ELSE pending_order_id END,
+              pending_expires_at = CASE WHEN ${unsell} THEN NULL ELSE pending_expires_at END,
+              updated_at = now()${soldMark ? `, sold_at = CASE WHEN ${unsell} THEN NULL ELSE sold_at END` : ''}
         WHERE id = $1 RETURNING quantity, seller_id`, [o.marketplace_item_id, Number(o.quantity || 1)])).rows[0];
     if (back && o.payment_status === 'paid') {
       await stockEvent(client, { itemId: o.marketplace_item_id, sellerId: back.seller_id, orderId: o.id, soldDelta: -Number(o.quantity || 1),
@@ -1300,7 +1316,9 @@ async function listForAdmin({ status, limit } = {}) {
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             bu.email AS buyer_email, mi.pickup_location_source, mi.pickup_address_line1, mi.pickup_address_line2, mi.pickup_city,
             mi.pickup_state, mi.pickup_postal_code, mi.pickup_country, sp.default_pickup_address_line1, sp.default_pickup_address_line2,
-            sp.default_pickup_city, sp.default_pickup_state, sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at
+            sp.default_pickup_city, sp.default_pickup_state, sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at,
+            (SELECT a.to_channel FROM storefront_commission_adjustments a WHERE a.marketplace_order_id = o.id ORDER BY a.created_at DESC, a.id DESC LIMIT 1) AS corrected_channel,
+            (SELECT coalesce(sum(a.amount_cents), 0)::int FROM storefront_commission_adjustments a WHERE a.marketplace_order_id = o.id) AS commission_adjusted_cents
        FROM marketplace_orders o
        JOIN marketplace_items mi ON mi.id = o.marketplace_item_id
        JOIN seller_profiles sp ON sp.id = o.seller_id
@@ -1318,6 +1336,9 @@ async function listForAdmin({ status, limit } = {}) {
     refund_fault: r.refund_fault || null, refund_fault_note: r.refund_fault_note || null,
     seller_fault_eligible_cents: r.refund_fault === 'seller' && r.processing_fee_cents != null ? Number(r.processing_fee_cents) : null,
     fee_schedule: r.fee_schedule || null, processing_fee_cents: r.processing_fee_cents == null ? null : Number(r.processing_fee_cents),
+    // Commission corrections (Seller Agreement §6.9, migration 217): the classification after the latest correction, and the
+    // signed total credited (+) or charged (-) to the seller through payouts. The order keeps its original channel and fee.
+    corrected_channel: r.corrected_channel || null, commission_adjusted_cents: Number(r.commission_adjusted_cents) || 0,
     // Admin/staff operations: the item's effective pickup location (full address; admin-only route).
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
