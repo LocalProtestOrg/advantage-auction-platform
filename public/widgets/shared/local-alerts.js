@@ -217,7 +217,7 @@
       '.advla-f input[name=email]{flex:1 1 200px}.advla-f input[name=city]{flex:1 1 140px}' +
       '.advla-f select[name=state]{flex:0 0 96px}' +
       '.advla-f input:focus,.advla-f select:focus{outline:2px solid #93c5fd;outline-offset:1px}' +
-      '.advla-btn{font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border:0;border-radius:9px;' +
+      '.advla-btn{box-sizing:border-box;max-width:100%;white-space:normal;font:inherit;font-size:14px;font-weight:700;padding:10px 18px;border:0;border-radius:9px;' +
         'background:var(--b);color:#fff;cursor:pointer;flex:0 0 auto}' +
       '.advla-btn:hover{background:#12314f}.advla-btn:disabled{opacity:.6;cursor:default}' +
       '.advla-fine{margin:.7rem 0 0;font-size:.78rem;color:#8494a6;line-height:1.5}' +

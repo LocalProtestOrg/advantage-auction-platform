@@ -163,4 +163,13 @@ html[data-type-scale] {
   /* A longer label ("Become a Seller") wraps onto two short lines rather than widening the page. */
   /* 19px bold keeps white-on-red at the WCAG large-text size (18.66px bold) on phones. */
   [data-type-scale] .adv-pubnav .btn-header-cta { font-size: 1.1875rem; padding: 0.35rem 0.65rem; white-space: normal; max-width: 7em; text-align: center; line-height: 1.15; }
+  /* Tighter gaps and side padding so the row fits a 360px phone, also with wider system fonts (2026-11-04: the page was
+     372px wide on a 360px phone and 398px on a 390px Linux browser). */
+  [data-type-scale] .adv-pubnav .header-inner { gap: 0.75rem; padding-left: 1rem; padding-right: 1rem; }
+}
+@media (max-width: 374px) {
+  /* The narrowest phones (320px): a smaller logo and tighter button padding; the button text stays 19px bold. */
+  [data-type-scale] .adv-pubnav .brand { font-size: 1.05rem; }
+  [data-type-scale] .adv-pubnav .header-inner { gap: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem; }
+  [data-type-scale] .adv-pubnav .btn-header-cta { padding: 0.3rem 0.45rem; max-width: 6.2em; }
 }

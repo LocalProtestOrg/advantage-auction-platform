@@ -40,7 +40,7 @@ test('served at the clean address; the .html address redirects to it; listed in 
   expect(map).toMatch(/<loc>[^<]*\/sell-online<\/loc>/);
 });
 
-test.each([['desktop', {}], ['tablet', devices['iPad Mini']], ['phone', devices['iPhone 13']]])('%s: renders cleanly, readable, no sideways scrolling', async (label, ctxOpts) => {
+test.each([['desktop', {}], ['tablet', devices['iPad Mini']], ['phone', devices['iPhone 13']], ['small phone (360px)', devices['Galaxy S8']]])('%s: renders cleanly, readable, no sideways scrolling', async (label, ctxOpts) => {
   const { ctx, page } = await open(ctxOpts);
   const probe = health.attach(page, { origin: stack.baseUrl });
   await page.goto(stack.baseUrl + '/sell-online', { waitUntil: 'networkidle' });

@@ -51,7 +51,7 @@
       {
         "@type": "FAQPage",
         "mainEntity": [
-          { "@type": "Question", "name": "Is there a monthly fee for the storefront?", "acceptedAnswer": { "@type": "Answer", "text": "No. There is no monthly storefront subscription and no listing fee. No. There is no monthly storefront subscription and no listing fee. Advantage.Bid charges a commission only when an item sells through Advantage.Bid checkout: 5% when the sale comes through your own website using your Advantage.Bid embedded storefront, and 9% when it comes through the Advantage.Bid marketplace. Both include credit card processing. The commission is calculated on the item price, not on shipping or sales tax. Your terms are set out in your Professional Seller agreement before you list." } },
+          { "@type": "Question", "name": "Is there a monthly fee for the storefront?", "acceptedAnswer": { "@type": "Answer", "text": "No. There is no monthly storefront subscription and no listing fee. Advantage.Bid charges a commission only when an item sells through Advantage.Bid checkout: 5% when the sale comes through your own website using your Advantage.Bid embedded storefront, and 9% when it comes through the Advantage.Bid marketplace. Both include credit card processing. The commission is calculated on the item price, not on shipping or sales tax. Your terms are set out in your Professional Seller agreement before you list." } },
           { "@type": "Question", "name": "Who can open a storefront?", "acceptedAnswer": { "@type": "Answer", "text": "Storefronts are for established businesses that sell professionally, such as shops, galleries, dealers and working artists and makers. Choose Retail Shop, Gallery or Studio when you sign up. Advantage.Bid reviews every business before its items can go live." } },
           { "@type": "Question", "name": "Do I need my own website?", "acceptedAnswer": { "@type": "Answer", "text": "No. Every storefront has its own page on Advantage.Bid, and your items appear in the Advantage.Bid marketplace. If you have a website, you can also show your storefront there with a copy-and-paste code." } },
           { "@type": "Question", "name": "Will the storefront work with my website builder?", "acceptedAnswer": { "@type": "Answer", "text": "The storefront code is a standard embed that works with most website builders that let you add embedded content or custom HTML. If your builder does not allow embeds, you can link to your Advantage.Bid storefront page instead." } },
@@ -117,9 +117,9 @@
     @media (max-width:880px) { .so-illus { min-height:330px; } }
 
     /* Cards */
-    .so-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1.25rem; }
+    .so-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:1.25rem; }
     .so-grid > :last-child:nth-child(3n+1) { grid-column:1 / -1; }   /* a lone last card spans the row */
-    .so-grid.so-two { grid-template-columns:repeat(auto-fit,minmax(380px,1fr)); }
+    .so-grid.so-two { grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr)); }
     .so-grid.so-two > :last-child { grid-column:auto; }
     @media (max-width:860px) { .so-grid.so-two { grid-template-columns:1fr; } }
     .so-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:1.6rem; }
@@ -419,7 +419,7 @@
     <div class="so-wrap" style="max-width:900px">
       <div class="so-eyebrow">Questions</div>
       <h2 class="so-h2" id="faq-title">Professional Seller Storefront FAQ</h2>
-      <details><summary>Is there a monthly fee for the storefront?</summary><p>No. There is no monthly storefront subscription and no listing fee. No. There is no monthly storefront subscription and no listing fee. Advantage.Bid charges a commission only when an item sells through Advantage.Bid checkout: 5% when the sale comes through your own website using your Advantage.Bid embedded storefront, and 9% when it comes through the Advantage.Bid marketplace. Both include credit card processing. The commission is calculated on the item price, not on shipping or sales tax. Your terms are set out in your Professional Seller agreement before you list.</p></details>
+      <details><summary>Is there a monthly fee for the storefront?</summary><p>No. There is no monthly storefront subscription and no listing fee. Advantage.Bid charges a commission only when an item sells through Advantage.Bid checkout: 5% when the sale comes through your own website using your Advantage.Bid embedded storefront, and 9% when it comes through the Advantage.Bid marketplace. Both include credit card processing. The commission is calculated on the item price, not on shipping or sales tax. Your terms are set out in your Professional Seller agreement before you list.</p></details>
       <details><summary>Who can open a storefront?</summary><p>Storefronts are for established businesses that sell professionally, such as shops, galleries, dealers and working artists and makers. Choose Retail Shop, Gallery or Studio when you sign up. Advantage.Bid reviews every business before its items can go live.</p></details>
       <details><summary>Do I need my own website?</summary><p>No. Every storefront has its own page on Advantage.Bid, and your items appear in the Advantage.Bid marketplace. If you have a website, you can also show your storefront there with a copy-and-paste code.</p></details>
       <details><summary>Will the storefront work with my website builder?</summary><p>The storefront code is a standard embed that works with most website builders that let you add embedded content or custom HTML. If your builder does not allow embeds, you can link to your Advantage.Bid storefront page instead.</p></details>
