@@ -120,6 +120,11 @@ html[data-type-scale] {
 [data-type-scale] .adv-pubnav .btn-header-cta { font-size: var(--fs-secondary); font-weight: 700; padding: 0.45rem 1.1rem; background: var(--brand-red); color: #fff; }
 [data-type-scale] .adv-pubnav .btn-header-cta:hover { background: var(--brand-red-d); color: #fff; }
 [data-type-scale] .adv-pubnav .brand { font-size: 1.5rem; }            /* wordmark: unchanged proportion, not enlarged further */
+/* At desktop widths where the large header links do not fit on one row (about 920-1360px, wider with some system fonts),
+   they wrap onto a second row instead of widening the page (2026-11-04). */
+[data-type-scale] .adv-pubnav .header-nav { flex-wrap: wrap; min-width: 0; flex: 1 1 auto; justify-content: center; row-gap: 0.15rem; }
+[data-type-scale] .adv-pubnav .nav-link { white-space: nowrap; }
+@media (min-width: 921px) { [data-type-scale] .adv-pubnav .header-inner { height: auto; min-height: 60px; padding-block: 0.35rem; } }   /* room for a second row */
 [data-type-scale] .section-eyebrow,
 [data-type-scale] .hero-eyebrow { font-size: var(--fs-caption); letter-spacing: 0.08em; font-weight: 700; }
 [data-type-scale] .section-sub { font-size: var(--fs-body); line-height: var(--lh-body); max-width: var(--measure); }

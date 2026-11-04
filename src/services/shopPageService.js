@@ -81,6 +81,7 @@ async function render({ page = 1, category = null } = {}) {
 <meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">
 <meta property="og:image" content="${esc((items[0] && items[0].image) || base + '/img/social-card.png')}"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/marketplace.css">   <!-- the shared header's layout (as on every public page) -->
 ${jsonLd}
 <style>
  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0f172a;margin:0;background:#f8fafc}
