@@ -61,6 +61,7 @@ const okFetch = () => fakeFetch({
   'preset=auctions&page=1&pageSize=12': AUC_ITEMS,
   '/api/public/marketplace/counts': { success: true, families: { advantage_auction: 0, partner_event: 55, estate_sale: 2, marketplace: 0 }, professionals: { estate_sale_companies: 7, auction_houses: 0, appraisers: 0, total: 7 } },
   '/api/public/marketplace': { total: 7, data: [] },
+  '/api/public/shop/items': { success: true, data: [], pagination: { total: 0 } },
   '/sitemap.xml': '<urlset><url><loc>https://bid.advantage.bid/event.html?slug=x</loc></url></urlset>',
   '/api/public/events?limit=1': { data: [{ slug: 'sample-event' }] },
   '/event.html?slug=sample-event': '<link rel="canonical" href="..."><script type="application/ld+json">{"@type":"Event"}</script>',
@@ -92,6 +93,16 @@ describe('verify — divergence FAILS the gate', () => {
     const r = await verify({ db: fakeDb(EVENTS, 0), baseUrl: 'https://x', fetchImpl: leaky });
     expect(r.overall).toBe('FAIL');
     expect(r.checks.find((c) => c.surface === 'feed:auctions').status).toBe('FAIL');
+  });
+  test('the shop (/shop) listing a hidden item, or linking off the canonical product page → FAIL', async () => {
+    const map = {
+      'preset=all-events&page=1&pageSize=1': { total: 57 }, 'preset=auctions&page=1&pageSize=1': { total: 55 },
+      'preset=estate-sales&page=1&pageSize=1': { total: 2 }, '/events/map': { counts: { auction: 0, estate_sale: 2 } },
+      '/api/public/shop/items': { success: true, data: [{ url: 'https://x/item.html?id=1' }], pagination: { total: 1 } },
+    };
+    const r = await verify({ db: fakeDb(EVENTS, 0), baseUrl: 'https://x', fetchImpl: fakeFetch(map) });
+    expect(r.checks.find((c) => c.surface === 'shop:items')).toMatchObject({ status: 'FAIL', expected: 0, actual: 1 });
+    expect(r.checks.find((c) => c.surface === 'shop:canonical-links').status).toBe('FAIL');
   });
   test('MISSING professional listing (API count too LOW) → FAIL', async () => {
     const low = fakeFetch({

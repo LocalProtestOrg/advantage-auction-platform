@@ -101,6 +101,17 @@ async function verify({ db, baseUrl, fetchImpl, live = true } = {}) {
     checks.push(countCheck('counts:marketplace_items', canonical.families.marketplace, cf ? cf.marketplace : null));
     checks.push(countCheck('counts:professionals_total', canonical.professionals.total, cp ? cp.total : null));
 
+    // ── The fixed-price marketplace (/shop, data /api/public/shop/items): the whole Marketplace family, canonical links ──
+    const sh = await safeFetch(`${base}/api/public/shop/items`, fetchImpl);
+    const shTotal = sh.json && sh.json.pagination ? sh.json.pagination.total : null;
+    checks.push(countCheck('shop:items', canonical.families.marketplace, sh.ok ? shTotal : null));
+    const shItems = sh.json && Array.isArray(sh.json.data) ? sh.json.data : null;
+    const shForeign = shItems ? shItems.some((x) => !x.url || !/\/shop\/item\//.test(x.url)) : false;
+    checks.push({ surface: 'shop:canonical-links', category: 'seo', expected: 'every item links to its canonical product page',
+      actual: shItems ? (shForeign ? 'non-canonical link present' : 'ok') : `HTTP ${sh.status}`,
+      status: shItems ? (shForeign ? FAIL : PASS) : (sh.status === 0 ? WARN : FAIL),
+      detail: shItems ? (shForeign ? 'a shop item does not link to /shop/item/' : 'canonical links intact') : 'shop data unavailable' });
+
     // ── Vocabulary integrity: every feed item carries an owner-locked family_label ──
     const av = await safeFetch(`${base}/api/public/marketplace/feed?preset=auctions&page=1&pageSize=12`, fetchImpl);
     if (av.ok && av.json) {

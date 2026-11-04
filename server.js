@@ -250,6 +250,8 @@ app.get('/sitemap.xml', async (req, res) => {
     '/past-auctions.html',
     '/search.html',
     '/items',
+    '/shop',
+    '/professional-sellers.html',
     '/shipping-available.html',
     '/how-sellers-get-paid.html',
     '/after-estate-sale.html',
@@ -280,6 +282,8 @@ app.get('/sitemap.xml', async (req, res) => {
     for (const sf of shop.storefronts) urls.push(urlEl(base + sf.path, null));
     for (const pp of (shop.policies || [])) urls.push(urlEl(base + pp.path, lastmodDate(pp.lastmod)));
     for (const it of shop.items) urls.push(urlEl(base + it.path, lastmodDate(it.lastmod)));
+    // The marketplace's category pages that have items (/shop?category=<key>).
+    for (const c of await require('./src/services/shopService').categoryCounts()) urls.push(urlEl(`${base}/shop?category=${encodeURIComponent(c.key)}`, null));
   } catch (e) {
     // FAIL-SAFE: fall through with just the static pages already collected.
   }
@@ -292,6 +296,22 @@ app.get('/sitemap.xml', async (req, res) => {
   res.set('Content-Type', 'application/xml');
   res.set('Cache-Control', 'public, max-age=3600');
   return res.send(xml);
+});
+
+// ── GET /shop — the fixed-price marketplace: every Professional Seller's items for sale, crawlable (shopPageService) ──
+app.get('/shop', async (req, res) => {
+  try {
+    const cat = typeof req.query.category === 'string' ? req.query.category : null;
+    const r = await require('./src/services/shopPageService').render({ page: req.query.page, category: cat });
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=120');
+    return res.status(r.status).send(r.html);
+  } catch (e) {
+    console.error('[shop] render failed', e && e.message);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.status(503).send('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Shop | Advantage.Bid</title><meta name="robots" content="noindex"></head>'
+      + '<body><h1>Shop</h1><p>The shop is temporarily unavailable. Please try again shortly.</p><a href="/search.html">Browse Auctions</a></body></html>');
+  }
 });
 
 // ── GET /items — crawlable, server-rendered "Featured Items Available Now" discovery page ──

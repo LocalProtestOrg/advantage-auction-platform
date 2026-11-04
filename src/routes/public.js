@@ -103,6 +103,18 @@ function mpBlurb(html, max = 260) {
   return s ? s.slice(0, max) : null;
 }
 
+// The fixed-price marketplace (the data behind /shop): every Professional Seller's items for sale, one page at a time.
+// ?page=<n>&category=<lotCategories key>. Public fields only; the same answer for everyone.
+router.get('/shop/items', async (req, res, next) => {
+  try {
+    const shop = require('../services/shopService');
+    const [list, categories] = await Promise.all([
+      shop.listItems({ page: req.query.page, category: typeof req.query.category === 'string' ? req.query.category : null }), shop.categoryCounts()]);
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.json({ success: true, data: list.items, category: list.category, categories, pagination: list.pagination });
+  } catch (e) { next(e); }
+});
+
 router.get('/marketplace', async (req, res, next) => {
   try {
     const { rows } = await db.query(

@@ -23,6 +23,7 @@
     // marketing funnel. The professional variant swaps in "Sell Professionally".
     var links = [
       { href: '/search.html', label: 'Browse Auctions', match: ['/search'] },
+      { href: '/shop', label: 'Shop', match: ['/shop'] },
       { href: '/how-it-works.html', label: 'How It Works', match: ['/how-it-works'] },
       (variant === 'professional'
         ? { href: '/professional-sellers.html', label: 'Sell Professionally', match: ['/professional-sellers'] }
