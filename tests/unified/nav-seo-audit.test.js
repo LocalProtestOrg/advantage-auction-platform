@@ -83,7 +83,8 @@ describe('SEO — structured data + canonicals', () => {
 describe('SEO — sitemap coverage', () => {
   test('sitemap static list includes the newly-covered public pages', () => {
     const server = read('server.js');
-    const list = server.slice(server.indexOf('const staticPaths'), server.indexOf('const staticPaths') + 700);
+    const start = server.indexOf('const staticPaths');
+    const list = server.slice(start, server.indexOf('];', start));   // the whole list, however long it grows
     for (const p of ['/events.html', '/terms.html', '/privacy.html', '/buyer-terms.html'])
       expect(list).toContain("'" + p + "'");
   });
