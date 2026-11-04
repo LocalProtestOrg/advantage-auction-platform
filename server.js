@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Credential-shaped values never reach the logs (src/lib/logRedaction.js); background workers load it too (spawnWorker).
+require('./src/lib/logRedaction').install();
 const Sentry     = require('@sentry/node');
 const express    = require('express');
 const path       = require('path');
@@ -918,6 +920,7 @@ function spawnWorker(workerPath) {
   const label = path.relative(__dirname, workerPath);
   const child = fork(workerPath, [], {
     env: { ...process.env, AAP_IS_WORKER: '1' },
+    execArgv: [...process.execArgv, '--require', path.join(__dirname, 'src/lib/logRedactionPreload.js')],
   });
   activeWorkers.set(workerPath, child);
   child.on('exit', (code, signal) => {

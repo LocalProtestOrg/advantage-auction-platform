@@ -1,0 +1,8 @@
+#!/bin/sh
+# Refuses a commit that adds a credential (API key, secret, token, password, database address with a password).
+# Installed for this repository with:  git config core.hooksPath .githooks
+# Never prints the value it found. See docs/security/secret-management.md.
+node scripts/check-secrets.js --staged || {
+  echo "Commit refused: remove the credential above (use an environment variable)." >&2
+  exit 1
+}

@@ -183,28 +183,25 @@ DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 
 ---
 
-## Pre-Commit Secret Scanning (Recommended)
+## Automated Credential-Exposure Checks (built in, 2026-11-04)
 
-Install [gitleaks](https://github.com/gitleaks/gitleaks) or [detect-secrets](https://github.com/Yelp/detect-secrets)
-to catch secrets before they reach the remote:
+One list of credential shapes (`src/lib/secretPatterns.js`: payment, cloud, code-hosting, chat and model-provider keys,
+webhook secrets, private keys, signed tokens, database addresses with a password, and any key, secret, token or password
+written right after its name or on a command line) is used everywhere below. A finding names the place and the kind of
+credential and its length; it never repeats the value.
 
-```bash
-# Install gitleaks (one-time)
-brew install gitleaks         # macOS
-choco install gitleaks        # Windows (Chocolatey)
+| Where | How | When |
+|---|---|---|
+| Commits | `.githooks/pre-commit` runs `node scripts/check-secrets.js --staged` | every commit (enable once per clone: `git config core.hooksPath .githooks`) |
+| Repository | `node scripts/check-secrets.js --all` | CI, every push to main and every pull request (Tests workflow) |
+| Test output | the CI test run is saved and scanned with `--file jest-output.txt` | CI, after every test run |
+| Application logs | `src/lib/logRedaction.js` replaces credential-shaped values with `[REDACTED:<kind>]` in every console line of the server and its background workers | always, in production |
+| Command lines | `node scripts/check-secrets.js --processes` (running processes) and `--config <claude_desktop_config.json>` (a desktop integration must take its key from `env`, never from `args`) | on demand, e.g. after changing a desktop integration |
+| Any text | `<command> \| node scripts/check-secrets.js --stdin` | on demand |
 
-# Scan the repo
-gitleaks detect --source . --verbose
-
-# Add as a pre-commit hook
-gitleaks protect --staged     # scans staged files before commit
-```
-
-Add to `.git/hooks/pre-commit`:
-```bash
-#!/bin/sh
-gitleaks protect --staged --redact
-```
+Labelled test values (`test-secret-...`, `sk_test_isolated_placeholder`, `change-this-...`) and code references
+(`process.env.X`) are allowed. A real test-mode key (`sk_test_51...`) is still a credential. A line that is truly not a
+credential can carry the comment `secret-scan: allow <reason>`; use it sparingly and never for a real value.
 
 ---
 

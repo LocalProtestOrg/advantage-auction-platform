@@ -12,7 +12,7 @@ const logger = require('../src/middleware/logger');
 const VERIFY = 'sdX-verify-token-VALUE-9f8e7d';
 const SIG = 'sha256=deadbeefcafe0123456789';
 const SYSTEM_TOKEN = 'EAAB-system-user-token-VALUE';
-const APP_SECRET = 'app-secret-VALUE-1234';
+const APP_SECRET = 'app-secret-VALUE-1234';   // secret-scan: allow (fixture the redaction test must find in logs)
 
 function capture(req, status = 200) {
   const lines = [];

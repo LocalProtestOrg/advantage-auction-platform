@@ -56,7 +56,7 @@ async function waitForHttp(url, ms) {
 
 /** Minimal, credential-free environment for the app child. */
 function cleanEnv(extra) {
-  const keep = ['PATH', 'Path', 'SystemRoot', 'SYSTEMROOT', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT'];
+  const keep = ['PATH', 'Path', 'SystemRoot', 'SYSTEMROOT', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT', 'FULLSTACK_TX_WATCH_MS', 'FULLSTACK_TX_WATCH_FILE'];
   const env = {};
   for (const k of keep) if (process.env[k] != null) env[k] = process.env[k];
   return Object.assign(env, extra);
@@ -66,10 +66,13 @@ function cleanEnv(extra) {
 // fakePayments: replace the payment processor's library with an in-memory stand-in (fakeStripePreload.js) and turn
 // marketplace checkout on, so purchases can be tested end to end without any network or keys.
 async function startStack({ env = {}, quiet = true, fakeStorage = false, fakePayments = false } = {}) {
+  // On CI each startup stage's time is printed, so a stalled setup shows where it stalled.
+  const t0 = Date.now(); const stage = (s) => { if (process.env.CI) process.stderr.write(`[fullstack] ${s} after ${((Date.now() - t0) / 1000).toFixed(1)}s\n`); };
   const dbPort = await freePort();
   const appPort = await freePort();
   const db = spawn(process.execPath, [path.join(__dirname, 'dbServer.mjs'), String(dbPort)], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
   await waitForLine(db, /READY (\d+) (\d+)/, 120000, 'isolated database');
+  stage('isolated database ready');
 
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aap-fullstack-'));   // no .env here: dotenv loads nothing
   const appEnv = cleanEnv(Object.assign({
@@ -91,6 +94,7 @@ async function startStack({ env = {}, quiet = true, fakeStorage = false, fakePay
   app.stdout.on('data', keepLog); app.stderr.on('data', keepLog);
   const baseUrl = `http://127.0.0.1:${appPort}`;
   try { await waitForHttp(baseUrl + '/api/health', 90000); } catch (e) { app.kill(); db.kill(); throw new Error(e.message + '\n' + logs.join('').slice(-3000)); }
+  stage('app answering');
 
   const { Pool } = require('pg');
   const pool = new Pool({ host: '127.0.0.1', port: dbPort, user: 'postgres', database: 'postgres', max: 2 });

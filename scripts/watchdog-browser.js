@@ -11,7 +11,7 @@
 
    Usage:
      BASE_URL=https://bid.advantage.bid node scripts/watchdog-browser.js [--out results.json]
-     node scripts/watchdog-browser.js --report-journeys jest-results.json [--out results.json]   (isolated journeys)
+     node scripts/watchdog-browser.js --report-journeys jest-results.json [--retry jest-retry.json] [--out results.json]   (isolated journeys)
    Posting: when WATCHDOG_INGEST_URL and WATCHDOG_INGEST_KEY are set, results are POSTed (HMAC) to the ingest.
    Exit code 1 when any check has a critical problem (so the scheduled job shows red). */
 const fs = require('fs');
@@ -99,21 +99,50 @@ async function checkOne(browser, t) {
   return { check_id: t.id, status: issues.some((i) => i.severity === 'critical') ? 'fail' : 'ok', issues, reproduce: `Open ${BASE}${t.path} in a desktop browser and on a phone (signed out).`, duration_ms: Date.now() - started };
 }
 
-/** One result for the isolated journeys (jest --json output): every failing test becomes a critical finding. */
-function journeysResult(file) {
+/** One result for the isolated journeys (jest --json output, optionally followed by a one-at-a-time retry of the suites
+ *  that failed). Infrastructure is told apart from the application (2026-11-04: seven criticals were one test-environment
+ *  setup that timed out, so no test had run):
+ *    - fails, then passes on the retry ............................ JOURNEY_FLAKY (warning): the product works
+ *    - fails twice in the suite's setup, before any test ran ....... TEST_ENVIRONMENT_FAILED (high): NOT tested, not broken
+ *    - fails twice inside the test itself (or no retry was made) ... JOURNEY_FAILED (critical): a real product failure */
+const SETUP_FAILURE = /Exceeded timeout of \d+ ms for a hook|isolated database/;   // the app itself not starting stays a product failure
+function journeysResult(file, retryFile = null) {
   let j;
   // No results at all (the test run never started, e.g. the browser could not be installed) is itself a finding.
   try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
     return { check_id: 'browser-journeys', status: 'fail', issues: [{ code: 'JOURNEY_RUN_FAILED', severity: 'critical', detail: 'the isolated journeys produced no results: ' + e.message.slice(0, 200), evidence: { key: 'no-results' } }], reproduce: 'npx jest tests/browser --forceExit (isolated test environment)', duration_ms: 0 };
   }
+  let retry = null;
+  if (retryFile) { try { retry = JSON.parse(fs.readFileSync(retryFile, 'utf8')); } catch (_) { retry = null; } }
+  const retried = new Map();   // "file:test title" -> status on the retry
+  const retriedSuites = new Map();
+  for (const s of (retry && retry.testResults) || []) {
+    retriedSuites.set(path.basename(s.name), s.status);
+    for (const a of s.assertionResults || []) retried.set(path.basename(s.name) + ':' + a.ancestorTitles.concat(a.title).join(' > '), a.status);
+  }
+  const msgOf = (a) => String((a.failureMessages || [])[0] || '');
   const issues = [];
   for (const s of j.testResults || []) {
+    const fileName = path.basename(s.name);
     for (const a of s.assertionResults || []) {
-      if (a.status === 'failed') issues.push({ code: 'JOURNEY_FAILED', severity: 'critical', detail: `${a.ancestorTitles.concat(a.title).join(' > ')}: ${String((a.failureMessages || [])[0] || '').split('\n')[0].slice(0, 300)}`, evidence: { key: path.basename(s.name) + ':' + a.title } });
+      if (a.status !== 'failed') continue;
+      const title = a.ancestorTitles.concat(a.title).join(' > ');
+      const key = fileName + ':' + a.title;
+      const again = retried.get(fileName + ':' + title);
+      const firstLine = msgOf(a).split('\n')[0].slice(0, 300);
+      if (again === 'passed') { issues.push({ code: 'JOURNEY_FLAKY', severity: 'warning', detail: `${title}: failed once, passed on the retry (${firstLine.slice(0, 160)})`, evidence: { key } }); continue; }
+      const setup = SETUP_FAILURE.test(msgOf(a)) && (again == null || again === 'failed');
+      if (setup && retry) { issues.push({ code: 'TEST_ENVIRONMENT_FAILED', severity: 'high', detail: `${title}: not tested, the isolated test environment did not start twice (${firstLine.slice(0, 160)})`, evidence: { key } }); continue; }
+      issues.push({ code: 'JOURNEY_FAILED', severity: 'critical', detail: `${title}: ${firstLine}`, evidence: { key } });
     }
-    if (s.status === 'failed' && !(s.assertionResults || []).some((a) => a.status === 'failed')) issues.push({ code: 'JOURNEY_SUITE_FAILED', severity: 'critical', detail: `${path.basename(s.name)}: ${String(s.message || '').split('\n')[0].slice(0, 300)}`, evidence: { key: path.basename(s.name) } });
+    if (s.status === 'failed' && !(s.assertionResults || []).some((a) => a.status === 'failed')) {
+      const passedLater = retriedSuites.get(fileName) === 'passed';
+      issues.push(passedLater
+        ? { code: 'JOURNEY_FLAKY', severity: 'warning', detail: `${fileName}: failed once, passed on the retry`, evidence: { key: fileName } }
+        : { code: 'JOURNEY_SUITE_FAILED', severity: 'critical', detail: `${fileName}: ${String(s.message || '').split('\n')[0].slice(0, 300)}`, evidence: { key: fileName } });
+    }
   }
-  return { check_id: 'browser-journeys', status: issues.length ? 'fail' : 'ok', issues, reproduce: 'npx jest tests/browser --forceExit (isolated test environment)', duration_ms: 0 };
+  return { check_id: 'browser-journeys', status: issues.some((i) => i.severity === 'critical' || i.severity === 'high') ? 'fail' : 'ok', issues, reproduce: 'npx jest tests/browser --forceExit (isolated test environment)', duration_ms: 0 };
 }
 
 async function post(results) {
@@ -126,10 +155,10 @@ async function post(results) {
   if (!r.ok) process.exitCode = 1;
 }
 
-(async () => {
+if (require.main === module) (async () => {
   let results;
   const journeys = argOf('--report-journeys');
-  if (journeys) results = [journeysResult(journeys)];
+  if (journeys) results = [journeysResult(journeys, argOf('--retry'))];
   else {
     const { chromium } = require('playwright');
     const browser = await chromium.launch();
@@ -144,3 +173,5 @@ async function post(results) {
   await post(results);
   if (results.some((r) => r.issues.some((i) => i.severity === 'critical'))) process.exitCode = 1;
 })().catch((e) => { console.error('[watchdog-browser] failed:', e); process.exit(1); });
+
+module.exports = { journeysResult };

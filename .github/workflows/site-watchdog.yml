@@ -55,14 +55,29 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Isolated browser journeys (test environment only)
+        id: journeys
+        continue-on-error: true
         env:
           JWT_SECRET: ci-test-only-not-a-secret
+          FULLSTACK_TX_WATCH_FILE: ${{ runner.temp }}/long-transactions.log
         run: npx jest tests/browser --forceExit --json --outputFile=jest-journeys.json
+      # A suite that failed is run once more, alone, so a slow or stalled test environment on the runner is told apart
+      # from a real product failure (the report classifies: passed on retry = flaky; setup failed twice = not tested).
+      - name: Retry failed journeys once, one at a time
+        if: steps.journeys.outcome == 'failure'
+        env:
+          JWT_SECRET: ci-test-only-not-a-secret
+        run: |
+          files=$(node -e "try{const j=require('./jest-journeys.json');console.log(j.testResults.filter(s=>s.status==='failed').map(s=>s.name).join(' '))}catch(e){}")
+          if [ -n "$files" ]; then npx jest $files --runInBand --forceExit --json --outputFile=jest-journeys-retry.json || true; fi
+      - name: Test-environment diagnostics (transactions held open in the in-memory database)
+        if: always()
+        run: cat "${{ runner.temp }}/long-transactions.log" 2>/dev/null || echo "no long transactions"
       - name: Report journeys
         if: always()
         env:
           WATCHDOG_INGEST_KEY: ${{ secrets.WATCHDOG_INGEST_KEY }}
-        run: node scripts/watchdog-browser.js --report-journeys jest-journeys.json --out watchdog-journeys.json
+        run: node scripts/watchdog-browser.js --report-journeys jest-journeys.json --retry jest-journeys-retry.json --out watchdog-journeys.json
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: watchdog-journeys, path: 'watchdog-journeys.json', retention-days: 14, if-no-files-found: ignore }
