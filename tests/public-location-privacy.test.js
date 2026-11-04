@@ -9,6 +9,8 @@
  * These tests call the real public route handlers with a recording database and assert on what they SELECT and
  * return, plus source-level guards for server-rendered HTML and structured data.
  */
+// The auction routes load the sign-in middleware, which needs a signing secret (CI has no .env).
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-location-privacy'; // test value, never a real secret
 
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
 
