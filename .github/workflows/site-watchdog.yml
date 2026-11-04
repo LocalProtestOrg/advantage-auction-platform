@@ -60,7 +60,9 @@ jobs:
         env:
           JWT_SECRET: ci-test-only-not-a-secret
           FULLSTACK_TX_WATCH_FILE: ${{ runner.temp }}/long-transactions.log
-        run: npx jest tests/browser --forceExit --json --outputFile=jest-journeys.json
+        # One suite at a time: on the runner, isolated environments started in parallel stall in setup (2026-11-04: 15
+        # tests timed out in parallel and all passed when run alone).
+        run: npx jest tests/browser --runInBand --forceExit --json --outputFile=jest-journeys.json
       # A suite that failed is run once more, alone, so a slow or stalled test environment on the runner is told apart
       # from a real product failure (the report classifies: passed on retry = flaky; setup failed twice = not tested).
       - name: Retry failed journeys once, one at a time

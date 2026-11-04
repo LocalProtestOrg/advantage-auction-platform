@@ -29,7 +29,12 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        npx jest --testPathPatterns=tests/ --forceExit --maxWorkers=2 2>&1 | tee jest-output.txt
+        # Business-rule suites in parallel; the real-browser journeys one at a time (isolated environments started in
+        # parallel stall in setup on the runner).
+        rc=0
+        npx jest --testPathPatterns=tests/ --testPathIgnorePatterns=tests/browser/ --forceExit --maxWorkers=2 2>&1 | tee jest-output.txt || rc=1
+        npx jest tests/browser --runInBand --forceExit 2>&1 | tee -a jest-output.txt || rc=1
+        exit $rc
     - name: No credentials in the test output
       if: always()
       run: node scripts/check-secrets.js --file jest-output.txt
