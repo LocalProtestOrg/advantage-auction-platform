@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>See Your Business on Advantage.Bid | Professional Seller Demo</title>
+  <meta name="description" content="Type your business name and see your own branded storefront, auction catalog and website widget on Advantage.Bid. Easy cataloging, auction management and two places to sell: your website and the Advantage.Bid marketplace." />
+  <link rel="canonical" href="https://bid.advantage.bid/seller-demo" />
+  <meta property="og:title" content="See Your Business on Advantage.Bid" />
+  <meta property="og:description" content="A one-minute interactive demo for auction houses, estate sale companies, liquidators and retail shops." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://bid.advantage.bid/seller-demo" />
+  <meta property="og:image" content="https://bid.advantage.bid/img/social-card.png" />
+  <meta property="og:site_name" content="Advantage.Bid" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root { --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc; --brand:#1d4ed8; --cta:#d62828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); font-size:17px; line-height:1.5; }
+    .wrap { max-width:1160px; margin:0 auto; padding:0 16px; }
+    .hero { background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); color:#fff; padding:44px 0 36px; }
+    .hero h1 { font-size:clamp(28px,4.6vw,44px); line-height:1.15; margin:0 0 10px; }
+    .hero p { color:#cbd5e1; margin:0 0 22px; max-width:720px; font-size:18px; }
+    .setup { display:grid; grid-template-columns:2fr 1.4fr 1.6fr; gap:14px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:16px; }
+    @media (max-width:820px) { .setup { grid-template-columns:1fr; } }
+    .setup label { display:block; font-size:14px; font-weight:700; color:#e2e8f0; margin-bottom:6px; }
+    .setup input, .setup select { width:100%; font:inherit; padding:11px 12px; border-radius:10px; border:1px solid #94a3b8; }
+    .swatches { display:flex; gap:8px; flex-wrap:wrap; }
+    .swatches button { width:38px; height:38px; border-radius:50%; border:3px solid transparent; cursor:pointer; }
+    .swatches button[aria-pressed="true"] { border-color:#fff; box-shadow:0 0 0 2px #0f172a; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:26px 0 14px; }
+    .tabs button { font:inherit; font-weight:700; font-size:15px; padding:10px 14px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; }
+    .tabs button[aria-selected="true"] { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .stage { display:grid; grid-template-columns:1.5fr 1fr; gap:22px; align-items:start; }
+    @media (max-width:900px) { .stage { grid-template-columns:1fr; } }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:18px; overflow:hidden; min-width:0; }
+    .explain { background:#fff; border:1px solid var(--line); border-radius:18px; padding:20px; }
+    .explain h2 { margin:0 0 8px; font-size:22px; }
+    .explain p, .explain li { color:var(--muted); }
+    .explain ul { padding-left:20px; margin:8px 0 0; }
+    .brandbar { display:flex; align-items:center; gap:12px; padding:16px 18px; color:#fff; }
+    .logo { width:46px; height:46px; border-radius:12px; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; flex:0 0 auto; }
+    .bname { font-weight:800; font-size:19px; overflow-wrap:anywhere; }
+    .bsub { font-size:13px; opacity:.85; }
+    .sec { padding:14px 18px 18px; }
+    .sec h3 { margin:6px 0 10px; font-size:16px; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    @media (max-width:520px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    .card { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; }
+    .thumb { aspect-ratio:4/3; display:flex; align-items:flex-end; padding:8px; color:#fff; font-size:12px; font-weight:700; }
+    .ct { padding:8px 10px 10px; font-size:13.5px; font-weight:700; overflow-wrap:anywhere; }
+    .cm { font-size:12.5px; color:var(--muted); font-weight:500; }
+    .browser { border-bottom:1px solid var(--line); background:#f1f5f9; padding:8px 12px; display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); }
+    .dot { width:10px; height:10px; border-radius:50%; background:#cbd5e1; }
+    .url { background:#fff; border:1px solid var(--line); border-radius:8px; padding:3px 10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
+    .site h4 { margin:14px 18px 6px; font-size:18px; }
+    .embed { margin:0 18px 18px; border:2px dashed #cbd5e1; border-radius:14px; }
+    .steps { list-style:none; margin:0; padding:0; counter-reset:s; }
+    .steps li { counter-increment:s; position:relative; padding:12px 14px 12px 52px; border-bottom:1px solid var(--line); }
+    .steps li::before { content:counter(s); position:absolute; left:14px; top:12px; width:28px; height:28px; border-radius:50%; background:var(--brand); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:14px; }
+    .steps b { display:block; }
+    .steps span { color:var(--muted); font-size:15px; }
+    .suggest { margin:12px 18px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:12px; padding:12px; font-size:15px; }
+    .tl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:18px; }
+    @media (max-width:620px) { .tl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    .tl div { border-radius:12px; padding:12px; background:#f1f5f9; font-size:14px; }
+    .tl b { display:block; font-size:15px; margin-bottom:4px; }
+    .fees { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:34px 0; }
+    @media (max-width:820px) { .fees { grid-template-columns:1fr; } }
+    .fee { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; }
+    .fee b { display:block; font-size:22px; margin-bottom:4px; }
+    .cta { text-align:center; margin:30px 0 60px; }
+    .btn { display:inline-block; background:var(--cta); color:#fff; font-weight:800; font-size:19px; padding:15px 26px; border-radius:12px; text-decoration:none; }
+    .small { font-size:14px; color:var(--muted); }
+  </style>
+</head>
+<body>
+<div data-adv-public-nav data-variant="professional"></div>
+<header class="hero">
+  <div class="wrap">
+    <h1>See your business on Advantage.Bid</h1>
+    <p>Type your business name. Everything below becomes your own branded storefront, auction catalog and website widget, so you can see exactly what your buyers and consignors would see.</p>
+    <form class="setup" id="setup" onsubmit="return false">
+      <div><label for="d-name">Business name</label><input id="d-name" maxlength="60" placeholder="Harbor Estate Sales" autocomplete="organization" /></div>
+      <div><label for="d-type">You run</label>
+        <select id="d-type">
+          <option value="estate_sale_company">An estate sale company</option>
+          <option value="auction_house">An auction house</option>
+          <option value="professional_liquidator">A liquidation business</option>
+          <option value="retail_gallery_studio">A retail shop, gallery or studio</option>
+        </select></div>
+      <div><span class="setup-l" id="d-color-l" style="display:block;font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:6px">Brand color</span><div class="swatches" id="d-colors" role="group" aria-labelledby="d-color-l"></div></div>
+    </form>
+  </div>
+</header>
+<main class="wrap">
+  <div class="tabs" role="tablist" aria-label="Demo views" id="d-tabs"></div>
+  <div class="stage">
+    <section class="panel" id="d-preview" aria-live="polite"></section>
+    <aside class="explain" id="d-explain"></aside>
+  </div>
+
+  <section class="fees" aria-label="What it costs">
+    <div class="fee"><b>Your buyer's premium</b>Set your own buyer's premium on your auctions and keep it. It is shown live to bidders during the auction.</div>
+    <div class="fee"><b>5% or 9%</b>On storefront items, charged only when an item sells through Advantage.Bid checkout: 5% when the sale comes through your own website, 9% through the Advantage.Bid marketplace. Card processing included.</div>
+    <div class="fee"><b>No listing fees</b>No monthly storefront subscription. Your auction terms are set out in your Professional Seller agreement before you list.</div>
+  </section>
+
+  <div class="cta">
+    <a class="btn" id="d-cta" href="/become-professional-seller.html">Create Your Professional Account</a>
+    <p class="small">Build your storefront and your first catalog right away. Advantage.Bid verifies your business before your first sale goes live.</p>
+  </div>
+</main>
+<script src="/js/seller-demo.js" defer></script>
+<script src="/widgets/shared/public-nav.js" defer></script>
+</body>
+</html>

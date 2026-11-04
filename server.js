@@ -252,6 +252,8 @@ app.get('/sitemap.xml', async (req, res) => {
     '/items',
     '/shop',
     '/professional-sellers.html',
+    '/seller-demo',
+    '/seller-how-to',
     '/shipping-available.html',
     '/how-sellers-get-paid.html',
     '/after-estate-sale.html',
@@ -447,6 +449,17 @@ app.get('/how-it-works', (req, res) => {
   }
 });
 app.get('/how-it-works.html', (req, res) => res.redirect(301, '/how-it-works'));
+
+// Clean addresses for the professional seller demo and the Seller How To Center (static pages read once and sent with
+// res.send, like /how-it-works, so the page middleware still applies); the .html forms redirect to them.
+for (const [route, file] of [['/seller-demo', 'seller-demo.html'], ['/seller-how-to', 'seller-how-to.html']]) {
+  const full = path.join(__dirname, 'public', file);
+  let cached = null;
+  app.get(route, (req, res) => {
+    try { if (cached == null) cached = fs.readFileSync(full, 'utf8'); return res.type('html').send(cached); } catch (e) { return res.sendFile(full); }
+  });
+  app.get('/' + file, (req, res) => res.redirect(301, route + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
+}
 
 // Public Event Partner acquisition page. This is the SEARCH-DISCOVERABLE door for a company that has
 // never heard of Advantage.Bid — deliberately NOT the token-bearing /authorize-event-promotion.html
