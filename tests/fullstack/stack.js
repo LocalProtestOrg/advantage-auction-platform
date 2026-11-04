@@ -48,7 +48,8 @@ async function waitForHttp(url, ms) {
   const until = Date.now() + ms;
   let last = null;
   while (Date.now() < until) {
-    try { const r = await fetch(url); if (r.status < 500) return; last = 'HTTP ' + r.status; } catch (e) { last = e.message; }
+    // each attempt is time-limited: an app that accepted the connection but never answers must not wait forever
+    try { const r = await fetch(url, { signal: AbortSignal.timeout(5000) }); if (r.status < 500) return; last = 'HTTP ' + r.status; } catch (e) { last = e.message; }
     await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error(`app did not answer ${url}: ${last}`);
@@ -65,7 +66,17 @@ function cleanEnv(extra) {
 // fakeStorage: replace photo storage with an in-memory stand-in (fakeStoragePreload.js) for photo workflows.
 // fakePayments: replace the payment processor's library with an in-memory stand-in (fakeStripePreload.js) and turn
 // marketplace checkout on, so purchases can be tested end to end without any network or keys.
-async function startStack({ env = {}, quiet = true, fakeStorage = false, fakePayments = false } = {}) {
+// The in-memory database occasionally stalls while the app boots (one connection holds a transaction; on the CI runner
+// about one start in ten). A start that does not answer within 45s is reported with the app's log (including any
+// transaction-watch report from pgLocalPreload.js) and made once more from scratch.
+async function startStack(opts = {}) {
+  try { return await startOnce(opts); } catch (e) {
+    process.stderr.write(`[fullstack] start failed, starting again from scratch: ${String(e.message).slice(0, 4000)}\n`);
+    return startOnce(opts);
+  }
+}
+
+async function startOnce({ env = {}, quiet = true, fakeStorage = false, fakePayments = false } = {}) {
   // On CI each startup stage's time is printed, so a stalled setup shows where it stalled.
   const t0 = Date.now(); const stage = (s) => { if (process.env.CI) process.stderr.write(`[fullstack] ${s} after ${((Date.now() - t0) / 1000).toFixed(1)}s\n`); };
   const dbPort = await freePort();
@@ -93,7 +104,7 @@ async function startStack({ env = {}, quiet = true, fakeStorage = false, fakePay
   const keepLog = (d) => { logs.push(d.toString()); if (logs.length > 400) logs.shift(); if (!quiet) process.stdout.write(d); };
   app.stdout.on('data', keepLog); app.stderr.on('data', keepLog);
   const baseUrl = `http://127.0.0.1:${appPort}`;
-  try { await waitForHttp(baseUrl + '/api/health', 90000); } catch (e) { app.kill(); db.kill(); throw new Error(e.message + '\n' + logs.join('').slice(-3000)); }
+  try { await waitForHttp(baseUrl + '/api/health', 45000); } catch (e) { app.kill(); db.kill(); throw new Error(e.message + '\n' + logs.join('').slice(-3000)); }
   stage('app answering');
 
   const { Pool } = require('pg');

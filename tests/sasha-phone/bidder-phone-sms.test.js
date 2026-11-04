@@ -553,7 +553,7 @@ describe('versioned consent, STOP / START / HELP sync and the do-not-text list',
     expect(await q(`SELECT * FROM sms_consents WHERE user_id = $1`, [u.id])).toHaveLength(0);
     expect(await supp.isSuppressed(e164)).toBe(false);
     const rows = await q(`SELECT * FROM sms_inbound_events WHERE from_last4 = $1 ORDER BY created_at`, [e164.slice(-4)]);
-    expect(rows.map((r) => r.action)).toEqual(['help', 'help', 'other']);
+    expect(rows.map((r) => r.action).sort()).toEqual(['help', 'help', 'other']);   // same-instant rows: order not guaranteed
     expect(JSON.stringify(rows)).not.toMatch(/4111|bid status/);
     expect(JSON.stringify(rows)).not.toContain(e164);
   });
