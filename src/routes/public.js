@@ -283,21 +283,6 @@ const geocodeProvider = require('../services/geocoding/mapboxProvider');
 const { sendEmail } = require('../services/emailService');
 const { writeAuditLog } = require('../lib/auditLog');
 
-// ── GET /api/public/printables/lot-labels.pdf ─────────────────────────────────
-// Seller How To Center: printable lot labels at exact size (Avery 5160 or plain paper) or a calibration sheet.
-// ?from&to&seller&auction&web=0|1&plain=0|1&mode=calibrate. Made from the query; nothing is stored.
-router.get('/printables/lot-labels.pdf', normalLimiter, (req, res, next) => {
-  try {
-    const q = {};
-    for (const k of ['from', 'to', 'seller', 'auction', 'web', 'plain', 'mode']) if (typeof req.query[k] === 'string') q[k] = req.query[k];
-    const L = require('../../public/js/lot-label-layout');
-    const o = L.normalize(q);
-    const name = q.mode === 'calibrate' ? 'advantage-bid-label-calibration.pdf' : `advantage-bid-lot-labels-${o.from}-${o.to}.pdf`;
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${name}"`, 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
-    require('../services/lotLabelPdfService').render(q, res);
-  } catch (e) { next(e); }
-});
-
 const FEEDBACK_TYPES = {
   problem:    'Report a Problem',
   incorrect:  'Incorrect Listing',

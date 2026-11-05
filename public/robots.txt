@@ -18,6 +18,7 @@ Disallow: /payment.html
 Disallow: /add-card.html
 Disallow: /payout-profile.html
 Disallow: /seller-settlements.html
+Disallow: /seller-how-to
 Disallow: /become-seller.html
 Disallow: /appraiser-membership.html
 Disallow: /appraiser-welcome.html
@@ -58,6 +59,7 @@ Disallow: /payment.html
 Disallow: /add-card.html
 Disallow: /payout-profile.html
 Disallow: /seller-settlements.html
+Disallow: /seller-how-to
 Disallow: /become-seller.html
 Disallow: /appraiser-membership.html
 Disallow: /appraiser-welcome.html

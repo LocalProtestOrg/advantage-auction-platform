@@ -34,7 +34,7 @@
     { id: 'analytics', label: 'Sale Stats',     emoji: '📊', href: '#analytics' },
     { id: 'payments',  label: 'Payments',       emoji: '💰', href: '/seller-settlements.html', external: true },
     { id: 'messages',  label: 'Messages',       emoji: '💬', href: '#messages' },
-    { id: 'howto',     label: 'Seller How To Center', emoji: '📘', href: '/seller-how-to', external: true },
+    { id: 'howto',     label: 'Seller How To Center', emoji: '📘', href: '/seller-how-to', external: true, proOnly: true },
     { id: 'account',   label: 'Account',        emoji: '⚙️', href: '#account',                 primaryMobile: true }
   ];
 
@@ -89,7 +89,7 @@
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
       { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' },
       // Guides and printable labels, worksheets and checklists (owner request 2026-11-05).
-      { id: 'howto',         label: 'Seller How To Center',   emoji: '📘', href: '/seller-how-to', external: true }
+      { id: 'howto',         label: 'Seller How To Center',   emoji: '📘', href: '/seller-how-to', external: true, proOnly: true }
     ]);
   }
 
@@ -178,8 +178,11 @@
     if (ctx.isBdMember && ctx.businessAdminUrl) {
       sections.push({ id: 'bizadmin', heading: null, items: [businessAdminItem(ctx.businessAdminUrl)] });
     }
-    if (mode !== 'admin' && isProfessionalExperience(ctx)) return sections.concat(professionalSections(ctx));
-    return sections.concat([{ id: mode, heading: null, items: MODES[mode].slice() }]);
+    if (mode !== 'admin' && isProfessionalExperience(ctx)) sections = sections.concat(professionalSections(ctx));
+    else sections = sections.concat([{ id: mode, heading: null, items: MODES[mode].slice() }]);
+    // proOnly items (the Seller How To Center) only for Professional Sellers and admins; the server enforces it too.
+    var pro = !!ctx.storefrontEligible || normalizeRole(ctx.role) === 'admin';
+    return sections.map(function (sec) { return pro ? sec : { id: sec.id, heading: sec.heading, items: sec.items.filter(function (i) { return !i.proOnly; }) }; });
   }
 
   // Flat ordered items (backward-compatible) — the concatenation of every section's items.

@@ -1,6 +1,7 @@
 /* Seller Academy (/seller-how-to): the grouping Pro Tip animation and the printables (branded lot labels, calibration
    page, inventory worksheet, setup and pickup checklists), built in this browser and printed with the browser's print
-   window. Label geometry comes from /js/lot-label-layout.js (shared with the PDF download). Nothing typed here is sent
+   window. Label geometry comes from /js/lot-label-layout.js (shared with the PDF download). Professional Sellers and
+   administrators only (sellerResourceGate, server-side). Nothing typed here is sent
    or stored, except the label options placed in the PDF link when the seller asks for the PDF. DOM calls only. */
 (function () {
   'use strict';
@@ -67,7 +68,7 @@
       if (o.seller) q.set('seller', o.seller); if (o.auction) q.set('auction', o.auction);
       if (!o.web) q.set('web', '0'); if (o.plain) q.set('plain', '1');
     }
-    return '/api/public/printables/lot-labels.pdf?' + q.toString();
+    return '/api/seller-resources/lot-labels.pdf?' + q.toString();
   }
   function preview() {
     var o = labelOpts(); var box = document.getElementById('l-preview'); while (box.firstChild) box.removeChild(box.firstChild);

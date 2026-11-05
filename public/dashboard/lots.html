@@ -819,7 +819,7 @@
 
         <!-- ── A: Upload Studio ─────────────────────────────── -->
         <div class="section-label">Upload Studio</div>
-        <p id="lot-resources" style="margin:-4px 0 10px;font-size:13px;color:#475569">Seller How To Center: <a href="/seller-how-to#photos" target="_blank" rel="noopener">Photography Tips</a> · <a href="/seller-how-to#t-labels" target="_blank" rel="noopener">Lot Labels</a> · <a href="/seller-how-to#t-worksheet" target="_blank" rel="noopener">Inventory Worksheet</a></p>
+        <p id="lot-resources" style="display:none;margin:-4px 0 10px;font-size:13px;color:#475569">Seller How To Center: <a href="/seller-how-to#photos" target="_blank" rel="noopener">Photography Tips</a> · <a href="/seller-how-to#t-labels" target="_blank" rel="noopener">Lot Labels</a> · <a href="/seller-how-to#t-worksheet" target="_blank" rel="noopener">Inventory Worksheet</a></p>
         <div class="card">
           <div
             class="upload-zone"
@@ -2074,6 +2074,13 @@
           var el = document.getElementById(id);
           if (el) el.style.display = show ? '' : 'none';
         });
+        // Seller How To Center links and the pickup note templates: Professional Sellers and admins only (the server
+        // refuses the templates file to anyone else; this only avoids offering what would be refused).
+        var res = document.getElementById('lot-resources'); if (res) res.style.display = show ? '' : 'none';
+        if (show && !document.getElementById('pickup-note-templates-js')) {
+          var sc = document.createElement('script'); sc.id = 'pickup-note-templates-js'; sc.src = '/widgets/shared/pickup-note-templates.js';
+          document.body.appendChild(sc);
+        }
       }
       var isAdmin = false;
       try { isAdmin = JSON.parse(atob(token.split('.')[1])).role === 'admin'; } catch (e) {}
@@ -2716,6 +2723,5 @@
     // Load inventory on page init if auctionId is present
     if (auctionId) { loadInventory(); }
   </script>
-  <script src="/widgets/shared/pickup-note-templates.js" defer></script>
 </body>
 </html>

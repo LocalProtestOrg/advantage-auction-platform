@@ -21,7 +21,16 @@ const BANNED = /\bAI\b|A\.I\.|artificial intelligence|machine learning|\bOpenAI\
 const PUBLIC = path.join(__dirname, '..', '..', 'public');
 const PX = 96; // CSS pixels per inch
 
-beforeAll(async () => { stack = await startStack(); browser = await chromium.launch(); });
+// The Seller How To Center is for Professional Sellers (and administrators): its pages are opened signed in as one.
+const PRO_EMAIL = 'howto-pro@fullstack.test';
+let PRO_TOKEN;
+beforeAll(async () => {
+  stack = await startStack(); browser = await chromium.launch();
+  const seed = require('../fullstack/seed');
+  const userId = await seed.user(stack, { email: PRO_EMAIL, role: 'seller', fullName: 'Hal How' });
+  await seed.sellerProfile(stack, { userId, sellerType: 'estate_sale_company', displayName: 'Hal Estate Sales' });
+  PRO_TOKEN = await seed.apiLogin(stack, PRO_EMAIL);
+});
 afterAll(async () => { if (browser) await browser.close(); if (stack) await stack.stop(); });
 
 async function open(ctxOpts, p) {
@@ -30,6 +39,11 @@ async function open(ctxOpts, p) {
   const sent = []; page.on('request', (r) => { const u = r.url(); if (r.method() !== 'GET' || (/^https?:/.test(u) && new URL(u).origin !== stack.baseUrl)) sent.push(r.method() + ' ' + u); });
   await page.route('**/*', (route) => (new URL(route.request().url()).origin === stack.baseUrl ? route.continue() : route.abort()));
   await page.addInitScript(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+  if (p.startsWith('/seller-how-to')) {
+    // Signed out, the server sends the visitor to sign in and back to the same address.
+    await require('../fullstack/seed').browserLogin(page, stack, PRO_EMAIL, undefined, p);
+    sent.length = 0;
+  }
   const probe = health.attach(page, { origin: stack.baseUrl });
   await page.goto(stack.baseUrl + p, { waitUntil: 'networkidle' });
   return { ctx, page, probe, sent };
@@ -63,14 +77,16 @@ async function a11y(page) {
   });
 }
 
-test('clean addresses; the .html forms redirect; both are in the sitemap', async () => {
-  for (const p of ['/seller-demo', '/seller-how-to']) {
-    expect((await fetch(stack.baseUrl + p)).status).toBe(200);
-    const r = await fetch(stack.baseUrl + p + '.html?utm_source=x', { redirect: 'manual' });
-    expect([r.status, r.headers.get('location')]).toEqual([301, p + '?utm_source=x']);
-  }
+test('clean addresses; the .html forms redirect; the public demo is in the sitemap, the members-only How To Center is not', async () => {
+  expect((await fetch(stack.baseUrl + '/seller-demo')).status).toBe(200);
+  const d = await fetch(stack.baseUrl + '/seller-demo.html?utm_source=x', { redirect: 'manual' });
+  expect([d.status, d.headers.get('location')]).toEqual([301, '/seller-demo?utm_source=x']);
+  const auth = { headers: { Authorization: 'Bearer ' + PRO_TOKEN } };
+  expect((await fetch(stack.baseUrl + '/seller-how-to', auth)).status).toBe(200);
+  const h = await fetch(stack.baseUrl + '/seller-how-to.html?utm_source=x', { redirect: 'manual', ...auth });
+  expect([h.status, h.headers.get('location')]).toEqual([301, '/seller-how-to?utm_source=x']);
   const map = await (await fetch(stack.baseUrl + '/sitemap.xml')).text();
-  expect(map).toContain('/seller-demo</loc>'); expect(map).toContain('/seller-how-to</loc>');
+  expect(map).toContain('/seller-demo</loc>'); expect(map).not.toContain('/seller-how-to');
 });
 
 describe('seller demo', () => {
@@ -272,7 +288,7 @@ describe('Seller Academy (/seller-how-to)', () => {
     expect(await printed(page)).toEqual({ pages: 1, boxes: ['/MediaBox [0 0 612 792]'] });
     await page.fill('#l-from', '7'); await page.fill('#l-to', '40'); await page.fill('#l-seller', 'Harbor'); await page.check('#l-plain'); await page.uncheck('#l-web');
     const u = new URL(await page.getAttribute('#d-labels', 'href'), stack.baseUrl);
-    expect(u.pathname).toBe('/api/public/printables/lot-labels.pdf');
+    expect(u.pathname).toBe('/api/seller-resources/lot-labels.pdf');
     expect(Object.fromEntries(u.searchParams)).toEqual({ from: '7', to: '40', seller: 'Harbor', web: '0', plain: '1' });
     await page.click('#p-labels');
     expect(await page.$$eval('#print-area .lbl.plain', (l) => l.length)).toBe(34);
@@ -281,10 +297,10 @@ describe('Seller Academy (/seller-how-to)', () => {
   });
 
   test('PDF download: exact Letter pages, 30 labels per sheet, calibration sheet, bad input normalized, no caching', async () => {
-    const get = async (q) => { const r = await fetch(stack.baseUrl + '/api/public/printables/lot-labels.pdf' + q); return { r, info: pdfInfo(Buffer.from(await r.arrayBuffer())) }; };
+    const get = async (q) => { const r = await fetch(stack.baseUrl + '/api/seller-resources/lot-labels.pdf' + q, { headers: { Authorization: 'Bearer ' + PRO_TOKEN } }); return { r, info: pdfInfo(Buffer.from(await r.arrayBuffer())) }; };
     const a = await get('?from=1&to=31&seller=' + encodeURIComponent('A Very Long Business Name That Keeps Going and Going Estate Services LLC'));
     expect([a.r.status, a.r.headers.get('content-type'), a.r.headers.get('content-disposition'), a.r.headers.get('cache-control')])
-      .toEqual([200, 'application/pdf', 'attachment; filename="advantage-bid-lot-labels-1-31.pdf"', 'no-store']);
+      .toEqual([200, 'application/pdf', 'attachment; filename="advantage-bid-lot-labels-1-31.pdf"', 'private, no-store']);
     expect(a.info).toEqual({ head: '%PDF-', pages: 2, boxes: ['/MediaBox [0 0 612 792]'] });
     expect((await get('?mode=calibrate')).info.pages).toBe(1);
     expect((await get('?from=101&to=700')).info.pages).toBe(20);   // 600 labels, the most at once

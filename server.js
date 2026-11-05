@@ -255,7 +255,6 @@ app.get('/sitemap.xml', async (req, res) => {
     '/shop',
     '/professional-sellers.html',
     '/seller-demo',
-    '/seller-how-to',
     '/shipping-available.html',
     '/how-sellers-get-paid.html',
     '/after-estate-sale.html',
@@ -454,6 +453,9 @@ app.get('/how-it-works.html', (req, res) => res.redirect(301, '/how-it-works'));
 
 // Clean addresses for the professional seller demo and the Seller How To Center (static pages read once and sent with
 // res.send, like /how-it-works, so the page middleware still applies); the .html forms redirect to them.
+// The Seller How To Center, its scripts and its downloads are for Professional Sellers and administrators only (owner
+// decision 2026-11-05): checked here, before the route below, every API router and express.static. The demo stays public.
+app.use(require('./src/middleware/sellerResourceGate'));
 for (const [route, file] of [['/seller-demo', 'seller-demo.html'], ['/seller-how-to', 'seller-how-to.html']]) {
   const full = path.join(__dirname, 'public', file);
   let cached = null;
@@ -805,6 +807,7 @@ app.use('/api/public/sasha', require('./src/routes/publicSasha')); // Sasha: is 
 app.use('/api/sasha/chat', require('./src/routes/sashaChat'));     // Sasha website chat (bid origin + X-Sasha-Client only)
 app.use('/api/public', require('./src/routes/publicListings')); // Claimed Listing: claim context, claim link, help, by-bd lookup, unsubscribe
 app.use('/api/public', publicRoutes);
+app.use('/api/seller-resources', require('./src/routes/sellerResources')); // How To Center downloads (sellerResourceGate)
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
 // Event Partner one-click authorization (no auth, no session, token-gated, master gate OFF by default).
 app.use('/api/public/event-partner', publicEventPartnerRoutes);

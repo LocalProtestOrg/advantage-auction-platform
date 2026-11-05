@@ -302,6 +302,8 @@
 
   // Seller Resources (owner request 2026-11-05): the How To Center's guides and printables, from the seller home.
   function sellerResources() {
+    // Professional Sellers and admins only (the How To Center itself is enforced server-side by sellerResourceGate).
+    if (!state.storefrontEligible && !(state.user && state.user.role === 'admin')) return '';
     return '<div class="adv-section-title">Seller Resources</div><div class="adv-row adv-wrap" id="adv-seller-resources">' +
       '<a class="adv-btn ghost" href="/seller-how-to">📘 Auction Setup Guide</a>' +
       '<a class="adv-btn ghost" href="/seller-how-to#printables">🏷️ Lot Labels &amp; Inventory Worksheets</a>' +

@@ -56,7 +56,10 @@ test('every link in the email reaches a real destination; the dashboard is the a
   const m = buildWelcomeEmail({ companyName: 'Harbor Estate Sales' });
   const paths = [...new Set([...m.html.matchAll(/(?:href|src)="https:\/\/bid\.advantage\.bid(\/[^"]*)"/g)].map((x) => x[1]))];
   expect(paths.sort()).toEqual(['/app.html', '/img/brand/advantage-bid-logo-white.png', '/seller-demo', '/seller-how-to']);
-  for (const p of ['/seller-demo', '/seller-how-to']) expect([p, (await fetch(stack.baseUrl + p)).status]).toEqual([p, 200]);
+  expect((await fetch(stack.baseUrl + '/seller-demo')).status).toBe(200);                         // public
+  // The How To Center is for Professional Sellers: signed out, the email link goes to sign-in and back to it.
+  const howOut = await fetch(stack.baseUrl + '/seller-how-to', { redirect: 'manual' });
+  expect([howOut.status, howOut.headers.get('location')]).toEqual([302, '/login.html?next=%2Fseller-how-to']);
   const logo = await fetch(stack.baseUrl + '/img/brand/advantage-bid-logo-white.png');
   // the logo may be shown inside any mail client or website (not limited to this site)
   expect([logo.status, logo.headers.get('content-type'), logo.headers.get('cross-origin-resource-policy')]).toEqual([200, 'image/png', 'cross-origin']);
@@ -69,6 +72,9 @@ test('every link in the email reaches a real destination; the dashboard is the a
   await page.route('**/*', (route) => (new URL(route.request().url()).origin === stack.baseUrl ? route.continue() : route.abort()));
   await seed.browserLogin(page, stack, 'new-pro@fullstack.test', seed.TEST_PASSWORD, '/app.html');
   expect(new URL(page.url()).pathname).toBe('/app.html');
+  // ...and the new Professional Seller opens the How To Center from the email link
+  const how = await page.goto(stack.baseUrl + '/seller-how-to');
+  expect([how.status(), new URL(page.url()).pathname]).toEqual([200, '/seller-how-to']);
   await ctx.close();
 });
 
