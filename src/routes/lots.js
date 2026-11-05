@@ -70,6 +70,14 @@ async function shippingAllowedForAuction(userRole, auctionId) {
   return rows[0] ? shippingAllowed({ role: userRole, sellerType: rows[0].seller_type, capabilities: rows[0].capabilities }) : false;
 }
 
+// Auction shipping Phase 1 (spec docs/projects/auction-shipping-spec.md): when AUCTION_SHIPPING_ENABLED=true, each lot in
+// a buyer-facing payload carries `shipping` (label + terms) computed in ONE place (src/lib/auctionShippingPolicy.js).
+// Flag off: nothing is added, the payload is unchanged.
+async function attachShipping(lots) {
+  if (!require('../lib/auctionShippingPolicy').auctionShippingEnabled()) return;
+  await require('../services/auctionShippingService').attachLotSummaries(lots);
+}
+
 // ── Ownership helpers (admin bypasses both checks) ───────────────────────────
 
 async function userOwnsAuction(userId, userRole, auctionId) {
@@ -269,6 +277,7 @@ router.get('/my-bids', authMiddleware, async (req, res, next) => {
     );
     // Authed viewer (they bid on these) → realized prices visible; annotate strips
     // winner UUIDs and adds viewer_is_high_bidder / viewer_has_bid / viewer_max_bid_cents.
+    await attachShipping(result.rows);   // auction shipping Phase 1 (flag-gated): shown again after winning
     const data = result.rows.map(r => redactRealizedPrice(annotateViewerBidState(r, req.user.id, r.viewer_max), true));
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -442,6 +451,7 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
         for (const r of pm.rows) viewerMax[r.lot_id] = r.max_amount_cents;
       } catch (e) { console.error('[lots] viewer proxy-max fetch failed', e.message); }
     }
+    await attachShipping(lots);   // auction shipping Phase 1 (flag-gated): per-lot label + terms
     res.json({ success: true, data: lots.map(l => redactRealizedPrice(annotateViewerBidState(l, viewerId, viewerMax[l.id]), isAuthed)) });
   } catch (err) {
     next(err);
@@ -830,6 +840,7 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
       } catch (e) { /* non-fatal — recovery link is best-effort */ }
     }
 
+    await attachShipping([lot]);   // auction shipping Phase 1 (flag-gated): shown before bidding and after winning
     res.json({ success: true, data: redactRealizedPrice(annotateViewerBidState(lot, req.user && req.user.id, viewerMaxCents), !!req.user) });
   } catch (err) {
     next(err);
