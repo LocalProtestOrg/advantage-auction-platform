@@ -1,29 +1,66 @@
 'use strict';
 
 /**
- * The professional seller demo (/seller-demo) and the Seller How To Center (/seller-how-to), as SERVED by the real app in
- * a real browser on the isolated full-stack environment (never production). Owner roadmap items A and B (2026-11-04).
+ * The professional seller demo (/seller-demo) and the Seller Academy (/seller-how-to), as SERVED by the real app in a
+ * real browser on the isolated full-stack environment (never production). Owner roadmap items A and B (2026-11-04) and
+ * the owner's review changes (2026-11-05): the Academy lessons and grouping Pro Tip, pickup note templates, branded
+ * Avery 5160 lot labels (print and PDF at exact size), worksheet and checklists, and the single-photo catalog demo.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { chromium, devices } = require('playwright');
 const { startStack } = require('../fullstack/stack');
 const health = require('../../src/services/watchdog/pageHealth');
+const { CATEGORIES } = require('../../src/constants/lotCategories');
 
-jest.setTimeout(240000);
+jest.setTimeout(300000);
 let stack; let browser;
 const ALLOW = { allowConsoleErrors: [/net::ERR_FAILED/] };
 const BANNED = /\bAI\b|A\.I\.|artificial intelligence|machine learning|\bOpenAI\b|\bGPT\b|\bLLM\b|coming soon|—|–/i;   // no long dashes in customer copy
+const PUBLIC = path.join(__dirname, '..', '..', 'public');
+const PX = 96; // CSS pixels per inch
 
 beforeAll(async () => { stack = await startStack(); browser = await chromium.launch(); });
 afterAll(async () => { if (browser) await browser.close(); if (stack) await stack.stop(); });
 
-async function open(ctxOpts, path) {
+async function open(ctxOpts, p) {
   const ctx = await browser.newContext(ctxOpts); const page = await ctx.newPage();
+  // Anything that is not a GET, or any request leaving the site (blob: and data: addresses stay in the browser).
+  const sent = []; page.on('request', (r) => { const u = r.url(); if (r.method() !== 'GET' || (/^https?:/.test(u) && new URL(u).origin !== stack.baseUrl)) sent.push(r.method() + ' ' + u); });
   await page.route('**/*', (route) => (new URL(route.request().url()).origin === stack.baseUrl ? route.continue() : route.abort()));
   await page.addInitScript(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
   const probe = health.attach(page, { origin: stack.baseUrl });
-  await page.goto(stack.baseUrl + path, { waitUntil: 'networkidle' });
-  return { ctx, page, probe };
+  await page.goto(stack.baseUrl + p, { waitUntil: 'networkidle' });
+  return { ctx, page, probe, sent };
+}
+// Prints the current print area through Chromium's print engine and reads the page count and paper size.
+async function printed(page) {
+  await page.emulateMedia({ media: 'print' });
+  const buf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+  await page.emulateMedia({ media: 'screen' });
+  const s = buf.toString('latin1');
+  return { pages: (s.match(/\/Type\s*\/Page\b/g) || []).length, boxes: [...new Set((s.match(/\/MediaBox\s*\[[^\]]*\]/g) || []).map((m) => m.replace(/\s+/g, ' ')))] };
+}
+function pdfInfo(buf) {
+  const s = buf.toString('latin1');
+  return { head: s.slice(0, 5), pages: (s.match(/\/Type\s*\/Page\b/g) || []).length, boxes: [...new Set((s.match(/\/MediaBox\s*\[[^\]]*\]/g) || []).map((m) => m.replace(/\s+/g, ' ')))] };
+}
+// Basic accessibility: one H1, no skipped heading levels, labelled form fields, named buttons, images with alt text.
+async function a11y(page) {
+  return page.evaluate(() => {
+    const out = [];
+    if (document.querySelectorAll('h1').length !== 1) out.push('h1 count ' + document.querySelectorAll('h1').length);
+    const lv = [...document.querySelectorAll('main h1, main h2, main h3, header h1')].map((h) => +h.tagName[1]);
+    for (let i = 1; i < lv.length; i++) if (lv[i] - lv[i - 1] > 1) out.push('heading skip ' + lv[i - 1] + '>' + lv[i]);
+    for (const f of document.querySelectorAll('main input, main select, main textarea')) {
+      const named = (f.id && document.querySelector('label[for="' + f.id + '"]')) || f.closest('label') || f.getAttribute('aria-label');
+      if (!named) out.push('unlabelled ' + (f.id || f.name || f.type));
+    }
+    for (const b of document.querySelectorAll('main button, main a')) if (!(b.textContent.trim() || b.getAttribute('aria-label'))) out.push('unnamed ' + b.outerHTML.slice(0, 60));
+    for (const i of document.querySelectorAll('main img')) if (!i.hasAttribute('alt')) out.push('img without alt ' + i.src);
+    return out;
+  });
 }
 
 test('clean addresses; the .html forms redirect; both are in the sitemap', async () => {
@@ -44,7 +81,7 @@ describe('seller demo', () => {
     expect(tabs).toEqual(['Your storefront', 'On your website', 'On Advantage.Bid', 'Easy cataloging', 'Auction day', 'More consignments']);
     for (const t of tabs) {
       await page.click(`#d-tabs button:has-text("${t}")`);
-      const issues = await health.inspect(page, probe, { ...ALLOW, expectText: ['See your business on Advantage.Bid'] });
+      const issues = await health.inspect(page, probe, { ...ALLOW, expectText: ['See your business on Advantage.Bid', 'Catalog one item, then see it in two places'] });
       expect([t, issues.filter((i) => i.severity === 'critical' || i.code === 'HORIZONTAL_OVERFLOW')]).toEqual([t, []]);
       expect(await page.textContent('#d-explain h2')).toBeTruthy();
     }
@@ -52,8 +89,56 @@ describe('seller demo', () => {
     expect(await page.textContent('#d-preview')).toMatch(/Harbor Estate Sales[\s\S]*bid\.advantage\.bid\/pro\/harbor-estate-sales/);
     expect(await page.textContent('#d-preview .logo')).toBe('HE');
     expect(await page.textContent('body')).not.toMatch(BANNED);
+    expect(await a11y(page)).toEqual([]);
     await ctx.close();
   });
+
+  test.each([['desktop', {}], ['small phone (360px)', devices['Galaxy S8']]])('%s: single-photo catalog demo: the photo stays in the browser; the sample listing is editable and shows on the storefront and the marketplace', async (label, ctxOpts) => {
+    const { ctx, page, probe, sent } = await open(ctxOpts, '/seller-demo');
+    await page.fill('#d-name', 'Harbor Estate Sales');
+    // honest labelling is on the page before anything happens
+    expect(await page.textContent('#try')).toMatch(/Your photo stays on this device[\s\S]*not uploaded or saved/);
+    expect(await page.textContent('#try')).toMatch(/Demonstration only: nothing on this page creates an account, publishes an item or charges anyone/);
+    // categories are the platform's one taxonomy
+    expect(await page.$$eval('#t-cat option', (o) => o.map((x) => [x.value, x.textContent]))).toEqual(CATEGORIES.map((c) => [c.key, c.label]));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+    await page.setInputFiles('#t-photo', { name: 'my-item.png', mimeType: 'image/png', buffer: png });
+    expect(await page.getAttribute('#t-drop img', 'src')).toMatch(/^blob:/);
+    await page.click('#t-kinds button:has-text("Furniture")');
+    await page.fill('#t-words', 'walnut dresser with brass pulls');
+    await page.click('#t-go');
+    expect(await page.inputValue('#t-title')).toBe('Walnut Dresser with Brass Pulls');
+    expect(await page.inputValue('#t-cat')).toBe('furniture');
+    expect(await page.inputValue('#t-desc')).toMatch(/\[add what you find\][\s\S]*Condition: \[describe/);
+    expect(await page.textContent('#ts-3 .sample')).toMatch(/Sample listing\.[\s\S]*not from your photo/);
+    await page.fill('#t-title', 'Edited Walnut Dresser'); await page.fill('#t-price', '275');
+    expect(await page.textContent('#t-store')).toMatch(/Harbor Estate Sales[\s\S]*Edited Walnut Dresser[\s\S]*\$275/);
+    expect(await page.textContent('#t-market .mine')).toMatch(/Edited Walnut Dresser[\s\S]*\$275[\s\S]*Sold by Harbor Estate Sales/);
+    expect(await page.$eval('#t-store .ph', (d) => d.style.backgroundImage)).toMatch(/blob:/);
+    expect(await page.getAttribute('#t-market .mkbar img', 'src')).toBe('/img/brand/advantage-bid-logo-white.png');
+    // the sample photo works without a file
+    await page.click('#t-sample');
+    expect(await page.getAttribute('#t-drop img', 'src')).toMatch(/^data:image\/svg\+xml/);
+    // nothing was sent anywhere: no POST/PUT and no request off the site
+    expect(sent).toEqual([]);
+    const issues = await health.inspect(page, probe, { ...ALLOW, checkOverflow: true });
+    expect(issues.filter((i) => i.severity === 'critical' || i.code === 'HORIZONTAL_OVERFLOW')).toEqual([]);
+    expect(await page.textContent('body')).not.toMatch(BANNED);
+    await ctx.close();
+  });
+
+  test('Easy cataloging step 3 is Import Your Inventory & Photos, with Photo_1 to Photo_15 matching explained', async () => {
+    const { ctx, page } = await open({}, '/seller-demo');
+    await page.click('#d-tabs button:has-text("Easy cataloging")');
+    const steps = await page.$$eval('#d-preview .steps li b', (b) => b.map((x) => x.textContent));
+    expect(steps[2]).toBe('Import Your Inventory & Photos');
+    const t = await page.textContent('#d-preview .imp');
+    expect(t).toMatch(/Bring your entire storefront inventory into Advantage\.Bid at once, including product details and matching photos/);
+    expect(t).toMatch(/Photo_1 to Photo_15/); expect(t).toMatch(/up to 2,000 rows/); expect(t).toMatch(/before a single item is created/);
+    expect(t).not.toMatch(/Shopify|competitor/i);
+    await ctx.close();
+  });
+
   test('the call to action opens the existing professional registration with the chosen type and the outreach tags', async () => {
     const { ctx, page } = await open({}, '/seller-demo?utm_source=kymmie&utm_medium=outreach&utm_campaign=pro&evil=1');
     await page.selectOption('#d-type', 'auction_house');
@@ -65,37 +150,158 @@ describe('seller demo', () => {
   });
 });
 
-describe('Seller How To Center', () => {
-  test.each([['desktop', {}], ['small phone (360px)', devices['Galaxy S8']]])('%s: renders cleanly with every guide', async (label, ctxOpts) => {
+describe('Seller Academy (/seller-how-to)', () => {
+  test.each([['desktop', {}], ['small phone (360px)', devices['Galaxy S8']]])('%s: renders cleanly with every lesson, accessible', async (label, ctxOpts) => {
     const { ctx, page, probe } = await open(ctxOpts, '/seller-how-to');
-    const issues = await health.inspect(page, probe, { ...ALLOW, expectText: ['Seller How To Center', "painter's tape", 'Lot numbering', 'Photography that sells', 'Pickup preparation', 'Printables'] });
+    const issues = await health.inspect(page, probe, { ...ALLOW, checkOverflow: true, expectText: ['Advantage.Bid Seller Academy',
+      'Evaluate your merchandise and research comparable sales', 'Build lots that encourage competitive bidding', 'Organize the auction location efficiently',
+      'Professional merchandise photography', 'Accurate, searchable catalog descriptions', 'Large items and special pickup descriptions',
+      'Promote your auction and choose featured merchandise', 'Prepare for a smooth pickup and fulfillment', "painter's tape", 'Research behind these lessons'] });
     expect(issues.filter((i) => i.severity === 'critical' || i.code === 'HORIZONTAL_OVERFLOW')).toEqual([]);
     expect(await page.textContent('body')).not.toMatch(BANNED);
+    expect(await a11y(page)).toEqual([]);
+    // painter's tape belongs to the organization lesson, not the lead
+    expect(await page.$eval('#evaluate', (s) => s.textContent)).not.toMatch(/painter/i);
     await ctx.close();
   });
-  test('printables: 30 labels per sheet with the lot numbers, worksheet rows, both checklists', async () => {
+
+  test('the grouping Pro Tip: the three cats, $10 separately vs $30 or more grouped, an illustration, and when not to group', async () => {
+    const { ctx, page } = await open({ reducedMotion: 'reduce' }, '/seller-how-to');
+    const tip = await page.textContent('#grouping-tip');
+    expect(tip).toMatch(/Why grouping can increase competition/);
+    expect(tip).toMatch(/one red, one gray and one purple/);
+    expect(tip).toMatch(/Sarah[\s\S]*red cat[\s\S]*Rachel[\s\S]*gray cat/);
+    expect(tip).toMatch(/Total\s*\$10/);
+    expect(tip).toMatch(/at least two interested bidders/);
+    expect(tip).toMatch(/This is an illustration, not a prediction/);
+    await page.click('#cat-play');
+    expect(await page.textContent('#cat-ladder li.win')).toMatch(/\$30 or more/);
+    const lots = await page.textContent('#lots');
+    expect(lots).toMatch(/Sell individually when[\s\S]*recognized maker[\s\S]*strong independent demand/);
+    await ctx.close();
+  });
+
+  test('photography: the primary photo has no prominent lot label; labels belong in supporting photos', async () => {
     const { ctx, page } = await open({}, '/seller-how-to');
-    await page.fill('#l-from', '101'); await page.fill('#l-to', '135'); await page.fill('#l-seller', 'Harbor Estate Sales'); await page.fill('#l-auction', 'Westside Estate');
-    await page.click('#p-labels');
-    const sheets = await page.$$eval('#print-area .labels', (s) => s.map((x) => x.children.length));
-    expect(sheets).toEqual([30, 5]);
-    const first = await page.textContent('#print-area .label');
-    expect(first).toMatch(/LOT 101[\s\S]*Westside Estate[\s\S]*Harbor Estate Sales[\s\S]*Advantage\.Bid/);
-    expect(await page.evaluate(() => window.__printed)).toBe(1);
-    await page.fill('#w-pages', '2'); await page.fill('#w-from', '201'); await page.click('#p-worksheet');
-    expect(await page.$$eval('#print-area tbody tr', (r) => r.length)).toBe(30);
-    expect(await page.$$eval('#print-area tbody tr td:first-child', (c) => [c[0].textContent, c[29].textContent])).toEqual(['201', '230']);
-    await page.click('#p-setup');
-    expect(await page.textContent('#print-area h1')).toBe('Advantage.Bid Auction Setup Checklist');
-    await page.click('#p-pickup');
-    expect(await page.textContent('#print-area')).toMatch(/paid invoice/);
-    // printing shows only the printable, on Letter paper
-    await page.emulateMedia({ media: 'print' });
-    expect(await page.isVisible('main')).toBe(false); expect(await page.isVisible('#print-area')).toBe(true);
+    const t = await page.textContent('#photos');
+    expect(t).toMatch(/No prominent lot label/); expect(t).toMatch(/Supporting photos[\s\S]*lot label visible/);
+    expect(t).not.toMatch(/First photo:[^.]*lot label visible/);
     await ctx.close();
   });
-  test('reachable from the auction creation page and the Seller FAQ', async () => {
-    const fs = require('fs'); const path = require('path');
-    for (const f of ['seller-create.html', 'seller-faq.html']) expect(fs.readFileSync(path.join(__dirname, '..', '..', 'public', f), 'utf8')).toMatch(/href="\/seller-how-to"/);
+
+  test('pickup notes: the owner\'s three examples, copyable; the same notes are offered in the lot editor', async () => {
+    const { ctx, page } = await open({ permissions: ['clipboard-read', 'clipboard-write'] }, '/seller-how-to');
+    const t = await page.textContent('#large-items');
+    for (const s of ['This item is located on the second floor. Buyer must bring appropriate assistance, equipment, and a suitable vehicle for safe removal.',
+      'This item is fragile. Buyer must bring appropriate packing materials and transport protection.',
+      'Buyer is responsible for disassembly, loading, and removal. Please bring the necessary tools and assistance.']) expect(t).toContain(s);
+    for (const w of ['Stairs', 'Elevator', 'Access restrictions', 'Parking', 'Oversized furniture', 'Fragile merchandise']) expect(t).toMatch(new RegExp(w, 'i'));
+    expect(t).toMatch(/no example covers every pickup situation/);
+    await page.click('#large-items .pn-copy >> nth=1');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^This item is fragile\./);
+    // the lot editor menu appends the chosen note to the description
+    await page.evaluate(() => { const ta = document.createElement('textarea'); ta.id = 'x-desc'; ta.setAttribute('data-pickup-notes', ''); ta.value = 'Oak table.'; document.querySelector('main').appendChild(ta); window.AdvPickupNotes.init(); });
+    await page.selectOption('#x-desc + .pickup-notes-add select', '2');
+    expect(await page.inputValue('#x-desc')).toBe('Oak table.\n\nBuyer is responsible for disassembly, loading, and removal. Please bring the necessary tools and assistance.');
+    for (const f of ['dashboard/lots.html', 'lot-builder.html']) {
+      const src = fs.readFileSync(path.join(PUBLIC, f), 'utf8');
+      expect([f, /data-pickup-notes/.test(src), /\/widgets\/shared\/pickup-note-templates\.js/.test(src)]).toEqual([f, true, true]);
+    }
+    await ctx.close();
+  });
+
+  test('lot labels: the official logo, numbered across sheets, exact Avery 5160 positions, long names stay inside the label', async () => {
+    const { ctx, page, sent } = await open({}, '/seller-how-to');
+    await page.fill('#l-from', '101'); await page.fill('#l-to', '135');
+    await page.fill('#l-seller', 'Harbor Estate Sales and Appraisal Services of Westchester Co'); await page.fill('#l-auction', 'Westside Estate Contents Online Auction, Part Two of Three');
+    expect(await page.textContent('#l-count')).toMatch(/35 labels \(lots 101 to 135\) on 2 sheets/);
+    await page.click('#p-labels');
+    await page.waitForFunction(() => window.__printed === 1);
+    expect(await page.$$eval('#print-area .lsheet', (s) => s.map((x) => x.querySelectorAll('.lbl').length))).toEqual([30, 5]);
+    expect(await page.$$eval('#print-area .lbl .num b', (b) => [b[0].textContent, b[29].textContent, b[30].textContent, b[34].textContent])).toEqual(['101', '130', '131', '135']);
+    expect(await page.$eval('#print-area .lbl img.logo', (i) => [new URL(i.src).pathname, i.complete && i.naturalWidth > 0])).toEqual(['/img/brand/advantage-bid-logo.png', true]);
+    await page.emulateMedia({ media: 'print' });
+    const geo = await page.$$eval('#print-area .lsheet', (sheets) => sheets.map((sh) => {
+      const o = sh.getBoundingClientRect();
+      return { sheet: [o.width, o.height], labels: [...sh.querySelectorAll('.lbl')].map((l) => { const r = l.getBoundingClientRect(); const f = l.querySelector('.foot').getBoundingClientRect();
+        return [r.left - o.left, r.top - o.top, r.width, r.height, f.right <= r.right + 0.5 && f.bottom <= r.bottom + 0.5]; }) };
+    }));
+    expect(geo[0].sheet).toEqual([8.5 * PX, 11 * PX]);
+    const at = (i) => [(0.1875 + (i % 3) * 2.75) * PX, (0.5 + Math.floor(i / 3)) * PX, 2.625 * PX, 1 * PX, true];
+    for (const i of [0, 1, 2, 3, 28, 29]) geo[0].labels[i].forEach((v, k) => (typeof v === 'boolean' ? expect(v).toBe(true) : expect(v).toBeCloseTo(at(i)[k], 1)));
+    geo[1].labels[4].forEach((v, k) => (typeof v === 'boolean' ? expect(v).toBe(true) : expect(v).toBeCloseTo(at(4)[k], 1)));
+    // the lot number is the largest text on the label, larger than the logo is tall
+    const sizes = await page.$eval('#print-area .lbl', (l) => [parseFloat(getComputedStyle(l.querySelector('.num b')).fontSize), l.querySelector('img.logo').getBoundingClientRect().height]);
+    expect(sizes[0]).toBeGreaterThan(sizes[1]);
+    await page.emulateMedia({ media: 'screen' });
+    const out = await printed(page);
+    expect(out).toEqual({ pages: 2, boxes: ['/MediaBox [0 0 612 792]'] });
+    expect(sent).toEqual([]);   // typing and printing send nothing
+    await ctx.close();
+  });
+
+  test('calibration page, plain paper option and the PDF link carry the same settings', async () => {
+    const { ctx, page } = await open({}, '/seller-how-to');
+    await page.click('#p-calibrate');
+    expect(await page.$$eval('#print-area .cal-box', (b) => b.length)).toBe(30);
+    expect(await page.textContent('#print-area')).toMatch(/Square = exactly 1 in[\s\S]*Actual size/);
+    expect(await printed(page)).toEqual({ pages: 1, boxes: ['/MediaBox [0 0 612 792]'] });
+    await page.fill('#l-from', '7'); await page.fill('#l-to', '40'); await page.fill('#l-seller', 'Harbor'); await page.check('#l-plain'); await page.uncheck('#l-web');
+    const u = new URL(await page.getAttribute('#d-labels', 'href'), stack.baseUrl);
+    expect(u.pathname).toBe('/api/public/printables/lot-labels.pdf');
+    expect(Object.fromEntries(u.searchParams)).toEqual({ from: '7', to: '40', seller: 'Harbor', web: '0', plain: '1' });
+    await page.click('#p-labels');
+    expect(await page.$$eval('#print-area .lbl.plain', (l) => l.length)).toBe(34);
+    expect(await page.$$eval('#print-area .lbl .web', (l) => l.length)).toBe(0);
+    await ctx.close();
+  });
+
+  test('PDF download: exact Letter pages, 30 labels per sheet, calibration sheet, bad input normalized, no caching', async () => {
+    const get = async (q) => { const r = await fetch(stack.baseUrl + '/api/public/printables/lot-labels.pdf' + q); return { r, info: pdfInfo(Buffer.from(await r.arrayBuffer())) }; };
+    const a = await get('?from=1&to=31&seller=' + encodeURIComponent('A Very Long Business Name That Keeps Going and Going Estate Services LLC'));
+    expect([a.r.status, a.r.headers.get('content-type'), a.r.headers.get('content-disposition'), a.r.headers.get('cache-control')])
+      .toEqual([200, 'application/pdf', 'attachment; filename="advantage-bid-lot-labels-1-31.pdf"', 'no-store']);
+    expect(a.info).toEqual({ head: '%PDF-', pages: 2, boxes: ['/MediaBox [0 0 612 792]'] });
+    expect((await get('?mode=calibrate')).info.pages).toBe(1);
+    expect((await get('?from=101&to=700')).info.pages).toBe(20);   // 600 labels, the most at once
+    const bad = await get('?from=abc&to=-4&seller=%3Cscript%3E');
+    expect([bad.r.status, bad.info.pages]).toEqual([200, 1]);
+  });
+
+  test('worksheet: landscape, 12 numbered rows a page with zone and quantity, sale and date filled in, page numbers', async () => {
+    const { ctx, page } = await open({}, '/seller-how-to');
+    await page.fill('#w-sale', 'Westside Estate'); await page.fill('#w-date', '2026-11-14'); await page.fill('#w-pages', '2'); await page.fill('#w-from', '201');
+    await page.click('#p-worksheet');
+    expect(await page.$$eval('#print-area thead th', (h) => h.slice(0, 9).map((x) => x.textContent))).toEqual(['Lot', 'Zone', 'Item', 'Maker, marks and details', 'Condition and flaws', 'Size', 'Qty', 'Photos', 'Notes']);
+    expect(await page.$$eval('#print-area tbody tr', (r) => r.length)).toBe(24);
+    expect(await page.$$eval('#print-area tbody td.lot', (c) => [c[0].textContent, c[23].textContent])).toEqual(['201', '224']);
+    expect(await page.textContent('#print-area')).toMatch(/Sale: Westside Estate[\s\S]*Date: 11\/14\/2026[\s\S]*Page 1 of 2[\s\S]*Page 2 of 2/);
+    expect(await printed(page)).toEqual({ pages: 2, boxes: ['/MediaBox [0 0 792 612]'] });
+    await ctx.close();
+  });
+
+  test('checklists: the expanded setup and pickup sequences, one page each, no fixed closing interval or featured-lot count', async () => {
+    const { ctx, page } = await open({}, '/seller-how-to');
+    await page.click('#p-setup');
+    const setup = await page.$$eval('#print-area .cl h2', (h) => h.map((x) => x.textContent));
+    expect(setup).toEqual(['Sale scope and excluded property', 'Merchandise evaluation and grouping', 'Inventory locations and lot numbering', 'Photography and descriptions',
+      'Condition and dimensions', 'Dates, previews, pickup terms and fulfillment', 'Featured lots and marketing', 'Catalog quality review before publication']);
+    const st = await page.textContent('#print-area');
+    expect(st).not.toMatch(/one minute apart|three featured|3 featured/i);
+    expect(await printed(page)).toEqual({ pages: 1, boxes: ['/MediaBox [0 0 612 792]'] });
+    await page.click('#p-pickup');
+    const pt = await page.textContent('#print-area');
+    for (const s of [/identity/i, /paid on Advantage\.Bid/, /released on the pickup list/, /appointments/i, /access instructions/i, /furniture/i, /fragile/i,
+      /Uncollected lots: follow the published pickup terms and platform procedures/, /Write down anything unusual/, /Lock rooms/]) expect(pt).toMatch(s);
+    expect(pt).not.toMatch(/contact Advantage\.Bid support/i);
+    expect(await printed(page)).toEqual({ pages: 1, boxes: ['/MediaBox [0 0 612 792]'] });
+    await ctx.close();
+  });
+
+  test('cites its sources and is reachable from the auction creation page and the Seller FAQ', async () => {
+    const src = fs.readFileSync(path.join(PUBLIC, 'seller-how-to.html'), 'utf8');
+    for (const host of ['appraisers.org', 'isa-appraisers.org', 'ideas.repec.org', 'econometricsociety.org', 'auctioneers.org', 'ebay.com', 'consumer.ftc.gov', 'anchorit.gov', 'osha.gov']) expect(src).toContain(host);
+    expect(src).not.toMatch(/guarantee|will sell for|you will get/i);
+    for (const f of ['seller-create.html', 'seller-faq.html']) expect(fs.readFileSync(path.join(PUBLIC, f), 'utf8')).toMatch(/href="\/seller-how-to"/);
   });
 });

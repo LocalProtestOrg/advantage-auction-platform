@@ -390,7 +390,7 @@
 
       <div class="field">
         <label for="lot-description">Description</label>
-        <textarea id="lot-description" placeholder="Factual description of the item…"></textarea>
+        <textarea id="lot-description" data-pickup-notes placeholder="Factual description of the item…"></textarea>
         <button type="button" class="btn btn-outline" id="btn-packing-note" style="margin-top:0.4rem;font-size:0.8rem">+ Add Packing Material Note</button>
       </div>
 
@@ -894,5 +894,6 @@
     if (type === 'success') setTimeout(() => { b.style.display = 'none'; }, 4000);
   }
 </script>
+<script src="/widgets/shared/pickup-note-templates.js" defer></script>
 </body>
 </html>

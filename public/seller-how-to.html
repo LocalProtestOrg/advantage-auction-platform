@@ -3,163 +3,514 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Seller How To Center: Set Up, Photograph and Run Your Auction | Advantage.Bid</title>
-  <meta name="description" content="Practical guides for Advantage.Bid sellers: organizing a sale with tables and painter's tape, lot numbering, photography and pickup day, plus printable lot labels, inventory worksheets and checklists." />
+  <title>Seller Academy: Research, Lot, Photograph and Run Your Auction | Advantage.Bid</title>
+  <meta name="description" content="The Advantage.Bid Seller Academy: practical lessons on researching merchandise, building lots that draw bidders, photography, catalog descriptions, promotion and pickup, with printable lot labels and checklists." />
   <link rel="canonical" href="https://bid.advantage.bid/seller-how-to" />
-  <meta property="og:title" content="Seller How To Center | Advantage.Bid" />
-  <meta property="og:description" content="Set up, photograph and run your auction, with printable lot labels, worksheets and checklists." />
+  <meta property="og:title" content="Advantage.Bid Seller Academy" />
+  <meta property="og:description" content="Practical lessons for auction sellers, with branded printable lot labels, inventory worksheets and checklists." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://bid.advantage.bid/seller-how-to" />
   <meta property="og:image" content="https://bid.advantage.bid/img/social-card.png" />
   <meta property="og:site_name" content="Advantage.Bid" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
-    :root { --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc; --red:#d62828; }
+    :root { --ink:#0f172a; --body:#1e293b; --muted:#475569; --line:#e2e8f0; --bg:#f6f7fb; --navy:#0f1f3d; --blue:#1a56db; --red:#d62828; --gold:#b45309; }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); font-size:18px; line-height:1.6; }
-    .wrap { max-width:980px; margin:0 auto; padding:0 16px; }
-    .hero { background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); color:#fff; padding:40px 0 30px; }
-    .hero h1 { font-size:clamp(28px,4.4vw,40px); line-height:1.15; margin:0 0 8px; }
-    .hero p { color:#cbd5e1; margin:0; max-width:700px; }
-    .toc { display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 6px; }
-    .toc a { background:#fff; border:1px solid var(--line); border-radius:999px; padding:7px 13px; color:var(--ink); text-decoration:none; font-weight:700; font-size:15px; }
-    section.guide { background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px; margin:18px 0; }
-    section.guide h2 { margin:0 0 6px; font-size:24px; }
-    section.guide h3 { margin:18px 0 4px; font-size:19px; }
-    section.guide p, section.guide li { color:#1e293b; }
-    .tip { background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; margin:12px 0; font-size:16px; }
-    .tools { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-    @media (max-width:720px) { .tools { grid-template-columns:1fr; } }
-    .tool { border:1px solid var(--line); border-radius:14px; padding:16px; background:#f8fafc; }
-    .tool h3 { margin:0 0 6px; }
-    .tool label { display:block; font-size:15px; font-weight:700; margin:8px 0 3px; }
-    .tool input, .tool select { width:100%; font:inherit; font-size:16px; padding:9px 10px; border:1px solid #cbd5e1; border-radius:9px; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); font-size:18px; line-height:1.65; }
+    .wrap { max-width:1040px; margin:0 auto; padding:0 16px; }
+    a { color:var(--blue); }
+    .hero { background:radial-gradient(1200px 400px at 85% -10%,#1e40af 0%,transparent 60%),linear-gradient(160deg,#0b1730 0%,#132a52 100%); color:#fff; padding:46px 0 38px; }
+    .eyebrow { text-transform:uppercase; letter-spacing:.14em; font-size:13px; font-weight:800; color:#93c5fd; margin:0 0 8px; }
+    .hero h1 { font-size:clamp(30px,4.8vw,46px); line-height:1.1; margin:0 0 12px; text-wrap:balance; }
+    .hero p.lead { color:#dbe4f3; margin:0; max-width:720px; font-size:19px; }
+    .hero .stats { display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:20px; font-size:15px; color:#bfd0ea; }
+    .hero .stats b { color:#fff; }
+    .map { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:24px 0 8px; }
+    @media (max-width:860px) { .map { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    .map a { display:flex; gap:10px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; color:var(--ink); text-decoration:none; font-weight:700; font-size:15px; line-height:1.3; min-width:0; }
+    .map a:hover { border-color:var(--blue); }
+    .map .n { flex:0 0 auto; width:28px; height:28px; border-radius:8px; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; }
+    .map a.tools .n { background:var(--red); }
+    section.lesson { background:#fff; border:1px solid var(--line); border-radius:20px; padding:26px; margin:20px 0; }
+    @media (max-width:560px) { section.lesson { padding:18px; border-radius:16px; } }
+    .lesson .kicker { text-transform:uppercase; letter-spacing:.12em; font-size:12.5px; font-weight:800; color:var(--blue); margin:0 0 4px; }
+    .lesson h2 { margin:0 0 8px; font-size:clamp(23px,3vw,28px); line-height:1.2; text-wrap:balance; }
+    .lesson h3 { margin:22px 0 6px; font-size:20px; }
+    .lesson p, .lesson li { color:var(--body); }
+    .lesson ul, .lesson ol { padding-left:22px; }
+    .lesson li { margin:6px 0; }
+    .lead2 { font-size:19px; color:var(--muted) !important; margin-top:0; }
+    .two { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:760px) { .two { grid-template-columns:1fr; } }
+    .card { border:1px solid var(--line); border-radius:14px; padding:14px 16px; background:#f8fafc; min-width:0; }
+    .card h4 { margin:0 0 6px; font-size:17px; }
+    .card ul { margin:0; padding-left:20px; }
+    .card p { margin:0; }
+    .tip { position:relative; background:#fffbeb; border:1px solid #fcd34d; border-radius:14px; padding:14px 16px 14px 16px; margin:16px 0; }
+    .tip .tag { display:inline-block; background:var(--gold); color:#fff; font-size:12px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; border-radius:6px; padding:2px 8px; margin-bottom:6px; }
+    .tip p { margin:0; }
+    .compare { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:10px 0; }
+    @media (max-width:640px) { .compare { grid-template-columns:1fr; } }
+    .compare > div { border-radius:12px; padding:12px 14px; min-width:0; }
+    .compare .weak { background:#fef2f2; border:1px solid #fecaca; }
+    .compare .strong { background:#f0fdf4; border:1px solid #bbf7d0; }
+    .compare b { display:block; font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+    .compare q { quotes:none; font-weight:700; }
+
+    /* Pro Tip: why grouping can increase competition */
+    .protip { margin:22px 0; border-radius:20px; padding:3px; background:linear-gradient(135deg,#1a56db,#7c3aed 55%,#d62828); }
+    .protip-in { background:#fff; border-radius:17px; padding:22px; }
+    @media (max-width:560px) { .protip-in { padding:16px; } }
+    .protip .badge { display:inline-flex; gap:6px; align-items:center; background:var(--navy); color:#fff; font-weight:800; font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; border-radius:999px; padding:4px 12px; }
+    .protip h3 { font-size:clamp(22px,3vw,27px); margin:10px 0 6px; line-height:1.2; }
+    .cats { display:flex; gap:14px; justify-content:center; margin:14px 0 6px; }
+    .cat { width:64px; text-align:center; font-size:13px; font-weight:700; color:var(--muted); }
+    .cat svg { width:56px; height:66px; display:block; margin:0 auto 2px; }
+    .c-red { color:#dc2626; } .c-gray { color:#6b7280; } .c-purple { color:#7c3aed; }
+    .people { display:flex; flex-wrap:wrap; gap:8px 18px; justify-content:center; font-size:15px; color:var(--muted); margin-bottom:12px; }
+    .people span b { color:var(--ink); }
+    .scen { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:700px) { .scen { grid-template-columns:1fr; } }
+    .scen > div { border:1px solid var(--line); border-radius:14px; padding:14px; min-width:0; }
+    .scen h4 { margin:0 0 8px; font-size:17px; }
+    .scen table { width:100%; border-collapse:collapse; font-size:15.5px; }
+    .scen td { padding:6px 4px; border-bottom:1px solid var(--line); }
+    .scen td:last-child { text-align:right; font-weight:800; white-space:nowrap; }
+    .scen tr.total td { border-bottom:0; font-size:17px; }
+    .scen .sep { background:#fff7ed; border-color:#fed7aa; }
+    .scen .grp { background:#eff6ff; border-color:#bfdbfe; }
+    .ladder { list-style:none; margin:8px 0 0; padding:0; font-size:15.5px; min-height:2em; }
+    .ladder li { display:flex; justify-content:space-between; padding:4px 8px; border-radius:8px; margin:3px 0; background:#fff; }
+    .ladder li.win { background:#dcfce7; font-weight:800; }
+    .playbtn { font:inherit; font-size:15px; font-weight:800; color:#fff; background:var(--blue); border:0; border-radius:10px; padding:9px 14px; cursor:pointer; margin-top:8px; }
+    .why { margin:14px 0 0; }
+    .fine { font-size:14.5px; color:var(--muted) !important; }
+
+    /* pickup notes */
+    .pn-list { display:grid; gap:10px; margin:12px 0; }
+    .pn-row { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#f8fafc; }
+    .pn-body { flex:1; min-width:0; }
+    .pn-body b { font-size:15px; }
+    .pn-body p { margin:2px 0 0; font-size:16.5px; }
+    .pn-copy { flex:0 0 auto; font:inherit; font-size:14px; font-weight:800; border:1px solid var(--blue); color:var(--blue); background:#fff; border-radius:9px; padding:6px 12px; cursor:pointer; }
+
+    /* printables */
+    .tools { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    @media (max-width:760px) { .tools { grid-template-columns:1fr; } }
+    .tool { border:1px solid var(--line); border-radius:16px; padding:18px; background:#f8fafc; min-width:0; }
+    .tool.wide { grid-column:1 / -1; }
+    .tool h3 { margin:0 0 4px; }
+    .tool label { display:block; font-size:15px; font-weight:700; margin:10px 0 3px; }
+    .tool label.chk { display:flex; gap:8px; align-items:center; font-weight:600; }
+    .tool input[type=number], .tool input[type=text], .tool input[type=date], .tool input:not([type]), .tool select { width:100%; font:inherit; font-size:16px; padding:9px 10px; border:1px solid #cbd5e1; border-radius:9px; background:#fff; }
     .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .btn { display:inline-block; margin-top:12px; background:var(--red); color:#fff; font-weight:800; border:0; border-radius:11px; padding:11px 18px; font:inherit; font-weight:800; cursor:pointer; }
+    @media (max-width:420px) { .row { grid-template-columns:1fr; } }
+    .btns { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .btn { display:inline-block; background:var(--red); color:#fff; border:0; border-radius:11px; padding:11px 16px; font:inherit; font-size:16px; font-weight:800; cursor:pointer; text-decoration:none; }
+    .btn.alt { background:#fff; color:var(--navy); border:1.5px solid var(--navy); }
     .small { font-size:15px; color:var(--muted); }
+    .howprint { background:#eef4ff; border:1px solid #c7d7fe; border-radius:12px; padding:12px 14px; font-size:15.5px; margin-top:14px; }
+    .howprint ol { margin:6px 0 0; padding-left:20px; }
+    .preview-wrap { overflow-x:auto; margin-top:14px; padding:12px; background:#e9edf5; border-radius:12px; }
+    .preview-wrap .lbl-sample { display:flex; gap:0.125in; width:max-content; }
+    .preview-wrap .lbl { box-shadow:0 1px 3px rgba(15,23,42,.25); background:#fff; border-radius:6px; }
+    .sources ol { padding-left:22px; }
+    .sources li { font-size:16px; margin:8px 0; }
+
+    /* ---------- printed pages (built by /js/seller-how-to.js) ---------- */
     #print-area { display:none; }
+    @page { size: letter; margin: 0; }
+    @page worksheet { size: letter landscape; margin: 0; }
     @media print {
-      body { background:#fff; }
+      html, body { background:#fff !important; }
       body > *:not(#print-area) { display:none !important; }
       #print-area { display:block; }
-      @page { size: letter; margin: 0.5in 0.1875in; }   /* Avery 5160: 0.5in top and bottom, 0.1875in sides */
     }
-    .labels { display:grid; grid-template-columns:repeat(3, 2.625in); grid-auto-rows:1in; column-gap:0.125in; }
-    .label { border:1px dashed #94a3b8; padding:0.06in 0.1in; overflow:hidden; display:flex; flex-direction:column; justify-content:center; font-family:Arial,sans-serif; }
-    .label .ln { font-size:22pt; font-weight:900; line-height:1; }
-    .label .lt { font-size:8.5pt; line-height:1.2; }
-    .label .lb { font-size:7pt; color:#334155; }
-    .label .lb b { color:#d62828; }
-    .sheet h1 { font-family:Arial,sans-serif; font-size:16pt; margin:0 0 4pt; }
-    .sheet p { font-family:Arial,sans-serif; font-size:9pt; margin:0 0 8pt; }
-    .sheet table { width:100%; border-collapse:collapse; font-family:Arial,sans-serif; font-size:9pt; }
-    .sheet th, .sheet td { border:1px solid #64748b; padding:5pt 4pt; text-align:left; vertical-align:top; }
-    .sheet td { height:24pt; }
-    .sheet .check li { font-family:Arial,sans-serif; font-size:11pt; margin:5pt 0; list-style:none; }
-    .sheet .check li::before { content:""; display:inline-block; width:11pt; height:11pt; border:1.2pt solid #0f172a; margin-right:8pt; vertical-align:-1pt; }
+    .lsheet { position:relative; width:8.5in; height:11in; overflow:hidden; break-after:page; }
+    .lsheet:last-child { break-after:auto; }
+    .lbl { position:absolute; width:2.625in; height:1in; padding:0.075in 0.11in; display:flex; flex-direction:column; font-family:Helvetica,Arial,sans-serif; color:#0f1f3d; overflow:hidden; }
+    .preview-wrap .lbl { position:relative; }
+    .lbl.plain { outline:0.5pt dashed #94a3b8; outline-offset:-0.25pt; border-radius:5pt; }
+    .lbl .top { flex:1; display:flex; align-items:center; justify-content:space-between; gap:0.06in; min-height:0; }
+    .lbl .num { display:flex; flex-direction:column; line-height:1; }
+    .lbl .num small { font-size:6.5pt; font-weight:700; letter-spacing:1.6pt; }
+    .lbl .num b { font-weight:700; letter-spacing:-0.3pt; margin-top:1.5pt; }
+    .lbl .logo { width:1.06in; height:auto; display:block; flex:0 0 auto; }
+    .lbl .foot { border-top:0.6pt solid #1a56db; padding-top:2.4pt; margin-top:1.5pt; display:flex; gap:4pt; align-items:baseline; font-size:6.8pt; line-height:1.1; white-space:nowrap; min-width:0; }
+    .lbl .foot .who { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .lbl .foot .who b { font-weight:700; }
+    .lbl .foot .who span { color:#334155; }
+    .lbl .foot .web { color:#1a56db; font-weight:700; font-size:6.3pt; flex:0 0 auto; }
+    .cal-box { position:absolute; border:0.5pt solid #64748b; border-radius:5pt; width:2.625in; height:1in; }
+    .cal-sq { position:absolute; width:1in; height:1in; border:0.8pt solid #b91c1c; }
+    .cal-t { position:absolute; font:700 6.5pt Helvetica,Arial,sans-serif; color:#b91c1c; }
+    .cal-h { position:absolute; left:0.25in; top:0.16in; font:700 9pt Helvetica,Arial,sans-serif; color:#0f1f3d; }
+    .cal-f { position:absolute; left:0.25in; top:10.56in; font:7.5pt/1.25 Helvetica,Arial,sans-serif; color:#0f172a; }
+    .psheet { width:8.5in; height:11in; padding:0.55in 0.6in; overflow:hidden; break-after:page; font-family:Helvetica,Arial,sans-serif; color:#0f172a; }
+    .psheet:last-child { break-after:auto; }
+    .psheet.ws { page:worksheet; width:11in; height:8.5in; padding:0.45in 0.45in 0.4in; }
+    .phead { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1.2pt solid #0f1f3d; padding-bottom:5pt; margin-bottom:8pt; }
+    .phead h1 { font-size:15pt; margin:0; }
+    .phead img { width:1.45in; height:auto; }
+    .psub { font-size:9pt; margin:0 0 8pt; color:#334155; }
+    .meta { display:flex; gap:22pt; font-size:10pt; margin:0 0 8pt; }
+    .meta span { display:inline-block; min-width:2.2in; border-bottom:0.8pt solid #64748b; padding:0 3pt 1pt; font-weight:700; }
+    .meta span.short { min-width:1.2in; }
+    .wst { width:100%; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; }
+    .wst th { background:#0f1f3d; color:#fff; font-weight:700; text-align:left; padding:4pt 4pt; border:0.6pt solid #0f1f3d; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .wst td { border:0.6pt solid #94a3b8; height:0.49in; padding:2pt 4pt; vertical-align:top; }
+    .wst td.lot { font-weight:700; font-size:11pt; vertical-align:middle; text-align:center; }
+    .wst tr:nth-child(even) td { background:#f4f6fa; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .wst td.box { text-align:center; vertical-align:middle; font-size:12pt; }
+    .pfoot { font-size:7.5pt; color:#475569; margin-top:5pt; display:flex; justify-content:space-between; }
+    .cl { columns:2; column-gap:0.35in; font-size:9.6pt; line-height:1.3; }
+    .cl section { break-inside:avoid; margin:0 0 8pt; }
+    .cl h2 { font-size:10.5pt; margin:0 0 3pt; color:#0f1f3d; text-transform:uppercase; letter-spacing:0.6pt; border-bottom:0.6pt solid #cbd5e1; padding-bottom:1.5pt; }
+    .cl ul { list-style:none; margin:0; padding:0; }
+    .cl li { position:relative; padding-left:15pt; margin:2.6pt 0; }
+    .cl li::before { content:""; position:absolute; left:0; top:1.2pt; width:8.5pt; height:8.5pt; border:1pt solid #0f1f3d; border-radius:1.5pt; }
+    .notes { margin-top:6pt; font-size:9pt; font-weight:700; }
+    .notes div { border-bottom:0.6pt solid #94a3b8; height:16pt; }
   </style>
 </head>
 <body>
 <div data-adv-public-nav></div>
 <header class="hero"><div class="wrap">
-  <h1>Seller How To Center</h1>
-  <p>Practical steps for setting up a sale, numbering and photographing lots, and running pickup day, with printable labels, worksheets and checklists.</p>
+  <p class="eyebrow">Seller How To Center</p>
+  <h1>Advantage.Bid Seller Academy</h1>
+  <p class="lead">Practical lessons from the first walk-through to the last pickup: what to research, how to build lots that draw more bidders, how to photograph and describe merchandise, and how to hand it over smoothly.</p>
+  <div class="stats"><span><b>8</b> lessons</span><span><b>4</b> printable tools</span><span><b>Branded</b> lot labels</span><span>Free for every seller</span></div>
 </div></header>
 <main class="wrap">
-  <nav class="toc" aria-label="Guides">
-    <a href="#organize">Organize the sale</a><a href="#numbering">Lot numbering</a><a href="#photos">Photography</a>
-    <a href="#pickup">Pickup preparation</a><a href="#printables">Printables</a>
+  <nav class="map" aria-label="Lessons">
+    <a href="#evaluate"><span class="n">1</span>Evaluate and research</a>
+    <a href="#lots"><span class="n">2</span>Build lots that draw bidders</a>
+    <a href="#organize"><span class="n">3</span>Organize the location</a>
+    <a href="#photos"><span class="n">4</span>Photography</a>
+    <a href="#describe"><span class="n">5</span>Accurate, searchable descriptions</a>
+    <a href="#large-items"><span class="n">6</span>Large and fragile items</a>
+    <a href="#promote"><span class="n">7</span>Promote and feature</a>
+    <a href="#pickup"><span class="n">8</span>Pickup and fulfillment</a>
+    <a href="#printables" class="tools"><span class="n">P</span>Printables: labels, worksheets, checklists</a>
   </nav>
 
-  <section class="guide" id="organize">
-    <h2>Organize the sale with tables and painter's tape</h2>
-    <p>A sale that is laid out once, in lot order, is faster to photograph, faster to catalog and much faster on pickup day.</p>
-    <h3>1. Clear a work area</h3>
-    <p>Set up folding tables in one room or garage with good light. Leave a walkway around each table so you can photograph from the front and both sides.</p>
-    <h3>2. Group before you number</h3>
-    <p>Put like with like: kitchen, linens, tools, books, decor, art, furniture. Decide what sells as one lot (a set of six chairs) and what sells alone (a signed print). Small items of little value sell better grouped into a box lot.</p>
-    <h3>3. Mark tables and lots with painter's tape</h3>
+  <section class="lesson" id="evaluate">
+    <p class="kicker">Lesson 1</p>
+    <h2>Evaluate your merchandise and research comparable sales</h2>
+    <p class="lead2">Before anything is numbered, decide what each item is and how it should be sold. Twenty minutes of research on the right pieces is worth more than an hour of guessing on all of them.</p>
+    <h3>Sort into three groups</h3>
+    <div class="two">
+      <div class="card"><h4>Research individually</h4><p>Anything signed, marked, branded or made of precious metal; art, jewelry, watches, collectibles with an established market, quality furniture by a known maker, and anything you suspect is valuable.</p></div>
+      <div class="card"><h4>Group candidates</h4><p>Everyday household goods of modest individual value: kitchenware, linens, garden tools, books by the shelf, decor. These usually sell better as well-built lots (Lesson 2).</p></div>
+    </div>
+    <p>A third group is everything not in the sale: family keepsakes, items already promised to someone, and anything the seller cannot legally sell. Remove or close these off before you begin.</p>
+    <h3>Look for marks before you look up prices</h3>
     <ul>
-      <li>Use blue painter's tape: it comes off wood, glass and finishes without residue. Never put tape on gilding, paper, flaking paint, upholstery or textiles; use a tag tied with string or a label on the table in front of the item instead.</li>
-      <li>Write a table number on tape at the corner of each table (Table A, Table B).</li>
-      <li>Give each lot a tape label with its lot number, or use the printable lot labels below. Put the label where it shows in the photo but does not cover a mark or a flaw.</li>
-      <li>Furniture too big for a table gets its tape label on the back or underside, plus a label on the floor in front of it.</li>
+      <li>Turn things over. Check the underside of pottery and glass, the back of frames, the inside of drawers, clasps of jewelry, and the case backs of watches.</li>
+      <li>Note hallmarks and stamps such as "Sterling", "925", "14K", maker's marks, patent numbers, model numbers and paper labels. Photograph them now; you will need the pictures in the catalog.</li>
+      <li>Write what you find on the inventory worksheet so the research travels with the lot.</li>
     </ul>
-    <div class="tip"><b>Tip:</b> keep a roll of tape, a marker and the inventory worksheet together on a clipboard. Write each lot on the worksheet the moment it gets a number.</div>
+    <h3>Compare with sold results, not asking prices</h3>
+    <ul>
+      <li>An asking price is a hope. A sold price is evidence. Search completed or sold results on marketplaces and auction result databases.</li>
+      <li>Compare like with like: the same maker, size, material and, above all, condition. A chip or a missing part can change the result considerably.</li>
+      <li>Look at several recent results and note the range, not just the highest one.</li>
+      <li>Use what you learn to decide how to lot the item and how to describe it, not to promise anyone a price. Auction results depend on who is bidding that week.</li>
+    </ul>
+    <div class="tip"><span class="tag">Pro Tip</span><p>When an item may be significant, a qualified personal property appraiser is worth the fee. Look for membership in a recognized appraisal society and training in the Uniform Standards of Professional Appraisal Practice (USPAP), and avoid anyone who charges a percentage of the value.<sup><a href="#src-1">1</a>,<a href="#src-2">2</a></sup></p></div>
   </section>
 
-  <section class="guide" id="numbering">
-    <h2>Lot numbering</h2>
+  <section class="lesson" id="lots">
+    <p class="kicker">Lesson 2</p>
+    <h2>Build lots that encourage competitive bidding</h2>
+    <p class="lead2">An auction price is set by competition. A lot with one interested bidder tends to sell near its opening bid; a lot that two or more people want is where bidding happens. Good lotting is about putting interested bidders in the same contest.</p>
+
+    <div class="protip" id="grouping-tip">
+      <div class="protip-in">
+        <span class="badge">★ Pro Tip</span>
+        <h3>Why grouping can increase competition</h3>
+        <p>Imagine three inexpensive, unbranded cat figurines: one red, one gray and one purple.</p>
+        <div class="cats" aria-hidden="true">
+          <div class="cat c-red"><svg viewBox="0 0 40 48" fill="currentColor"><path d="M10 15 11.5 4l5.5 6h6l5.5-6L30 15a10 10 0 0 1-20 0z"/><path d="M8 47c-2-12 4-21 12-21s14 9 12 21z"/><path d="M31 45c8-1 9-13 3-15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>Red</div>
+          <div class="cat c-gray"><svg viewBox="0 0 40 48" fill="currentColor"><path d="M10 15 11.5 4l5.5 6h6l5.5-6L30 15a10 10 0 0 1-20 0z"/><path d="M8 47c-2-12 4-21 12-21s14 9 12 21z"/><path d="M31 45c8-1 9-13 3-15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>Gray</div>
+          <div class="cat c-purple"><svg viewBox="0 0 40 48" fill="currentColor"><path d="M10 15 11.5 4l5.5 6h6l5.5-6L30 15a10 10 0 0 1-20 0z"/><path d="M8 47c-2-12 4-21 12-21s14 9 12 21z"/><path d="M31 45c8-1 9-13 3-15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>Purple</div>
+        </div>
+        <div class="people"><span><b>Sarah</b> wants the red cat.</span><span><b>Rachel</b> wants the gray cat.</span><span>Nobody is looking for the purple one.</span></div>
+        <div class="scen">
+          <div class="sep">
+            <h4>Sold separately: three lots</h4>
+            <table>
+              <tr><td>Red cat: Sarah is the only bidder</td><td>$5</td></tr>
+              <tr><td>Gray cat: Rachel is the only bidder</td><td>$5</td></tr>
+              <tr><td>Purple cat: no bids</td><td>$0</td></tr>
+              <tr class="total"><td>Total</td><td>$10</td></tr>
+            </table>
+            <p class="fine">Each bidder wins her cat at the opening bid, because no one is bidding against her.</p>
+          </div>
+          <div class="grp">
+            <h4>Grouped: one lot of three</h4>
+            <p class="fine" style="margin:0">To get the cat she wants, each must win the whole group, so Sarah and Rachel now bid against each other.</p>
+            <ol class="ladder" id="cat-ladder" aria-live="polite"></ol>
+            <button type="button" class="playbtn" id="cat-play">Watch the bidding</button>
+          </div>
+        </div>
+        <div class="why">
+          <p><b>Why it works:</b> competitive bidding needs at least two interested bidders on the same lot. Sold separately, Sarah and Rachel never meet. Grouped, two buyers who wanted different things are in one contest, and the lot that nobody wanted rides along. Economic research points the same way: adding bidders tends to matter more to a seller than bargaining skill, and grouping tends to help most when interest in each separate item is thin.<sup><a href="#src-3">3</a>,<a href="#src-4">4</a></sup></p>
+          <p class="fine">This is an illustration, not a prediction. Real results depend on demand, condition, timing and how many bidders take part.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="card"><h4>Group when</h4><ul>
+        <li>Each item is modest on its own and would likely draw one bidder or none.</li>
+        <li>The pieces appeal to the same kind of buyer (a shelf of kitchen glass, a box of hand tools, a set of craft supplies).</li>
+        <li>The group can be shown clearly in one primary photograph.</li>
+        <li>Pickup is easier as one lot than as ten.</li>
+      </ul></div>
+      <div class="card"><h4>Sell individually when</h4><ul>
+        <li>A piece has meaningful collectible value, a recognized maker, a signature or a brand with its own following.</li>
+        <li>It contains precious metal or gemstones, or is fine art or a quality watch.</li>
+        <li>It has strong independent demand: buyers search for it by name.</li>
+        <li>One item is worth far more than the rest. Burying it in a box lot hides it from the buyers who would compete for it.</li>
+      </ul></div>
+    </div>
+    <h3>More lotting habits of experienced sellers</h3>
     <ul>
-      <li><b>Number in the order buyers will see them.</b> Lots close one minute apart, so the order is the closing order. Start strong: put a few of your best lots early to draw bidders in, and spread your three featured lots through the sale.</li>
-      <li><b>Keep groups together.</b> Number a room or category in one run (101 to 140 for the kitchen, 141 to 180 for tools). Pickup is easier when nearby numbers sit near each other.</li>
+      <li><b>Keep sets complete.</b> Six matching chairs, a dinner service or a tool set is usually worth more together. Split a set only when it is really several sets.</li>
+      <li><b>Do not mix buyer types.</b> Fishing reels and baby clothes in one lot satisfy no one. Each lot should have an obvious buyer.</li>
+      <li><b>Count and say it.</b> "Box lot of 24 cookbooks" sets the right expectation and is searchable.</li>
+      <li><b>Keep big and small apart.</b> A dresser with a box of trinkets inside it complicates both pickup and description.</li>
+      <li><b>Mix your strongest lots through the catalog</b> rather than clustering them, so bidders keep watching to the end.</li>
+    </ul>
+  </section>
+
+  <section class="lesson" id="organize">
+    <p class="kicker">Lesson 3</p>
+    <h2>Organize the auction location efficiently</h2>
+    <p class="lead2">A sale that is laid out once, in lot order, is faster to photograph, faster to catalog and much faster on pickup day.</p>
+    <h3>Set up zones</h3>
+    <ul>
+      <li><b>Work zone:</b> folding tables in one room or garage with good light and a walkway around each table, so you can photograph from the front and both sides.</li>
+      <li><b>Photo station:</b> one spot with a plain backdrop and steady light (Lesson 4), close to the work tables.</li>
+      <li><b>Staging zones:</b> name each area (Table A, Garage Shelf 2, Dining Room). Record the zone for every lot on the inventory worksheet so anyone can find it later.</li>
+      <li><b>Not for sale:</b> close rooms and cover or move anything that is not in the auction, and label it clearly.</li>
+      <li><b>Safety:</b> anchor or lay down tall, top-heavy furniture while it is staged; tip-overs injure people.<sup><a href="#src-9">9</a></sup></li>
+    </ul>
+    <h3>Mark tables and lots with painter's tape</h3>
+    <ul>
+      <li>Blue painter's tape comes off wood, glass and most finishes without residue. Never put tape on gilding, paper, flaking paint, upholstery or textiles; tie on a tag or set a label on the table in front of the item instead.</li>
+      <li>Write the zone on tape at the corner of each table, and put a lot label on or beside each lot (see the printable labels).</li>
+      <li>Furniture too big for a table gets its label on the back or underside, plus a label on the floor in front of it.</li>
+    </ul>
+    <h3>Number lots so pickup is easy</h3>
+    <ul>
+      <li><b>Number in catalog order.</b> Lots close in catalog order, so the numbering is also the closing order.</li>
+      <li><b>Keep zones in runs:</b> 101 to 140 for the kitchen, 141 to 180 for the garage. Nearby numbers then sit near each other on pickup day.</li>
       <li><b>One number per lot, never reused.</b> If a lot is withdrawn, leave its number unused rather than renumbering everything.</li>
       <li><b>Match three places:</b> the label on the item, the worksheet and the catalog. A mismatch is the most common pickup-day problem.</li>
     </ul>
+    <div class="tip"><span class="tag">Pro Tip</span><p>Keep a roll of tape, a marker, the label sheets and the inventory worksheet together on one clipboard. Write each lot on the worksheet the moment it gets a number, with its zone.</p></div>
   </section>
 
-  <section class="guide" id="photos">
-    <h2>Photography that sells</h2>
+  <section class="lesson" id="photos">
+    <p class="kicker">Lesson 4</p>
+    <h2>Professional merchandise photography</h2>
+    <p class="lead2">The first photograph is your storefront window: it is the image buyers see in search, on the marketplace and in your catalog. Make it about the merchandise.</p>
+    <div class="two">
+      <div class="card"><h4>The primary photo</h4><ul>
+        <li>The whole item (or the whole group), straight on, filling most of the frame.</li>
+        <li>A clean, plain background and no clutter.</li>
+        <li>Soft, even light; no harsh flash.</li>
+        <li><b>No prominent lot label.</b> The primary image showcases the merchandise. The lot number is already on the listing.</li>
+      </ul></div>
+      <div class="card"><h4>Supporting photos</h4><ul>
+        <li>Back, sides, top, underside and inside drawers or boxes.</li>
+        <li>Close-ups of signatures, maker's marks, hallmarks and model labels.</li>
+        <li>Every flaw: chips, cracks, stains, repairs, missing parts.</li>
+        <li>A photo with the lot label visible, when it helps you or the buyer match the item at pickup.</li>
+        <li>Something for scale, such as a coin or a tape measure, when size is not obvious.</li>
+      </ul></div>
+    </div>
+    <h3>Light, background and camera habits</h3>
     <ul>
-      <li><b>Light:</b> daylight from a window or overcast outdoor light is best. Turn off overhead lights that cast yellow or mixed color. No flash on glass, silver or framed art.</li>
-      <li><b>Background:</b> a plain wall, a sheet or a sheet of poster board behind small items. Move clutter out of the frame.</li>
-      <li><b>First photo:</b> the whole item, straight on, filling the frame, with its lot label visible. This is the photo buyers see in search.</li>
-      <li><b>Then:</b> both sides, the back, the top, the inside of drawers, and close-ups of signatures, maker's marks, labels and hallmarks.</li>
-      <li><b>Show flaws honestly:</b> chips, cracks, stains, repairs and missing parts each get a clear close-up. Honest photos prevent disputes and returns.</li>
-      <li><b>Scale:</b> for items where size is not obvious, include a common object or a tape measure in one photo, and enter dimensions in the catalog.</li>
-      <li><b>Hold the phone level</b> and step back rather than using a wide angle up close, which bends straight edges.</li>
+      <li><b>Light:</b> daylight from a window or overcast outdoor light is best. Turn off overhead lights that tint the photo yellow. Avoid flash on glass, silver and framed art.<sup><a href="#src-6">6</a></sup></li>
+      <li><b>Background:</b> a plain wall, a sheet or poster board behind small items. A white or light backdrop suits most items; a darker one can suit shiny pieces.</li>
+      <li><b>Steady and level:</b> brace your elbows or use a small tripod, tap the item to focus, wipe the lens and avoid digital zoom. Step back rather than using a wide angle up close, which bends straight edges.</li>
+      <li><b>Groups:</b> arrange every piece so it is visible in the primary photo; the buyer should be able to count them.</li>
+      <li><b>Consistent order:</b> shoot every lot in the same sequence (primary, sides, back, marks, flaws). Cataloging from the photos then goes quickly.</li>
     </ul>
-    <div class="tip"><b>Tip:</b> photograph a whole table in lot order, then catalog from the photos. Smart Catalog Tools can suggest a description from your photos for you to review and edit.</div>
+    <div class="tip"><span class="tag">Pro Tip</span><p>Photograph a whole table in lot order, then catalog from the photos. Smart Catalog Tools can suggest a title, category and description from your photos for you to review and edit.</p></div>
   </section>
 
-  <section class="guide" id="pickup">
-    <h2>Pickup preparation</h2>
+  <section class="lesson" id="describe">
+    <p class="kicker">Lesson 5</p>
+    <h2>Accurate, searchable catalog descriptions</h2>
+    <p class="lead2">Buyers find lots by searching for words. A clear title brings the right bidders; an honest description keeps them happy after they win.</p>
+    <h3>A title formula that works</h3>
+    <p><b>What it is + maker or brand + material or style + one key detail</b> (size, quantity or model).<sup><a href="#src-7">7</a></sup></p>
+    <div class="compare">
+      <div class="weak"><b>Instead of</b><q>Nice old lamp</q><br><q>Box of stuff</q><br><q>RARE vintage chair!!!</q></div>
+      <div class="strong"><b>Write</b><q>Art Deco Chrome Table Lamp, Frosted Glass Shade, 18 in</q><br><q>Box Lot of 24 Cookbooks, Southern and Baking</q><br><q>Pair of Mid-Century Walnut Armchairs, Tweed Seats</q></div>
+    </div>
+    <h3>What every description should cover</h3>
     <ul>
-      <li><b>Stage by lot number</b> after the auction closes, so each buyer's lots can be found in minutes. Keep sold lots together and separate from anything not in the sale.</li>
-      <li><b>Set up a pickup table</b> at the door with the pickup list, a pen, tape and bags or boxes for small lots.</li>
-      <li><b>Release only paid lots:</b> check the buyer's name and paid invoice on Advantage.Bid before anything leaves. The buyer's full pickup address details are shared only after payment.</li>
-      <li><b>Large items:</b> tell buyers in advance if they need helpers, a truck or tools. Clear a path to the door before pickup starts.</li>
-      <li><b>Keep to the published pickup window.</b> It is part of the terms buyers agreed to.</li>
-      <li><b>Safety:</b> work with at least one other person, keep cash and valuables out of sight, and keep rooms that are not part of the sale closed.</li>
+      <li><b>What it is</b> and what is included (and anything missing: a lid, a key, a shelf).</li>
+      <li><b>Maker, marks and model</b> exactly as they appear. If you are not sure, say "marked" or "appears to be" rather than claiming an attribution.</li>
+      <li><b>Material and period</b> when known. Avoid "antique", "rare" or "valuable" unless you can support it.</li>
+      <li><b>Condition, specifically:</b> "two chips on the rim, small stain on the left cushion" helps a buyer; "good condition" alone does not.</li>
+      <li><b>Dimensions and quantity:</b> height, width and depth for furniture and art; a count for groups.</li>
+      <li><b>Pickup notes</b> for large or fragile items (Lesson 6).</li>
+    </ul>
+    <div class="tip"><span class="tag">Pro Tip</span><p>"As is" tells buyers there is no warranty; it does not replace telling them what you know. Disclosing a flaw up front costs less than a dispute after the sale.<sup><a href="#src-5">5</a></sup></p></div>
+  </section>
+
+  <section class="lesson" id="large-items">
+    <p class="kicker">Lesson 6</p>
+    <h2>Large items and special pickup descriptions</h2>
+    <p class="lead2">Tell buyers before they bid what removal will take. A buyer who arrives with the right truck and two helpers is a happy buyer; one who arrives with a sedan is a problem for everyone.</p>
+    <h3>What to check and mention</h3>
+    <div class="two">
+      <div class="card"><ul>
+        <li><b>Stairs:</b> how many flights, and whether turns are tight.</li>
+        <li><b>Elevators and loading docks:</b> shared building rules, size limits and whether advance notice is needed.</li>
+        <li><b>Access restrictions:</b> gated communities, building hours, narrow doorways or gates.</li>
+      </ul></div>
+      <div class="card"><ul>
+        <li><b>Parking:</b> where a truck or trailer can stop and how far the carry is.</li>
+        <li><b>Oversized furniture:</b> measure it and the doorways; note whether it comes apart.</li>
+        <li><b>Fragile merchandise:</b> glass, mirrors, art and ceramics need the buyer's packing materials and padding.</li>
+      </ul></div>
+    </div>
+    <h3>Copy-ready lot description notes</h3>
+    <p>Paste these into individual lot descriptions and edit them to fit the item. They are also in the lot editor, under the description box (choose "Add a pickup note").</p>
+    <div class="pn-list" data-pickup-notes-list></div>
+    <p class="fine">These are examples, not a complete list: every location is different, and no example covers every pickup situation. Your published pickup terms apply to every lot.</p>
+  </section>
+
+  <section class="lesson" id="promote">
+    <p class="kicker">Lesson 7</p>
+    <h2>Promote your auction and choose featured merchandise</h2>
+    <p class="lead2">Bidders cannot compete for lots they never see. Promotion brings more bidders into the catalog, and featured lots give them a reason to click.</p>
+    <h3>Choose featured lots</h3>
+    <ul>
+      <li>Pick lots with broad appeal and your best primary photographs. Featured images represent the whole sale in search, on the marketplace and in shared links.</li>
+      <li>Show range: one piece of furniture, one decorative or collectible piece, and one practical item reach different buyers.</li>
+      <li>The auction setup page shows how many featured lots your auction uses. Advantage.Bid may adjust featured selections.</li>
+    </ul>
+    <h3>Give the auction a title people search for</h3>
+    <div class="compare">
+      <div class="weak"><b>Instead of</b><q>Online Auction</q></div>
+      <div class="strong"><b>Write</b><q>Mid-Century Furniture, Tools and Vinyl Records: Westside Estate</q></div>
+    </div>
+    <h3>Spread the word</h3>
+    <ul>
+      <li>Share the auction link with your own email list and social media when the catalog opens, and again before closing.</li>
+      <li>Professional Sellers can show the auction on their own website with the Advantage.Bid widget and on their storefront page.</li>
+      <li>Publish the pickup details with the catalog so out-of-town bidders know what winning involves.</li>
+      <li>Allow enough preview time for bidders to find, watch and share lots before closing begins.</li>
     </ul>
   </section>
 
-  <section class="guide" id="printables">
-    <h2>Printables</h2>
-    <p class="small">These are made in your browser and print on Letter paper (or save as PDF from the print window). Nothing you type is sent or saved.</p>
+  <section class="lesson" id="pickup">
+    <p class="kicker">Lesson 8</p>
+    <h2>Prepare for a smooth pickup and fulfillment</h2>
+    <p class="lead2">Pickup is the last thing your buyers experience, and the thing they remember. A calm, organized pickup earns repeat bidders.</p>
+    <div class="two">
+      <div class="card"><h4>Before pickup day</h4><ul>
+        <li>Stage sold lots by lot number or by buyer, separate from anything not sold.</li>
+        <li>Send access instructions: entrance, parking, stairs and what to bring.</li>
+        <li>If you use appointments, keep them within the published pickup window.</li>
+        <li>Prepare large and fragile lots: clear the path, protect floors and door frames.</li>
+      </ul></div>
+      <div class="card"><h4>At the door</h4><ul>
+        <li>Check the buyer's identity and paid invoice on Advantage.Bid before anything leaves.</li>
+        <li>Mark each lot released on the pickup list as it goes out.</li>
+        <li>Write down anything unusual: a missing piece, a damaged item, a lot left behind.</li>
+        <li>Keep the pickup area separate from rooms that are not part of the sale.</li>
+      </ul></div>
+    </div>
+    <h3>Uncollected merchandise and exceptions</h3>
+    <p>Follow the pickup terms published with the auction and the platform's procedures for missed pickups. Keep a short written note of what happened and of your messages with the buyer. The published pickup date and window are part of the terms; you may choose to accommodate a buyer, which does not change the terms.</p>
+    <h3>Safety</h3>
+    <ul>
+      <li>Work with at least one other person, keep cash and valuables out of sight, and lock rooms that are not part of the sale.</li>
+      <li>Let buyers do the heavy lifting with their own helpers; lifting and carrying heavy loads is a leading cause of injury.<sup><a href="#src-10">10</a></sup></li>
+      <li>Payment happens on Advantage.Bid. Never accept a check or a transfer for "the balance" or an overpayment; those are common scams.<sup><a href="#src-8">8</a></sup></li>
+    </ul>
+  </section>
+
+  <section class="lesson" id="printables">
+    <p class="kicker">Printables</p>
+    <h2>Branded lot labels, worksheets and checklists</h2>
+    <p class="small">Made in your browser for US Letter paper. Nothing you type here is saved.</p>
     <div class="tools">
-      <form class="tool" id="t-labels" onsubmit="return false">
+      <form class="tool wide" id="t-labels" onsubmit="return false">
         <h3>Lot labels</h3>
-        <p class="small">30 per sheet, sized for Avery 5160 and similar address labels, or cut apart on plain paper.</p>
+        <p class="small">30 per sheet, sized for Avery 5160 and compatible 1 in x 2 5/8 in address labels. Numbered automatically from your first to your last lot, over as many sheets as needed (up to 600 labels at a time).</p>
         <div class="row"><div><label for="l-from">First lot number</label><input id="l-from" type="number" min="1" max="99999" value="101" /></div>
           <div><label for="l-to">Last lot number</label><input id="l-to" type="number" min="1" max="99999" value="130" /></div></div>
-        <label for="l-seller">Your business name</label><input id="l-seller" maxlength="50" placeholder="Harbor Estate Sales" />
-        <label for="l-auction">Auction name (optional)</label><input id="l-auction" maxlength="60" placeholder="Westside Estate Contents" />
-        <button type="button" class="btn" id="p-labels">Print Lot Labels</button>
+        <div class="row"><div><label for="l-seller">Business name (optional)</label><input id="l-seller" type="text" maxlength="60" placeholder="Harbor Estate Sales" /></div>
+          <div><label for="l-auction">Auction name (optional)</label><input id="l-auction" type="text" maxlength="70" placeholder="Westside Estate Contents" /></div></div>
+        <div class="row"><label class="chk"><input id="l-web" type="checkbox" checked /> Show advantage.bid</label>
+          <label class="chk"><input id="l-plain" type="checkbox" /> Plain paper with cut lines</label></div>
+        <div class="preview-wrap" aria-label="Label preview at actual size"><div class="lbl-sample" id="l-preview"></div></div>
+        <p class="small" id="l-count" aria-live="polite"></p>
+        <div class="btns">
+          <button type="button" class="btn" id="p-labels">Print Labels</button>
+          <a class="btn alt" id="d-labels" href="/api/public/printables/lot-labels.pdf" download>Download PDF</a>
+          <button type="button" class="btn alt" id="p-calibrate">Print Test Page</button>
+        </div>
+        <div class="howprint"><b>For labels that line up</b><ol>
+          <li>Print the test page on plain paper first. Hold it behind a label sheet against a window: every outline should sit on a label.</li>
+          <li>In the print window choose <b>Actual size</b> or <b>Scale 100%</b> (never "Fit to page"), paper <b>Letter</b>, and turn <b>Headers and footers</b> off.</li>
+          <li>Load label sheets the way your printer feeds paper, print one sheet, check it, then print the rest.</li>
+        </ol><p class="small" style="margin:6px 0 0">No labels? Tick "Plain paper with cut lines", print on card stock and cut along the dashed lines.</p></div>
       </form>
       <form class="tool" id="t-worksheet" onsubmit="return false">
         <h3>Inventory worksheet</h3>
-        <p class="small">Lot, title, description, condition, dimensions, photos taken and notes, 15 rows per page.</p>
-        <label for="w-pages">Pages</label><input id="w-pages" type="number" min="1" max="20" value="2" />
+        <p class="small">Landscape, 12 numbered rows per page with room to write: lot, zone, item, marks and details, condition, size, quantity, photos taken and notes.</p>
+        <label for="w-sale">Sale name (optional)</label><input id="w-sale" type="text" maxlength="70" placeholder="Westside Estate Contents" />
+        <div class="row"><div><label for="w-date">Date (optional)</label><input id="w-date" type="date" /></div>
+          <div><label for="w-pages">Pages</label><input id="w-pages" type="number" min="1" max="20" value="2" /></div></div>
         <label for="w-from">Start numbering at</label><input id="w-from" type="number" min="1" max="99999" value="101" />
-        <button type="button" class="btn" id="p-worksheet">Print Worksheet</button>
+        <div class="btns"><button type="button" class="btn" id="p-worksheet">Print Worksheet</button></div>
       </form>
       <div class="tool">
-        <h3>Setup checklist</h3>
-        <p class="small">From the first walk-through to publishing your catalog.</p>
-        <button type="button" class="btn" id="p-setup">Print Setup Checklist</button>
-      </div>
-      <div class="tool">
-        <h3>Pickup day checklist</h3>
-        <p class="small">Staging, the pickup table, releasing paid lots and closing up.</p>
-        <button type="button" class="btn" id="p-pickup">Print Pickup Checklist</button>
+        <h3>Auction setup checklist</h3>
+        <p class="small">From sale scope and lotting through photography, descriptions, dates, pickup terms, featured lots and the final catalog review.</p>
+        <div class="btns"><button type="button" class="btn" id="p-setup">Print Setup Checklist</button></div>
+        <h3 style="margin-top:20px">Pickup day checklist</h3>
+        <p class="small">Identity and paid-invoice checks, release tracking, appointments, large and fragile items, exceptions and site security.</p>
+        <div class="btns"><button type="button" class="btn" id="p-pickup">Print Pickup Checklist</button></div>
       </div>
     </div>
+  </section>
+
+  <section class="lesson sources" id="sources">
+    <p class="kicker">Sources</p>
+    <h2>Research behind these lessons</h2>
+    <ol>
+      <li id="src-1">American Society of Appraisers, <a href="https://www.appraisers.org/disciplines/personal-property/about" rel="noopener" target="_blank">Personal Property appraisal discipline</a> (USPAP and accredited appraisers).</li>
+      <li id="src-2">International Society of Appraisers, <a href="https://www.isa-appraisers.org/find-an-appraiser/questions-to-ask-an-appraiser" rel="noopener" target="_blank">Questions to Ask an Appraiser</a>.</li>
+      <li id="src-3">Bulow, J. and Klemperer, P. (1996), <a href="https://ideas.repec.org/a/aea/aecrev/v86y1996i1p180-94.html" rel="noopener" target="_blank">Auctions Versus Negotiations</a>, American Economic Review 86(1).</li>
+      <li id="src-4">Palfrey, T. (1983), <a href="https://www.econometricsociety.org/publications/econometrica/1983/03/01/bundling-decisions-multiproduct-monopolist-incomplete" rel="noopener" target="_blank">Bundling Decisions by a Multiproduct Monopolist with Incomplete Information</a>, Econometrica 51(2).</li>
+      <li id="src-5">National Auctioneers Association, <a href="https://www.auctioneers.org/consumer-faqs" rel="noopener" target="_blank">Consumer FAQs</a> ("as is, where is", seller participation in marketing).</li>
+      <li id="src-6">eBay Help, <a href="https://www.ebay.com/help/selling/listings/adding-pictures-listings?id=4148" rel="noopener" target="_blank">Adding pictures to your listings</a>.</li>
+      <li id="src-7">eBay Seller Center, <a href="https://www.ebay.com/sellercenter/listings/create-listings" rel="noopener" target="_blank">Create great listings</a>.</li>
+      <li id="src-8">Federal Trade Commission, <a href="https://consumer.ftc.gov/articles/how-spot-avoid-and-report-fake-check-scams" rel="noopener" target="_blank">How to Spot, Avoid and Report Fake Check Scams</a>.</li>
+      <li id="src-9">U.S. Consumer Product Safety Commission, <a href="https://anchorit.gov/" rel="noopener" target="_blank">Anchor It!</a> (furniture tip-over prevention).</li>
+      <li id="src-10">Occupational Safety and Health Administration, <a href="https://www.osha.gov/ergonomics" rel="noopener" target="_blank">Ergonomics</a> (lifting and carrying heavy loads).</li>
+    </ol>
+    <p class="fine">Advantage.Bid summarizes these sources in its own words; they do not endorse Advantage.Bid. Nothing here is legal, tax or appraisal advice, and no lesson promises a particular price or sell-through.</p>
   </section>
   <p class="small" style="margin:24px 0 60px">Questions? See the <a href="/seller-faq.html">Seller FAQ</a> or contact us at info@advantage.bid, Monday through Friday, 10:00 AM to 5:00 PM Eastern Time.</p>
 </main>
 <div id="print-area" aria-hidden="true"></div>
+<script src="/js/lot-label-layout.js" defer></script>
 <script src="/js/seller-how-to.js" defer></script>
+<script src="/widgets/shared/pickup-note-templates.js" defer></script>
 <script src="/widgets/shared/public-nav.js" defer></script>
 </body>
 </html>

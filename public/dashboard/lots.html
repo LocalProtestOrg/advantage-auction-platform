@@ -982,6 +982,7 @@
             <textarea
               class="form-textarea"
               id="lot-desc"
+              data-pickup-notes
               placeholder="Condition, notable features, provenance..."
             ></textarea>
           </div>
@@ -2714,5 +2715,6 @@
     // Load inventory on page init if auctionId is present
     if (auctionId) { loadInventory(); }
   </script>
+  <script src="/widgets/shared/pickup-note-templates.js" defer></script>
 </body>
 </html>
