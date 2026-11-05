@@ -8,7 +8,9 @@ const CHECK_FIELDS = ['check_payee_name', 'check_address_line1', 'check_address_
                       'check_city', 'check_state', 'check_postal_code'];
 const ALL_PREF_FIELDS = [...ACH_FIELDS, ...CHECK_FIELDS];
 
-async function upsertSellerPayoutPreference(sellerUserId, payload) {
+// Every change is audited (field names + masked values only) and the seller is emailed (payoutSafeguards). Replacing an
+// existing payout destination needs the account's current password (options.currentPassword).
+async function upsertSellerPayoutPreference(sellerUserId, payload, options = {}) {
   const { payout_method } = payload;
 
   if (!VALID_METHODS.includes(payout_method)) {
@@ -34,16 +36,28 @@ async function upsertSellerPayoutPreference(sellerUserId, payload) {
   const valList = cols.map((_, i) => `$${i + 1}`).join(', ');
   const setList = cols.map((col, i) => `${col} = $${i + 1}`).join(', ');
 
-  const result = await db.query(
-    `INSERT INTO seller_payout_preferences (seller_user_id, ${colList})
-     VALUES ($${sellerIdx}, ${valList})
-     ON CONFLICT (seller_user_id) DO UPDATE
-       SET ${setList}
-     RETURNING *`,
-    vals
-  );
-
-  return result.rows[0];
+  const safeguards = require('./payoutSafeguards');
+  const { withTransaction } = require('../utils/withTransaction');
+  const out = await withTransaction(async (client) => {
+    const before = (await client.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1 FOR UPDATE', [sellerUserId])).rows[0] || null;
+    const proposed = { ...(before || {}), payout_method };
+    for (const field of ALL_PREF_FIELDS) if (payload[field] !== undefined) proposed[field] = payload[field];
+    await safeguards.assertPasswordForDestinationChange(sellerUserId, { before, after: proposed, currentPassword: options.currentPassword });
+    const result = await client.query(
+      `INSERT INTO seller_payout_preferences (seller_user_id, ${colList})
+       VALUES ($${sellerIdx}, ${valList})
+       ON CONFLICT (seller_user_id) DO UPDATE
+         SET ${setList}
+       RETURNING *`,
+      vals
+    );
+    const row = result.rows[0];
+    const diff = await safeguards.recordPayoutDetailsChange(client, { sellerUserId, actorId: options.actorId || sellerUserId,
+      source: 'payout_preferences', before, after: row });
+    return { row, diff };
+  });
+  safeguards.notifySellerPayoutDetailsChanged(sellerUserId, out.diff).catch(() => {});
+  return out.row;
 }
 
 // Readers (settlement, Direct Deposit release, seller views) only ever see provider references from the

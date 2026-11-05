@@ -74,6 +74,7 @@
         </div>
         <div id="ach-connect">
           <p id="ach-status-note" style="margin:0 0 .6rem">Set up secure direct deposit through Stripe. You'll be taken to Stripe to verify your identity and add your bank account.</p>
+          <div id="ach-pw-wrap" class="hide"><label class="f" for="ach-pw">Current Password</label><input class="t" id="ach-pw" type="password" autocomplete="current-password" /></div>
           <button id="ach-connect-btn">Set Up Direct Deposit</button>
           <div class="reassure">Your banking information is securely collected and stored by Stripe. Advantage.Bid never sees or stores your routing or account numbers.</div>
           <div class="msg" id="ach-msg"></div>
@@ -95,8 +96,9 @@
         </div>
         <label class="f" for="ck-zip">ZIP Code</label>
         <input class="t" id="ck-zip" autocomplete="postal-code" style="max-width:180px" />
+        <div id="ck-pw-wrap" class="hide"><label class="f" for="ck-pw">Current Password</label><input class="t" id="ck-pw" type="password" autocomplete="current-password" /></div>
         <button id="ck-save">Save Check Details</button>
-        <div class="reassure">We mail your check to this address after each settlement is approved. Keep it current.</div>
+        <div class="reassure">We mail your check to this address after each settlement is approved. Keep it current. For your protection, changing where your payouts are sent needs your account password, we email you about every change, and a payout made within 7 days of a change is reviewed by our team first.</div>
         <div class="msg" id="ck-msg"></div>
       </div>
 
@@ -130,6 +132,11 @@
         .then(r => { if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html?next=' + encodeURIComponent('/payout-profile.html'); throw new Error('unauthorized'); } return r.json(); });
     }
     function setMsg(el, text, ok) { const e = $(el); e.className = 'msg' + (ok ? ' ok' : (text ? ' err' : '')); e.textContent = text || ''; }
+    // Changing an existing payout destination needs the account password: show the field when the server asks for it.
+    function needsPassword(d, wrap) {
+      if (d && (d.code === 'PASSWORD_REQUIRED' || d.code === 'PASSWORD_INCORRECT')) { $(wrap).classList.remove('hide'); return true; }
+      return false;
+    }
 
     function render(data) {
       const p = (data && data.profile) || { method: null };
@@ -185,9 +192,10 @@
         const d = await api('PUT', '/api/payout-profile/me', {
           payout_method: 'check', payee_name: $('ck-payee').value.trim(), address_line1: $('ck-a1').value.trim(),
           address_line2: $('ck-a2').value.trim() || null, city: $('ck-city').value.trim(), state: $('ck-state').value.trim().toUpperCase(), postal_code: $('ck-zip').value.trim(),
+          current_password: $('ck-pw').value || null,
         });
-        if (d.success) { render(d.data); setMsg('ck-msg', 'Check details saved.', true); }
-        else setMsg('ck-msg', d.message || 'Could not save.');
+        if (d.success) { $('ck-pw').value = ''; $('ck-pw-wrap').classList.add('hide'); render(d.data); setMsg('ck-msg', 'Check details saved.', true); }
+        else { needsPassword(d, 'ck-pw-wrap'); setMsg('ck-msg', d.message || 'Could not save.'); }
       } catch (e) { if (e.message !== 'unauthorized') setMsg('ck-msg', 'Could not save. Please try again.'); }
       finally { btn.disabled = false; btn.textContent = t; }
     });
@@ -205,8 +213,9 @@
     $('ach-connect-btn').addEventListener('click', async () => {
       const btn = $('ach-connect-btn'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Opening Stripe…'; setMsg('ach-msg', '');
       try {
-        const d = await api('POST', '/api/payout-profile/me/connect/onboard');
+        const d = await api('POST', '/api/payout-profile/me/connect/onboard', { current_password: $('ach-pw').value || null });
         if (d.success && d.data && d.data.url) { location.href = d.data.url; return; }
+        needsPassword(d, 'ach-pw-wrap');
         setMsg('ach-msg', d.message || 'Direct Deposit setup is temporarily unavailable.');
         btn.disabled = false; btn.textContent = t;
       } catch (e) { if (e.message !== 'unauthorized') { setMsg('ach-msg', 'Could not start Direct Deposit setup. Please try again.'); btn.disabled = false; btn.textContent = t; } }

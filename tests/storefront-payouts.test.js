@@ -438,3 +438,128 @@ describe('commission corrections (Seller Agreement §6.9; migration 217)', () =>
       [r.marketplace_order_id, r.seller_profile_id, U.admin.id])).rejects.toThrow(/amount_matches/);
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Payout and fraud safeguards (owner-approved 2026-11-05; payoutSafeguards; migration 219 for the delivery columns).
+describe('payout safeguards on storefront payouts', () => {
+  const auditSvc = () => require('../src/services/auditService');
+  const cutAt = (days) => new Date(Date.now() + days * 864e5);
+  const pendingFor = async (owner) => (await payoutsOf(owner)).filter((x) => x.settlement_status === 'pending_review');
+  async function freshPayout(owner, days) {
+    for (const p of await pendingFor(owner)) await S().voidPayout(p.id, U.admin.id, { reason: 'test isolation' });
+    await sale(10000, { owner });
+    await S().prepareWeek({ cutoff: cutAt(days) });
+    return (await pendingFor(owner))[0];
+  }
+  const payIt = (p, extra = {}) => S().payPayout(p.id, { actorId: U.admin.id, confirmedCompleted: true, finalAmountCents: p.seller_payout_cents, ...extra });
+  beforeAll(async () => {
+    await global.__PG.exec(`CREATE TABLE IF NOT EXISTS audit_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_type text NOT NULL, entity_type text NOT NULL,
+      entity_id uuid NOT NULL, auction_id uuid, lot_id uuid, payment_id uuid, actor_id uuid, metadata jsonb, created_at timestamp NOT NULL DEFAULT now())`);
+  });
+
+  test('a suspended seller is not paid; no transfer is created', async () => {
+    const p = await freshPayout('gus', 30);
+    await setActive('gus', false);
+    try {
+      const before = mockStripe.transfers.length;
+      await expect(payIt(p)).rejects.toMatchObject({ code: 'SELLER_SUSPENDED', override: 'suspended_seller' });
+      await expect(payIt(p, { overrideReasons: { suspended_seller: 'short' } })).rejects.toMatchObject({ code: 'SELLER_SUSPENDED' });
+      expect(mockStripe.transfers.length).toBe(before);
+      expect((await one('SELECT settlement_status FROM storefront_payouts WHERE id = $1', [p.id])).settlement_status).toBe('pending_review');
+      // the administrator's written reason permits this one payment, and is audited with it
+      auditSvc().logEvent.mockClear();
+      const out = await payIt(p, { overrideReasons: { suspended_seller: 'Suspended for a listing issue; this sale was completed' } });
+      expect(out.paid).toBe(true);
+      expect(mockStripe.transfers.length).toBe(before + 1);
+      expect(auditSvc().logEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ eventType: 'settlement.suspended_seller_override',
+        entityType: 'storefront_payout', entityId: p.id, actorId: U.admin.id,
+        metadata: expect.objectContaining({ reason: 'Suspended for a listing issue; this sale was completed', path: 'storefront_payout' }) }));
+    } finally { await setActive('gus', true); }
+  });
+
+  test('a payout within 7 days of a payout-destination change waits for an administrator review reason', async () => {
+    const p = await freshPayout('gus', 31);
+    await q(`INSERT INTO audit_log (event_type, entity_type, entity_id, metadata) VALUES ('seller.payout_details_changed', 'user', $1, '{"destination_changed": true}')`, [U.gus.id]);
+    await expect(payIt(p)).rejects.toMatchObject({ code: 'RECENT_PAYOUT_CHANGE', override: 'recent_payout_change' });
+    // a first-time setup record never holds a payout
+    await q(`UPDATE audit_log SET metadata = '{"destination_changed": false}' WHERE entity_id = $1`, [U.gus.id]);
+    const out = await payIt(p);
+    expect(out.paid).toBe(true);
+  });
+
+  test('an order payout hold is not released while a payment dispute on that order is open', async () => {
+    const id = await sale(10000, { owner: 'sue' });
+    await orders.setPayoutHold(id, U.admin.id, { hold: true, reason: 'Buyer called about the item' });
+    const o = await one('SELECT stripe_payment_intent_id FROM marketplace_orders WHERE id = $1', [id]);
+    await q(`INSERT INTO payment_disputes (stripe_dispute_id, payment_intent_id, status) VALUES ('dp_sf_1', $1, 'needs_response')`, [o.stripe_payment_intent_id]);
+    await expect(orders.setPayoutHold(id, U.admin.id, { hold: false, reason: 'Release attempt early' })).rejects.toMatchObject({ code: 'DISPUTE_OPEN' });
+    expect((await one('SELECT payout_hold FROM marketplace_orders WHERE id = $1', [id])).payout_hold).toBe(true);
+    await q(`UPDATE payment_disputes SET status = 'won', closed_at = now() WHERE stripe_dispute_id = 'dp_sf_1'`);
+    await orders.setPayoutHold(id, U.admin.id, { hold: false, reason: 'Dispute won by us' });
+    expect((await one('SELECT payout_hold FROM marketplace_orders WHERE id = $1', [id])).payout_hold).toBe(false);
+  });
+});
+
+describe('shipped storefront orders: payout only after confirmed delivery plus 3 business days (flag)', () => {
+  const SHIP_TO = { line1: '5 Oak St', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' };
+  const policy = require('../src/lib/auctionShippingPolicy');
+  beforeAll(async () => { await global.__PG.exec(mig('219_shipment_fulfillment_and_delivery.sql')); });
+  afterEach(() => { delete process.env.STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED; });
+  async function shippedOrder() {
+    const it = await items.createDirectListing(U.sue.id, { title: 'Ship item ' + Math.random().toString(36).slice(2, 7), price_cents: 4000, quantity: 1,
+      shippable: true, shipping_method: 'parcel', shipping_destinations: 'us_all', shipping_price_mode: 'flat', shipping_cost_cents: 800 });
+    const o = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, policies_acknowledged: true, fulfillment_method: 'shipping', ship_to: SHIP_TO });
+    const id = o.body.data.order.id;
+    await pay(id, 'bea');
+    await orders.updateFulfillment(id, U.sue.id, 'shipped', { tracking_carrier: 'UPS', tracking_number: '1Z' + Math.random().toString(36).slice(2, 8) });
+    return id;
+  }
+  const row = (id) => one('SELECT fulfillment_status, payout_eligible, payout_eligible_at, delivered_at, delivery_confirmation_source FROM marketplace_orders WHERE id = $1', [id]);
+  const lineCount = async (id) => (await one('SELECT count(*)::int n FROM storefront_payout_lines WHERE marketplace_order_id = $1 AND active', [id])).n;
+
+  test('flag off (default): unchanged: marking complete makes a shipped order eligible, and confirmation is not offered', async () => {
+    const id = await shippedOrder();
+    await orders.updateFulfillment(id, U.sue.id, 'complete');
+    expect(await row(id)).toMatchObject({ fulfillment_status: 'completed', payout_eligible: true, delivered_at: null });
+    expect((await call('bea', 'POST', '/api/marketplace/orders/' + id + '/confirm-delivery')).status).toBe(404);
+  });
+
+  test('flag on: the seller marking complete does not make it payable; buyer confirmation + 3 business days does', async () => {
+    process.env.STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED = 'true';
+    const id = await shippedOrder();
+    await orders.updateFulfillment(id, U.sue.id, 'complete');
+    expect(await row(id)).toMatchObject({ fulfillment_status: 'completed', payout_eligible: false });
+    // another buyer cannot confirm it
+    expect((await call('ben', 'POST', '/api/marketplace/orders/' + id + '/confirm-delivery')).status).toBe(404);
+    const r = await call('bea', 'POST', '/api/marketplace/orders/' + id + '/confirm-delivery');
+    expect(r.status).toBe(200);
+    const after = await row(id);
+    expect(after).toMatchObject({ payout_eligible: true, delivery_confirmation_source: 'buyer' });
+    expect(new Date(after.payout_eligible_at).getTime()).toBe(policy.payoutReleaseAt(new Date(after.delivered_at)).getTime());
+    expect(new Date(after.payout_eligible_at) > new Date(Date.now() + 2 * 864e5)).toBe(true);   // at least 3 full business days away
+    // the weekly payout leaves it out until the release date has passed
+    await S().prepareWeek({ cutoff: new Date(Date.now() + 864e5) });
+    expect(await lineCount(id)).toBe(0);
+    await S().prepareWeek({ cutoff: new Date(new Date(after.payout_eligible_at).getTime() + 1000) });
+    expect(await lineCount(id)).toBe(1);
+    // confirming again changes nothing; the recorded delivery is kept as recorded
+    expect((await call('bea', 'POST', '/api/marketplace/orders/' + id + '/confirm-delivery')).body.data.changed).toBe(false);
+    await expect(q('UPDATE marketplace_orders SET delivered_at = now() WHERE id = $1', [id])).rejects.toThrow(/kept as recorded/);
+  });
+
+  test('flag on: an administrator confirms delivery only with a note; a confirmation before the seller marks complete counts too', async () => {
+    process.env.STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED = 'true';
+    const id = await shippedOrder();
+    expect((await call('sue', 'POST', '/api/marketplace/admin/orders/' + id + '/confirm-delivery', { note: 'seller says delivered' })).status).toBe(403);
+    expect((await call('admin', 'POST', '/api/marketplace/admin/orders/' + id + '/confirm-delivery', {})).body.code).toBe('REASON_REQUIRED');
+    const r = await call('admin', 'POST', '/api/marketplace/admin/orders/' + id + '/confirm-delivery', { note: 'Carrier tracking shows delivered' });
+    expect(r.status).toBe(200);
+    expect(await row(id)).toMatchObject({ fulfillment_status: 'completed', payout_eligible: true, delivery_confirmation_source: 'admin' });
+  });
+
+  test('a pickup order has no delivery to confirm', async () => {
+    process.env.STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED = 'true';
+    const id = await sale(3000, { owner: 'sue' });
+    expect((await call('bea', 'POST', '/api/marketplace/orders/' + id + '/confirm-delivery')).body.code).toBe('WRONG_METHOD');
+  });
+});

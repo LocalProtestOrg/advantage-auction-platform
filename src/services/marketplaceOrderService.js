@@ -36,7 +36,7 @@ const taxService = require('./taxCalculationService');
 // Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
 const { isProfessional } = require('./sellerTypeRules');
-const { marketplaceCheckoutEnabled, marketplaceCheckoutPilot } = require('../lib/launchGuards');
+const { marketplaceCheckoutEnabled, marketplaceCheckoutPilot, storefrontShippedPayoutDelayEnabled } = require('../lib/launchGuards');
 // The general switch, or the controlled pilot (launchGuards; only listed sellers and signed-in listed buyers).
 const marketplaceCheckoutActive = () => marketplaceCheckoutEnabled() || marketplaceCheckoutPilot().active;
 function marketplaceCheckoutAllowed({ sellerId, userId }) {
@@ -1130,6 +1130,14 @@ async function updateFulfillment(orderId, sellerActorRef, action, opts = {}) {
     if (action === 'shipped' && (!carrier || !tracking)) {
       throw err(422, 'TRACKING_REQUIRED', 'Enter the carrier and tracking number for this shipment.');
     }
+    // Shipped orders (only while STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED is on; off by default): the seller marking an order
+    // complete never makes it payable by itself. It becomes eligible only once delivery is confirmed (buyer or
+    // administrator, confirmDelivery), and not before delivery + 3 US Eastern business days (payoutReleaseAt).
+    let eligible = spec.eligible; let eligibleAt = null;
+    if (action === 'complete' && storefrontShippedPayoutDelayEnabled()) {
+      eligible = !!o.delivered_at;
+      eligibleAt = o.delivered_at ? require('../lib/auctionShippingPolicy').payoutReleaseAt(o.delivered_at) : null;
+    }
     // Payout eligibility is a flag (no money moves) and is never set while the order is on hold (e.g. a chargeback).
     const upd = (await client.query(
       `UPDATE marketplace_orders
@@ -1137,9 +1145,9 @@ async function updateFulfillment(orderId, sellerActorRef, action, opts = {}) {
               tracking_carrier = COALESCE($3, tracking_carrier),
               tracking_number  = COALESCE($4, tracking_number),
               payout_eligible    = CASE WHEN $5 AND NOT payout_hold THEN true ELSE payout_eligible END,
-              payout_eligible_at = CASE WHEN $5 AND NOT payout_hold AND payout_eligible_at IS NULL THEN now() ELSE payout_eligible_at END,
+              payout_eligible_at = CASE WHEN $5 AND NOT payout_hold AND payout_eligible_at IS NULL THEN COALESCE($6::timestamptz, now()) ELSE payout_eligible_at END,
               updated_at = now()
-        WHERE id = $1 RETURNING *`, [orderId, spec.to, carrier || null, tracking || null, spec.eligible])).rows[0];
+        WHERE id = $1 RETURNING *`, [orderId, spec.to, carrier || null, tracking || null, eligible, eligibleAt])).rows[0];
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.fulfillment', entityType: 'marketplace_order', entityId: orderId,
       actorId: sellerUserId, metadata: { action, to: spec.to, payout_eligible: upd.payout_eligible } });
@@ -1280,6 +1288,15 @@ async function setPayoutHold(orderId, adminId, { hold, reason } = {}) {
     const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
     if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
     const on = hold !== false;
+    // A hold is never released while a payment dispute on this order is open (owner-approved 2026-11-05). Fails closed.
+    if (!on && o.stripe_payment_intent_id) {
+      let open = 1;
+      try {
+        open = Number((await db.query(`SELECT count(*)::int n FROM payment_disputes WHERE payment_intent_id = $1 AND closed_at IS NULL
+          AND status NOT IN ('won', 'lost', 'warning_closed')`, [o.stripe_payment_intent_id])).rows[0].n) || 0;
+      } catch (e) { open = e && e.code === '42P01' ? 0 : 1; }
+      if (open > 0) throw err(409, 'DISPUTE_OPEN', 'A payment dispute is open for this order. The payout hold stays until the dispute is closed.');
+    }
     const upd = (await client.query(
       `UPDATE marketplace_orders SET payout_hold = $2, payout_hold_reason = $3, updated_at = now() WHERE id = $1 RETURNING *`,
       [o.id, on, on ? note : null])).rows[0];
@@ -1343,7 +1360,46 @@ async function listForAdmin({ status, limit } = {}) {
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
 
-module.exports = { taxResponsibility,
+// ── Delivery confirmation for a shipped order (STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED; migration 219) ─────────────────
+// The buyer confirms receipt of their OWN order, or an administrator confirms delivery (for example from the carrier's
+// tracking) with a note and the delivery date. The order becomes payout-eligible, but not before delivery + 3 US Eastern
+// business days (payoutReleaseAt): the weekly payout includes it only once that date has passed. Idempotent: a second
+// confirmation changes nothing. A held order stays held. No money moves here.
+async function confirmDelivery(orderId, { buyerUserId = null, adminId = null, deliveredAt = null, note = null } = {}) {
+  if (!storefrontShippedPayoutDelayEnabled()) throw err(404, 'NOT_AVAILABLE', 'Not found.');
+  if (!buyerUserId && !adminId) throw err(403, 'FORBIDDEN', 'Not allowed.');
+  if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
+  const why = String(note || '').replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 500);
+  if (adminId && why.length < 5) throw err(422, 'REASON_REQUIRED', 'Say how delivery was confirmed (for example the carrier tracking status).');
+  let when = new Date();
+  if (adminId && deliveredAt) {
+    when = new Date(deliveredAt);
+    if (Number.isNaN(when.getTime()) || when.getTime() > Date.now() + 60000) throw err(422, 'BAD_DATE', 'Enter the delivery date (not in the future).');
+  }
+  const policy = require('../lib/auctionShippingPolicy');
+  return withTransaction(async (client) => {
+    const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
+    if (!o || (!adminId && o.buyer_user_id !== buyerUserId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
+    if (o.fulfillment_method !== 'shipping') throw err(409, 'WRONG_METHOD', 'Only a shipped order has a delivery to confirm.');
+    if (!['shipped', 'completed'].includes(o.fulfillment_status)) throw err(409, 'NOT_SHIPPED', 'This order has not shipped yet.');
+    if (o.delivered_at) return { ...publicOrder(o), delivered_at: o.delivered_at, changed: false };
+    const releaseAt = policy.payoutReleaseAt(when);
+    const upd = (await client.query(
+      `UPDATE marketplace_orders SET delivered_at = $2, delivery_confirmed_by = $3, delivery_confirmation_source = $4,
+              fulfillment_status = 'completed',
+              payout_eligible_at = CASE WHEN NOT payout_hold AND NOT payout_eligible AND refund_status <> 'refunded' THEN $5 ELSE payout_eligible_at END,
+              payout_eligible = CASE WHEN NOT payout_hold AND refund_status <> 'refunded' THEN true ELSE payout_eligible END,
+              updated_at = now()
+        WHERE id = $1 RETURNING *`, [o.id, when, adminId || buyerUserId, adminId ? 'admin' : 'buyer', releaseAt])).rows[0];
+    const data = { delivered_at: when.toISOString(), payout_release_at: releaseAt.toISOString(), source: adminId ? 'admin' : 'buyer', ...(adminId ? { note: why } : {}) };
+    await recordEvent(client, o.id, 'delivery_confirmed', { actorUserId: adminId || buyerUserId, actorRole: adminId ? 'admin' : 'buyer', data });
+    await auditService.logEvent(client, { eventType: 'marketplace_order.delivery_confirmed', entityType: 'marketplace_order', entityId: o.id,
+      actorId: adminId || buyerUserId, metadata: data });
+    return { ...publicOrder(upd), delivered_at: upd.delivered_at, payout_release_at: releaseAt.toISOString(), changed: true };
+  });
+}
+
+module.exports = { taxResponsibility, confirmDelivery,
   STOREFRONT_FEE_WEBSITE_BPS, STOREFRONT_FEE_MARKETPLACE_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,

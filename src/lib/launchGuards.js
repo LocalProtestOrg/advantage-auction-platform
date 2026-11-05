@@ -121,6 +121,14 @@ function storefrontMessagingAllowed({ sellerId, userId = null, side = 'buyer' } 
   return users.length === 0 || (!!userId && users.includes(String(userId).toLowerCase()));
 }
 
-module.exports = { marketplaceCheckoutPilot, marketplaceCheckoutActive, marketplaceCheckoutAllowed, marketplaceCheckoutShownTo,
+// Storefront shipped-order payout delay (owner-approved 2026-11-05) is OFF unless STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED is
+// exactly 'true'. Default (unset) = today's behavior: a shipped order becomes payout-eligible when the seller marks it
+// complete. On: it becomes eligible only after delivery is confirmed (buyer or administrator) and not before delivery + 3
+// US Eastern business days. A launch item: turning it on is an owner action, before storefront shipping is used widely.
+function storefrontShippedPayoutDelayEnabled(env = process.env) {
+  return !!(env && env.STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED === 'true');
+}
+
+module.exports = { storefrontShippedPayoutDelayEnabled, marketplaceCheckoutPilot, marketplaceCheckoutActive, marketplaceCheckoutAllowed, marketplaceCheckoutShownTo,
   storefrontMessagingEnabled, storefrontMessagingAvailable, storefrontMessagingAllowed, storefrontMessagingPilotSellerIds,
   storefrontMessagingPilotUserIds, sellerStaffEnabled, sellerStaffEnabledFor, sellerStaffPilotIds, sellerStaffAvailableAnywhere, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };

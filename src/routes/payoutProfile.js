@@ -16,6 +16,7 @@ const svc = require('../services/payoutProfileService');
 const connect = require('../services/stripeConnectService');
 const { maskedPayoutSummary, payoutProfileStatus } = require('../lib/payoutProfile');
 const { stripeConnectEnabled } = require('../lib/launchGuards');
+const safeguards = require('../services/payoutSafeguards');
 
 const APP_BASE = (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 
@@ -27,6 +28,12 @@ function serialize(pref) {
     setup_completed_at: (pref && pref.setup_completed_at) || null,
     connect_enabled: stripeConnectEnabled(),   // UI shows Direct Deposit only when true
   };
+}
+
+// Replacing an existing payout destination needs the current password (payoutSafeguards); the error says so.
+function safeguardError(res, err) {
+  if (err && err instanceof safeguards.PayoutSafeguardError) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+  return null;
 }
 
 function requireConnectEnabled(req, res, next) {
@@ -45,12 +52,17 @@ router.get('/me', auth, role(['seller']), async (req, res, next) => {
 // Direct Deposit (Stripe Connect): start/resume Stripe-hosted onboarding. Returns a one-time URL.
 router.post('/me/connect/onboard', auth, role(['seller']), blockDemoSideEffects, requireConnectEnabled, async (req, res, next) => {
   try {
+    // Switching an existing check destination to a new Direct Deposit account replaces where payouts go: password first.
+    const current = await svc.getProfile(req.user.id);
+    if (!(current && current.stripe_account_id)) {
+      await safeguards.assertPasswordForDestinationChange(req.user.id, { before: current, after: { payout_method: 'ach' }, currentPassword: (req.body || {}).current_password });
+    }
     const link = await connect.createOnboardingLink(req.user.id, {
       returnUrl: APP_BASE + '/payout-profile.html?connect=return',
       refreshUrl: APP_BASE + '/payout-profile.html?connect=refresh',
     });
     res.json({ success: true, data: { url: link.url } });
-  } catch (err) { next(err); }
+  } catch (err) { if (safeguardError(res, err)) return; next(err); }
 });
 
 // Direct Deposit: refresh + return the seller's live Connect status (safe fields only).
@@ -71,6 +83,7 @@ router.put('/me', auth, role(['seller']), async (req, res, next) => {
     const pref = await svc.saveCheckProfile(req.user.id, req.body);
     res.json({ success: true, data: serialize(pref) });
   } catch (err) {
+    if (safeguardError(res, err)) return;
     if (/required|Invalid/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
     next(err);
   }
@@ -85,8 +98,9 @@ router.post('/me/ach/setup-intent', auth, role(['seller']), blockDemoSideEffects
 // Step 2: after Stripe.js completes collection/confirmation, seller confirms — server
 // retrieves the SetupIntent and stores only the Stripe reference + safe display.
 router.post('/me/ach/confirm', auth, role(['seller']), blockDemoSideEffects, async (req, res, next) => {
-  try { res.json({ success: true, data: serialize(await svc.confirmAchSetupIntent(req.user.id, (req.body || {}).setup_intent_id)) }); }
+  try { res.json({ success: true, data: serialize(await svc.confirmAchSetupIntent(req.user.id, (req.body || {}).setup_intent_id, { currentPassword: (req.body || {}).current_password })) }); }
   catch (err) {
+    if (safeguardError(res, err)) return;
     if (/required|No US bank|does not belong/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
     next(err);
   }
