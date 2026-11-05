@@ -105,6 +105,8 @@ ${jsonLd}
  .pg a,.pg span{min-width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border:1px solid #e2e8f0;border-radius:10px;font-weight:700;text-decoration:none;color:#0f172a;background:#fff}
  .pg span[aria-current]{background:#0f172a;color:#fff;border-color:#0f172a}
  .empty{text-align:center;padding:50px 20px;color:#475569}.btn{display:inline-block;margin-top:8px;background:#2563eb;color:#fff;padding:10px 18px;border-radius:11px;text-decoration:none;font-weight:700}
+ @media(max-width:400px){body .adv-pubnav .header-inner{padding:0 12px;gap:10px}body .adv-pubnav .btn-header-cta{padding:.4rem .7rem}}
+ @media(max-width:340px){body .adv-pubnav .brand{font-size:1rem}body .adv-pubnav .btn-header-cta{padding:.35rem .5rem;font-size:.85rem}}
  .sell{margin-top:36px;padding:20px;border:1px solid #e6e9ef;border-radius:16px;background:#fff;color:#334155}.sell a{color:#1d4ed8;font-weight:700}
 </style></head><body>
 <div data-adv-public-nav></div>
