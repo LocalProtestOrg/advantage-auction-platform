@@ -6,8 +6,10 @@
  *
  * Mounted BEFORE the How To route and express.static, it covers every way to the content:
  *   page      /seller-how-to (and /seller-how-to.html, which redirects to it)
- *   scripts   /js/seller-how-to.js (checklists and worksheet), /js/lot-label-layout.js, the pickup note templates
+ *   scripts   /js/seller-how-to.js (checklists and worksheet), /js/lot-label-layout.js
  *   download  /api/seller-resources/lot-labels.pdf
+ * The pickup note templates (the lot editor's "Add a pickup note" menu: basic pickup safety wording) are for EVERY seller,
+ * Individual and Professional, and administrators (owner decision 2026-11-05); still never public.
  * Paths are matched the way the static server resolves them (decoded, normalized, case-insensitive), so an encoded or
  * differently-cased address cannot slip past.
  *
@@ -23,8 +25,8 @@ const { readSessionToken } = require('../lib/sessionCookie');
 const { isProfessional } = require('../services/sellerTypeRules');
 
 const PAGES = new Set(['/seller-how-to', '/seller-how-to.html']);
-const FILES = new Set(['/js/seller-how-to.js', '/js/lot-label-layout.js', '/widgets/shared/pickup-note-templates.js',
-  '/api/seller-resources/lot-labels.pdf']);
+const FILES = new Set(['/js/seller-how-to.js', '/js/lot-label-layout.js', '/api/seller-resources/lot-labels.pdf']);
+const ANY_SELLER_FILES = new Set(['/widgets/shared/pickup-note-templates.js']);
 
 function servedPath(p) {
   let d;
@@ -33,8 +35,8 @@ function servedPath(p) {
   return d.length > 1 ? d.replace(/\/+$/, '') : d;
 }
 
-/** Who is asking: { state: 'none' } | { state: 'denied' } | { state: 'ok', role } (pure decision, database-backed). */
-async function access(req) {
+/** Who is asking: { state: 'none' } | { state: 'denied' } | { state: 'ok', role } (database-backed). anySeller: any seller profile. */
+async function access(req, anySeller) {
   const bearer = /^Bearer\s+(.+)$/i.exec(req.get('authorization') || '');
   const token = readSessionToken(req) || (bearer && bearer[1]);
   if (!token) return { state: 'none' };
@@ -49,7 +51,7 @@ async function access(req) {
     `SELECT u.role, COALESCE(u.is_active, true) AS is_active, sp.seller_type
        FROM users u LEFT JOIN seller_profiles sp ON sp.user_id = u.id WHERE u.id = $1`, [decoded.id])).rows[0];
   if (!u || !u.is_active) return { state: 'denied' };
-  if (u.role === 'admin' || isProfessional(u.seller_type)) return { state: 'ok', role: u.role };
+  if (u.role === 'admin' || isProfessional(u.seller_type) || (anySeller && u.seller_type != null)) return { state: 'ok', role: u.role };
   return { state: 'denied' };
 }
 
@@ -70,11 +72,12 @@ module.exports = async function sellerResourceGate(req, res, next) {
   const served = servedPath(req.path);
   if (served === null) return res.status(400).end();
   const isPage = PAGES.has(served);
-  if (!isPage && !FILES.has(served)) return next();
+  const anySeller = ANY_SELLER_FILES.has(served);
+  if (!isPage && !anySeller && !FILES.has(served)) return next();
 
   res.set({ 'Cache-Control': 'private, no-store, must-revalidate', 'X-Robots-Tag': 'noindex, nofollow, noarchive' });
   let a;
-  try { a = await access(req); } catch (e) { console.error('[seller-resources] access check failed:', e.message); a = { state: 'denied' }; }
+  try { a = await access(req, anySeller); } catch (e) { console.error('[seller-resources] access check failed:', e.message); a = { state: 'denied' }; }
   if (a.state === 'ok') return next();
   if (a.state === 'none') {
     if (isPage) {
@@ -84,6 +87,6 @@ module.exports = async function sellerResourceGate(req, res, next) {
     return res.status(401).json({ success: false, message: 'Please sign in as a Professional Seller.' });
   }
   if (isPage) return res.status(403).type('html').send(deniedPage());
-  return res.status(403).json({ success: false, message: 'Available to Professional Sellers.' });
+  return res.status(403).json({ success: false, message: anySeller ? 'Available to sellers.' : 'Available to Professional Sellers.' });
 };
 module.exports.servedPath = servedPath;

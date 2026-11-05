@@ -562,24 +562,16 @@
   // Shipping toggle is shown only when this seller may offer shipping (Professional Sellers,
   // admins, or an Individual Seller Advantage.Bid enabled). Presentation only — the server
   // ignores shippable for sellers who are not allowed.
-  // The pickup note templates are for Professional Sellers and admins only (the server refuses the file to anyone else).
-  const PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
-  const loadPickupNotes = () => {
-    if (document.getElementById('pickup-note-templates-js')) return;
-    const sc = document.createElement('script'); sc.id = 'pickup-note-templates-js'; sc.src = '/widgets/shared/pickup-note-templates.js';
-    document.body.appendChild(sc);
-  };
   (async function revealShippingToggle() {
     const show = () => { const f = document.getElementById('lot-shipping-field'); if (f) f.style.display = ''; };
     try {
       const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      if (p && p.role === 'admin') { show(); loadPickupNotes(); return; }
+      if (p && p.role === 'admin') { show(); return; }
     } catch (e) { /* fall through to the server check */ }
     try {
       const r = await fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } });
       const d = await r.json();
       if (d && d.success && d.data && d.data.shipping_allowed === true) show();
-      if (d && d.success && d.data && PRO_TYPES.indexOf(d.data.seller_type) !== -1) loadPickupNotes();
     } catch (e) { /* non-fatal: toggle stays hidden */ }
   })();
   // Re-pull the authoritative X/30 when returning to this tab — so withdraw/restore/delete performed on
@@ -902,5 +894,7 @@
     if (type === 'success') setTimeout(() => { b.style.display = 'none'; }, 4000);
   }
 </script>
+<!-- "Add a pickup note" menu: every seller (sellerResourceGate serves it to sellers and admins only). -->
+<script src="/widgets/shared/pickup-note-templates.js" defer></script>
 </body>
 </html>

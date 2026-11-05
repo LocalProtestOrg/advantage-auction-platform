@@ -2074,13 +2074,8 @@
           var el = document.getElementById(id);
           if (el) el.style.display = show ? '' : 'none';
         });
-        // Seller How To Center links and the pickup note templates: Professional Sellers and admins only (the server
-        // refuses the templates file to anyone else; this only avoids offering what would be refused).
+        // Seller How To Center links: Professional Sellers and admins only (the server enforces access to the Center).
         var res = document.getElementById('lot-resources'); if (res) res.style.display = show ? '' : 'none';
-        if (show && !document.getElementById('pickup-note-templates-js')) {
-          var sc = document.createElement('script'); sc.id = 'pickup-note-templates-js'; sc.src = '/widgets/shared/pickup-note-templates.js';
-          document.body.appendChild(sc);
-        }
       }
       var isAdmin = false;
       try { isAdmin = JSON.parse(atob(token.split('.')[1])).role === 'admin'; } catch (e) {}
@@ -2723,5 +2718,7 @@
     // Load inventory on page init if auctionId is present
     if (auctionId) { loadInventory(); }
   </script>
+  <!-- "Add a pickup note" menu: every seller (sellerResourceGate serves it to sellers and admins only). -->
+  <script src="/widgets/shared/pickup-note-templates.js" defer></script>
 </body>
 </html>

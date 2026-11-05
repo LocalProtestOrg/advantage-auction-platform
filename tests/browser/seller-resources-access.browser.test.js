@@ -14,7 +14,9 @@ const gate = require('../../src/middleware/sellerResourceGate');
 
 jest.setTimeout(240000);
 let stack; let browser; const T = {};
-const PROTECTED_FILES = ['/js/seller-how-to.js', '/js/lot-label-layout.js', '/widgets/shared/pickup-note-templates.js', '/api/seller-resources/lot-labels.pdf?from=1&to=30'];
+const PROTECTED_FILES = ['/js/seller-how-to.js', '/js/lot-label-layout.js', '/api/seller-resources/lot-labels.pdf?from=1&to=30'];
+// The lot editor's "Add a pickup note" menu: every seller (Individual and Professional) and admins; never public.
+const NOTES = '/widgets/shared/pickup-note-templates.js';
 const DISGUISED = ['/Seller-How-To', '/SELLER-HOW-TO.HTML', '/seller-how-to%2Ehtml', '/seller-how-to/', '/js/../seller-how-to.html', '/JS/Seller-How-To.js', '/js/seller-how-to%2Ejs'];
 
 beforeAll(async () => {
@@ -60,6 +62,8 @@ test('signed out: the page sends the visitor to sign in and back; every protecte
     expect(await r.text()).not.toMatch(/Pickup Day Checklist|IMPORTANT: Buyer is responsible|AVERY_5160/);
   }
   for (const p of DISGUISED) expect([p, [302, 401].includes((await get(p)).status)]).toEqual([p, true]);
+  const notes = await get(NOTES);
+  expect([notes.status, privateHeaders(notes)[1]]).toEqual([401, 'noindex, nofollow, noarchive']);
   // the old public download address is gone
   expect((await get('/api/public/printables/lot-labels.pdf')).status).toBe(404);
 });
@@ -74,6 +78,22 @@ test('signed in but not allowed (buyer, Individual Sellers, a suspended Professi
     expect(html).toMatch(/<meta name="robots" content="noindex,nofollow">/);
     expect(html).not.toMatch(/Organize your auction location|Pickup Day Checklist/);
     for (const p of [...PROTECTED_FILES, ...DISGUISED]) expect([who, p, (await get(p, T[who].token)).status]).toEqual([who, p, 403]);
+  }
+});
+
+test('the pickup note menu (basic pickup safety wording) is for every seller: Individual Sellers yes; buyers and suspended accounts no', async () => {
+  for (const who of ['individual', 'business', 'pro', 'retail', 'admin']) {
+    const r = await get(NOTES, T[who].token);
+    expect([who, r.status]).toEqual([who, 200]);
+    expect(await r.text()).toMatch(/IMPORTANT: Buyer is responsible for providing sufficient manpower/);
+  }
+  for (const who of ['buyer', 'suspended']) expect([who, (await get(NOTES, T[who].token)).status]).toEqual([who, 403]);
+  // ...and an Individual Seller still cannot reach the How To Center or its printables
+  expect((await get('/seller-how-to', T.individual.token)).status).toBe(403);
+  // both lot editors load the menu for every seller
+  const fs = require('fs'); const path = require('path');
+  for (const page of ['dashboard/lots.html', 'lot-builder.html']) {
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'public', page), 'utf8')).toContain('<script src="/widgets/shared/pickup-note-templates.js" defer></script>');
   }
 });
 
