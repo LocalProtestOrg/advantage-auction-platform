@@ -289,7 +289,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       onboarding = await agreementService.getOnboardingStatus(req.user.id);
     } catch (_) { /* best-effort */ }
 
-    sellerWelcomeEmails.deliverSoon(welcomeId);   // one immediate attempt; the sender retries a temporary failure
+    sellerWelcomeEmails.deliverSoon(welcomeId, res);   // one attempt once the response is sent; the sender retries a temporary failure
 
     if (!existing) require('../services/conversionService').emit('seller_inquiry', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
     // Funnel visibility (R-1): a NEW professional seller profile is a seller registration, exactly like /enroll records one.

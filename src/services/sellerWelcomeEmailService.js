@@ -7,7 +7,7 @@
  *   enqueue(client, {...})  INSIDE the enrollment transaction, only when a seller BECOMES a Professional Seller through
  *                           registration. UNIQUE (seller_profile_id) + ON CONFLICT DO NOTHING: a repeated form
  *                           submission, a retry or a double click can never queue a second welcome.
- *   deliverSoon(id)         right after the enrollment commits: one immediate attempt, so the seller has it in seconds.
+ *   deliverSoon(id, res)    once the enrollment response is sent: one immediate attempt, so the seller has it in seconds.
  *   tick()                  the in-process sender: leases due rows (SKIP LOCKED), sends, records; back-off retries after a
  *                           temporary failure; after the last attempt the row is 'failed' and the owner is alerted.
  *   start()                 runs tick() on an interval.
@@ -118,7 +118,13 @@ async function deliverNow(id, deps = {}) {
     return rows[0] ? await deliverOne(rows[0], deps) : 'not_due';
   } catch (e) { console.error('[seller-welcome] immediate delivery failed (the sender retries):', e.message); return 'error'; }
 }
-function deliverSoon(id) { if (id) setImmediate(() => { deliverNow(id); }); }
+// After the enrollment response has gone out (so the attempt never runs alongside the request's own queries), plus a
+// short pause. If it does not run at all (a restart), the background sender delivers the queued welcome.
+function deliverSoon(id, res) {
+  if (!id) return;
+  const go = () => { setTimeout(() => { deliverNow(id); }, 500).unref?.(); };
+  if (res && typeof res.once === 'function' && !res.writableFinished) res.once('finish', go); else go();
+}
 
 let timer = null;
 function start() {
