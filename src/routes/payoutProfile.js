@@ -16,6 +16,7 @@ const svc = require('../services/payoutProfileService');
 const connect = require('../services/stripeConnectService');
 const { maskedPayoutSummary, payoutProfileStatus } = require('../lib/payoutProfile');
 const { stripeConnectEnabled } = require('../lib/launchGuards');
+const safeguards = require('../services/payoutSafeguards');
 
 const APP_BASE = (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 
@@ -29,12 +30,29 @@ function serialize(pref) {
   };
 }
 
+// Replacing an existing payout destination needs the current password (payoutSafeguards); the error says so.
+function safeguardError(res, err) {
+  if (err && err instanceof safeguards.PayoutSafeguardError) return res.status(err.status).json({ success: false, code: err.code, verification: err.verification || null, message: err.message });
+  return null;
+}
+
 function requireConnectEnabled(req, res, next) {
   if (!stripeConnectEnabled()) {
     return res.status(409).json({ success: false, message: 'Direct Deposit is not available yet. Please use Check for now.' });
   }
   next();
 }
+
+// Seller asks for a one-time code by email, to confirm a payout destination change on an account without a password of
+// its own (accountVerificationCodeService). Always the signed-in account; the code goes only to that account's address.
+router.post('/me/verification-code', auth, role(['seller']), blockDemoSideEffects, async (req, res, next) => {
+  const codes = require('../services/accountVerificationCodeService');
+  try { res.json({ success: true, data: await codes.send(req.user.id, codes.PURPOSES.PAYOUT_DESTINATION_CHANGE) }); }
+  catch (err) {
+    if (err instanceof codes.CodeError) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+    next(err);
+  }
+});
 
 // Seller reads their OWN profile (masked).
 router.get('/me', auth, role(['seller']), async (req, res, next) => {
@@ -45,12 +63,18 @@ router.get('/me', auth, role(['seller']), async (req, res, next) => {
 // Direct Deposit (Stripe Connect): start/resume Stripe-hosted onboarding. Returns a one-time URL.
 router.post('/me/connect/onboard', auth, role(['seller']), blockDemoSideEffects, requireConnectEnabled, async (req, res, next) => {
   try {
+    // Switching an existing check destination to a new Direct Deposit account replaces where payouts go: password first.
+    const current = await svc.getProfile(req.user.id);
+    if (!(current && current.stripe_account_id)) {
+      await safeguards.assertIdentityForDestinationChange(req.user.id, { before: current, after: { payout_method: 'ach' },
+        currentPassword: (req.body || {}).current_password, verificationCode: (req.body || {}).verification_code });
+    }
     const link = await connect.createOnboardingLink(req.user.id, {
       returnUrl: APP_BASE + '/payout-profile.html?connect=return',
       refreshUrl: APP_BASE + '/payout-profile.html?connect=refresh',
     });
     res.json({ success: true, data: { url: link.url } });
-  } catch (err) { next(err); }
+  } catch (err) { if (safeguardError(res, err)) return; next(err); }
 });
 
 // Direct Deposit: refresh + return the seller's live Connect status (safe fields only).
@@ -71,6 +95,7 @@ router.put('/me', auth, role(['seller']), async (req, res, next) => {
     const pref = await svc.saveCheckProfile(req.user.id, req.body);
     res.json({ success: true, data: serialize(pref) });
   } catch (err) {
+    if (safeguardError(res, err)) return;
     if (/required|Invalid/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
     next(err);
   }
@@ -85,8 +110,9 @@ router.post('/me/ach/setup-intent', auth, role(['seller']), blockDemoSideEffects
 // Step 2: after Stripe.js completes collection/confirmation, seller confirms — server
 // retrieves the SetupIntent and stores only the Stripe reference + safe display.
 router.post('/me/ach/confirm', auth, role(['seller']), blockDemoSideEffects, async (req, res, next) => {
-  try { res.json({ success: true, data: serialize(await svc.confirmAchSetupIntent(req.user.id, (req.body || {}).setup_intent_id)) }); }
+  try { res.json({ success: true, data: serialize(await svc.confirmAchSetupIntent(req.user.id, (req.body || {}).setup_intent_id, { currentPassword: (req.body || {}).current_password, verificationCode: (req.body || {}).verification_code })) }); }
   catch (err) {
+    if (safeguardError(res, err)) return;
     if (/required|No US bank|does not belong/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
     next(err);
   }

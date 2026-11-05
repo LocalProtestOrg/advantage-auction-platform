@@ -889,6 +889,11 @@ router.get('/auctions/:id', async (req, res, next) => {
     `, [id]);
 
     if (!rows.length) return res.status(404).json({ success: false, message: 'Auction not found' });
+    // Auction shipping Phase 1 (flag-gated): the auction label computed from its lots' eligibility.
+    if (require('../lib/auctionShippingPolicy').auctionShippingEnabled()) {
+      try { rows[0].shipping = await require('../services/auctionShippingService').auctionSummary(id); }
+      catch (e) { console.error('[public] auction shipping summary failed', e.message); }
+    }
     res.set('Cache-Control', LIVE_CACHE);
     return res.json({ success: true, data: rows[0] });
   } catch (err) { next(err); }
@@ -952,6 +957,8 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
     // Realized prices of closed lots are for signed-in members only (#20.1). This response is publicly cached, so it is
     // always redacted; signed-in pages read /api/lots/auction/:id.
     const data = rows.map(({ total_count: _tc, ...rest }) => redactRealizedPrice(rest, false));
+    // Auction shipping Phase 1 (flag-gated): per-lot label + terms.
+    if (require('../lib/auctionShippingPolicy').auctionShippingEnabled()) await require('../services/auctionShippingService').attachLotSummaries(data);
     res.set('Cache-Control', LIVE_CACHE);
     return res.json({ success: true, data, total_count, has_more: offset + data.length < total_count, offset, limit });
   } catch (err) { next(err); }

@@ -99,6 +99,11 @@ router.post('/orders/:id/issues', async (req, res, next) => {
     return res.status(201).json({ success: true, data: await issues.openIssue(req.params.id, req.user.id, { category, message }) });
   } catch (e) { fail(res, e, next); }
 });
+// Buyer confirms a shipped order arrived (only while STOREFRONT_SHIPPED_PAYOUT_DELAY_ENABLED is on; otherwise 404).
+router.post('/orders/:id/confirm-delivery', async (req, res, next) => {
+  try { return res.json({ success: true, data: await orders.confirmDelivery(req.params.id, { buyerUserId: req.user.id }) }); }
+  catch (e) { fail(res, e, next); }
+});
 router.get('/orders/:id/history', async (req, res, next) => {
   try {
     const h = await orders.orderHistory(req.params.id, { buyerUserId: req.user.id });
@@ -198,6 +203,13 @@ router.post('/admin/orders/:id/payout-hold', roleMiddleware(['admin']), async (r
   try {
     const { hold, reason } = req.body || {};
     return res.json({ success: true, data: await orders.setPayoutHold(req.params.id, req.user.id, { hold: hold !== false, reason }) });
+  } catch (e) { fail(res, e, next); }
+});
+// Administrator confirms delivery (for example from the carrier's tracking), with a note and the delivery date.
+router.post('/admin/orders/:id/confirm-delivery', roleMiddleware(['admin']), async (req, res, next) => {
+  try {
+    const { delivered_at, note } = req.body || {};
+    return res.json({ success: true, data: await orders.confirmDelivery(req.params.id, { adminId: req.user.id, deliveredAt: delivered_at, note }) });
   } catch (e) { fail(res, e, next); }
 });
 router.get('/admin/orders/:id/history', roleMiddleware(['admin']), async (req, res, next) => {

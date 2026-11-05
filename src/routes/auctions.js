@@ -287,6 +287,11 @@ router.get('/:auctionId/summary', optionalAuth, async (req, res) => {
     // BP only — never the internal AAC/seller split. (Buyer Premium Phase 1 surface.)
     try { row.buyer_premium_bps = (await require('../services/billingTermsService').resolveEffectiveTerms(auctionId)).buyer_premium_bps; }
     catch (e) { row.buyer_premium_bps = 1800; }
+    // Auction shipping (Phase 1; only when AUCTION_SHIPPING_ENABLED): the auction label computed from its lots' eligibility.
+    if (require('../lib/auctionShippingPolicy').auctionShippingEnabled()) {
+      try { row.shipping = await require('../services/auctionShippingService').auctionSummary(auctionId); }
+      catch (e) { console.error('[auctions] shipping summary failed', e.message); }
+    }
     // Privacy (platform rule): PUBLIC = city and state only. The street address (or any part of it) and ZIP are never
     // selected here; the winning buyer receives the full pickup address only after payment (receipt/success package).
     return res.json({ success: true, data: row });

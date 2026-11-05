@@ -21,8 +21,9 @@ const needConnect = (req, res, next) => (stripeConnectEnabled(process.env) ? nex
   : res.status(409).json({ success: false, message: 'Stripe Connect Direct Deposit is not enabled.' }));
 const send = (fn) => async (req, res, next) => {
   try { return res.json({ success: true, data: await fn(req) }); }
-  catch (e) { if (e && e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message }); return next(e); }
+  catch (e) { if (e && e.status) return res.status(e.status).json({ success: false, code: e.code, override: e.override || null, message: e.message }); return next(e); }
 };
+const { overrideReasons } = require('../services/payoutSafeguards');
 
 router.get('/', send((req) => svc.listForAdmin({ status: req.query.status || null })));
 router.get('/cutoff', send(() => ({ cutoff: svc.cutoffFor().toISOString() })));
@@ -33,6 +34,7 @@ router.post('/:id/hold', needSettlements, send((req) => svc.setHold(req.params.i
 router.post('/:id/release', needSettlements, send((req) => svc.setHold(req.params.id, req.user.id, { hold: false })));
 router.post('/:id/void', needSettlements, send((req) => svc.voidPayout(req.params.id, req.user.id, { reason: (req.body || {}).reason })));
 router.post('/:id/pay', needSettlements, needConnect, send((req) => svc.payPayout(req.params.id, { actorId: req.user.id,
-  confirmedCompleted: (req.body || {}).confirmed_completed === true, finalAmountCents: (req.body || {}).final_amount_cents })));
+  confirmedCompleted: (req.body || {}).confirmed_completed === true, finalAmountCents: (req.body || {}).final_amount_cents,
+  overrideReasons: overrideReasons(req.body) })));
 
 module.exports = router;

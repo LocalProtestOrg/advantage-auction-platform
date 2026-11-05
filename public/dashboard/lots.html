@@ -1102,6 +1102,10 @@
 
           <hr class="form-divider" />
 
+          <!-- Auction shipping (Phase 1): "This lot can ship" (off = Local Pickup). Drawn by
+               /widgets/shared/seller-shipping.js only when auction shipping is turned on; the server enforces it. -->
+          <div class="form-group" id="lot-shipping-controls" style="display:none"></div>
+
           <div class="form-actions">
             <!-- The primary action persists the lot to the seller's account server-side (POST/PUT
                  /api/lots) — it survives leaving the page, logout, and returning to edit later. The
@@ -1129,6 +1133,7 @@
 
   </div><!-- /.page -->
 
+  <script src="/widgets/shared/seller-shipping.js"></script>
   <script>
     /* ── Auth ──────────────────────────────────────────────── */
     var token = localStorage.getItem('token');
@@ -1807,7 +1812,16 @@
         .filter(function (f) { var u = effectiveUrl(f); return u && editingLotImages.indexOf(u) === -1; })
         .map(effectiveUrl);
 
+      // Auction shipping (Phase 1): save the lot's shipping choice (no-op unless the controls are shown and changed),
+      // then attach images as before. A shipping refusal is shown but never blocks the rest of the save.
       function attachImages(lotId, onDone) {
+        if (!window.SellerShipping) { attachImagesOnly(lotId, onDone); return; }
+        SellerShipping.saveLot(lotId).then(function (r) {
+          if (r && !r.ok) alert(r.message);
+          attachImagesOnly(lotId, onDone);
+        });
+      }
+      function attachImagesOnly(lotId, onDone) {
         if (!newCloudinaryUrls.length) { onDone(''); return; }
         fetch('/api/lots/' + lotId + '/images', {
           method: 'POST',
@@ -1901,6 +1915,7 @@
     }
 
     function resetForm() {
+      if (window.SellerShipping) SellerShipping.resetLot();   // auction shipping: back to Local Pickup (off)
       resetAiVerification();   // Phase 2A: clear verification chips + state
       editingLotId             = null;
       editingLotImages         = [];
@@ -2698,6 +2713,7 @@
 
       // Phase 2A: admin-only verification provenance for this lot.
       maybeShowAdminVerification(lot.id);
+      if (window.SellerShipping) SellerShipping.loadLot(lot.id);   // auction shipping: this lot's saved choice
 
       // Highlight the card being edited
       loadInventory();
@@ -2715,6 +2731,8 @@
 
     // Load inventory on page init if auctionId is present
     if (auctionId) { loadInventory(); }
+    // Auction shipping (Phase 1): lot controls appear only when auction shipping is turned on.
+    if (window.SellerShipping) SellerShipping.mountLot(document.getElementById('lot-shipping-controls'));
   </script>
   <script src="/widgets/shared/pickup-note-templates.js" defer></script>
 </body>

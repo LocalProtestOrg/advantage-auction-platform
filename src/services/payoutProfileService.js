@@ -17,23 +17,47 @@ async function getProfile(sellerUserId) {
   return maskPayoutPrefForMode(r.rows[0] || null);
 }
 
-// Upsert a whitelisted set of columns for one seller.
-async function upsert(sellerUserId, fields) {
+// Upsert a whitelisted set of columns for one seller. Every payout-detail change is audited (field names + masked values
+// only) and the seller is emailed (payoutSafeguards); replacing an existing payout destination needs the account's current
+// password (options.currentPassword). The tax placeholder is not a payout detail and is not audited here.
+async function upsert(sellerUserId, fields, options = {}) {
   const cols = Object.keys(fields);
   const vals = Object.values(fields);
   cols.push('updated_at'); vals.push(new Date());
   const insertCols = ['seller_user_id', ...cols].join(', ');
   const insertVals = ['$1', ...cols.map((_, i) => `$${i + 2}`)].join(', ');
   const setList = cols.map((c, i) => `${c} = $${i + 2}`).join(', ');
-  const r = await db.query(
-    `INSERT INTO seller_payout_preferences (${insertCols}) VALUES (${insertVals})
-     ON CONFLICT (seller_user_id) DO UPDATE SET ${setList} RETURNING *`,
-    [sellerUserId, ...vals]
-  );
-  return r.rows[0];
+  const safeguards = require('./payoutSafeguards');
+  const { withTransaction } = require('../utils/withTransaction');
+  // Identity first, outside the transaction, so a failed attempt is always counted; the transaction then re-checks that
+  // the destination it is replacing is still the one that was confirmed.
+  let seen = null;
+  if (options.source) {
+    seen = (await db.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1', [sellerUserId])).rows[0] || null;
+    await safeguards.assertIdentityForDestinationChange(sellerUserId, { before: seen, after: { ...(seen || {}), ...fields },
+      currentPassword: options.currentPassword, verificationCode: options.verificationCode });
+  }
+  const out = await withTransaction(async (client) => {
+    const before = (await client.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1 FOR UPDATE', [sellerUserId])).rows[0] || null;
+    if (options.source && safeguards.destinationFingerprint(before) !== safeguards.destinationFingerprint(seen)) {
+      throw new safeguards.PayoutSafeguardError('CHANGED', 'Your payout details changed while you were editing. Please try again.', 409);
+    }
+    const r = await client.query(
+      `INSERT INTO seller_payout_preferences (${insertCols}) VALUES (${insertVals})
+       ON CONFLICT (seller_user_id) DO UPDATE SET ${setList} RETURNING *`,
+      [sellerUserId, ...vals]
+    );
+    const row = r.rows[0];
+    const diff = options.source
+      ? await safeguards.recordPayoutDetailsChange(client, { sellerUserId, actorId: sellerUserId, source: options.source, before, after: row })
+      : null;
+    return { row, diff };
+  });
+  if (out.diff) safeguards.notifySellerPayoutDetailsChanged(sellerUserId, out.diff).catch(() => {});
+  return out.row;
 }
 
-async function saveCheckProfile(sellerUserId, { payee_name, address_line1, address_line2 = null, city, state, postal_code }) {
+async function saveCheckProfile(sellerUserId, { payee_name, address_line1, address_line2 = null, city, state, postal_code, current_password = null, verification_code = null }) {
   if (!payee_name || !address_line1 || !city || !state || !postal_code) {
     throw new Error('Check payout requires a payee name and full mailing address');
   }
@@ -42,18 +66,18 @@ async function saveCheckProfile(sellerUserId, { payee_name, address_line1, addre
     check_payee_name: payee_name, check_address_line1: address_line1, check_address_line2: address_line2,
     check_city: city, check_state: state, check_postal_code: postal_code,
     setup_completed_at: new Date(),
-  });
+  }, { source: 'payout_profile_check', currentPassword: current_password, verificationCode: verification_code });
 }
 
 // Stores ONLY Stripe-managed reference + safe display (obtained via attachStripeBankAccount).
-async function saveAchProfile(sellerUserId, { stripe_bank_account_ref, bank_name = null, ach_account_type = null, ach_account_last4 = null, is_verified = false }) {
+async function saveAchProfile(sellerUserId, { stripe_bank_account_ref, bank_name = null, ach_account_type = null, ach_account_last4 = null, is_verified = false }, options = {}) {
   if (!stripe_bank_account_ref) throw new Error('ACH payout requires a Stripe-managed bank reference');
   return upsert(sellerUserId, {
     payout_method: 'ach',
     stripe_bank_account_ref, bank_name, ach_account_type, ach_account_last4, is_verified,
     stripe_bank_account_livemode: isLiveMode(),
     setup_completed_at: new Date(),
-  });
+  }, { source: 'payout_profile_bank', currentPassword: options.currentPassword, verificationCode: options.verificationCode });
 }
 
 async function setTaxStatus(sellerUserId, tax_status) {
@@ -84,7 +108,7 @@ async function createAchSetupIntent(sellerUserId) {
   return { client_secret: si.client_secret, setup_intent_id: si.id, publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || '' };
 }
 
-async function confirmAchSetupIntent(sellerUserId, setupIntentId) {
+async function confirmAchSetupIntent(sellerUserId, setupIntentId, options = {}) {
   if (!setupIntentId) throw new Error('A setup_intent_id is required');
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe is not configured');
   const cardService = require('./cardService');
@@ -94,7 +118,7 @@ async function confirmAchSetupIntent(sellerUserId, setupIntentId) {
   // Ownership guard: a seller can only confirm a SetupIntent that belongs to their own customer.
   if (si.customer !== customerId) throw new Error('SetupIntent does not belong to this seller');
   const display = usBankAccountDisplay(si.payment_method, si.status); // pure; stores pm ref + safe display only
-  return saveAchProfile(sellerUserId, display);
+  return saveAchProfile(sellerUserId, display, { currentPassword: options.currentPassword, verificationCode: options.verificationCode });
 }
 
 module.exports = { getProfile, saveCheckProfile, saveAchProfile, setTaxStatus, createAchSetupIntent, confirmAchSetupIntent };

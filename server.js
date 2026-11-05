@@ -785,6 +785,7 @@ app.use('/api/marketing-packages', require('./src/routes/marketingPackages'));
 app.use('/api/verification', verificationRoutes);
 app.use('/api/tax-exemption', taxExemptionRoutes);
 app.use('/api/lots', lotRoutes);
+app.use('/api/auction-shipping', require('./src/routes/auctionShipping')); // auction shipping Phase 1: profiles, lot eligibility, admin approval (OFF unless AUCTION_SHIPPING_ENABLED; mig 218)
 app.use('/api/terms', termsRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/ses', sesFeedbackRoutes);

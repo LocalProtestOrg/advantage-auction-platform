@@ -397,6 +397,32 @@ async function countOpenDisputes(runner, auctionId) {
   }
 }
 
+// Fraud safeguards shared with the storefront pay path (payoutSafeguards; owner-approved 2026-11-05): the seller's account
+// is active (fails closed), no recent payout-destination change awaiting review (fails closed), and, only while
+// AUCTION_SHIPPING_ENABLED is on, no shipped lot still inside its delivery + 3 business day hold. Inside the pay
+// transaction (client given) each read runs under a savepoint, so a failed read never aborts that transaction.
+async function payoutSafeguardFacts(sp, auctionId, client = null) {
+  const safeguards = require('./payoutSafeguards');
+  const runner = client || db; const inTx = !!client;
+  const facts = {
+    sellerActive: await safeguards.sellerAccountActive(sp && sp.seller_user_id, runner, inTx),
+    recentChange: await safeguards.recentPayoutDestinationChange(sp && sp.seller_user_id, runner, inTx),
+    shippingHold: null,
+  };
+  if (require('../lib/auctionShippingPolicy').auctionShippingEnabled()) {
+    facts.shippingHold = await require('./auctionShipmentService').payoutHoldForAuction(auctionId, new Date(), runner, inTx);
+  }
+  return facts;
+}
+function safeguardsOrThrow(ErrorClass, facts, reasons) {
+  const safeguards = require('./payoutSafeguards');
+  try { return safeguards.assertPayoutSafeguards(facts, reasons || {}); }
+  catch (e) {
+    if (e instanceof safeguards.PayoutSafeguardError) throw Object.assign(new ErrorClass(e.message), { code: e.code, override: e.override });
+    throw e;
+  }
+}
+
 function assertMarkPaidAllowed(state, input) {
   const s = state || {}, i = input || {};
   if (!s.hasSettlementRow) throw new MarkPaidError('No settlement exists for this auction yet.');
@@ -425,7 +451,7 @@ function assertMarkPaidAllowed(state, input) {
  */
 async function markSettlementPaid(auctionId, {
   paymentMethod, paymentReference, paidAt = null, paymentNote = null,
-  finalAmountCents, actorId = null, confirmedCompleted = false,
+  finalAmountCents, actorId = null, confirmedCompleted = false, overrideReasons = {},
 } = {}) {
   const totals = await computeSettlement(auctionId);
   const client = await db.connect();
@@ -447,6 +473,7 @@ async function markSettlementPaid(auctionId, {
       netProceedsCents: totals.net_seller_proceeds_cents,
       payoutPreferenceComplete: payoutPreferenceComplete(pref),
     }, { paymentMethod, paymentReference, paidAt, finalAmountCents, confirmedCompleted });
+    const overridesUsed = safeguardsOrThrow(MarkPaidError, await payoutSafeguardFacts(sp, auctionId, client), overrideReasons);
 
     const vRes = await client.query('SELECT COALESCE(MAX(version),0) AS maxv FROM settlement_snapshots WHERE auction_id = $1', [auctionId]);
     const finalVersion = Number(vRes.rows[0].maxv) + 1;
@@ -476,6 +503,8 @@ async function markSettlementPaid(auctionId, {
         payment_method: paymentMethod, payment_reference: String(paymentReference).trim(),
       },
     });
+    await require('./payoutSafeguards').auditOverrides(client, overridesUsed, { entityType: 'seller_payout', entityId: sp.id, auctionId, actorId,
+      extra: { seller_user_id: sp.seller_user_id, path: 'mark_paid' } });
     await client.query('COMMIT');
     return { paid: true, final_version: finalVersion, final_amount_cents: totals.net_seller_proceeds_cents, totals };
   } catch (err) {
@@ -528,7 +557,7 @@ function assertPaySellerAllowed(state, input) {
  * paid and the state stays retry-safe. Duplicate/concurrent calls are blocked by the FOR UPDATE
  * lock + the unique stripe_transfer_id index + the idempotency key.
  */
-async function paySellerViaTransfer(auctionId, { actorId = null, confirmedCompleted = false, finalAmountCents } = {}) {
+async function paySellerViaTransfer(auctionId, { actorId = null, confirmedCompleted = false, finalAmountCents, overrideReasons = {} } = {}) {
   const totals = await computeSettlement(auctionId);
   const client = await db.connect();
   try {
@@ -551,6 +580,7 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
       connectReady: connectPayoutReady(pref),
       netProceedsCents: totals.net_seller_proceeds_cents,
     }, { finalAmountCents, confirmedCompleted });
+    const overridesUsed = safeguardsOrThrow(PaySellerError, await payoutSafeguardFacts(sp, auctionId, client), overrideReasons);
 
     const vRes = await client.query('SELECT COALESCE(MAX(version),0) AS maxv FROM settlement_snapshots WHERE auction_id = $1', [auctionId]);
     const finalVersion = Number(vRes.rows[0].maxv) + 1;
@@ -601,8 +631,71 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
       entityType: 'seller_payout', entityId: sp.id, auctionId, actorId,
       metadata: { final_version: finalVersion, final_amount_cents: net, payment_method: 'direct_deposit', stripe_transfer_id: transfer.id },
     });
+    await require('./payoutSafeguards').auditOverrides(client, overridesUsed, { entityType: 'seller_payout', entityId: sp.id, auctionId, actorId,
+      extra: { seller_user_id: sp.seller_user_id, path: 'direct_deposit', stripe_transfer_id: transfer.id } });
     await client.query('COMMIT');
     return { paid: true, final_version: finalVersion, final_amount_cents: net, stripe_transfer_id: transfer.id, payout_status: 'processing' };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// ── Administrator payout hold / release for an auction settlement (owner-approved 2026-11-05) ───────────────────────
+// Mirrors storefrontSettlementService.setHold. Administrator only (route + this check), reason required for both, audited,
+// idempotent (holding a held settlement or releasing an unheld one changes nothing and writes nothing) and safe under
+// concurrency: the settlement row is locked and every change is a conditional UPDATE, so two releases at once produce one
+// release and one audit row. A release is refused while any payment dispute on the auction is open (a dispute hold is
+// never released early; the check fails closed). Paid and void settlements never change. A release returns the
+// settlement to Pending Review. No money moves here.
+class SettlementHoldError extends Error {
+  constructor(code, message, status = 409) { super(message); this.code = code; this.status = status; }
+}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function holdView(sp, changed) {
+  return { auction_id: sp.auction_id, settlement_status: sp.settlement_status, on_hold_reason: sp.on_hold_reason || null, changed: !!changed };
+}
+async function setSettlementHold(auctionId, adminId, { hold, reason } = {}) {
+  if (!adminId) throw new SettlementHoldError('ADMIN_REQUIRED', 'Administrator only.', 403);
+  if (!UUID_RE.test(String(auctionId || ''))) throw new SettlementHoldError('NOT_FOUND', 'Settlement not found.', 404);
+  const why = String(reason == null ? '' : reason).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 500);
+  if (why.length < 5) throw new SettlementHoldError('REASON_REQUIRED', hold ? 'Give a short reason for the hold.' : 'Give a short reason for releasing the hold.', 422);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const sp = (await client.query('SELECT * FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId])).rows[0];
+    if (!sp) throw new SettlementHoldError('NOT_FOUND', 'No settlement exists for this auction yet.', 404);
+    if (sp.settlement_status === SETTLEMENT_STATUS.PAID || sp.settlement_status === SETTLEMENT_STATUS.VOID) {
+      throw new SettlementHoldError('NOT_CHANGEABLE', 'This settlement is already ' + sp.settlement_status + '.', 409);
+    }
+    let out;
+    if (hold) {
+      const upd = (await client.query(
+        `UPDATE seller_payouts SET settlement_status = 'on_hold', on_hold_reason = $2, updated_at = now()
+          WHERE id = $1 AND settlement_status NOT IN ('paid', 'void', 'on_hold') RETURNING *`, [sp.id, why])).rows[0];
+      if (upd) {
+        await auditService.logEvent(client, { eventType: SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_ON_HOLD, entityType: 'seller_payout', entityId: sp.id,
+          auctionId, actorId: adminId, metadata: { source: 'admin', reason: why, previous_status: sp.settlement_status, seller_user_id: sp.seller_user_id } });
+      }
+      out = holdView(upd || sp, !!upd);
+    } else {
+      // Checked AFTER the lock: a dispute webhook for this auction waits on the same row lock, so none can slip in between.
+      if (await countOpenDisputes(db, auctionId) > 0) {
+        throw new SettlementHoldError('DISPUTE_OPEN', 'A payment dispute is open for this auction. The hold stays until the dispute is closed.', 409);
+      }
+      const upd = (await client.query(
+        `UPDATE seller_payouts SET settlement_status = 'pending_review', on_hold_reason = NULL, updated_at = now()
+          WHERE id = $1 AND settlement_status = 'on_hold' RETURNING *`, [sp.id])).rows[0];
+      if (upd) {
+        await auditService.logEvent(client, { eventType: 'settlement.hold_released', entityType: 'seller_payout', entityId: sp.id,
+          auctionId, actorId: adminId, metadata: { reason: why, previous_hold_reason: sp.on_hold_reason || null, seller_user_id: sp.seller_user_id } });
+      }
+      out = holdView(upd || sp, !!upd);
+    }
+    await client.query('COMMIT');
+    return out;
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     throw e;
@@ -690,4 +783,9 @@ module.exports = {
   paySellerViaTransfer,
   applyTransferEvent,
   PaySellerError,
+  // Administrator hold / release (auction settlements):
+  setSettlementHold,
+  SettlementHoldError,
+  countOpenDisputes,
+  payoutSafeguardFacts,
 };

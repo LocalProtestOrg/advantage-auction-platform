@@ -751,6 +751,7 @@
     <div id="lot-meta">
       <div class="lot-category" id="lot-category"></div>
       <div class="lot-pickup-time" id="lot-pickup-time" style="display:none;font-size:0.8rem;font-weight:600;color:#2563eb;margin:0.15rem 0"></div>
+      <div id="lot-shipping"></div>
       <div class="lot-description" id="lot-description"></div>
       <div class="item-details" id="item-details" style="display:none"></div>
     </div>
@@ -901,6 +902,7 @@
 <script src="/widgets/shared/bid-status.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
 <script src="/widgets/shared/pickup-tiers.js"></script>
+<script src="/widgets/shared/shipping-label.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>window.RTA_SUPPRESS = true;</script>
 <script src="/widgets/shared/return-to-auction.js"></script>
@@ -1450,6 +1452,17 @@
       if (win && win[tier]) label += '  ·  ' + PT.windowLabel(win[tier], tz);
       pe.textContent = label;
       pe.style.display = '';
+    })();
+
+    // Auction shipping (Phase 1): eligibility and terms, before bidding and again after winning. Drawn only when the
+    // server sent a shipping summary (auction shipping turned on); otherwise this stays empty.
+    (function () {
+      var box = document.getElementById('lot-shipping'); if (!box) return;
+      while (box.firstChild) box.removeChild(box.firstChild);
+      if (isHistoricalLot || !lot.shipping || !window.AuctionShippingLabel) return;
+      var won = lot.state === 'closed' && lot.viewer_is_high_bidder === true;
+      var el = AuctionShippingLabel.details(lot.shipping, won ? 'Your shipping and pickup options' : 'Shipping and pickup');
+      if (el) box.appendChild(el);
     })();
 
     // Pricing context (cents) - used by setCurrentBid / updateHint. Coerce and

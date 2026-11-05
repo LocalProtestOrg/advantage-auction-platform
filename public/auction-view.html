@@ -739,6 +739,7 @@
 <script src="/widgets/shared/bid-increment.js"></script>
 <script src="/widgets/shared/buyer-chime.js"></script>
 <script src="/widgets/shared/bid-status.js"></script>
+<script src="/widgets/shared/shipping-label.js"></script>
 <script src="/widgets/shared/analytics.js"></script>
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
@@ -968,8 +969,24 @@
       // P3: the "Bidding Opens / First Lot Closes" fact row (below) now owns the
       // scheduling story, so the meta row no longer repeats the vague
       // "auction starts … about 1 min apart" line.
-      if (d.shipping_available) parts.push('Shipping available');
+      // Auction shipping (Phase 1): when the server sends a shipping summary, its label (computed from the lots'
+      // eligibility) replaces the auction-level toggle text, so the page never claims shipping a lot does not offer.
+      if (d.shipping_available && !d.shipping) parts.push('Shipping available');
       meta.innerHTML = parts.map(p => '<span>' + esc(p) + '</span>').join('');
+      if (d.shipping && window.AuctionShippingLabel) {
+        const sb = AuctionShippingLabel.badge(d.shipping);
+        if (sb) {
+          const wrap = document.createElement('span');
+          wrap.appendChild(sb);
+          if (d.shipping.label === 'limited_shipping' && d.shipping.lot_count) {
+            const note = document.createElement('span');
+            note.style.marginLeft = '0.35rem';
+            note.textContent = d.shipping.shipping_lot_count + ' of ' + d.shipping.lot_count + ' lots can ship. Check each lot.';
+            wrap.appendChild(note);
+          }
+          meta.appendChild(wrap);
+        }
+      }
 
       // Banner hero image — show only if it actually loads. A broken/missing URL
       // must never surface raw "alt" text; onerror gracefully hides the element.
@@ -1540,6 +1557,11 @@
       catEl.className   = 'card-category';
       catEl.textContent = lot.category;
       body.appendChild(catEl);
+    }
+    // Auction shipping (Phase 1): per-lot label, only when the server sent one.
+    if (lot.shipping && window.AuctionShippingLabel) {
+      const sb = AuctionShippingLabel.badge(lot.shipping);
+      if (sb) { const sw = document.createElement('div'); sw.className = 'card-shipping'; sw.style.margin = '0.25rem 0'; sw.appendChild(sb); body.appendChild(sw); }
     }
 
     // Bid-activity metric on closed/sold lots (bid_count is not a realized price, so it

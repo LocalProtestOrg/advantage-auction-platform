@@ -36,6 +36,7 @@
   <script src="/widgets/shared/bid-increment.js"></script>
   <script src="/widgets/shared/bid-status.js"></script>
   <script src="/widgets/shared/bid-utils.js"></script>
+  <script src="/widgets/shared/shipping-label.js"></script>
   <script src="/widgets/shared/buyer-nav.js"></script>
   <script>
     const token = localStorage.getItem('token');
@@ -45,6 +46,16 @@
     function fmtRemaining(c){ if(!c) return '-'; const r=new Date(c).getTime()-Date.now(); if(r<=0) return 'Ended';
       const h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000),s=Math.floor((r%60000)/1000);
       return h>0?(h+'h '+String(m).padStart(2,'0')+'m'):m>0?(m+'m '+String(s).padStart(2,'0')+'s'):(s+'s'); }
+    // Auction shipping (Phase 1): label on every card and the full terms on a won lot. Present only when the server
+    // sent a shipping summary (auction shipping turned on). Text is set with textContent inside the helper.
+    function shippingHtml(lot){
+      if(!lot.shipping || !window.AuctionShippingLabel) return '';
+      const won = lot.state==='closed' && lot.viewer_is_high_bidder===true;
+      const el = won ? AuctionShippingLabel.details(lot.shipping, 'Your shipping and pickup options') : AuctionShippingLabel.badge(lot.shipping);
+      if(!el) return '';
+      const w = document.createElement('div'); w.className = 'mb-ship'; w.style.margin = '0.3rem 0'; w.appendChild(el);
+      return w.outerHTML;
+    }
     function card(lot){
       const s = BidStatus.deriveBidderStatus(lot);
       const c = TONE[s.tone]||TONE.neutral;
@@ -58,6 +69,7 @@
         +'<div class="mb-body">'
           +'<div class="mb-title">'+num+esc(lot.title||'')+'</div>'
           +'<span class="mb-badge" style="background:'+c[0]+';color:'+c[1]+'">'+s.label+'</span>'
+          +shippingHtml(lot)
           +'<div class="mb-rows">'
             +'<span>Current bid</span><strong>'+cur+'</strong>'
             +'<span>Your max bid</span><strong>'+mx+'</strong>'
