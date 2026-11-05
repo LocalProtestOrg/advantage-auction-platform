@@ -9,8 +9,9 @@ Must not delay Release 2 or the fixed-price payment launch. Local Pickup stays t
    compared with local pickup.
 2. **Shipping limit:** a newly approved shipping seller starts at a **$500 maximum total item value per shipment**;
    administrators adjust it per seller based on verification and performance.
-3. **Tracking:** mandatory for every shipped order. Higher-value shipments require signature confirmation; **the exact
-   threshold is to be set before launch** (open decision).
+3. **Tracking:** mandatory for every shipped order. Higher-value shipments require signature confirmation.
+   **Decided 2026-11-05:** signature confirmation is required above **$500 total item value** per shipment, with an
+   authorized (audited) administrator override.
 4. **Lot-level eligibility:** sellers explicitly mark which lots can ship. Shipping never applies automatically to every lot
    of an auction. Buyers see eligibility, restrictions, the estimated cost or that a quote is required, and the fulfillment
    options **before bidding and again after winning**.
@@ -66,7 +67,78 @@ than the invoice; never accept off-platform payment; photograph packing and keep
 3. Approval, limits, tracking, signature, payout hold, education; admin controls.
 4. Discovery: Shippable Lot Filter, nationwide shippable discovery, labels on search results (Marketplace Integrity Suite).
 
+## Phase 1 as built (branch `feat/auction-shipping`, 2026-11-05; OFF behind `AUCTION_SHIPPING_ENABLED`)
+Owner confirmations built in (2026-11-05): off by default and Local Pickup everywhere; only lots explicitly marked
+eligible ship; labels before bidding and after winning; verified Professionals or audited-approved Individuals only;
+$500 per-shipment start (admin-adjustable per seller); tracking always; signature above $500 (admin override); payout
+hold = confirmed delivery + 3 US Eastern business days (subject to risk review, payment-provider constraints and final
+legal review); reusable shipping profiles with defaults; one-time payout and fraud education acknowledgment.
+
+- **Flag:** `AUCTION_SHIPPING_ENABLED` (exactly `true` = on; unset = off). Off: `/api/auction-shipping/*` answers 404
+  (except `GET /config`), no payload carries a shipping summary, and the seller and buyer pages draw nothing new. The
+  legacy `auctions.shipping_available` and its toggle, search filter and ranking boost are unchanged.
+- **Policy module (one home):** `src/lib/auctionShippingPolicy.js`: constants ($500 limit, $500 signature threshold,
+  3 business days), the lot and auction label functions, the seller eligibility rule, the shipment rule check
+  (`shipmentViolations`: limit, tracking, signature, with admin overrides) and `payoutReleaseAt` (delivery + 3 business
+  days). Business days = Monday to Friday excluding US federal holidays on their observed dates (Saturday holiday to
+  Friday, Sunday to Monday); the count starts the day after the delivery's Eastern calendar date and the release is at
+  the END of the third business day (00:00 Eastern the next day), so a hold is always at least 3 full business days.
+- **Migration 218** (`db/migrations/218_auction_shipping_phase1.sql`; guarded runner `scripts/prod-migrate-218.js`
+  with `--check` / `--dry-run`; reverse statements in the file header). Additive:
+  `seller_shipping_profiles` (name, method flat_rate | quote_required, flat rate, handling days, destinations
+  domestic_us only, excluded states, packaging note, one default per seller, archived never deleted);
+  `lots.shipping_eligible` (default false), `shipping_profile_id`, `shipping_restriction` (300 chars),
+  `shipping_quote_required`, with the rule "an eligible lot names its profile"; `seller_profiles.shipping_approved_at`,
+  `shipping_approved_by`, `shipping_approval_reason`, `shipping_per_shipment_limit_cents` (NULL = $500 default),
+  `shipping_education_acknowledged_at`, `shipping_education_version`. Deviations from the planned data: approval is
+  typed columns instead of a JSONB `shipping_approval`; "templates" are called shipping profiles; the
+  rate-table-by-state method is not built (flat rate or quote required only); `auction_shipments` is deferred to Phase 3.
+- **Who may offer shipping** (server, `src/services/auctionShippingService.js`): a Professional Seller when
+  `verificationService.publicationGate` is not blocked; an Individual Seller only when
+  `seller_profiles.capabilities.shipping_enabled` is true (the existing, audited admin gate, reused; the new approve
+  endpoint sets it and records approver and reason). Inactive accounts never. Either must acknowledge the education once
+  (timestamp + version, audited) before creating profiles or marking lots. On acknowledgment a default "Standard
+  shipping" profile (quote required, 3 handling days, domestic) is created.
+- **Lot rules:** a seller changes only their own lot, under the existing catalog edit lock, and only while the lot is open
+  with no bids (buyers bid on the terms shown). Administrators may override any of this, with a required reason; every
+  change is audited (`lot_shipping_updated`, `auction_shipping_admin_override`). Setting eligibility also sets the legacy
+  `lots.shippable` to match, so older discovery badges agree for lots managed through this path.
+- **Labels:** computed only in the policy module from lot eligibility + the lot's profile. Lot: not eligible or no profile
+  = Local Pickup; flat rate and no restriction = Shipping Available; quote required, excluded states or restriction text
+  = Limited Shipping. Auction: no lot ships = Local Pickup; every lot Shipping Available = Shipping Available; otherwise
+  Limited Shipping. Buyer terms include the destinations, estimate or "quoted after the auction closes", handling time,
+  restriction, the seller's per-shipment limit, tracking and signature rules, and that local pickup remains available.
+- **Endpoints** (`src/routes/auctionShipping.js`, mounted at `/api/auction-shipping`): `GET /config`;
+  seller `GET /seller/status`, `POST /seller/acknowledge`, `GET|POST /seller/profiles`, `PATCH|DELETE /seller/profiles/:id`
+  (archive; refused while an open shipping lot uses it); `GET|PUT /lots/:lotId`; admin
+  `GET /admin/sellers/:sellerProfileId`, `POST .../approve` (reason, optional limit), `POST .../revoke` (reason; open lots
+  without bids return to Local Pickup, lots with bids keep their terms), `PUT .../limit` (reason; null = default).
+  Every admin action writes `audit_log`.
+- **Payload additions (flag on only; no new retrieval path):** `shipping` on `GET /api/auctions/:id/summary` and
+  `GET /api/public/auctions/:id` (auction label), and on each lot in `GET /api/lots/:id`, `GET /api/lots/auction/:id`,
+  `GET /api/lots/my-bids` and `GET /api/public/auctions/:id/lots`.
+- **UI (flag on only):** auction setup (`public/seller-create.html`) shows eligibility, the payout explanation, the
+  one-time acknowledgment and the shipping profiles, and hides the legacy auction toggle; the Lot Studio
+  (`public/dashboard/lots.html`) shows "This lot can ship" (off by default), the profile picker (default preselected),
+  quote required, restriction text and a payout reminder. Buyer labels and terms: auction page and lot cards
+  (`public/auction-view.html`), lot page before bidding and after winning (`public/lot.html`), won lots
+  (`public/my-bids.html`). Shared scripts: `public/widgets/shared/seller-shipping.js`, `shipping-label.js`.
+- **Tests:** `tests/auction-shipping-policy.test.js` (constants, labels, eligibility, shipment rules, business-day release
+  incl. weekends, holidays, DST), `tests/auction-shipping-enforcement.test.js` (real PGlite + migration 218 + real routes).
+
+## Remaining (not built in Phase 1)
+- **Phase 2:** shipping on the invoice and checkout (combined shipping per buyer per auction; quote entry by the seller
+  after close; destination check against excluded states); the per-shipment limit applied to the buyer's actual order
+  total; labels on the combined invoice page (`public/invoices.html`); a rate table by state if still wanted.
+- **Phase 3:** `auction_shipments` (carrier, tracking, signature flag, delivered_at, payout_release_at) and fulfillment
+  enforcement using `shipmentViolations` and `payoutReleaseAt`; payout hold wiring in the settlement engine plus risk
+  review; admin UI for approval / limit / overrides (the endpoints exist; `public/admin/moderation.html` still drives only
+  the old capability checkbox, which remains a valid approval path but records no approver or reason on the seller row).
+- **Phase 4:** discovery (Shippable Lot Filter, nationwide shippable discovery, labels on search results) through the
+  Marketplace Integrity Suite; reconcile the legacy `auctions.shipping_available` and `lots.shippable` (values set before
+  Phase 1 can still show a shipping badge on discovery surfaces while the new label says Local Pickup).
+
 ## Open decisions
-- Signature-confirmation threshold (decision 3).
-- Destinations: domestic only at launch (assumed); any excluded states.
-- Shipping terms: counsel draft `docs/legal/auction-shipping-terms-counsel-draft.md` (on PR #85).
+- Destinations: domestic only at launch (built that way); any platform-wide excluded states.
+- Shipping terms: counsel draft `docs/legal/auction-shipping-terms-counsel-draft.md` (on PR #85); final legal review of
+  the payout hold wording.
