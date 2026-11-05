@@ -300,6 +300,15 @@
     host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">How your auctions are performing — real numbers only.</div>' + cards + perfCard;
   }
 
+  // Seller Resources (owner request 2026-11-05): the How To Center's guides and printables, from the seller home.
+  function sellerResources() {
+    return '<div class="adv-section-title">Seller Resources</div><div class="adv-row adv-wrap" id="adv-seller-resources">' +
+      '<a class="adv-btn ghost" href="/seller-how-to">📘 Auction Setup Guide</a>' +
+      '<a class="adv-btn ghost" href="/seller-how-to#printables">🏷️ Lot Labels &amp; Inventory Worksheets</a>' +
+      '<a class="adv-btn ghost" href="/seller-how-to#photos">📷 Photography Tips</a>' +
+      '<a class="adv-btn ghost" href="/seller-how-to#pickup-checklist">✅ Pickup Day Checklist</a></div>';
+  }
+
   async function loadSellerHome() {
     var host = document.getElementById('adv-home-live'); if (!host) return;
     var r = await Promise.all([
@@ -320,7 +329,7 @@
     var fin = (r[1].ok && r[1].body && r[1].body.data) || null;
     if (!auctions.length) {
       host.innerHTML = emptyCard('🚀', 'Welcome to your Seller Command Center',
-        "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create your first auction</a>');
+        "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create your first auction</a>') + sellerResources();
       setStatus("Let's get your first auction live."); return;
     }
 
@@ -380,7 +389,7 @@
         '<div style="font-size:12.5px;color:var(--accent-ink)">' + [dueN ? (dueN + ' payment' + (dueN > 1 ? 's' : '') + ' due') : '', outbidN ? (outbidN + ' outbid') : ''].filter(Boolean).join(' · ') + ' ›</div></div></div></a>'
       : '';
 
-    host.innerHTML = buyBanner + attnCard + biz + actions + activityCard;
+    host.innerHTML = buyBanner + attnCard + biz + actions + sellerResources() + activityCard;
   }
 
   // ================= ADMIN HOME (Phase 6) — operational, attention-first =================

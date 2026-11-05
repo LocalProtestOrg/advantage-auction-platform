@@ -134,6 +134,8 @@
     var q = new URLSearchParams(); q.set('seller_type', state.type);
     try { new URLSearchParams(location.search).forEach(function (v, k) { if (/^utm_(source|medium|campaign|content|term)$/.test(k)) q.set(k, v.slice(0, 80)); }); } catch (e) { /* no query */ }
     document.getElementById('d-cta').href = '/become-professional-seller.html?' + q.toString();
+    // The single-photo demo sits at the top of the Easy cataloging tab and is hidden on the other tabs.
+    var tryEl = document.getElementById('try'); if (tryEl) tryEl.hidden = state.tab !== 'catalog';
     renderTry();
   }
 
@@ -228,6 +230,8 @@
   document.getElementById('d-name').addEventListener('input', function (e) { state.name = e.target.value.slice(0, 60); render(); });
   document.getElementById('d-type').addEventListener('change', function (e) { if (TYPES[e.target.value]) { state.type = e.target.value; render(); } });
   try { var t = new URLSearchParams(location.search).get('type'); if (TYPES[t]) { state.type = t; document.getElementById('d-type').value = t; } } catch (e) { /* default */ }
+  // A link ending in #try (for example in an email) opens the Easy cataloging tab with the photo demo.
+  if (/^#(try|catalog)$/.test(location.hash)) state.tab = 'catalog';
   initTry();
   render();
 })();

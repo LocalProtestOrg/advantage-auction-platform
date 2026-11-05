@@ -1,0 +1,19 @@
+/* The shared public header (widgets/shared/public-nav.js) for self-styled pages that do not load marketplace.css
+   (/seller-demo, /seller-how-to). The same look as marketplace.css, scoped to the header so it cannot restyle the page. */
+.adv-pubnav { position: sticky; top: 0; z-index: 200; background: #071629; border-bottom: 1px solid rgba(255,255,255,.07); box-shadow: 0 2px 16px rgba(0,0,0,.24); font-family: 'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.adv-pubnav .header-inner { position: relative; max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.adv-pubnav .brand { color: #fff; font-weight: 700; font-size: 1.1rem; text-decoration: none; letter-spacing: -.02em; flex-shrink: 0; }
+.adv-pubnav .brand span { color: #60a5fa; }
+.adv-pubnav .header-nav { display: flex; align-items: center; gap: .25rem; flex: 1; margin: 0; padding: 0; }
+.adv-pubnav .nav-link { font-size: .875rem; text-decoration: none; padding: .4rem .75rem; border-radius: 6px; white-space: nowrap; color: rgba(255,255,255,.58); font-weight: 600; transition: color .15s, background .15s; }
+.adv-pubnav .nav-link:hover { color: #fff; background: rgba(255,255,255,.08); }
+.adv-pubnav .nav-link.active { color: #93c5fd; background: rgba(147,197,253,.10); }
+.adv-pubnav .header-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.adv-pubnav .btn-header-cta { font-size: .875rem; }
+.adv-pubnav .mobile-menu-btn { color: rgba(255,255,255,.75); padding: .4rem; }
+@media (max-width: 920px) {
+  .adv-pubnav .header-nav.mobile-open { position: absolute; top: 60px; left: 0; right: 0; background: #071629; padding: .75rem 1rem 1rem; z-index: 199; border-bottom: 1px solid rgba(255,255,255,.08); gap: .15rem; }
+  .adv-pubnav .header-nav.mobile-open .nav-link { width: 100%; border-radius: 8px; padding: .55rem .85rem; }
+}
+@media (max-width: 400px) { .adv-pubnav .header-inner { padding: 0 12px; gap: 10px; } .adv-pubnav .btn-header-cta { padding: .4rem .7rem; } }
+@media (max-width: 340px) { .adv-pubnav .brand { font-size: 1rem; } .adv-pubnav .btn-header-cta { padding: .35rem .5rem; font-size: .85rem; } }

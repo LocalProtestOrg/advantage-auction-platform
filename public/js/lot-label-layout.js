@@ -45,5 +45,5 @@
   function numberSize(n) { var d = String(n).length; return d <= 3 ? 30 : d === 4 ? 27 : 23; }
 
   return { AVERY_5160: AVERY_5160, MAX_LOT: MAX_LOT, MAX_LABELS: MAX_LABELS, position: position, normalize: normalize, numberSize: numberSize, clean: clean,
-    LOGO_W: 1.06, LOGO_RATIO: 900 / 234, PAD_X: 0.11, PAD_Y: 0.075, NAVY: '#0f1f3d', BLUE: '#1a56db' };
+    LOGO_W: 1.40, LOGO_RATIO: 900 / 234, PAD_X: 0.11, PAD_Y: 0.075, NAVY: '#0f1f3d', BLUE: '#1a56db' };
 }));

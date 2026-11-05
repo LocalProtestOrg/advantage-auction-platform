@@ -14,6 +14,7 @@
   <meta property="og:site_name" content="Advantage.Bid" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/css/public-header.css" />
   <style>
     :root { --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc; --brand:#1d4ed8; --cta:#d62828; }
     * { box-sizing:border-box; }
@@ -75,7 +76,7 @@
     .small { font-size:14px; color:var(--muted); }
     .hero-cta { display:inline-flex; align-items:center; gap:8px; margin-top:16px; background:#fff; color:#0f172a; font-weight:800; text-decoration:none; padding:11px 18px; border-radius:11px; }
     /* Try it: catalog one item from a photo (an illustration that runs only in this browser) */
-    .try { margin:28px 0 8px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:22px; }
+    .try { margin:0 0 18px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:22px; }
     @media (max-width:560px) { .try { padding:16px; border-radius:16px; } }
     .try-head { max-width:760px; }
     .pill { display:inline-block; background:#eef2ff; color:#3730a3; font-weight:800; font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; border-radius:999px; padding:4px 10px; }
@@ -153,11 +154,11 @@
         </select></div>
       <div><span class="setup-l" id="d-color-l" style="display:block;font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:6px">Brand color</span><div class="swatches" id="d-colors" role="group" aria-labelledby="d-color-l"></div></div>
     </form>
-    <a class="hero-cta" href="#try">Try It With Your Own Photo</a>
   </div>
 </header>
 <main class="wrap">
-  <section class="try" id="try" aria-labelledby="try-h">
+  <div class="tabs" role="tablist" aria-label="Demo views" id="d-tabs"></div>
+  <section class="try" id="try" aria-labelledby="try-h" hidden>
     <div class="try-head">
       <span class="pill">Interactive demo</span>
       <h2 id="try-h">Catalog one item, then see it in two places</h2>
@@ -195,7 +196,6 @@
     </div>
     <p class="demo-note">Demonstration only: nothing on this page creates an account, publishes an item or charges anyone. Sample listings and pages are illustrations of how the platform presents your items.</p>
   </section>
-  <div class="tabs" role="tablist" aria-label="Demo views" id="d-tabs"></div>
   <div class="stage">
     <section class="panel" id="d-preview" aria-live="polite"></section>
     <aside class="explain" id="d-explain"></aside>

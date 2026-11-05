@@ -34,6 +34,7 @@
     { id: 'analytics', label: 'Sale Stats',     emoji: '📊', href: '#analytics' },
     { id: 'payments',  label: 'Payments',       emoji: '💰', href: '/seller-settlements.html', external: true },
     { id: 'messages',  label: 'Messages',       emoji: '💬', href: '#messages' },
+    { id: 'howto',     label: 'Seller How To Center', emoji: '📘', href: '/seller-how-to', external: true },
     { id: 'account',   label: 'Account',        emoji: '⚙️', href: '#account',                 primaryMobile: true }
   ];
 
@@ -86,7 +87,9 @@
     ] : [];
     return storefront.concat([
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
-      { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' }
+      { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' },
+      // Guides and printable labels, worksheets and checklists (owner request 2026-11-05).
+      { id: 'howto',         label: 'Seller How To Center',   emoji: '📘', href: '/seller-how-to', external: true }
     ]);
   }
 

@@ -79,10 +79,17 @@ describe('seller demo', () => {
     await page.fill('#d-name', 'Harbor Estate Sales');
     const tabs = await page.$$eval('#d-tabs button', (b) => b.map((x) => x.textContent));
     expect(tabs).toEqual(['Your storefront', 'On your website', 'On Advantage.Bid', 'Easy cataloging', 'Auction day', 'More consignments']);
+    // the page opens on the branded storefront, right after the business setup; nothing else comes first
+    expect(await page.$eval('#d-tabs button[aria-selected="true"]', (b) => b.textContent)).toBe('Your storefront');
+    expect(await page.isVisible('#try')).toBe(false);
+    expect(await page.$$eval('main > *', (els) => els.slice(0, 3).map((e) => e.id || e.className))).toEqual(['d-tabs', 'try', 'stage']);
+    expect(await page.$('.hero-cta')).toBeNull();
     for (const t of tabs) {
       await page.click(`#d-tabs button:has-text("${t}")`);
-      const issues = await health.inspect(page, probe, { ...ALLOW, expectText: ['See your business on Advantage.Bid', 'Catalog one item, then see it in two places'] });
+      const issues = await health.inspect(page, probe, { ...ALLOW, expectText: ['See your business on Advantage.Bid'] });
       expect([t, issues.filter((i) => i.severity === 'critical' || i.code === 'HORIZONTAL_OVERFLOW')]).toEqual([t, []]);
+      // the photo demo shows only at the top of Easy cataloging
+      expect([t, await page.isVisible('#try')]).toEqual([t, t === 'Easy cataloging']);
       expect(await page.textContent('#d-explain h2')).toBeTruthy();
     }
     await page.click('#d-tabs button:has-text("Your storefront")');
@@ -96,6 +103,8 @@ describe('seller demo', () => {
   test.each([['desktop', {}], ['small phone (360px)', devices['Galaxy S8']]])('%s: single-photo catalog demo: the photo stays in the browser; the sample listing is editable and shows on the storefront and the marketplace', async (label, ctxOpts) => {
     const { ctx, page, probe, sent } = await open(ctxOpts, '/seller-demo');
     await page.fill('#d-name', 'Harbor Estate Sales');
+    await page.click('#d-tabs button:has-text("Easy cataloging")');
+    expect(await page.isVisible('#try')).toBe(true);
     // honest labelling is on the page before anything happens
     expect(await page.textContent('#try')).toMatch(/Your photo stays on this device[\s\S]*not uploaded or saved/);
     expect(await page.textContent('#try')).toMatch(/Demonstration only: nothing on this page creates an account, publishes an item or charges anyone/);
@@ -139,6 +148,13 @@ describe('seller demo', () => {
     await ctx.close();
   });
 
+  test('a link ending in #try opens Easy cataloging with the photo demo', async () => {
+    const { ctx, page } = await open({}, '/seller-demo#try');
+    expect(await page.$eval('#d-tabs button[aria-selected="true"]', (b) => b.textContent)).toBe('Easy cataloging');
+    expect(await page.isVisible('#try')).toBe(true);
+    await ctx.close();
+  });
+
   test('the call to action opens the existing professional registration with the chosen type and the outreach tags', async () => {
     const { ctx, page } = await open({}, '/seller-demo?utm_source=kymmie&utm_medium=outreach&utm_campaign=pro&evil=1');
     await page.selectOption('#d-type', 'auction_house');
@@ -153,15 +169,18 @@ describe('seller demo', () => {
 describe('Seller Academy (/seller-how-to)', () => {
   test.each([['desktop', {}], ['small phone (360px)', devices['Galaxy S8']]])('%s: renders cleanly with every lesson, accessible', async (label, ctxOpts) => {
     const { ctx, page, probe } = await open(ctxOpts, '/seller-how-to');
-    const issues = await health.inspect(page, probe, { ...ALLOW, checkOverflow: true, expectText: ['Advantage.Bid Seller Academy',
-      'Evaluate your merchandise and research comparable sales', 'Build lots that encourage competitive bidding', 'Organize the auction location efficiently',
-      'Professional merchandise photography', 'Accurate, searchable catalog descriptions', 'Large items and special pickup descriptions',
-      'Promote your auction and choose featured merchandise', 'Prepare for a smooth pickup and fulfillment', "painter's tape", 'Research behind these lessons'] });
+    const issues = await health.inspect(page, probe, { ...ALLOW, checkOverflow: true, expectText: ['Seller How To Center', "painter's tape"] });
+    expect(await page.$$eval('section.lesson h2', (h) => h.map((x) => x.textContent))).toEqual(['Organize your auction location', 'Build lots that encourage competitive bidding',
+      'Photography that sells', 'Create clear, searchable listings', 'Launch and promote your auction', 'Prepare for pickup day', 'Printables and seller tools']);
+    const text = await page.textContent('main');
+    expect(text).not.toMatch(/comparable sales|research prices behind|Research behind these lessons|appraiser/i);
+    expect(await page.$$eval('sup, #sources, [id^="src-"]', (e) => e.length)).toBe(0);
     expect(issues.filter((i) => i.severity === 'critical' || i.code === 'HORIZONTAL_OVERFLOW')).toEqual([]);
     expect(await page.textContent('body')).not.toMatch(BANNED);
     expect(await a11y(page)).toEqual([]);
-    // painter's tape belongs to the organization lesson, not the lead
-    expect(await page.$eval('#evaluate', (s) => s.textContent)).not.toMatch(/painter/i);
+    // marks and condition are still represented accurately
+    expect(await page.textContent('#photos')).toMatch(/Maker's marks, signatures, hallmarks, labels/);
+    expect(await page.textContent('#listings')).toMatch(/You do not need to research prices/);
     await ctx.close();
   });
 
@@ -174,6 +193,7 @@ describe('Seller Academy (/seller-how-to)', () => {
     expect(tip).toMatch(/Total\s*\$10/);
     expect(tip).toMatch(/at least two interested bidders/);
     expect(tip).toMatch(/This is an illustration, not a prediction/);
+    expect(tip).not.toMatch(/research/i);
     await page.click('#cat-play');
     expect(await page.textContent('#cat-ladder li.win')).toMatch(/\$30 or more/);
     const lots = await page.textContent('#lots');
@@ -184,25 +204,27 @@ describe('Seller Academy (/seller-how-to)', () => {
   test('photography: the primary photo has no prominent lot label; labels belong in supporting photos', async () => {
     const { ctx, page } = await open({}, '/seller-how-to');
     const t = await page.textContent('#photos');
-    expect(t).toMatch(/No prominent lot label/); expect(t).toMatch(/Supporting photos[\s\S]*lot label visible/);
+    expect(t).toMatch(/No prominent lot label/); expect(t).toMatch(/Supporting photos[\s\S]*A photo with the lot label/);
     expect(t).not.toMatch(/First photo:[^.]*lot label visible/);
     await ctx.close();
   });
 
-  test('pickup notes: the owner\'s three examples, copyable; the same notes are offered in the lot editor', async () => {
+  test('pickup: sellers must not lift or load; the IMPORTANT heavy-item note comes first, then the variations; copyable and in the lot editor', async () => {
     const { ctx, page } = await open({ permissions: ['clipboard-read', 'clipboard-write'] }, '/seller-how-to');
-    const t = await page.textContent('#large-items');
-    for (const s of ['This item is located on the second floor. Buyer must bring appropriate assistance, equipment, and a suitable vehicle for safe removal.',
-      'This item is fragile. Buyer must bring appropriate packing materials and transport protection.',
-      'Buyer is responsible for disassembly, loading, and removal. Please bring the necessary tools and assistance.']) expect(t).toContain(s);
-    for (const w of ['Stairs', 'Elevator', 'Access restrictions', 'Parking', 'Oversized furniture', 'Fragile merchandise']) expect(t).toMatch(new RegExp(w, 'i'));
-    expect(t).toMatch(/no example covers every pickup situation/);
-    await page.click('#large-items .pn-copy >> nth=1');
+    expect(await page.textContent('#pickup .danger')).toMatch(/Do not lift, carry, disassemble or load heavy purchases for buyers\.[\s\S]*Terms of Service[\s\S]*not required to help/);
+    const notes = await page.$$eval('#pickup .pn-row', (r) => r.map((x) => [x.querySelector('b').textContent, x.querySelector('p').textContent]));
+    expect(notes[0]).toEqual(['IMPORTANT: Heavy item, no seller assistance', 'IMPORTANT: Buyer is responsible for providing sufficient manpower, equipment, and a suitable vehicle to safely disassemble, move, load, and remove this item. Seller personnel will NOT provide lifting, moving, or loading assistance. Please make arrangements before bidding.']);
+    expect(notes.slice(1, 5).map((n) => n[0])).toEqual(['Second floor or stairs', 'Fragile', 'Large furniture, disassembly required', 'Oversized or unusually heavy']);
+    expect(await page.$eval('#pickup .pn-row', (r) => r.classList.contains('lead-note'))).toBe(true);
+    const t = await page.textContent('#pickup');
+    for (const w of ['stairs', 'elevators', 'restricted access', 'park', 'oversized furniture', 'fragile']) expect(t).toMatch(new RegExp(w, 'i'));
+    expect(t).toMatch(/no note covers every situation/);
+    await page.click('#pickup .pn-copy >> nth=2');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^This item is fragile\./);
     // the lot editor menu appends the chosen note to the description
     await page.evaluate(() => { const ta = document.createElement('textarea'); ta.id = 'x-desc'; ta.setAttribute('data-pickup-notes', ''); ta.value = 'Oak table.'; document.querySelector('main').appendChild(ta); window.AdvPickupNotes.init(); });
-    await page.selectOption('#x-desc + .pickup-notes-add select', '2');
-    expect(await page.inputValue('#x-desc')).toBe('Oak table.\n\nBuyer is responsible for disassembly, loading, and removal. Please bring the necessary tools and assistance.');
+    await page.selectOption('#x-desc + .pickup-notes-add select', '0');
+    expect(await page.inputValue('#x-desc')).toMatch(/^Oak table\.\n\nIMPORTANT: Buyer is responsible for providing sufficient manpower/);
     for (const f of ['dashboard/lots.html', 'lot-builder.html']) {
       const src = fs.readFileSync(path.join(PUBLIC, f), 'utf8');
       expect([f, /data-pickup-notes/.test(src), /\/widgets\/shared\/pickup-note-templates\.js/.test(src)]).toEqual([f, true, true]);
@@ -233,6 +255,8 @@ describe('Seller Academy (/seller-how-to)', () => {
     // the lot number is the largest text on the label, larger than the logo is tall
     const sizes = await page.$eval('#print-area .lbl', (l) => [parseFloat(getComputedStyle(l.querySelector('.num b')).fontSize), l.querySelector('img.logo').getBoundingClientRect().height]);
     expect(sizes[0]).toBeGreaterThan(sizes[1]);
+    // the larger official logo (1.40 in wide) leaves room for a five-digit lot number
+    expect(await page.$eval('#print-area .lbl img.logo', (i) => i.getBoundingClientRect().width)).toBeCloseTo(1.40 * PX, 0);
     await page.emulateMedia({ media: 'screen' });
     const out = await printed(page);
     expect(out).toEqual({ pages: 2, boxes: ['/MediaBox [0 0 612 792]'] });
@@ -298,10 +322,67 @@ describe('Seller Academy (/seller-how-to)', () => {
     await ctx.close();
   });
 
-  test('cites its sources and is reachable from the auction creation page and the Seller FAQ', async () => {
+  test('no unsupported promises; reachable from the auction creation page and the Seller FAQ', async () => {
     const src = fs.readFileSync(path.join(PUBLIC, 'seller-how-to.html'), 'utf8');
-    for (const host of ['appraisers.org', 'isa-appraisers.org', 'ideas.repec.org', 'econometricsociety.org', 'auctioneers.org', 'ebay.com', 'consumer.ftc.gov', 'anchorit.gov', 'osha.gov']) expect(src).toContain(host);
     expect(src).not.toMatch(/guarantee|will sell for|you will get/i);
     for (const f of ['seller-create.html', 'seller-faq.html']) expect(fs.readFileSync(path.join(PUBLIC, f), 'utf8')).toMatch(/href="\/seller-how-to"/);
+  });
+});
+
+describe('Seller Resources links throughout the seller account', () => {
+  // Every link: the place it appears, and the How To Center section it must land on.
+  const LINKS = [
+    ['public/widgets/shared/member-shell.js', '/seller-how-to', 'organize'],
+    ['public/widgets/shared/member-shell.js', '/seller-how-to#printables', 'printables'],
+    ['public/widgets/shared/member-shell.js', '/seller-how-to#photos', 'photos'],
+    ['public/widgets/shared/member-shell.js', '/seller-how-to#pickup-checklist', 'pickup-checklist'],
+    ['public/widgets/shared/member-nav-config.js', '/seller-how-to', 'organize'],
+    ['public/seller-create.html', '/seller-how-to', 'organize'],
+    ['public/seller-create.html', '/seller-how-to#pickup-checklist', 'pickup-checklist'],
+    ['public/seller-create.html', '/seller-how-to#pickup-notes', 'pickup-notes'],
+    ['public/dashboard/lots.html', '/seller-how-to#photos', 'photos'],
+    ['public/dashboard/lots.html', '/seller-how-to#t-labels', 't-labels'],
+    ['public/dashboard/lots.html', '/seller-how-to#t-worksheet', 't-worksheet'],
+    ['public/seller-orders.html', '/seller-how-to#pickup-checklist', 'pickup-checklist'],
+    ['public/seller-orders.html', '/seller-how-to#pickup-notes', 'pickup-notes'],
+  ];
+  test('each link is present where it belongs and lands on an existing section, on desktop and phone', async () => {
+    for (const [file, href] of LINKS) {
+      const src = fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8');
+      expect([file, href, src.includes("'" + href + "'") || src.includes('"' + href + '"')]).toEqual([file, href, true]);
+    }
+    for (const opts of [{}, devices['Galaxy S8']]) {
+      const { ctx, page } = await open(opts, '/seller-how-to');
+      for (const [, href, id] of LINKS) {
+        await page.goto(stack.baseUrl + href, { waitUntil: 'domcontentloaded' });
+        expect([href, await page.$('#' + id) !== null]).toEqual([href, true]);
+      }
+      await ctx.close();
+    }
+  });
+  test('a signed-in seller sees Seller Resources on the dashboard home and Seller How To Center in the navigation', async () => {
+    // Its own fresh environment: the member area makes several requests at once, which the in-memory database answers one
+    // at a time; after the rest of this file's load it can stall (a test-environment limit, not a page fault).
+    const seed = require('../fullstack/seed');
+    const stack = await startStack();
+    try {
+    const userId = await seed.user(stack, { email: 'resources-seller@fullstack.test', role: 'seller', fullName: 'Rae Resources' });
+    const sellerProfileId = await seed.sellerProfile(stack, { userId, sellerType: 'estate_sale_company', displayName: 'Rae Estate Sales', extra: { agreement_waived_at: new Date() } });
+    await seed.signedStorefrontAgreement(stack, sellerProfileId);
+    for (const opts of [{}, devices['Galaxy S8']]) {
+      const ctx = await browser.newContext(opts); const page = await ctx.newPage();
+      await page.route('**/*', (route) => (new URL(route.request().url()).origin === stack.baseUrl ? route.continue() : route.abort()));
+      await page.addInitScript(() => { try { localStorage.setItem('ab_active_mode', 'selling'); } catch (e) { /* default mode */ } });
+      await seed.browserLogin(page, stack, 'resources-seller@fullstack.test');
+      await page.goto(stack.baseUrl + '/app.html#home');
+      await page.waitForSelector('#adv-seller-resources', { timeout: 60000 }).catch(async (e) => { throw new Error(e.message + ' | page: ' + (await page.evaluate(() => document.body.innerText.slice(0, 600)))); });
+      const links = await page.$$eval('#adv-seller-resources a', (a) => a.map((x) => [x.textContent.replace(/^\W+/, '').trim(), x.getAttribute('href')]));
+      expect(links).toEqual([['Auction Setup Guide', '/seller-how-to'], ['Lot Labels & Inventory Worksheets', '/seller-how-to#printables'],
+        ['Photography Tips', '/seller-how-to#photos'], ['Pickup Day Checklist', '/seller-how-to#pickup-checklist']]);
+      expect(await page.$$eval('a[href="/seller-how-to"]', (a) => a.some((x) => /Seller How To Center/.test(x.textContent)))).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+      await ctx.close();
+    }
+    } finally { await stack.stop(); }
   });
 });

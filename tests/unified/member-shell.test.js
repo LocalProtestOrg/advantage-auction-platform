@@ -27,7 +27,7 @@ describe('one account, three experiences — mode-aware navigation', () => {
 
   test('SELLING experience — an operational workspace with plain-language labels', () => {
     const v = Nav.visibleNavFor({ role: 'seller', mode: 'selling' });
-    expect(ids(v)).toEqual(['home', 'sell', 'create', 'analytics', 'payments', 'messages', 'account']);
+    expect(ids(v)).toEqual(['home', 'sell', 'create', 'analytics', 'payments', 'messages', 'howto', 'account']);
     expect(v.find((i) => i.id === 'sell').label).toBe('My Auctions');       // not "Workspace"
     expect(v.find((i) => i.id === 'analytics').label).toBe('Sale Stats');   // not "Analytics"
     expect(v.find((i) => i.id === 'payments').label).toBe('Payments');      // not "Settlement"
