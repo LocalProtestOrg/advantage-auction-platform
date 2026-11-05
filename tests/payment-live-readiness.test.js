@@ -453,10 +453,10 @@ describe('small fixes', () => {
 
   test('the professional seller email does not name the payment provider', () => {
     const emails = require('../src/services/professionalSellerEmails');
-    const fn = Object.values(emails).find((v) => typeof v === 'function' && /Application/.test(v.name)) || emails.buildApplicationEmail;
-    const m = fn({ companyName: 'Acme Estates', sellerTypeLabel: 'Estate Sale Company' });
+    const m = emails.buildWelcomeEmail({ companyName: 'Acme Estates' });
     expect(m.html + m.text + m.subject).not.toMatch(/stripe/i);
-    expect(m.html + m.text).toMatch(/direct-deposit payouts/i);
+    // owner rule 2026-11-05: the welcome never presents payments or payouts as active
+    expect(m.html + m.text).not.toMatch(/payout|payments? (are|is) (active|ready|enabled)/i);
   });
 
   test('migration 173 is additive only and ships with a production-guarded runner', () => {

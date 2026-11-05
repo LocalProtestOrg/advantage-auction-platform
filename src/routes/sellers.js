@@ -8,9 +8,8 @@ const { brandedColSql, isProfessional } = require('../lib/sellerBranding');
 const agreementService = require('../services/agreementService');
 const organizationsService = require('../services/organizationsService');
 const verificationService = require('../services/verificationService');
-const professionalSellerEmails = require('../services/professionalSellerEmails');
-const { sendEmail } = require('../services/emailService');
-const { PROFESSIONAL_SELLER_TYPES, SELLER_TYPE_LABELS } = require('../constants/sellerTypes');
+const sellerWelcomeEmails = require('../services/sellerWelcomeEmailService');
+const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const widgetService = require('../services/widgetService');
 const { isDemoUser } = require('../middleware/demoGuard');
 const { shippingAllowed } = require('../services/sellerTypeRules');
@@ -207,7 +206,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     }
 
     await client.query('BEGIN');
-    const existing = (await client.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    const existing = (await client.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
     if (!existing) {
       if (!phone) { await client.query('ROLLBACK'); return res.status(400).json({ success: false, message: 'A phone number is required to enroll.' }); }
       if (phone.replace(/\D/g, '').length < 10) { await client.query('ROLLBACK'); return res.status(400).json({ success: false, message: 'Please enter a valid phone number.' }); }
@@ -230,9 +229,10 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     if (existing) {
       sellerProfileId = existing.id;
       // Upgrade an existing (e.g. individual) profile to the professional type; fill display_name if empty.
+      // (seller_profiles has no updated_at column: writing it failed every upgrade with a 500 until 2026-11-05.)
       await client.query(
         `UPDATE seller_profiles SET seller_type = $2,
-                display_name = COALESCE(NULLIF(display_name, ''), $3), updated_at = now()
+                display_name = COALESCE(NULLIF(display_name, ''), $3)
           WHERE id = $1`, [sellerProfileId, sellerType, companyName]);
     } else {
       sellerProfileId = (await client.query(
@@ -250,6 +250,11 @@ router.post('/apply-professional', auth, async (req, res, next) => {
               full_name = COALESCE(full_name, $2), phone = COALESCE(phone, $3) WHERE id = $1`,
       [req.user.id, legalName, phone]);
     const newRole = (await client.query('SELECT role FROM users WHERE id = $1', [req.user.id])).rows[0].role;
+    // Welcome email (migration 221): queued in this transaction only when the seller BECOMES a Professional Seller here
+    // (a new profile, or an Individual Seller upgrading). An existing Professional resubmitting the form gets nothing,
+    // and the outbox's UNIQUE seller key makes a second welcome impossible.
+    const becameProfessional = !existing || !PROFESSIONAL_SELLER_TYPES.includes(existing.seller_type);
+    const welcomeId = becameProfessional ? await sellerWelcomeEmails.enqueue(client, { sellerProfileId, userId: req.user.id }) : null;
     await client.query('COMMIT');
 
     // Post-commit side effects are best-effort (enrollment already committed).
@@ -284,12 +289,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       onboarding = await agreementService.getOnboardingStatus(req.user.id);
     } catch (_) { /* best-effort */ }
 
-    try {
-      if (userRow.email) {
-        const m = professionalSellerEmails.buildApplicationEmail({ companyName, sellerTypeLabel: SELLER_TYPE_LABELS[sellerType] });
-        await sendEmail({ to: userRow.email, ...m });
-      }
-    } catch (e) { console.error('[apply-professional] welcome email best-effort failed:', e.message); }
+    sellerWelcomeEmails.deliverSoon(welcomeId);   // one immediate attempt; the sender retries a temporary failure
 
     if (!existing) require('../services/conversionService').emit('seller_inquiry', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
     // Funnel visibility (R-1): a NEW professional seller profile is a seller registration, exactly like /enroll records one.

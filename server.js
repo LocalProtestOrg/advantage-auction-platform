@@ -158,7 +158,9 @@ app.use((req, res, next) => {
   const isPublicDiscovery = req.path.startsWith('/api/public/')
     || req.path.startsWith('/widgets/')
     || req.path === '/marketplace.css'
-    || req.path === '/marketplace-components.js';
+    || req.path === '/marketplace-components.js'
+    // The official logo files: shown in Advantage.Bid emails and on partner pages (owner request 2026-11-05).
+    || req.path.startsWith('/img/brand/');
   const reqOrigin = req.headers.origin;
   // The directory (www.advantage.bid) may POST first-party analytics events, and nothing else.
   const directoryOrigin = require('./src/lib/corsPolicy').directoryOriginFor(reqOrigin, req.path);
@@ -1044,6 +1046,8 @@ server.listen(PORT, () => {
     try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }
     // Storefront seller notices (queued in the paid transaction; delivered with retries). Idle while nothing is queued.
     try { require('./src/services/storefrontNotificationService').start(); } catch (e) { log.error('storefront', 'notification sender start failed', { error: e.message }); }
+    // Professional Seller welcome emails (queued at enrollment, migration 221; delivered with retries). Idle while nothing is queued.
+    try { require('./src/services/sellerWelcomeEmailService').start(); } catch (e) { log.error('seller-welcome', 'sender start failed', { error: e.message }); }
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.
     require('./src/lib/realtime').startListener(io)

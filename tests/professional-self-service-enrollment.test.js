@@ -59,13 +59,12 @@ describe('requireVerificationForProfessional keeps publication gated', () => {
 // ── Welcome email ──────────────────────────────────────────────────────────────
 describe('professional welcome email', () => {
   const emails = require('../src/services/professionalSellerEmails');
-  test('confirms enrollment + names the remaining gated steps; no AI/vendor terms', () => {
-    const m = emails.buildApplicationEmail({ companyName: 'Heritage & Home', sellerTypeLabel: 'Estate Sale Company' });
-    expect(m.subject).toMatch(/Professional Seller/i);
+  test('welcomes the company + names the remaining gated steps; no AI/vendor terms (details: tests/seller-welcome-email.test.js)', () => {
+    const m = emails.buildWelcomeEmail({ companyName: 'Heritage & Home' });
+    expect(m.subject).toBe('Welcome to Advantage.Bid, Heritage & Home');
     expect(m.html).toContain('Heritage &amp; Home');
     expect(m.html + m.text).toMatch(/verif/i);         // business verification step
     expect(m.html + m.text).toMatch(/agreement/i);     // agreement step
-    expect(m.html + m.text).toMatch(/payout|Stripe Connect/i); // payout step
     expect(m.html + m.text).not.toMatch(/\bA\.?I\b|artificial intelligence|GPT|OpenAI/i);
   });
 });

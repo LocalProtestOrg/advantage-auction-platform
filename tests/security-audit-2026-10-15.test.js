@@ -56,7 +56,7 @@ describe('self-service Professional upgrade', () => {
   const router = require('../src/routes/sellers');
   const client = (pastDraft, type = 'private') => ({ release: jest.fn(), query: jest.fn(async (sql) => {
     if (/FROM users WHERE id/.test(sql)) return { rows: [{ id: 'u-1', role: 'seller', email: 'a@b.co' }] };
-    if (/SELECT id FROM seller_profiles WHERE user_id/.test(sql)) return { rows: [{ id: 'sp-1' }] };
+    if (/SELECT id(, seller_type)? FROM seller_profiles WHERE user_id/.test(sql)) return { rows: [{ id: 'sp-1', seller_type: type }] };
     if (/SELECT seller_type FROM seller_profiles WHERE id/.test(sql)) return { rows: [{ seller_type: type }] };
     if (/FROM auctions WHERE seller_id = \$1 AND state <> 'draft'/.test(sql)) return { rowCount: pastDraft ? 1 : 0, rows: pastDraft ? [{}] : [] };
     if (/^(BEGIN|ROLLBACK|COMMIT)$/.test(sql)) return { rows: [] };
