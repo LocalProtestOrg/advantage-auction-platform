@@ -24,7 +24,9 @@ function pageUrl(base, { category, page }) {
 
 async function render({ page = 1, category = null } = {}) {
   const base = publicBaseUrl().replace(/\/+$/, '');
-  const [list, cats] = await Promise.all([shop.listItems({ page, category }), shop.categoryCounts()]);
+  // One query at a time: cheap, and the in-memory test database stalls on simultaneous queries from one request.
+  const list = await shop.listItems({ page, category });
+  const cats = await shop.categoryCounts();
   const { items, pagination } = list;
   const cat = list.category;
   const canonical = pageUrl(base, { category: cat && cat.key, page: pagination.page });
