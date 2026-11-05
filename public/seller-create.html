@@ -442,6 +442,10 @@
   </div>
   </div>
 
+  <!-- Auction shipping (Phase 1): drawn by /widgets/shared/seller-shipping.js only when auction shipping is turned on.
+       When it shows, it replaces the auction-level toggle above (lots ship only when marked individually). -->
+  <div id="auction-shipping-setup" style="display:none"></div>
+
   <!-- ── Media - Banner & Cover ─────────────────────────────────── -->
   <p class="section-title">Media</p>
 
@@ -514,6 +518,7 @@
 </div>
 
 <script src="/widgets/shared/timezone-utils.js"></script>
+<script src="/widgets/shared/seller-shipping.js"></script>
 <script>
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html';
@@ -572,6 +577,12 @@
     var card = document.getElementById('create-card'); if (card) card.style.display = '';
     sellerProfileId = profile.id;
     if (profile.shipping_allowed === true) { var ship = document.getElementById('shipping-settings'); if (ship) ship.style.display = ''; }
+    if (window.SellerShipping) {
+      var shipSetup = document.getElementById('auction-shipping-setup');
+      SellerShipping.mountSetup(shipSetup).then(function () {
+        if (shipSetup && shipSetup.style.display !== 'none') { var legacyShip = document.getElementById('shipping-settings'); if (legacyShip) legacyShip.style.display = 'none'; }
+      }).catch(function () {});
+    }
     var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
     if (PRO_TYPES.indexOf(profile.seller_type) !== -1) {
       var row = document.getElementById('preview-times-row'); if (row) row.style.display = '';
