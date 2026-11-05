@@ -14,8 +14,9 @@
  *     for administrator review: the pay paths refuse it unless the administrator gives an explicit, audited review reason.
  *     First-time setup is audited and notified but does not trigger the review (there was no destination to divert).
  *     The check reads the audit trail; if it cannot run, the payout is treated as recently changed (fail closed).
- *   • Replacing an existing payout destination needs the account's current password (the same rule the account phone
- *     change uses, src/services/accountPhoneService.js). Accounts without a password skip it; the review hold still applies.
+ *   • Replacing an existing payout destination needs identity confirmation: the account's current password (the same rule
+ *     the account phone change uses, src/services/accountPhoneService.js), or, for an account without a usable password,
+ *     a one-time code emailed to the account (accountVerificationCodeService, migration 220). No unverified bypass.
  *
  * Data minimization: nothing new is collected. Bank details stay with the payment processor.
  */
@@ -230,22 +231,54 @@ async function notifySellerPayoutDetailsChanged(sellerUserId, diff, deps = {}) {
 }
 
 /**
- * Current-password confirmation for REPLACING an existing payout destination (first-time setup needs none).
- * Throws PayoutSafeguardError PASSWORD_REQUIRED / PASSWORD_INCORRECT (403). Accounts without a password skip the check.
+ * Identity confirmation for REPLACING an existing payout destination (first-time setup and re-saving the same destination
+ * need none). Owner decisions 2026-11-05:
+ *   • An account with a password of its own confirms with its current password (PASSWORD_REQUIRED / PASSWORD_INCORRECT).
+ *     Wrong passwords are throttled per account with the sign-in throttle (src/lib/loginThrottle.js).
+ *   • An account WITHOUT a usable password (no password hash, or a directory sign-in bridge account whose stored hash is
+ *     random bytes nobody holds) confirms with a one-time code emailed to the account's own address
+ *     (accountVerificationCodeService; VERIFICATION_CODE_REQUIRED, with verification: 'email_code'). No unverified bypass.
+ * Fails closed: an unknown account is refused.
  */
-async function assertPasswordForDestinationChange(userId, { before, after, currentPassword } = {}) {
+const PASSWORDLESS_AUTH_SOURCES = ['bd_bridge'];
+async function identityMethod(userId) {
+  const r = (await db.query('SELECT to_jsonb(u) AS j FROM users u WHERE u.id = $1', [userId])).rows[0];
+  const u = r && r.j;
+  if (!u) return { method: null };
+  const usable = !!u.password_hash && !PASSWORDLESS_AUTH_SOURCES.includes(u.auth_source);
+  return { method: usable ? 'password' : 'email_code', passwordHash: u.password_hash };
+}
+async function assertIdentityForDestinationChange(userId, { before, after, currentPassword, verificationCode } = {}) {
   if (!hasDestination(before)) return { required: false };
   if (destinationFingerprint(before) === destinationFingerprint(after)) return { required: false };
-  const u = (await db.query('SELECT password_hash FROM users WHERE id = $1', [userId])).rows[0];
-  if (!u || !u.password_hash) return { required: false };
-  if (!currentPassword) throw new PayoutSafeguardError('PASSWORD_REQUIRED', 'Enter your account password to change where your payouts are sent.', 403);
-  if (!(await require('bcrypt').compare(String(currentPassword), u.password_hash))) throw new PayoutSafeguardError('PASSWORD_INCORRECT', 'That password is not correct.', 403);
-  return { required: true };
+  const id = await identityMethod(userId);
+  if (!id.method) throw new PayoutSafeguardError('NO_USER', 'Account not available.', 403);
+  if (id.method === 'password') {
+    const throttle = require('../lib/loginThrottle');
+    const key = 'payout-confirm-' + userId + '@accounts.local';
+    if (throttle.lockedFor(key) > 0) throw new PayoutSafeguardError('LOCKED', 'Too many incorrect passwords. Please wait 15 minutes and try again.', 429);
+    if (!currentPassword) throw new PayoutSafeguardError('PASSWORD_REQUIRED', 'Enter your account password to change where your payouts are sent.', 403, { verification: 'password' });
+    if (!(await require('bcrypt').compare(String(currentPassword), id.passwordHash))) {
+      throttle.recordFailure(key);
+      throw new PayoutSafeguardError('PASSWORD_INCORRECT', 'That password is not correct.', 403, { verification: 'password' });
+    }
+    throttle.recordSuccess(key);
+    return { required: true, method: 'password' };
+  }
+  const codes = require('./accountVerificationCodeService');
+  try { await codes.consume(userId, codes.PURPOSES.PAYOUT_DESTINATION_CHANGE, verificationCode); }
+  catch (e) {
+    if (e instanceof codes.CodeError) throw new PayoutSafeguardError(e.code, e.message, e.status, { verification: 'email_code' });
+    throw e;
+  }
+  return { required: true, method: 'email_code' };
 }
+// Earlier name, kept for callers.
+const assertPasswordForDestinationChange = assertIdentityForDestinationChange;
 
 module.exports = {
   RECENT_PAYOUT_CHANGE_REVIEW_DAYS, OVERRIDE_REASON_MIN, EVENTS, OVERRIDES, PayoutSafeguardError,
   overrideReasons, validOverride, sellerAccountActive, recentPayoutDestinationChange, assertPayoutSafeguards, auditOverrides,
   guardedQuery, hasDestination, destinationFingerprint, maskedView, diffPayoutDetails, recordPayoutDetailsChange,
-  notifySellerPayoutDetailsChanged, assertPasswordForDestinationChange,
+  notifySellerPayoutDetailsChanged, assertPasswordForDestinationChange, assertIdentityForDestinationChange, identityMethod, PASSWORDLESS_AUTH_SOURCES,
 };

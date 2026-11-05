@@ -157,7 +157,8 @@ behind `AUCTION_SHIPPING_ENABLED`; the storefront delivery rule is OFF behind `S
   so the weekly payout includes it only after delivery + 3 US Eastern business days.
 - **Payout safeguards (all sellers, auction and storefront; live behavior, see the assessment):** administrator hold /
   release for auction settlements; suspended sellers not paid without an audited reason; payout-detail changes audited and
-  emailed; current password to replace a payout destination; a payout within 7 days of a destination change needs an
+  emailed; identity confirmation to replace a payout destination (current password, or for an account without a usable
+  password a one-time code emailed to the account, migration 220); a payout within 7 days of a destination change needs an
   audited administrator review reason. Shared module `src/services/payoutSafeguards.js`.
 - **Tests:** `tests/payout-fraud-safeguards.test.js` (PGlite + migrations 218/219 + real routes and audit writer) and the
   safeguard blocks at the end of `tests/storefront-payouts.test.js`.

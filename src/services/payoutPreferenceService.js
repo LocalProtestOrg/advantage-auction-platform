@@ -38,11 +38,17 @@ async function upsertSellerPayoutPreference(sellerUserId, payload, options = {})
 
   const safeguards = require('./payoutSafeguards');
   const { withTransaction } = require('../utils/withTransaction');
+  // Identity first, outside the transaction, so a failed attempt is always counted; the transaction then re-checks that
+  // the destination it is replacing is still the one that was confirmed.
+  const propose = (row) => { const p = { ...(row || {}), payout_method }; for (const f of ALL_PREF_FIELDS) if (payload[f] !== undefined) p[f] = payload[f]; return p; };
+  const seen = (await db.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1', [sellerUserId])).rows[0] || null;
+  await safeguards.assertIdentityForDestinationChange(sellerUserId, { before: seen, after: propose(seen),
+    currentPassword: options.currentPassword, verificationCode: options.verificationCode });
   const out = await withTransaction(async (client) => {
     const before = (await client.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1 FOR UPDATE', [sellerUserId])).rows[0] || null;
-    const proposed = { ...(before || {}), payout_method };
-    for (const field of ALL_PREF_FIELDS) if (payload[field] !== undefined) proposed[field] = payload[field];
-    await safeguards.assertPasswordForDestinationChange(sellerUserId, { before, after: proposed, currentPassword: options.currentPassword });
+    if (safeguards.destinationFingerprint(before) !== safeguards.destinationFingerprint(seen)) {
+      throw new safeguards.PayoutSafeguardError('CHANGED', 'Your payout details changed while you were editing. Please try again.', 409);
+    }
     const result = await client.query(
       `INSERT INTO seller_payout_preferences (seller_user_id, ${colList})
        VALUES ($${sellerIdx}, ${valList})
