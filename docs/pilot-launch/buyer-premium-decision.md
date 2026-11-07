@@ -6,7 +6,7 @@
 > fee); professional sellers → seller-controlled buyer premium (kept by the seller) plus an
 > Advantage platform/software fee on the hammer (default 4%, per agreement) and a separate 3% processing fee.**
 > (Corrected 2026-09-28: the earlier "2% software fee" wording was never implemented. Professional Storefront
-> fixed-price sales are separate: flat 11% of the item price, including card processing.) The single source of truth is
+> fixed-price sales are separate: 5% Website Sale / 9% Marketplace Sale on the item price, including card processing; replaced the flat 11% on 2026-11-06.) The single source of truth is
 > `src/services/billingTermsService.js` (with `src/lib/settlementPolicy.js` for the seller fee).
 > This document is retained for historical context only — do not implement from it.
 

@@ -9,7 +9,7 @@
  *  5. quote is gated behind the checkout flag
  *  6. tax reversal references are unique; partial/outside refunds reverse proportionally; jurisdiction rules
  *  7. prepaid cards are refused server-side before any charge; the intent needs server confirmation
- *  9. the 11% fee base excludes shipping and tax
+ *  9. the storefront fee base excludes shipping and tax
  */
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-storefront-hardening';

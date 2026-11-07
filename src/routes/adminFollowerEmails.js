@@ -53,7 +53,7 @@ router.get('/campaigns', asyncRoute(async (req, res) => {
 router.post('/sellers/:sellerId/privilege', asyncRoute(async (req, res) => {
   const enabled = !!(req.body || {}).enabled;
   const { rows } = await db.query(
-    `UPDATE seller_profiles SET follower_email_enabled=$2, updated_at=now() WHERE id=$1 RETURNING id, follower_email_enabled`,
+    `UPDATE seller_profiles SET follower_email_enabled=$2 WHERE id=$1 RETURNING id, follower_email_enabled`,
     [req.params.sellerId, enabled]);
   if (!rows.length) throw svcErr(404, 'SELLER_NOT_FOUND', 'Seller not found.');
   if (!enabled) {

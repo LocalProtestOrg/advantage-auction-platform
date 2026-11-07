@@ -63,12 +63,24 @@ router.patch('/me/branding', auth, async (req, res, next) => {
     }
     const enabled = req.body && req.body.show_branding_to_buyers === true;
     const upd = await db.query(
-      'UPDATE seller_profiles SET show_branding_to_buyers = $2, updated_at = now() WHERE id = $1 RETURNING id, seller_type, show_branding_to_buyers',
+      'UPDATE seller_profiles SET show_branding_to_buyers = $2 WHERE id = $1 RETURNING id, seller_type, show_branding_to_buyers',
       [sp.id, enabled]
     );
     return res.json({ success: true, data: upd.rows[0] });
   } catch (err) { next(err); }
 });
+
+// Campaign attribution (baseline audit 2026-11-06): the registration forms send the first-party visitor id, so the seller
+// conversions join the campaign touches (UTM, click ids) recorded when that visitor arrived, as buyer registration does.
+function visitorIdFrom(req) {
+  const v = (req.body || {}).visitor_id;
+  return typeof v === 'string' && v.trim() ? v.trim().slice(0, 64) : null;
+}
+// Links the visitor's earlier campaign touches to the new seller's account (same as the sign-in link). Best-effort.
+function attributionStitch(req) {
+  const visitorId = visitorIdFrom(req);
+  if (visitorId) require('../services/attributionService').stitch({ visitorId, userId: req.user.id, source: 'seller_registration' }).catch(() => {});
+}
 
 // POST /api/sellers/enroll
 // Self-service buyer → seller enablement. The simplest possible flow:
@@ -159,7 +171,8 @@ router.post('/enroll', auth, async (req, res, next) => {
     // different landing pages and different economics, so the conversion has to say which one it
     // was. Carried on subject_type rather than as a second conversion key, so the seller is counted
     // exactly once.
-    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: isProfessional(sellerType) ? 'professional_seller_profile' : 'individual_seller_profile', subjectId: sellerProfileId });
+    if (!existing) attributionStitch(req);
+    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, visitorId: visitorIdFrom(req), subjectType: isProfessional(sellerType) ? 'professional_seller_profile' : 'individual_seller_profile', subjectId: sellerProfileId });
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,
@@ -291,10 +304,11 @@ router.post('/apply-professional', auth, async (req, res, next) => {
 
     sellerWelcomeEmails.deliverSoon(welcomeId, res);   // one attempt once the response is sent; the sender retries a temporary failure
 
-    if (!existing) require('../services/conversionService').emit('seller_inquiry', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
+    if (!existing) attributionStitch(req);
+    if (!existing) require('../services/conversionService').emit('seller_inquiry', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, visitorId: visitorIdFrom(req), subjectType: 'seller_profile', subjectId: sellerProfileId });
     // Funnel visibility (R-1): a NEW professional seller profile is a seller registration, exactly like /enroll records one.
     // An upgrade of an existing profile was already counted when that profile was created.
-    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'professional_seller_profile', subjectId: sellerProfileId });
+    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, visitorId: visitorIdFrom(req), subjectType: 'professional_seller_profile', subjectId: sellerProfileId });
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,

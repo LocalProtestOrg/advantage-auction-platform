@@ -141,7 +141,7 @@
         var res = await fetch('/api/sellers/apply-professional',{
           method:'POST',
           headers:{'Content-Type':'application/json',Authorization:'Bearer '+authToken},
-          body: JSON.stringify({ seller_type:sellerType, company_name:companyName, legal_name:legalName, phone:phone, state:state }),
+          body: JSON.stringify({ seller_type:sellerType, company_name:companyName, legal_name:legalName, phone:phone, state:state, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
         });
         if(res.status===401){ localStorage.removeItem('token'); location.href='/login.html?next='+selfNext(); return; }
         var json={}; try { json=await res.json(); } catch(_){}

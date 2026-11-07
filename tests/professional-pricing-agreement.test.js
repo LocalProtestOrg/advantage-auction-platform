@@ -6,7 +6,7 @@
  * Covers: standard 4% pro, negotiated pro fee, SEPARATE processing, agreement create/issue/accept,
  * acceptance authorization + cross-seller isolation, immutable executed agreement, versioning +
  * supersession history, effective-date behavior, publish-time snapshot uses the applicable rate,
- * historical snapshot preservation (sitewide/negotiated changes never rewrite history), Storefront 11%
+ * historical snapshot preservation (sitewide/negotiated changes never rewrite history), Storefront commission
  * unchanged, Individual economics unchanged, admin RBAC, audit records, and legacy compatibility.
  */
 

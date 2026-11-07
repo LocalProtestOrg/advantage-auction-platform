@@ -43,7 +43,53 @@ Changes from version 3 (paragraph-level comparison against production, 2026-11-0
 3. Agreements already **sent but not signed** stay pinned to the version they were sent with (versions 1 and 3 state 11%).
    They can be reissued on version 4 from Admin > Agreements if the owner wants.
 
-## 2. Further documents
+## 2. Terms of Service and Buyer Terms, version 4 (prepared; publishes with the baseline release)
 
-Recorded in section 2 as each one is published (Buyer Terms and Terms of Service, Privacy Policy, pricing references),
-with its version, the change list and the counsel questions.
+Source text: `docs/legal/terms-of-service-v4.md` (built from the production `public/terms.html`). Published with
+`scripts/prod-publish-buyer-terms-version.js --apply` as buyer_terms version 4. Versions 1 to 3 and every acceptance stay
+exactly as they are; buyers accept version 4 at their next account registration, auction registration or storefront
+purchase (re-acceptance is recorded with its own timestamp).
+
+What changes: buyers now accept the **full** "Terms of Service: General and Buyers" (previously the shorter buyer terms),
+with version tracking. Factual corrections in the text:
+
+| Section | Change | Basis |
+|---|---|---|
+| Header | Version 4, Last Updated November 6, 2026 | Version tracking |
+| 5 Payment | Debit and credit cards only; prepaid cards refused; the card is verified with the bank when saved; Advantage.Bid never charges to verify; the bank may briefly show a temporary authorization | Owner decision 3 (2026-09-27); CLAUDE.md card rules; existing code |
+| 6 Sales Near You | The Sales Near You paragraph from buyer terms version 3 §11, word for word | Keeps an already-accepted term in the full document |
+| 10 and 11 Bidding | Every bid is a maximum bid; the platform bids on the buyer's behalf only as high as needed | Describes the existing bidding engine |
+
+Not included (owner decision): the owner's own uncommitted edits to `public/terms.html` (chargeback and pickup
+enforcement, and `docs/legal/terms-pickup-dispute-enforcement-draft-2026-10-12.md`). Those change dispute and liability
+terms, so they wait for the owner and counsel.
+
+## 3. Privacy Policy (updated November 6, 2026; ships with the baseline release)
+
+Describes existing functionality only:
+- Sasha conversations: chat and email transcripts; phone calls keep a written transcript, no audio; the spoken parts are
+  removed after 90 days and a summary is kept.
+- Cookie notice and the consent choice.
+- New "Advertising and Measurement" section: Google Analytics, the Meta pixel and Conversions API. Data goes to Meta
+  only with advertising consent (hashed email or account ID, IP address, browser user agent, cookie IDs).
+- Sales Near You.
+- Service providers list adds the provider behind Sasha and advertising measurement providers (by category, no vendor
+  names on the page).
+
+## 4. Pricing references corrected (no fee calculation changed)
+
+The flat 11% storefront fee was replaced by 5% / 9% in Seller Agreement v4. Corrected: FAQ, Professional Sellers page,
+Seller Demo, website storefront widget, admin storefront payouts page, Sasha knowledge, CLAUDE.md, business rules and
+internal documents and comments. Every storefront mention says online purchasing through Advantage.Bid checkout is not
+open yet. Migration 226 removes four unused settings that stated retired rates (`pricing.storefront.seller_fee_bps` =
+1100 and three retired 0% `business.*_pct` values); nothing read them.
+
+## 5. Questions for counsel (Terms, Privacy, email)
+
+1. Privacy: whether sending hashed identifiers to Meta with advertising consent is a "sale" or "sharing" under CCPA/CPRA
+   and other state laws, and whether a "Do Not Sell or Share" link is needed.
+2. Phone: whether Sasha's call notice (transcription, automated assistant) is adequate in two-party-consent states.
+3. Storefront purchase terms: buyer-facing terms for fixed-price purchases must be ready before checkout opens.
+4. Commercial email footers now carry the postal address (Advantage.Bid, 300 Communipaw Ave. #137, Jersey City, NJ
+   07304). Follower announcements are sent by Advantage.Bid on a Professional Seller's behalf: confirm Advantage.Bid's
+   address is the right one, or whether the seller's must also appear.

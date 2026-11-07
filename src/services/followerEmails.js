@@ -12,6 +12,7 @@
 
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const SUPPORT = 'info@advantage.bid';
+const { POSTAL_LINE } = require('../lib/companyContact');   // footer postal address (CAN-SPAM)
 
 function escHtml(str) {
   return String(str == null ? '' : str)
@@ -36,7 +37,7 @@ function shell(title, bodyHtml, unsubscribeUrl) {
       ${bodyHtml}
       <p style="margin:22px 0 0;font-size:12.5px;color:#8a97a6">Questions? Contact us at <a href="mailto:${SUPPORT}" style="color:#2563eb">${SUPPORT}</a>.</p>
     </div>
-    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">Advantage.Bid</p>
+    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">${escHtml(POSTAL_LINE)}</p>
     ${unsub}
   </div></body></html>`;
 }
@@ -93,7 +94,7 @@ function buildFollowerEventEmail(payload, opts = {}) {
     payload.custom_message ? `\n${payload.custom_message}` : '',
     `\nView Event: ${eventUrl}`,
     unsubscribeUrl ? `\nUnsubscribe from this company's updates: ${unsubscribeUrl}` : '',
-    `\nAdvantage.Bid`,
+    `\n${POSTAL_LINE}`,
   ].filter(Boolean);
 
   const headers = unsubscribeUrl

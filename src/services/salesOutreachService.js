@@ -96,13 +96,14 @@ async function resolveIdentity(prospect, actingStaff, runner = db) {
 // Signature keeps the assigned rep's identity + approved Reply-To; the company PHONE is the corporate line
 // (never the rep's personal number), pulled from the one authoritative source.
 function signatureText(identity) {
-  return `\n\n--\n${identity.displayName}\nAdvantage.Bid\n${identity.replyTo}\n${company.PHONE_DISPLAY}\n${company.WEBSITE}`;
+  return `\n\n--\n${identity.displayName}\nAdvantage.Bid\n${identity.replyTo}\n${company.PHONE_DISPLAY}\n${company.WEBSITE}\n${company.POSTAL_ADDRESS}`;
 }
 function signatureHtml(identity) {
   return `<div style="margin-top:18px;padding-top:12px;border-top:1px solid #e6eaef;font-size:13px;color:#475569">
     <strong style="color:#0f172a">${escHtml(identity.displayName)}</strong><br>Advantage<span style="color:#2563eb">.Bid</span><br>
     <a href="mailto:${escHtml(identity.replyTo)}" style="color:#2563eb">${escHtml(identity.replyTo)}</a><br>
-    <a href="${company.TEL_HREF}" style="color:#2563eb">${escHtml(company.PHONE_DISPLAY)}</a></div>`;
+    <a href="${company.TEL_HREF}" style="color:#2563eb">${escHtml(company.PHONE_DISPLAY)}</a><br>
+    <span style="color:#8a97a6;font-size:12px">${escHtml(company.POSTAL_ADDRESS)}</span></div>`;
 }
 // Branded, escaped HTML body from the rep's (edited) plain-text message + controlled signature.
 function renderHtml(message, identity) {

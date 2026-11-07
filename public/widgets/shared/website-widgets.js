@@ -114,7 +114,7 @@
     else if (d.shop_hidden) st = { ok: false, text: 'Your Shop section is hidden on your storefront, so your widget shows no items. Turn the Shop section back on to show them.' };
     else st = { ok: true, text: 'Your storefront widget is on and showing ' + d.item_count + ' item' + (d.item_count === 1 ? '' : 's') + '.' };
     return card({ id: 'storefront', title: 'Storefront widget',
-      what: 'Shows the items you have for sale on your own website. Shoppers open each item\'s details and photos right inside it. A sale that starts here and continues to Advantage.Bid checkout is a website sale (5% commission instead of 9%).',
+      what: 'Shows the items you have for sale on your own website. Shoppers open each item\'s details and photos right inside it. Online purchasing through Advantage.Bid checkout is not open yet. Once it opens, a sale that starts here and continues to Advantage.Bid checkout is a website sale (5% commission instead of 9%).',
       status: st, code: d.embed_code, link: d.storefront_url, preview: d.active ? d.embed_url : null, steps: STEPS('shop page') });
   }
 

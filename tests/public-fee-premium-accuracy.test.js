@@ -4,7 +4,9 @@
  * Owner decisions 1 and 2 (2026-09-27): public fee and buyer's premium wording must match what the platform
  * actually does, so neither the website nor Sasha repeats outdated statements.
  *   1. Individual sellers: no platform fee, a 3% payment processing fee on the hammer price (exact, not "about").
- *      No "at launch". Professional fees are set in each Professional Seller agreement; no standard % advertised.
+ *      No "at launch". Professional auctions: the standard 4% platform fee plus a separate 3%
+ *      processing fee may be stated, always with the Professional Seller agreement governing (owner direction 2026-11-06,
+ *      replacing the 2026-09-27 "no standard % advertised" rule).
  *   2. Buyer-facing premium wording is neutral about who receives it; the worked example is 18% and labelled
  *      as an example.
  */
@@ -26,8 +28,10 @@ describe('Decision 1: seller fee wording', () => {
     expect(html).not.toMatch(/approximate(ly)? 3%|about 3%|~\s*3%|roughly 3%/i);
     expect(html).not.toMatch(/no seller platform fee/i);
   });
-  test.each(SELLER_PAGES)('%s does not advertise a standard professional platform fee percentage', (f) => {
-    expect(read(f)).not.toMatch(/\b4\s*%\s*(platform|software)/i);
+  test.each(SELLER_PAGES)('%s states any standard professional fee as 4% plus a separate 3% processing fee, never combined', (f) => {
+    const html = read(f);
+    expect(html).not.toMatch(/\b7\s*%\s*(commission|fee|total)/i);
+    if (/\b4\s*%\s*(platform|software)/i.test(html)) expect([f, /4% platform fee plus a 3% payment processing fee/i.test(html)]).toEqual([f, true]);
   });
   test('fee pages state the individual fee exactly and point professionals to their agreement', () => {
     for (const f of ['faq.html', 'how-sellers-get-paid.html', 'seller-faq.html', 'start-selling.html', 'how-it-works.html']) {

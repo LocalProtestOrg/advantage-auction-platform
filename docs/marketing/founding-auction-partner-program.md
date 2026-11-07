@@ -10,7 +10,7 @@ staff operate the program. Partner selection, outreach and final emails are **ou
   deduction is the **actual Stripe processing fee** on that auction's buyer payments (hammer + premium + tax as charged),
   passed through at cost: no markup, no subsidy (Owner policy 2026-10-05; migration 186). Other auctions keep the
   3%-of-hammer policy rate.
-- The global default professional fee, any public promotional pricing and **Storefront pricing (flat 11%)** do not change.
+- The global default professional fee, any public promotional pricing and **Storefront pricing (5% website / 9% marketplace; replaced the flat 11% on 2026-11-06)** do not change.
 - No duration is assumed. An introductory end date is optional and set per partner.
 
 ## Standing positioning direction (marketing)

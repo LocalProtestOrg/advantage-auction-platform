@@ -2,7 +2,7 @@
 
 /**
  * Seller settlement transparency + Professional payout terms. Platform/Software Fee and Payment Processing
- * are presented SEPARATELY (never a "7% commission"); Individual 0%+3%; Storefront 11% (no extra 3%);
+ * are presented SEPARATELY (never a "7% commission"); Individual 0%+3%; Storefront 5% / 9% (no extra 3%);
  * marketing package itemized; payout never negative; Thursday-processing agreement/UI language.
  */
 const fs = require('fs');
@@ -81,7 +81,7 @@ describe('marketing package + zero/shortfall payout', () => {
   });
 });
 
-// ── Storefront unaffected (11% only, no extra 3%) ────────────────────────────────
+// ── Storefront unaffected (5% / 9% only, no extra 3%) ────────────────────────────────
 describe('Storefront economics unaffected by the auction settlement fix', () => {
   test('marketplace order commission is the storefront channel rate with no added processing', () => {
     const mo = read('src', 'services', 'marketplaceOrderService.js');
