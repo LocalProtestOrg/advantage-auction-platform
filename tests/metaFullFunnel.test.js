@@ -104,7 +104,7 @@ describe('every provider object is created paused', () => {
 
   test('no create path ever sends an ACTIVE status', () => {
     for (const fn of ['buildCampaignBody', 'buildAdSetBody', 'buildAdBody']) {
-      const body = code.slice(code.indexOf('function ' + fn), code.indexOf('function ' + fn) + 900);
+      const body = code.slice(code.indexOf('function ' + fn), code.indexOf('function ' + fn) + 1100);
       expect(body).toMatch(/status: 'PAUSED'/);
       expect(body).not.toMatch(/status: 'ACTIVE'/);
     }

@@ -164,7 +164,7 @@ router.put('/social-intelligence/switch', async (req, res, next) => {
     const b = req.body || {}; const key = String(b.key || '');
     if (INTELLIGENCE_SWITCHES.indexOf(key) === -1) return res.status(400).json({ success: false, message: 'Not an editable intelligence switch' });
     if (typeof b.value !== 'boolean') return res.status(400).json({ success: false, message: 'value must be boolean' });
-    await require('../services/configService').setPlatformConfig(key, b.value);
+    await require('../services/configService').setPlatformConfig(key, b.value, { actor: req.user, category: 'marketing', source: 'PUT /api/admin/marketing-runtime/social-intelligence/switch' });
     return res.json({ success: true, data: { key, value: b.value } });
   } catch (err) { next(err); }
 });

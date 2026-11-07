@@ -80,13 +80,14 @@ async function currentProcessingBps() { return getInt(KEYS.PROCESSING_BPS); }
 async function currentProPlatformBps() { return getInt(KEYS.PRO_PLATFORM_BPS); }
 
 // Persist an editable rate (Super Admin only — authorization enforced by the route). Validates range.
-async function setBps(key, bps) {
+async function setBps(key, bps, opts = {}) {
   const n = Math.trunc(Number(bps));
   if (!Number.isFinite(n) || n < 0 || n > MAX_BPS) {
     const e = new Error('Rate must be an integer between 0 and ' + MAX_BPS + ' basis points.');
     e.status = 400; e.code = 'INVALID_RATE'; throw e;
   }
-  await configService.setPlatformConfig(key, n);
+  // pricing.* is a sensitive key: platform owner only, audited and reported to the owner (configService).
+  await configService.setPlatformConfig(key, n, { category: 'pricing', adminPath: '/admin/pricing.html', ...opts });
   return n;
 }
 

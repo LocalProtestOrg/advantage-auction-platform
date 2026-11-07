@@ -121,8 +121,8 @@ router.post('/seller-activation/evaluate', superOnly, async (req, res, next) => 
 router.post('/seller-activation/config', superOnly, async (req, res, next) => {
   try {
     const b = req.body || {};
-    res.json({ success: true, config: await require('./../services/sellerActivationService').setConfig(b.settings || {}, { actorId: req.user.id, confirm: b.confirm }) });
-  } catch (e) { if (e.status === 400) return res.status(400).json({ success: false, message: e.message }); next(e); }
+    res.json({ success: true, config: await require('./../services/sellerActivationService').setConfig(b.settings || {}, { actorId: req.user.id, confirm: b.confirm, actor: req.user }) });
+  } catch (e) { if (e.status === 400 || e.status === 403) return res.status(e.status).json({ success: false, message: e.message }); next(e); }
 });
 router.post('/seller-activation/:sellerProfileId/opt-out', superOnly, async (req, res, next) => {
   try {

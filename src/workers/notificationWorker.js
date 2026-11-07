@@ -409,8 +409,11 @@ async function deliver(row) {
       'SELECT 1 FROM email_suppressions WHERE COALESCE(normalized_email, lower(btrim(email))) = lower(btrim($1))',
       [userInfo.email]);
     if (supp.rows.length) return { skipped: true, reason: 'suppressed' };
+    // A follower announcement is commercial email: it carries the business postal address, and without one it waits
+    // (retried later) rather than sending without it.
+    const postalAddress = await require('../lib/commercialEmail').requirePostalAddress(db);
     console.log(`[notify] FOLLOWER_EVENT → user ${row.user_id} for campaign ${payload.campaign_id || 'unknown'}`);
-    const emailMsg = followerCampaign.buildQueueEmail(payload, row.user_id, userInfo.email);
+    const emailMsg = followerCampaign.buildQueueEmail(payload, row.user_id, userInfo.email, postalAddress);
     const result = await sendEmail(emailMsg);
     if (result.skipped) throw new Error('SMTP not configured — delivery skipped');
     return { sent: true };

@@ -80,6 +80,8 @@ const ALERT_TYPES = {
   STOREFRONT_ORDER_ISSUE: 'storefront_order_issue',
   // A storefront order was confirmed paid (roadmap §13.G): owner text, once per order per recipient.
   STOREFRONT_SALE_PAID: 'storefront_sale_paid',
+  // A sensitive platform setting changed, or paid advertising authority was used (ownerNotifyService). No customer data.
+  OWNER_SECURITY_NOTICE: 'owner_security_notice',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -102,6 +104,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.FOUNDING_PARTNER_INTRO_ENDING]: null,
   [ALERT_TYPES.AUCTION_PARTNER_SIGNED]: null,
   [ALERT_TYPES.STOREFRONT_SALE_PAID]: null,
+  [ALERT_TYPES.OWNER_SECURITY_NOTICE]: null,
 };
 
 // Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:

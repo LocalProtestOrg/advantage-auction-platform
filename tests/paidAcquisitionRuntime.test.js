@@ -483,7 +483,7 @@ describe('execution fails closed', () => {
 
   test('the emergency kill sets the switch first, then pauses every live campaign', () => {
     const kill = code.slice(code.indexOf('async function emergencyKill'), code.indexOf('async function clearKill'));
-    const setIdx = kill.indexOf("setPlatformConfig('marketing.paid.global_kill', true)");
+    const setIdx = kill.indexOf("setPlatformConfig('marketing.paid.global_kill', true, {");
     const pauseIdx = kill.indexOf('pauseCampaign');
     expect(setIdx).toBeGreaterThan(-1);
     expect(setIdx).toBeLessThan(pauseIdx);
@@ -537,18 +537,23 @@ describe('funnels and destinations', () => {
 describe('only the Owner controls spend', () => {
   const route = readCode('src/routes/adminMarketingAgency.js');
 
-  test('every spend-affecting endpoint is Super Admin only', () => {
-    for (const p of ['/creative/sync', '/campaigns/:key/pause', '/campaigns/:key/stop',
-      '/campaigns/:key/create', '/kill', '/kill/clear']) {
+  test('every spend-affecting endpoint is Super Admin only; starting or unblocking spend is platform owner only', () => {
+    for (const p of ['/creative/sync', '/campaigns/:key/pause', '/campaigns/:key/stop', '/kill']) {
       const line = route.split('\n').find((l) => l.includes("'" + p + "'"));
       expect(line).toBeTruthy();
       expect(line).toMatch(/superOnly/);
     }
+    // Owner decision 2026-11-06: creating at the provider and clearing the stop need the platform owner.
+    for (const p of ['/campaigns/:key/create', '/kill/clear', '/authorizations', '/authorizations/:id/revoke', '/spend/settings']) {
+      const line = route.split('\n').find((l) => l.includes("router.post('" + p + "'"));
+      expect(line).toBeTruthy();
+      expect(line).toMatch(/ownerOnly/);
+    }
   });
 
-  test('approval changes are Super Admin only', () => {
+  test('approval changes are platform owner only', () => {
     const line = route.split('\n').find((l) => l.includes("/creative/:assetKey/approval"));
-    expect(line).toMatch(/superOnly/);
+    expect(line).toMatch(/ownerOnly/);
   });
 
   test('superOnly rejects a non-super-admin with 403', () => {
@@ -589,7 +594,7 @@ describe('the Owner can see the department without reading JSON', () => {
   });
 
   test('the kill switch is present and reachable', () => {
-    expect(page).toMatch(/Emergency stop/);
+    expect(page).toMatch(/Emergency [Ss]top/);
     expect(page).toMatch(/\/kill/);
   });
 

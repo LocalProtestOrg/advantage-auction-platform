@@ -270,7 +270,7 @@ describe('the Owner can read the audience story in plain English', () => {
   const page = readRaw('public/admin/marketing-agency.html');
 
   test('the console answers the Owner questions', () => {
-    for (const q of ['Audiences — who we are trying to reach', 'Why this audience', 'What Meta targets',
+    for (const q of ['Audiences: who we are trying to reach', 'Why this audience', 'What Meta targets',
       'Where', 'Size', 'Provider check', 'Spend', 'Registrations', 'Learned']) {
       expect(page).toContain(q);
     }

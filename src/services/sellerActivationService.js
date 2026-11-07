@@ -747,7 +747,9 @@ async function preview({ now = new Date(), runner = db } = {}) {
  * confirm === 'LIVE' so it can never happen by accident; moving back to shadow never needs confirmation.
  */
 const LIMITS = { first_touch_hours: [24, 720], second_touch_days: [3, 60], max_per_stage: [0, 2], max_per_seller: [0, 3], daily_cap: [0, 50], recent_human_days: [1, 90] };
-async function setConfig(patch = {}, { actorId, confirm } = {}) {
+// actor (the signed-in admin, from the route) is checked by the platform setting choke point: seller_activation.* is
+// sensitive, so only the platform owner may change it, except that any Super Admin may switch it OFF (safety stop).
+async function setConfig(patch = {}, { actorId, confirm, actor = null } = {}) {
   const writes = [];
   const bad = (m) => { const e = new Error(m); e.status = 400; throw e; };
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) bad('settings must be an object');
@@ -769,8 +771,9 @@ async function setConfig(patch = {}, { actorId, confirm } = {}) {
   if (!writes.length) { const e = new Error('Nothing to change.'); e.status = 400; throw e; }
   const before = await config();
   for (const [k, v] of writes) {
-    await db.query(`INSERT INTO platform_config (key, value, category, updated_at) VALUES ($1, $2::jsonb, 'seller_activation', now())
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, ['seller_activation.' + k, JSON.stringify(v)]);
+    await require('./configService').setPlatformConfig('seller_activation.' + k, v, { category: 'seller_activation',
+      source: 'sellerActivationService.setConfig', adminPath: '/admin/director.html',
+      ...(actor ? { actor, safetyStop: k === 'enabled' && v === false } : { system: 'seller_activation.setConfig' }) });
   }
   // audit_log.entity_id is a NOT NULL uuid: the switches are one logical record with a fixed id.
   await require('../lib/auditLog').writeAuditLog({ event_type: 'seller_activation.config_changed', entity_type: 'seller_activation_config',

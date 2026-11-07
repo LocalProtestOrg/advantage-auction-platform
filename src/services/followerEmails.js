@@ -12,7 +12,6 @@
 
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const SUPPORT = 'info@advantage.bid';
-const { POSTAL_LINE } = require('../lib/companyContact');   // footer postal address (CAN-SPAM)
 
 function escHtml(str) {
   return String(str == null ? '' : str)
@@ -20,7 +19,7 @@ function escHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function shell(title, bodyHtml, unsubscribeUrl) {
+function shell(title, bodyHtml, unsubscribeUrl, postalAddress) {
   const unsub = unsubscribeUrl
     ? `<p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:12px 0 0;line-height:1.5">
          You're receiving this because you follow this company on Advantage.Bid.<br>
@@ -37,7 +36,7 @@ function shell(title, bodyHtml, unsubscribeUrl) {
       ${bodyHtml}
       <p style="margin:22px 0 0;font-size:12.5px;color:#8a97a6">Questions? Contact us at <a href="mailto:${SUPPORT}" style="color:#2563eb">${SUPPORT}</a>.</p>
     </div>
-    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">${escHtml(POSTAL_LINE)}</p>
+    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">Advantage.Bid${postalAddress ? ', ' + escHtml(postalAddress) : ''}</p>
     ${unsub}
   </div></body></html>`;
 }
@@ -61,6 +60,7 @@ function buildFollowerEventEmail(payload, opts = {}) {
   payload = payload || {};
   const toAddress = opts.toAddress;
   const unsubscribeUrl = opts.unsubscribeUrl || null;
+  const postalAddress = opts.postalAddress ? String(opts.postalAddress).replace(/\s+/g, ' ').trim() : null;
   const company = payload.company_name || 'A company you follow';
   const title = payload.event_title || 'A new event';
   const noun = typeNoun(payload.sale_type);
@@ -85,7 +85,8 @@ function buildFollowerEventEmail(payload, opts = {}) {
      ${factsHtml}
      ${custom}
      ${btn(eventUrl, 'View Event')}`,
-    unsubscribeUrl
+    unsubscribeUrl,
+    postalAddress
   );
   const textLines = [
     `${company} just published a new ${noun} on Advantage.Bid: ${title}.`,
@@ -94,7 +95,7 @@ function buildFollowerEventEmail(payload, opts = {}) {
     payload.custom_message ? `\n${payload.custom_message}` : '',
     `\nView Event: ${eventUrl}`,
     unsubscribeUrl ? `\nUnsubscribe from this company's updates: ${unsubscribeUrl}` : '',
-    `\n${POSTAL_LINE}`,
+    postalAddress ? `\nAdvantage.Bid, ${postalAddress}` : `\nAdvantage.Bid`,
   ].filter(Boolean);
 
   const headers = unsubscribeUrl

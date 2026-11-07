@@ -24,15 +24,25 @@ router.get('/', async (req, res, next) => {
   try {
     const active = await registry.listActive();
     const promos = {};
-    for (const k of ['boost', 'reach', 'spotlight']) promos[k] = await marketingConfig.getInt('marketing.pkg.addl.' + k + '.price_cents', 0);
-    return res.json({ success: true, data: { packages: active.map(registry.sellerView), additional_promotions: promos } });
+    const availability = {};
+    for (const k of ['boost', 'reach', 'spotlight']) {
+      promos[k] = await marketingConfig.getInt('marketing.pkg.addl.' + k + '.price_cents', 0);
+      const d = purchases.promotionDeliverability(k);
+      availability[k] = { purchasable: d.purchasable, unavailable_reason: d.reason };
+    }
+    // Each package says whether it can be bought now (server-side rule; the page only reflects it).
+    const packages = active.map((v) => {
+      const d = purchases.packageDeliverability(v);
+      return Object.assign(registry.sellerView(v), { purchasable: v.price_cents > 0 ? d.purchasable : false, unavailable_reason: v.price_cents > 0 ? d.reason : null });
+    });
+    return res.json({ success: true, data: { packages, additional_promotions: promos, additional_promotion_availability: availability } });
   } catch (err) { next(err); }
 });
 
 // Prepaid Stripe checkout for a paid package.
 router.post('/checkout', async (req, res, next) => {
   try {
-    const out = await purchases.createPackageCheckout(req.user.id, { packageKey: (req.body || {}).package_key, auctionId: (req.body || {}).auction_id, origin: req.headers.origin });
+    const out = await purchases.createPackageCheckout(req.user.id, { packageKey: (req.body || {}).package_key, auctionId: (req.body || {}).auction_id, origin: req.headers.origin, actor: req.user });
     return res.json({ success: true, data: out });
   } catch (err) { if (err && err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
 });
@@ -41,7 +51,7 @@ router.post('/checkout', async (req, res, next) => {
 router.post('/additional-promotion/checkout', async (req, res, next) => {
   try {
     const b = req.body || {};
-    const out = await purchases.createAdditionalPromotionCheckout(req.user.id, { promotionKey: b.promotion_key, auctionId: b.auction_id, packagePurchaseId: b.package_purchase_id, customAmountCents: b.custom_amount_cents, origin: req.headers.origin });
+    const out = await purchases.createAdditionalPromotionCheckout(req.user.id, { promotionKey: b.promotion_key, auctionId: b.auction_id, packagePurchaseId: b.package_purchase_id, origin: req.headers.origin, actor: req.user });
     return res.json({ success: true, data: out });
   } catch (err) { if (err && err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
 });

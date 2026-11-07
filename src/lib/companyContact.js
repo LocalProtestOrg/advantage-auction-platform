@@ -17,15 +17,10 @@ const WEBSITE = 'https://bid.advantage.bid';
 // Public office / support hours (owner decision 2026-10-12). Staff availability only: an automated assistant may answer
 // at other times, which never implies staff are available then.
 const OFFICE_HOURS = 'Monday through Friday, 10:00 AM to 5:00 PM Eastern Time';
-// Postal address for the footer of every commercial (marketing or sales) email, as US anti-spam law (CAN-SPAM) requires.
-// Same address as platform_config company.postal_address (listing outreach, editable in Admin > Claimed Listings); keep
-// the two equal.
-const POSTAL_ADDRESS = '300 Communipaw Ave. #137, Jersey City, NJ 07304';
-const POSTAL_LINE = `${NAME}, ${POSTAL_ADDRESS}`;
 
 // A plain-text signature/contact block for emails (company line only — never overrides a rep's identity).
 function emailContactLines() {
   return `${NAME}\n${PHONE_DISPLAY}\n${SUPPORT_EMAIL}\n${WEBSITE}`;
 }
 
-module.exports = { PHONE_DISPLAY, PHONE_E164, TEL_HREF, PHONE_SCHEMA, SUPPORT_EMAIL, NAME, WEBSITE, OFFICE_HOURS, POSTAL_ADDRESS, POSTAL_LINE, emailContactLines };
+module.exports = { PHONE_DISPLAY, PHONE_E164, TEL_HREF, PHONE_SCHEMA, SUPPORT_EMAIL, NAME, WEBSITE, OFFICE_HOURS, emailContactLines };

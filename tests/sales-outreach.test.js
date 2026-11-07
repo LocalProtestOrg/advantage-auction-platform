@@ -21,6 +21,7 @@ const PROSPECT = {
 };
 const REP = { user_id: 'rep1', display_name: 'Kym Witt', outreach_email: 'kymmie@advantage.bid', outreach_enabled: true, staff_active: true };
 const SELF = { id: 'rep1', is_super_admin: false };
+const POSTAL = '2205 Ogden Hwy, Adrian, MI 49221';   // test value: commercial email needs company.postal_address
 const OTHER_REP = { id: 'rep2', is_super_admin: false };
 const ADMIN = { id: 'admin1', is_super_admin: true };
 
@@ -90,7 +91,7 @@ describe('sendOutreach — success drives CRM automation with server-derived ide
     const rec = [];
     router(baseRoutes(), rec);
     const sendEmail = jest.fn(async () => ({ messageId: 'ses-123' }));
-    const r = await outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'Hello', message: 'Hi there.', followUpDays: 7 }, { sendEmail });
+    const r = await outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'Hello', message: 'Hi there.', followUpDays: 7 }, { sendEmail, postalAddress: POSTAL });
     expect(r.status).toBe('sent');
     // recipient from the RECORD, never client input:
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
@@ -104,6 +105,25 @@ describe('sendOutreach — success drives CRM automation with server-derived ide
     expect(rec.some((c) => /INSERT INTO sales_prospect_notes/.test(c.sql))).toBe(true);
     expect(rec.some((c) => /contact_status='contacted'/.test(c.sql))).toBe(true);
     expect(rec.some((c) => /next_follow_up_at = now\(\)/.test(c.sql))).toBe(true);
+    // Commercial email: the business postal address and a visible unsubscribe are in the signature; the
+    // one-click unsubscribe header is unchanged.
+    const msg = sendEmail.mock.calls[0][0];
+    expect(msg.text).toContain(POSTAL);
+    expect(msg.html).toContain('2205 Ogden Hwy');
+    expect(msg.text).toMatch(/To stop receiving these emails: https:\/\/bid\.advantage\.bid\/api\/public\/listing-outreach\/unsubscribe\?t=/);
+    expect(msg.html).toMatch(/>unsubscribe<\/a>/);
+    expect(msg.headers['List-Unsubscribe']).toMatch(/listing-outreach\/unsubscribe/);
+    expect(msg.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+  });
+  test('without a business postal address nothing is sent and nothing is logged as sent (fail closed)', async () => {
+    const rec = [];
+    router(baseRoutes(), rec);
+    const sendEmail = jest.fn(async () => ({ messageId: 'never' }));
+    await expect(outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'Hello', message: 'Hi.' }, { sendEmail, postalAddress: '' }))
+      .rejects.toMatchObject({ code: 'POSTAL_ADDRESS_MISSING', status: 409 });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(rec.some((c) => /INSERT INTO sales_outreach_emails/.test(c.sql))).toBe(false);
+    expect(rec.some((c) => /contact_status='contacted'/.test(c.sql))).toBe(false);
   });
   test('the send function does NOT accept client from/replyTo/bcc — they are always server-derived', () => {
     // sendOutreach signature has no from/replyTo/bcc params; identity comes only from the rep profile.
@@ -119,7 +139,7 @@ describe('sendOutreach — failure never falsely marks Contacted (section 16)', 
     const rec = [];
     router(baseRoutes(), rec);
     const sendEmail = jest.fn(async () => { throw new Error('SES rejected'); });
-    const r = await outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'S', message: 'M' }, { sendEmail });
+    const r = await outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'S', message: 'M' }, { sendEmail, postalAddress: POSTAL });
     expect(r.status).toBe('failed');
     expect(rec.find((c) => /INSERT INTO sales_outreach_emails/.test(c.sql)).params).toContain('failed');
     expect(rec.some((c) => /contact_status='contacted'/.test(c.sql))).toBe(false);
@@ -128,7 +148,7 @@ describe('sendOutreach — failure never falsely marks Contacted (section 16)', 
   test('SMTP not configured (skipped) → failed, not contacted', async () => {
     router(baseRoutes());
     const sendEmail = jest.fn(async () => ({ skipped: true }));
-    const r = await outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'S', message: 'M' }, { sendEmail });
+    const r = await outreach.sendOutreach({ prospectId: 'p1', actingStaff: SELF, templateKey: 'both', subject: 'S', message: 'M' }, { sendEmail, postalAddress: POSTAL });
     expect(r.status).toBe('failed');
   });
 });

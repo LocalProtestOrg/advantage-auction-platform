@@ -64,7 +64,7 @@ router.put('/capacity', async (req, res, next) => {
     const b = req.body || {}; const key = String(b.key || '');
     if (CAPACITY_KEYS.indexOf(key) === -1) return res.status(400).json({ success: false, message: 'Not an editable capacity key' });
     const n = Math.trunc(Number(b.value)); if (!Number.isFinite(n) || n < 0) return res.status(400).json({ success: false, message: 'value must be a non-negative integer' });
-    await configService.setPlatformConfig(key, n);
+    await configService.setPlatformConfig(key, n, { actor: req.user, category: 'marketing', source: 'PUT /api/admin/marketing-packages/capacity' });
     return res.json({ success: true, data: { key, value: n } });
   } catch (err) { next(err); }
 });

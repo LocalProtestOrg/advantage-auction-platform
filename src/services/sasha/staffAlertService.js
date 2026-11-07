@@ -58,7 +58,7 @@ async function recipients(runner = db) {
 }
 
 /** Super Admin: replace the recipient lists (validated). Returns the stored lists. */
-async function setRecipients({ emails, sms }, runner = db) {
+async function setRecipients({ emails, sms }, runner = db, opts = {}) {
   const out = {};
   if (emails !== undefined) {
     const e = cleanEmails(emails);
@@ -73,8 +73,9 @@ async function setRecipients({ emails, sms }, runner = db) {
   if (out.emails && out.emails.length > 10 || out.sms && out.sms.length > 10) throw Object.assign(new Error('At most 10 recipients of each kind.'), { status: 400 });
   for (const [key, val] of [[EMAIL_KEY, out.emails], [SMS_KEY, out.sms]]) {
     if (!val) continue;
-    await runner.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'sasha')
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [key, JSON.stringify(val)]);
+    // sasha.* is sensitive: platform owner only when changed from Admin (opts.actor); audited either way.
+    await require('../configService').setPlatformConfig(key, val, { runner, category: 'sasha', source: 'sasha.staffAlertService.setRecipients',
+      adminPath: '/admin/sasha.html', ...(opts.actor ? { actor: opts.actor } : { system: opts.system || 'sasha.staffAlertService.setRecipients' }) });
   }
   return recipients(runner);
 }

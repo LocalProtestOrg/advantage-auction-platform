@@ -12,7 +12,7 @@
  */
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const SUPPORT = 'info@advantage.bid';
-const COMPANY_FOOTER = require('../lib/companyContact').POSTAL_LINE;   // name + postal address (CAN-SPAM)
+const COMPANY_FOOTER = 'Advantage.Bid';
 
 function escHtml(str) {
   return String(str == null ? '' : str)
@@ -32,7 +32,14 @@ function kindCta(kind) {
   return 'See Event';
 }
 
-function shell(title, bodyHtml, { unsubscribeUrl, preferencesUrl } = {}) {
+// The sender line: Advantage.Bid plus the business postal address (company.postal_address) when the caller has it.
+// marketingSendService refuses to send without the address and adds it if a renderer left it out.
+function companyLine(postalAddress) {
+  const a = String(postalAddress || '').replace(/\s+/g, ' ').trim();
+  return a ? COMPANY_FOOTER + ', ' + a : COMPANY_FOOTER;
+}
+
+function shell(title, bodyHtml, { unsubscribeUrl, preferencesUrl, postalAddress } = {}) {
   const links = [];
   if (preferencesUrl) links.push(`<a href="${escHtml(preferencesUrl)}" style="color:#9aa6b3;text-decoration:underline">Manage preferences</a>`);
   if (unsubscribeUrl) links.push(`<a href="${escHtml(unsubscribeUrl)}" style="color:#9aa6b3;text-decoration:underline">Unsubscribe</a>`);
@@ -49,7 +56,7 @@ function shell(title, bodyHtml, { unsubscribeUrl, preferencesUrl } = {}) {
       ${bodyHtml}
       <p style="margin:22px 0 0;font-size:12.5px;color:#8a97a6">Questions? Contact us at <a href="mailto:${SUPPORT}" style="color:#2563eb">${SUPPORT}</a>.</p>
     </div>
-    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 2px">${escHtml(COMPANY_FOOTER)}</p>
+    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 2px">${escHtml(companyLine(postalAddress))}</p>
     ${footer}
   </div></body></html>`;
 }
@@ -109,7 +116,7 @@ function buildLocalEventAlert(event, opts = {}) {
     `View: ${event.url}`,
     opts.fullCircle === false ? '' : `\nHave an estate to sell? ${APP_BASE}/start-selling.html`,
     opts.unsubscribeUrl ? `\nUnsubscribe: ${opts.unsubscribeUrl}` : '',
-    `\n${COMPANY_FOOTER}`,
+    `\n${companyLine(opts.postalAddress)}`,
   ].filter(Boolean).join('\n');
   return { subject, html, text, headers: unsubHeaders(opts) };
 }
@@ -131,7 +138,7 @@ function buildLocalEventDigest(events, opts = {}) {
     heading, '',
     ...list.map((e) => `- ${e.title || kindNoun(e.kind)} (${[e.city, e.state].filter(Boolean).join(', ')}) ${e.url}`),
     opts.unsubscribeUrl ? `\nUnsubscribe: ${opts.unsubscribeUrl}` : '',
-    `\n${COMPANY_FOOTER}`,
+    `\n${companyLine(opts.postalAddress)}`,
   ].filter(Boolean).join('\n');
   return { subject, html, text, headers: unsubHeaders(opts) };
 }
@@ -142,4 +149,4 @@ function unsubHeaders(opts) {
     : undefined;
 }
 
-module.exports = { buildLocalEventAlert, buildLocalEventDigest, shell, escHtml, kindNoun, kindCta, fullCircleBlock, APP_BASE };
+module.exports = { buildLocalEventAlert, buildLocalEventDigest, shell, escHtml, kindNoun, kindCta, fullCircleBlock, companyLine, APP_BASE };

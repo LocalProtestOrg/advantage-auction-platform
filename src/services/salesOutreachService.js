@@ -95,25 +95,29 @@ async function resolveIdentity(prospect, actingStaff, runner = db) {
 
 // Signature keeps the assigned rep's identity + approved Reply-To; the company PHONE is the corporate line
 // (never the rep's personal number), pulled from the one authoritative source.
-function signatureText(identity) {
-  return `\n\n--\n${identity.displayName}\nAdvantage.Bid\n${identity.replyTo}\n${company.PHONE_DISPLAY}\n${company.WEBSITE}\n${company.POSTAL_ADDRESS}`;
+// A commercial 1:1 email also carries the business postal address and a visible way to stop further email (the same
+// one-click unsubscribe as the List-Unsubscribe header, which writes the shared B2B suppression).
+function signatureText(identity, { postalAddress = null, unsubscribeUrl = null } = {}) {
+  return `\n\n--\n${identity.displayName}\nAdvantage.Bid\n${identity.replyTo}\n${company.PHONE_DISPLAY}\n${company.WEBSITE}`
+    + (postalAddress ? `\n${postalAddress}` : '')
+    + (unsubscribeUrl ? `\n\nTo stop receiving these emails: ${unsubscribeUrl}` : '');
 }
-function signatureHtml(identity) {
+function signatureHtml(identity, { postalAddress = null, unsubscribeUrl = null } = {}) {
   return `<div style="margin-top:18px;padding-top:12px;border-top:1px solid #e6eaef;font-size:13px;color:#475569">
     <strong style="color:#0f172a">${escHtml(identity.displayName)}</strong><br>Advantage<span style="color:#2563eb">.Bid</span><br>
     <a href="mailto:${escHtml(identity.replyTo)}" style="color:#2563eb">${escHtml(identity.replyTo)}</a><br>
-    <a href="${company.TEL_HREF}" style="color:#2563eb">${escHtml(company.PHONE_DISPLAY)}</a><br>
-    <span style="color:#8a97a6;font-size:12px">${escHtml(company.POSTAL_ADDRESS)}</span></div>`;
+    <a href="${company.TEL_HREF}" style="color:#2563eb">${escHtml(company.PHONE_DISPLAY)}</a>${postalAddress ? `<br>${escHtml(postalAddress)}` : ''}</div>`
+    + (unsubscribeUrl ? `<p style="margin:14px 0 0;font-size:11.5px;color:#94a3b8">To stop receiving these emails, <a href="${escHtml(unsubscribeUrl)}" style="color:#94a3b8">unsubscribe</a>.</p>` : '');
 }
 // Branded, escaped HTML body from the rep's (edited) plain-text message + controlled signature.
-function renderHtml(message, identity) {
+function renderHtml(message, identity, footer = {}) {
   const paras = String(message || '').split(/\n{2,}/).map((p) =>
     `<p style="margin:0 0 12px;font-size:14.5px;line-height:1.55;color:#111">${escHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
   return `<!doctype html><html><body style="margin:0;background:#f4f6f9;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#111">
   <div style="max-width:560px;margin:0 auto;padding:24px 16px">
     <div style="background:#fff;border:1px solid #e6eaef;border-radius:12px;padding:22px">
       ${paras}
-      ${signatureHtml(identity)}
+      ${signatureHtml(identity, footer)}
     </div>
   </div></body></html>`;
 }
@@ -186,15 +190,18 @@ async function sendOutreach({ prospectId, actingStaff, templateKey, subject, mes
     throw err(429, 'DUPLICATE_SEND', 'An identical message was just sent to this prospect. Please wait a moment.');
   }
 
-  const html = renderHtml(body, identity);
-  const text = body + signatureText(identity);
+  // Commercial email: the business postal address is required (fail closed, nothing is sent or logged as sent).
+  const postalAddress = deps.postalAddress !== undefined ? deps.postalAddress : await require('../lib/commercialEmail').postalAddress(runner);
+  if (!postalAddress) throw err(409, 'POSTAL_ADDRESS_MISSING', require('../lib/commercialEmail').MISSING_MESSAGE);
+  // RFC 8058 one-click unsubscribe: writes the shared B2B suppression, so it stops every programme.
+  const unsubLink = 'https://bid.advantage.bid/api/public/listing-outreach/unsubscribe?t='
+    + encodeURIComponent(require('../lib/listingUnsubscribeToken').sign({ email: recipient, organizationId: null }));
+  const html = renderHtml(body, identity, { postalAddress, unsubscribeUrl: unsubLink });
+  const text = body + signatureText(identity, { postalAddress, unsubscribeUrl: unsubLink });
   const actorId = actingStaff && actingStaff.id;
 
   let result;
   try {
-    // RFC 8058 one-click unsubscribe: writes the shared B2B suppression, so it stops every programme.
-    const unsubLink = 'https://bid.advantage.bid/api/public/listing-outreach/unsubscribe?t='
-      + encodeURIComponent(require('../lib/listingUnsubscribeToken').sign({ email: recipient, organizationId: null }));
     result = await send({
       to: recipient, subject: subj, html, text,
       fromName: identity.fromName, replyTo: identity.replyTo, bcc: OUTREACH_BCC,

@@ -332,7 +332,8 @@ async function sync({ grandfather = false, productionRoot = PRODUCTION_ROOT, run
   }
 
   if (applyGrandfather) {
-    await configService.setPlatformConfig('marketing.production_creative.grandfathered_at', new Date().toISOString());
+    await configService.setPlatformConfig('marketing.production_creative.grandfathered_at', new Date().toISOString(),
+      { system: 'production_creative_initial_grandfathering', category: 'marketing', source: 'productionCreativeRegistry.sync' });
   }
   return { ...result, registered, grandfathered: applyGrandfather, already_grandfathered: !firstRun };
 }

@@ -7,8 +7,9 @@
  * creative candidates held for an Owner review that had no screen. This is the surface that fixes
  * that — deliberately built on the existing Admin architecture rather than as a separate app.
  *
- * PERMISSIONS. Reading requires an admin session. Anything that can start, stop or unblock SPENDING
- * requires Super Admin, because spend authority is the Owner's, not general staff's.
+ * PERMISSIONS. Reading requires an admin session. Anything that can START or UNBLOCK spending (authorize, create,
+ * approve creative, spend settings, clear the emergency stop) requires the platform owner. Anything that STOPS
+ * spending (pause, stop, emergency stop) stays open to every Super Admin, audited and reported to the owner.
  *
  * NO SECRETS. Tokens, ad-account credentials and provider identifiers beyond the account reference
  * are never returned. The Owner sees what is happening, not what it is authenticated with.
@@ -25,15 +26,25 @@ const registry = require('../services/productionCreativeRegistry');
 const execution = require('../services/paidGrowth/paidExecutionService');
 const configService = require('../services/configService');
 const governance = require('../services/paidGrowth/paidSpendGovernance');
+const authorizations = require('../services/paidGrowth/paidAuthorizationService');
+const { requirePlatformOwner, isPlatformOwner } = require('../lib/platformOwner');
 
 router.use(express.json());
 router.use(auth, requirePermission('members.view'));
 
-/** Spend control is Owner-level, not staff-level. */
+/** Operational controls (re-read spend, re-scan creative, pause, stop, emergency stop): any Super Admin. */
 function superOnly(req, res, next) {
   if (!rbac.isSuperAdmin(req.user)) return res.status(403).json({ success: false, message: 'Super Admin required' });
   next();
 }
+
+/**
+ * SPEND AUTHORITY is the platform owner's alone (owner decision 2026-11-06): authorizing a campaign, creating it at the
+ * provider, approving production creative, changing spend settings and clearing the emergency stop. Checked against
+ * the database (users.is_platform_owner, migration 222), never the session token. Stopping stays open to any admin.
+ */
+const ownerOnly = (req, res, next) => (rbac.isSuperAdmin(req.user) ? requirePlatformOwner(req, res, next)
+  : res.status(403).json({ success: false, message: 'Super Admin required' }));
 
 const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -125,7 +136,7 @@ const SPEND_SETTINGS = Object.freeze({
   'marketing.paid.auto_pause_on_breach': { type: 'boolean' },
 });
 
-router.post('/spend/settings', superOnly, asyncRoute(async (req, res) => {
+router.post('/spend/settings', ownerOnly, asyncRoute(async (req, res) => {
   const body = req.body || {};
   const applied = {};
   for (const [key, value] of Object.entries(body)) {
@@ -141,7 +152,9 @@ router.post('/spend/settings', superOnly, asyncRoute(async (req, res) => {
     }
     applied[key] = rule.type === 'boolean' ? value : Number(value);
   }
-  for (const [k, v] of Object.entries(applied)) await configService.setPlatformConfig(k, v);
+  for (const [k, v] of Object.entries(applied)) {
+    await configService.setPlatformConfig(k, v, { actor: req.user, source: 'POST /api/admin/marketing-agency/spend/settings', adminPath: '/admin/marketing-agency.html' });
+  }
   res.json({ success: true, data: { applied, settings: (await governance.overview()).settings } });
 }));
 
@@ -186,7 +199,7 @@ router.post('/creative/sync', superOnly, asyncRoute(async (req, res) => {
 }));
 
 /** An explicit Owner approval decision for one asset. The only way a new asset becomes approved. */
-router.post('/creative/:assetKey/approval', superOnly, asyncRoute(async (req, res) => {
+router.post('/creative/:assetKey/approval', ownerOnly, asyncRoute(async (req, res) => {
   const approved = req.body && req.body.approved === true;
   const row = (await db.query('SELECT id, category, factual_requirements FROM marketing_production_creative WHERE asset_key = $1', [req.params.assetKey])).rows[0];
   if (!row) return res.status(404).json({ success: false, message: 'Unknown asset' });
@@ -316,19 +329,51 @@ router.post('/campaigns/:key/stop', superOnly, asyncRoute(async (req, res) => {
 }));
 
 /** Create at the provider. Refuses unless every preflight gate is open — including the Owner's own. */
-router.post('/campaigns/:key/create', superOnly, asyncRoute(async (req, res) => {
+router.post('/campaigns/:key/create', ownerOnly, asyncRoute(async (req, res) => {
   const out = await execution.createCampaign({ campaignKey: req.params.key });
   res.status(out.ok ? 200 : 400).json({ success: out.ok, data: out });
 }));
 
 // ── KILL SWITCH ───────────────────────────────────────────────────────────────────────────────
 
+// The emergency STOP stays available to every Super Admin (safety). It is audited and the owner is notified.
 router.post('/kill', superOnly, asyncRoute(async (req, res) => {
-  res.json({ success: true, data: await execution.emergencyKill({ reason: (req.body && req.body.reason) || 'owner emergency stop' }) });
+  res.json({ success: true, data: await execution.emergencyKill({ reason: (req.body && req.body.reason) || 'admin emergency stop', actor: req.user }) });
 }));
 
-router.post('/kill/clear', superOnly, asyncRoute(async (req, res) => {
-  res.json({ success: true, data: await execution.clearKill() });
+// Clearing the stop lets spending resume, so it is the platform owner's decision.
+router.post('/kill/clear', ownerOnly, asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await execution.clearKill({ actor: req.user }) });
+}));
+
+// -- OWNER AUTHORIZATIONS ------------------------------------------------------------------------
+
+/** Is the signed-in account the platform owner? Lets the page show which controls are available. */
+router.get('/me', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: { platform_owner: await isPlatformOwner(req.user) } });
+}));
+
+/** Every campaign authorization, newest first. */
+router.get('/authorizations', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await authorizations.list({ limit: 100 }) });
+}));
+
+/** Authorize one campaign: amount, window, channel, market and the exact creative. Platform owner only. */
+router.post('/authorizations', ownerOnly, asyncRoute(async (req, res) => {
+  const out = await authorizations.create(req.body || {}, { actor: req.user });
+  res.status(out.ok ? 201 : 400).json({ success: out.ok, data: out.authorization || null, message: out.ok ? undefined : out.reason });
+}));
+
+/** Withdraw an unused authorization. Platform owner only. */
+router.post('/authorizations/:id/revoke', ownerOnly, asyncRoute(async (req, res) => {
+  const out = await authorizations.revoke(req.params.id, { actor: req.user, reason: (req.body && req.body.reason) || null });
+  res.status(out.ok ? 200 : 400).json({ success: out.ok, data: out.authorization || null, message: out.ok ? undefined : out.reason });
+}));
+
+/** The monthly paid advertising report (read-only: ledger, provider cost facts and Director actions). */
+router.get('/report', asyncRoute(async (req, res) => {
+  const month = req.query.month && /^\d{4}-\d{2}$/.test(String(req.query.month)) ? String(req.query.month) : undefined;
+  res.json({ success: true, data: await require('../services/paidGrowth/paidGrowthReport').monthly(month ? { month } : {}, db) });
 }));
 
 /** The gates themselves, so the Owner can see every switch in one place. */
