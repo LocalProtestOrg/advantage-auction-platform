@@ -17,7 +17,12 @@
       if (/^\s*---\s*$/.test(line)) blocks.push({ type: 'hr' });
       else if ((m = line.match(/^(#{1,4})\s+(.*)$/))) blocks.push({ type: 'heading', level: m[1].length, text: m[2] });
       else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) blocks.push({ type: 'bullet', text: m[1] });
-      else if ((m = line.match(/^>\s?(.*)$/))) blocks.push({ type: 'quote', text: m[1] });
+      // Consecutive > lines are one quoted paragraph, so **bold** that wraps across lines stays bold.
+      else if ((m = line.match(/^>\s?(.*)$/))) {
+        var prev = blocks[blocks.length - 1];
+        if (prev && prev.type === 'quote' && /^>/.test(lines[i - 1] || '')) prev.text += ' ' + m[1];
+        else blocks.push({ type: 'quote', text: m[1] });
+      }
       else if (line.trim() === '') blocks.push({ type: 'space' });
       else blocks.push({ type: 'para', text: line });
     }

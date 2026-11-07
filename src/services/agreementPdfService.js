@@ -54,9 +54,14 @@ function parseInlineBold(text) {
 
 function parseAgreementMarkdown(md) {
   const blocks = [];
+  let prevQuote = false;
   for (const raw of String(md == null ? '' : md).replace(/\r\n/g, '\n').split('\n')) {
     const line = raw.replace(/\s+$/, '');
     let m;
+    // Consecutive > lines are one quoted paragraph, so **bold** that wraps across lines stays bold (same as the web page).
+    const quote = line.match(/^>\s?(.*)$/);
+    if (quote && prevQuote) { blocks[blocks.length - 1].text += ' ' + quote[1]; continue; }
+    prevQuote = !!quote;
     if (/^\s*---\s*$/.test(line)) blocks.push({ type: 'hr' });
     else if ((m = line.match(/^(#{1,4})\s+(.*)$/))) blocks.push({ type: 'heading', level: m[1].length, text: m[2] });
     else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) blocks.push({ type: 'bullet', text: m[1] });
