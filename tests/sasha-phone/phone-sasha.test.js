@@ -391,7 +391,7 @@ describe('verified account support', () => {
     const { callId } = await verifiedCall(u, [{ tools: [{ name: 'get_my_seller_onboarding', input: {} }, { name: 'get_my_business_verification', input: {} }] },
       (p) => { const res = p.messages[p.messages.length - 1].content.map((c) => JSON.parse(c.content)); onboarding = res[0]; ver = res[1]; return { text: 'You are close. We need one more document.' }; }]);
     await sim.say(callId, ADMIN, 'Where am I with my seller setup?');
-    expect(onboarding).toMatchObject({ stage: 'finishing account setup', next_step_owner: 'the seller' });
+    expect(onboarding).toMatchObject({ stage: 'finishing business verification', next_step_owner: 'the seller' });   // Professional track (2026-11-06)
     expect(onboarding.blocker).toMatch(/asked for more business verification information/);
     expect(ver).toEqual({ status: 'more info', message_from_advantage: 'Please upload your business license.' });
     expect(JSON.stringify(ver)).not.toMatch(/ein|tax_id|business_info|3456789|Secret Way|Acme/i);
