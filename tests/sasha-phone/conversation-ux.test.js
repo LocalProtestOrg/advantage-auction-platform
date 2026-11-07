@@ -184,7 +184,7 @@ describe('concise conversational phone style', () => {
     expect(p).toMatch(/don't repeat anything you already told this caller unless they ask/);
     expect(p).toMatch(/Use the caller's name at most once/);
     expect(p).toMatch(/don't add another opener such as "Perfect", "Sure thing" or "Great question"/);
-    expect(p).toMatch(/Are you selling some of your own items, or do you run an auction, estate-sale, antique, liquidation or other selling business\?/);   // preserved
+    expect(p).toMatch(/Ask whether someone is selling their own items or for a business ONLY after they have asked about selling, for example: "Happy to help! Are you selling some of your own items, or for a business\?"/);   // owner 2026-11-06: never a hook
     expect(p).not.toMatch(/50 words|fifty words/i);   // no simplistic word cap
   });
   test('the phone output ceiling leaves room for reasoning, tool use and a complete answer (technical ceiling, not a length target)', async () => {
@@ -418,18 +418,22 @@ describe('seller guidance: lot minimum, dimensions, easy listing, benefits, mark
     expect(b).toMatch(/search-engine-friendly auction and lot pages/);
     expect(b).toMatch(/ending-soon reminder/);
     expect(b).toMatch(/card on file is charged automatically when the auction closes, so the seller never has to chase or collect payments/);
-    expect(b).toMatch(/INDIVIDUAL Sellers in particular: no commission and nothing to pay upfront to list, only a 3% processing fee/);
+    expect(b).toMatch(/INDIVIDUAL Seller facts \(state only what was asked, as facts, never as a pitch\): no commission and nothing to pay upfront to list, only a 3% processing fee/);
     expect(b).toMatch(/PROFESSIONAL Sellers in particular \(lead with the seller's own business benefit\)/);
     expect(b).toMatch(/embeddable auction widget, so the same auctions appear on their site and on the Advantage\.Bid marketplace at the same time/);
-    expect(b).toMatch(/never quote a standard percentage/);
-    expect(b).toMatch(/Storefront items support Buy Now \(fixed-price purchase\) as a platform capability/);   // owner decision 2026-10-12
+    expect(b).toMatch(/WHEN YOU MAY USE THESE \(owner hard stop 2026-11-06\): benefits are only for a legitimate commercial business/);
+    expect(b).toMatch(/Online checkout \(Buy Now\) for storefront items is not enabled yet and shipping is not enabled for auctions/);   // owner 2026-11-06
+    expect(b).not.toMatch(/support Buy Now|Buy Now \(fixed-price purchase\) as a platform capability/);
     const sf = platformFacts.getFacts('storefront').storefront.facts.join('\n');
-    expect(sf).toMatch(/Never tell a caller that a particular item can be bought online right now unless current listing or tool data shows it/);
+    expect(sf).toMatch(/online checkout \(Buy Now\) for storefront items is not enabled yet/);
+    expect(sf).toMatch(/never tell a caller that a particular item can be bought online right now/);
     const pol = platformFacts.getFacts('buyer_policies').buyer_policies.facts.join('\n');
     expect(pol).toMatch(/Never make a blanket promise such as "ships nationwide" and never imply every item can be shipped/);
     const fees = platformFacts.getFacts('seller_fees').seller_fees.facts.join('\n');
-    expect(fees).toMatch(/Never quote a standard or default Professional Seller platform-fee percentage/);
-    expect(fees).toMatch(/Professional Seller pricing is established for each seller in their agreement/);
+    expect(fees).toMatch(/Professional Seller auctions \(standard rates, owner-approved 2026-11-06\): a 4% platform fee plus a 3% payment-processing fee on the hammer price\. A seller's own Professional Seller agreement governs/);
+    expect(fees).toMatch(/Professional Storefront fixed-price sales \(standard rates under Seller Agreement v4\): 5% when the sale comes through the seller's own website, 9% through the Advantage\.Bid marketplace/);
+    expect(fees).toMatch(/Never reveal another seller's rate/);
+    expect(fees).not.toMatch(/Never quote a standard or default Professional Seller platform-fee percentage/);
     const progs = platformFacts.getFacts('programs').programs.facts.join('\n');
     expect(progs).toMatch(/Do not describe, promote or quote any price for it; if asked, say it is not currently offered/);
     expect(b).toMatch(/Do NOT mention: neighborhood "Sales Near You" emails, paid promotion packages, social media posting or ads/);
@@ -442,15 +446,14 @@ describe('seller guidance: lot minimum, dimensions, easy listing, benefits, mark
     expect(p).toMatch(/Advantage\.Bid never sees the full account number/);
     expect(p).toMatch(/processes eligible seller payouts every Thursday/);
   });
-  test('the phone prompt makes Sasha a conversational seller representative without monologues', () => {
+  test('the phone prompt answers seller questions factually and never pitches (owner hard stop 2026-11-06)', () => {
     const p = engine.systemPrompt({ channel: 'phone' });
-    expect(p).toMatch(/PROSPECTIVE SELLERS: .*be a knowledgeable, friendly sales representative, not a brochure/);
-    expect(p).toMatch(/Keep answering the question they asked first, in a few sentences/);
-    expect(p).toMatch(/Make sure marketing and exposure come up/);
-    expect(p).toMatch(/Would you like me to walk you through those\?/);
-    expect(p).toMatch(/Never stack several benefits into one long answer, never repeat a benefit already mentioned, and never promise results, traffic or sale prices/);
+    expect(p).not.toMatch(/PROSPECTIVE SELLERS|sales representative|Make sure marketing and exposure come up|Would you like me to walk you through those\?/);
+    expect(p).toMatch(/SELLER QUESTIONS ON A CALL: follow SELLING CONVERSATIONS exactly\. A caller who pressed the seller option is not by that alone a business: never pitch\./);
+    expect(p).toMatch(/never offer a benefits walkthrough and never add benefits to the answer/);
+    expect(p).toMatch(/never stack several benefits into one long answer, never repeat a benefit already mentioned, and never promise results, traffic or sale prices/);
     expect(p).toMatch(/normally in about two to four short spoken sentences/);   // brevity kept
-    expect(engine.systemPrompt({ channel: 'chat' })).not.toMatch(/PROSPECTIVE SELLERS/);
+    expect(engine.systemPrompt({ channel: 'chat' })).not.toMatch(/SELLER QUESTIONS ON A CALL/);
   });
   test('seller calls pre-load the benefits with the live processing fee; account data still needs verification', async () => {
     await setCfg('pricing.auction.processing_fee_bps', 350);
@@ -459,7 +462,8 @@ describe('seller guidance: lot minimum, dimensions, easy listing, benefits, mark
     await sim.say(s.call_id, ADMIN, 'Why should I sell with you?');
     const block = m.calls[0].system.find((b) => /^CORE PUBLIC RULES/.test(b.text)).text;
     expect(block).toMatch(/\[seller_benefits\] Marketing and exposure/);
-    expect(block).toMatch(/\[seller_benefits\] INDIVIDUAL Sellers in particular: no commission and nothing to pay upfront to list, only a 3\.50% processing fee/);
+    expect(block).toMatch(/\[seller_benefits\] INDIVIDUAL Seller facts \(state only what was asked, as facts, never as a pitch\): no commission and nothing to pay upfront to list, only a 3\.50% processing fee/);
+    expect(block).toMatch(/\[seller_benefits\] WHEN YOU MAY USE THESE/);
     expect(block).toMatch(/\[payouts\] HOW SELLERS GET PAID/);
     expect((m.calls[0].tools || []).map((t) => t.name).some((n) => n.startsWith('get_my_'))).toBe(false);
     await sim.end(s.call_id, ADMIN);
@@ -608,11 +612,10 @@ describe('Individual Seller bidding wording', () => {
     expect(withoutRules).not.toMatch(/protect(s|ing)? (their |your )?price|price protection|guaranteed? (a )?(minimum|price|sale)/i);
     expect(b).toMatch(/PROFESSIONAL Sellers in particular .* their own starting bids, reserves, bid increments/);
   });
-  test('the seller sales guidance uses the accurate bidding benefits', () => {
+  test('the seller guidance never implies price protection for Individual Sellers', () => {
     const p = engine.systemPrompt({ channel: 'phone' });
     expect(p).not.toMatch(/bidding that protects their prices/);
-    expect(p).toMatch(/competitive bidding with automatic maximum bids and a soft close/);
-    expect(p).toMatch(/For Individual Sellers never imply a minimum price, reserve or price protection: their lots start at \$1 and sell to the highest bidder/);
+    expect(p).toMatch(/For Individual Sellers never imply a minimum price, reserve or price protection: their lots start at \$1 and sell to the highest bidder, and a lot can sell for as little as \$1/);
   });
 });
 

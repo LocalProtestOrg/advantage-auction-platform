@@ -17,6 +17,33 @@
  * Auction Partners: any seller linked to a founding_partners record (directly, through its organization or company,
  * or by matching the prospect's business email or corporate domain) belongs to the relationship owner (Ty) until Ty
  * releases it to Sasha (founding_partners.sasha_assist_released_at). This does not depend on contact-lock expiry.
+ *
+ * Two tracks (owner approval 2026-11-06). The track is chosen by the canonical sellerTypeRules.isProfessional.
+ *   Individual track   unchanged: agreement, verification (only when flagged), first auction, draft, review, published.
+ *   Professional track (ledger stage names; the seller_activation_state.stage column keeps the coarse stage):
+ *     registration complete  a Professional seller profile exists (recorded in the snapshot; never a message)
+ *     pro_agreement          base Seller Agreement not signed or waived                       -> onboarding_incomplete
+ *     pro_verification       business verification needed by the ONE publication gate (verificationService.publicationGate:
+ *                            verification_required_before_publication with no approved request), or a verification
+ *                            request Advantage.Bid opened or asked more of. Documents with Advantage.Bid = staff attention.
+ *     pro_first_listing      no auction, no storefront item and no import yet                 -> ready_no_auction
+ *     pro_auction_draft      a draft (or returned) auction                                     -> draft_started
+ *     pro_storefront_setup   an unfinished inventory import, or storefront items only in draft -> draft_started
+ *     activated              first published listing: a published auction OR an active or sold storefront item
+ *                            (initial activation; outreach ends).
+ *   Professional messages never say purchasing, checkout, Buy Now or payouts are available and never promise approval.
+ *
+ * Coordination: R-1 is the ONLY automated source of activation and onboarding check-ins to registered sellers.
+ *   - Every contact is blocked by an opt-out, a suppression list, a recorded bounce, any reply, a staff takeover, an
+ *     open or staff-owned Sasha conversation, a staff email, rep email or rep note in the last recent_human_days, an
+ *     assigned sales rep or staff contact lock, another programme's system lock, and an Auction Partner relationship.
+ *   - Professional welcome email (seller_welcome_emails, migration 221): no R-1 message within 72 hours of it
+ *     (guard WELCOME_EMAIL_RECENT). The welcome already covers the agreement, verification and setup steps.
+ *   - Agreement auto-send (agreementService.autoSendAgreement emails the signing link): no R-1 agreement reminder within
+ *     72 hours of that email (guard AGREEMENT_EMAIL_RECENT). R-1 never sends or re-sends the agreement itself.
+ *   - Caps are unchanged: max_per_stage per stage (2), max_per_seller overall (3), daily_cap per day, and the weekday send
+ *     window. Check-ins already sent under a coarse stage count toward the matching Professional stage.
+ *   - A failed Professional fact lookup blocks contact for that seller (fail closed).
  */
 
 const db = require('../db');
@@ -25,6 +52,8 @@ const { normalizeEmail } = require('../lib/emailNormalize');
 const ADDENDUM_TEMPLATE_ID = 'a9000000-0000-4000-8000-0000000000a1';
 const MIN_LOTS = 30;   // auctionService.MIN_LOTS_FOR_SUBMISSION (kept literal: this module must not load auctionService)
 const PROFESSIONAL_TYPES = require('../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES;
+const { isProfessional } = require('./sellerTypeRules');
+const COORDINATION_HOURS = 72;   // quiet period after the Professional welcome email or an agreement auto-send email
 const BASE_URL = () => (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const HOUR = 3600 * 1000; const DAY = 24 * HOUR;
 
@@ -54,6 +83,7 @@ const t = (v) => (v ? new Date(v).getTime() : 0);
  * is staff attention; then the earliest seller-owned step.
  */
 function computeStage(f) {
+  if (isProfessional(f.seller_type)) return computeProStage(f);
   const lastProgressMs = Math.max(t(f.created_at), t(f.agreement_signed_at), t(f.verification_updated_at), t(f.last_auction_at), t(f.last_lot_at));
   const out = (stage, blocker, nextOwner, category) => ({ stage, blocker, next_owner: nextOwner, message_category: category || null,
     last_progress_at: lastProgressMs ? new Date(lastProgressMs).toISOString() : null });
@@ -74,6 +104,47 @@ function computeStage(f) {
   if (Number(f.rejected_auctions) > 0 && f.draft_state === 'rejected') return out('draft_started', 'auction_returned_for_changes', 'seller', 'draft_stalled');
   if (Number(f.draft_auctions) > 0 || f.draft_id) return out('draft_started', 'draft_incomplete', 'seller', 'draft_stalled');
   return out('ready_no_auction', 'no_auction_created', 'seller', 'ready_no_auction');
+}
+
+/**
+ * Professional track (pure). Same output shape plus track and ledger_stage. `stage` stays one of the coarse values
+ * the state table allows; `ledger_stage` is the Professional stage used for the touch ledger, caps and idempotency.
+ */
+function computeProStage(f) {
+  const lastProgressMs = Math.max(t(f.created_at), t(f.agreement_signed_at), t(f.verification_updated_at), t(f.last_auction_at), t(f.last_lot_at),
+    t(f.last_item_at), t(f.last_import_at));
+  const out = (stage, proStage, blocker, nextOwner, category) => ({ stage, ledger_stage: proStage, track: 'professional', blocker, next_owner: nextOwner,
+    message_category: category || null, last_progress_at: lastProgressMs ? new Date(lastProgressMs).toISOString() : null });
+
+  if (Number(f.published_auctions) > 0 || Number(f.active_items) > 0) return out('activated', 'activated', null, null);
+  if (Number(f.submitted_auctions) > 0) return out('submitted_waiting', 'submitted_waiting', 'auction_awaiting_review', 'advantage');
+
+  const agreementOk = !!f.agreement_waived_at || !!f.agreement_signed_at || Number(f.submitted_ever) > 0;
+  if (!agreementOk) return out('onboarding_incomplete', 'pro_agreement', 'agreement_unsigned', 'seller', 'onboarding_incomplete');
+
+  // The one publication gate (flag with no approved request), or a request Advantage.Bid opened or asked more of.
+  const gateBlocked = !!f.verification_flag && !f.verification_approved;
+  const openRequest = !f.verification_approved && ['open', 'more_info', 'submitted'].includes(f.verification_status);
+  if (gateBlocked || openRequest) {
+    if (f.verification_status === 'submitted') return out('onboarding_incomplete', 'pro_verification', 'verification_review_pending', 'advantage');
+    return out('onboarding_incomplete', 'pro_verification', f.verification_status === 'more_info' ? 'verification_more_info_requested' : 'verification_documents_needed',
+      'seller', 'onboarding_incomplete');
+  }
+
+  if (Number(f.rejected_auctions) > 0 && f.draft_state === 'rejected') return out('draft_started', 'pro_auction_draft', 'auction_returned_for_changes', 'seller', 'draft_stalled');
+  if (Number(f.draft_auctions) > 0 || f.draft_id) return out('draft_started', 'pro_auction_draft', 'draft_incomplete', 'seller', 'draft_stalled');
+  if (Number(f.open_imports) > 0) return out('draft_started', 'pro_storefront_setup', 'import_not_finished', 'seller', 'draft_stalled');
+  if (Number(f.draft_items) > 0) return out('draft_started', 'pro_storefront_setup', 'storefront_items_unpublished', 'seller', 'draft_stalled');
+  return out('ready_no_auction', 'pro_first_listing', 'no_listing_created', 'seller', 'ready_no_auction');
+}
+
+/** Check-ins already sent in this stage. A Professional stage also counts touches sent under its coarse stage. */
+function stageTouches(h, s) {
+  const by = h.touches_by_stage || {}; const last = h.last_touch_by_stage || {};
+  const key = s.ledger_stage || s.stage;
+  const n = (by[key] || 0) + (key !== s.stage ? (by[s.stage] || 0) : 0);
+  const at = Math.max(t(h.last_stage_touch_at || last[key]), key !== s.stage ? t(last[s.stage]) : 0);
+  return { n, lastAt: at ? new Date(at).toISOString() : null };
 }
 
 // ── send window (pure) ─────────────────────────────────────────────────────────────────────────────────
@@ -147,21 +218,31 @@ function decide(f, s, h, cfg, now = new Date()) {
   if (h.other_programme) return r('suppressed', 'OTHER_PROGRAMME_CONTACT', 'Another outreach programme currently holds this company (' + h.other_programme + ').');
 
   const total = h.touches_total || 0;
-  const inStage = (h.touches_by_stage || {})[s.stage] || 0;
+  const st = stageTouches(h, s);
+  const inStage = st.n;
   const attempt = total + 1; const stageAttempt = inStage + 1;
   if (total >= cfg.max_per_seller) return r('suppressed', 'SELLER_CAP', 'Reached ' + cfg.max_per_seller + ' check-ins for this seller.');
   if (inStage >= cfg.max_per_stage) return r('suppressed', 'STAGE_CAP', 'Reached ' + cfg.max_per_stage + ' check-ins for this stage.');
 
   const progressMs = t(s.last_progress_at);
   let due = progressMs + cfg.first_touch_hours * HOUR; let guard = 'NOT_DUE';
-  const lastStageTouch = h.last_stage_touch_at || (h.last_touch_by_stage || {})[s.stage];
+  const lastStageTouch = st.lastAt;
   if (inStage > 0 && t(lastStageTouch) + cfg.second_touch_days * DAY > due) { due = t(lastStageTouch) + cfg.second_touch_days * DAY; guard = 'COOLDOWN'; }
   if (h.last_touch_at && t(h.last_touch_at) + cfg.first_touch_hours * HOUR > due) { due = t(h.last_touch_at) + cfg.first_touch_hours * HOUR; guard = 'COOLDOWN'; }
+  if (s.track === 'professional') {
+    // Coordination with the other automated seller emails (see header).
+    if (f.welcome_at && t(f.welcome_at) + COORDINATION_HOURS * HOUR > due) { due = t(f.welcome_at) + COORDINATION_HOURS * HOUR; guard = 'WELCOME_EMAIL_RECENT'; }
+    if (s.blocker === 'agreement_unsigned' && f.agreement_sent_at && t(f.agreement_sent_at) + COORDINATION_HOURS * HOUR > due) {
+      due = t(f.agreement_sent_at) + COORDINATION_HOURS * HOUR; guard = 'AGREEMENT_EMAIL_RECENT';
+    }
+  }
   const dueAt = new Date(due).toISOString();
   const base = { attempt, stage_attempt: stageAttempt, due_at: dueAt };
   if (now.getTime() < due) {
     return r('waiting', guard, guard === 'NOT_DUE' ? 'Seller progress is recent; the first check-in waits ' + cfg.first_touch_hours + ' hours.'
-      : 'Waiting for the follow-up interval after the last check-in.', base);
+      : guard === 'WELCOME_EMAIL_RECENT' ? 'The Professional Seller welcome email went out recently; no check-in within ' + COORDINATION_HOURS + ' hours of it.'
+        : guard === 'AGREEMENT_EMAIL_RECENT' ? 'The seller agreement was emailed recently; no agreement reminder within ' + COORDINATION_HOURS + ' hours of it.'
+          : 'Waiting for the follow-up interval after the last check-in.', base);
   }
   const w = timezoneFor(f);
   const sendAt = nextWindowStart(now, w);
@@ -186,6 +267,7 @@ function firstName(full) {
 
 /** Compose a check-in from verified facts only. Returns { subject, text } or null if there is nothing to say. */
 function composeMessage(f, s, d) {
+  if (s.track === 'professional') return composeProMessage(f, s, d);
   const hi = firstName(f.full_name) ? 'Hi ' + firstName(f.full_name) + ',' : 'Hi there,';
   const follow = d.stage_attempt > 1 ? 'I wanted to follow up on my note from last week. ' : '';
   const url = BASE_URL();
@@ -218,6 +300,61 @@ function composeMessage(f, s, d) {
         + (lots < MIN_LOTS ? ' An auction needs at least ' + MIN_LOTS + ' lots before it can be submitted, so you have ' + (MIN_LOTS - lots) + ' to go.' : ' That is enough lots to submit it for review.')
         + '\n\nYou can pick up where you left off from your seller dashboard: ' + url + '/seller-dashboard.html';
     }
+  } else return null;
+  const text = (hi + '\n\n' + body + '\n\n' + close).replace(/[—–]/g, '-');
+  return { subject, text };
+}
+
+/**
+ * Professional track check-ins. Short and factual, in Sasha's voice; every link is an authenticated page that exists
+ * (PRO_PATHS). Never says purchasing, checkout, Buy Now or payouts are available, and never promises approval.
+ */
+const PRO_PATHS = Object.freeze({ agreement: '/sign-agreement.html?onboarding=1', verification: '/verify-documents.html', dashboard: '/app.html',
+  createAuction: '/seller-create.html', inventory: '/seller-inventory.html', storefront: '/seller-storefront.html?tab=store', howTo: '/seller-how-to' });
+function composeProMessage(f, s, d) {
+  if (!s.message_category || s.next_owner !== 'seller') return null;   // only seller-owned steps get a check-in
+  const hi = firstName(f.full_name) ? 'Hi ' + firstName(f.full_name) + ',' : 'Hi there,';
+  const follow = d.stage_attempt > 1 ? 'I wanted to follow up on my note from last week. ' : '';
+  const link = (k) => BASE_URL() + PRO_PATHS[k];
+  const close = 'If something got in the way or you have a question, just reply to this email and I will help, or get you to the right person on our team.\n\n'
+    + 'If you would rather I not check in again, reply and let me know.';
+  const me = 'This is Sasha from Advantage.Bid. ';
+  let subject; let body;
+  if (s.ledger_stage === 'pro_agreement') {
+    subject = 'Your Advantage.Bid Professional Seller agreement';
+    body = follow + me + 'Your Professional Seller account is set up. The next step is reviewing and signing your Professional Seller agreement, which comes before anything you list can go live.\n\n'
+      + 'You can review and sign it here: ' + link('agreement');
+  } else if (s.ledger_stage === 'pro_verification') {
+    subject = 'Finishing your Advantage.Bid business verification';
+    body = follow + me + 'Advantage.Bid verifies each Professional Seller business before its first listing goes live'
+      + (s.blocker === 'verification_more_info_requested' ? ', and our team asked for a little more information.' : '.')
+      + ' You can keep preparing your storefront and auctions in the meantime.\n\n'
+      + 'You can finish verification here: ' + link('verification');
+  } else if (s.ledger_stage === 'pro_first_listing') {
+    subject = 'Getting your first listings ready on Advantage.Bid';
+    body = follow + me + 'Your Professional Seller account is ready for its first listings. You can build an auction here: ' + link('createAuction') + '\n\n'
+      + 'You can also add fixed-price items to your storefront, one at a time or by importing a spreadsheet: ' + link('inventory') + '\n\n'
+      + 'The Seller How To Center has practical guides for auctions, photography and lots: ' + link('howTo');
+  } else if (s.ledger_stage === 'pro_auction_draft') {
+    const title = clean(f.draft_title, 80);
+    const lots = Number(f.draft_lots) || 0;
+    subject = 'Your draft auction on Advantage.Bid';
+    if (s.blocker === 'auction_returned_for_changes') {
+      body = follow + me + 'Your auction' + (title ? ' "' + title + '"' : '') + ' was returned with a few changes requested. Once those are made, it can move forward again.\n\n'
+        + 'You can see the details from your seller dashboard: ' + link('dashboard');
+    } else {
+      body = follow + me + 'I saw you started a draft auction' + (title ? ', "' + title + '",' : '') + ' and it has ' + lots + (lots === 1 ? ' lot' : ' lots') + ' so far.'
+        + (lots < MIN_LOTS ? ' An auction needs at least ' + MIN_LOTS + ' lots before it can go live, so you have ' + (MIN_LOTS - lots) + ' to go.' : ' That meets the ' + MIN_LOTS + '-lot minimum.')
+        + '\n\nYou can pick up where you left off from your seller dashboard: ' + link('dashboard');
+    }
+  } else if (s.ledger_stage === 'pro_storefront_setup') {
+    subject = 'Your storefront inventory on Advantage.Bid';
+    const n = Number(f.draft_items) || 0;
+    body = follow + me + (s.blocker === 'import_not_finished'
+      ? 'You started an inventory import that has not been finished yet. You can pick it up here: ' + link('inventory')
+      : 'You have ' + n + (n === 1 ? ' storefront item' : ' storefront items') + ' saved as drafts and none published yet. You can review and publish them from your inventory: ' + link('inventory'));
+    if (!f.storefront_terms_signed) body += '\n\nBefore storefront items can be published, the seller agreement with the current storefront terms needs to be signed: ' + link('agreement');
+    if (!(f.storefront_published && f.storefront_slug)) body += '\n\nPublishing your storefront page lets your storefront link and website widget show your items: ' + link('storefront');
   } else return null;
   const text = (hi + '\n\n' + body + '\n\n' + close).replace(/[—–]/g, '-');
   return { subject, text };
@@ -274,7 +411,45 @@ async function loadFacts(runner = db, { sellerProfileIds = null } = {}) {
                            ORDER BY x.updated_at DESC NULLS LAST LIMIT 1) dr ON true
       WHERE ($2::uuid[] IS NULL OR sp.id = ANY($2::uuid[]))
       ORDER BY sp.created_at`, [ADDENDUM_TEMPLATE_ID, sellerProfileIds])).rows;
+  await attachProfessionalFacts(base, runner);
   return base;
+}
+
+/**
+ * Professional-track facts (storefront items, imports, storefront terms and page, the pending agreement email and the
+ * welcome email). Read-only. Professional sellers only; a failed read marks them pro_facts_error, which blocks contact.
+ */
+async function attachProfessionalFacts(facts, runner = db) {
+  const pros = facts.filter((f) => isProfessional(f.seller_type));
+  if (!pros.length) return facts;
+  try {
+    const rows = (await runner.query(
+      `SELECT sp.id AS seller_profile_id, sp.storefront_published, sp.storefront_slug,
+              mi.active_items, mi.draft_items, mi.last_item_at, ib.open_imports, ib.last_import_at, pa.sent_at AS agreement_sent_at, we.welcome_at,
+              EXISTS (SELECT 1 FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+                       WHERE a.seller_profile_id = sp.id AND a.status IN ('signed','countersigned') AND v.template_id <> $2
+                         AND v.storefront_fee_schedule IS NOT NULL) AS storefront_terms_signed
+         FROM seller_profiles sp
+         LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE m.status IN ('active','sold'))::int AS active_items,
+                                   count(*) FILTER (WHERE m.status = 'draft')::int AS draft_items,
+                                   max(GREATEST(m.created_at, m.updated_at)) AS last_item_at
+                              FROM marketplace_items m WHERE m.seller_id = sp.id AND NOT COALESCE(m.is_demo, false)) mi ON true
+         LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE b.status IN ('previewed','importing'))::int AS open_imports, max(b.updated_at) AS last_import_at
+                              FROM storefront_import_batches b WHERE b.seller_id = sp.id) ib ON true
+         LEFT JOIN LATERAL (SELECT max(a.sent_at) AS sent_at FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+                             WHERE a.seller_profile_id = sp.id AND a.status IN ('sent','viewed') AND v.template_id <> $2) pa ON true
+         LEFT JOIN LATERAL (SELECT max(COALESCE(w.sent_at, w.created_at)) AS welcome_at FROM seller_welcome_emails w
+                             WHERE w.seller_profile_id = sp.id AND w.status IN ('pending','processing','sent')) we ON true
+        WHERE sp.id = ANY($1::uuid[])`, [pros.map((f) => f.seller_profile_id), ADDENDUM_TEMPLATE_ID])).rows;
+    for (const f of pros) {
+      const r = rows.find((x) => x.seller_profile_id === f.seller_profile_id) || {};
+      Object.assign(f, { active_items: r.active_items || 0, draft_items: r.draft_items || 0, last_item_at: r.last_item_at || null,
+        open_imports: r.open_imports || 0, last_import_at: r.last_import_at || null, agreement_sent_at: r.agreement_sent_at || null,
+        welcome_at: r.welcome_at || null, storefront_terms_signed: !!r.storefront_terms_signed,
+        storefront_published: !!r.storefront_published, storefront_slug: r.storefront_slug || null });
+    }
+  } catch (e) { for (const f of pros) f.pro_facts_error = e.message; }
+  return facts;
 }
 
 /** History + guard facts for a set of sellers. Any failed lookup marks every seller lookup_error (fail closed). */
@@ -388,6 +563,7 @@ async function loadHistory(facts, cfg, runner = db, now = new Date()) {
       for (const co of myCompanies) { if (sup.suppressed) break; sup = await suppress.check({ email: null, companyId: co }, runner); }
       h.suppressed = sup.suppressed ? (sup.error ? 'lookup failed' : sup.source + (sup.reason ? ': ' + sup.reason : '')) : null;
       if (sup.error) h.lookup_error = 'suppression lookup: ' + sup.error;
+      if (f.pro_facts_error) h.lookup_error = 'professional facts: ' + f.pro_facts_error;
     }
   } catch (e) {
     for (const h of out.values()) h.lookup_error = e.message;
@@ -408,6 +584,9 @@ function snapshotFor(f, s, h, d) {
     auction_partner: h.auction_partner ? { id: h.auction_partner.id, name: h.auction_partner.name, status: h.auction_partner.status, released: h.auction_partner.released } : null,
     sasha_history: (h.sasha_history || []).slice(0, 5), due_at: d.due_at || null, send_at: d.send_at || null, window: d.window || null,
     first_published_at: f.first_published_at || null,
+    ...(s.track === 'professional' ? { track: 'professional', pro_stage: s.ledger_stage, registration_complete: true,
+      storefront_items_active: Number(f.active_items) || 0, storefront_items_draft: Number(f.draft_items) || 0, open_imports: Number(f.open_imports) || 0,
+      storefront_terms_signed: !!f.storefront_terms_signed, welcome_at: f.welcome_at || null, agreement_sent_at: f.agreement_sent_at || null } : {}),
   };
 }
 
@@ -415,6 +594,7 @@ async function recordEvaluation(f, s, h, d, cfg, runner = db) {
   const prev = (await runner.query(`SELECT stage, blocker, decision, guard, last_progress_at FROM seller_activation_state WHERE seller_profile_id = $1`,
     [f.seller_profile_id])).rows[0];
   const stage = d.decision === 'excluded' ? 'excluded' : s.stage;
+  const ledgerStage = d.decision === 'excluded' ? 'excluded' : (s.ledger_stage || s.stage);   // the Professional stage, in the ledger
   const snap = snapshotFor(f, s, h, d);
   const ledgerRows = [];
   if (prev && prev.decision === 'would_contact' && (prev.stage !== stage || t(s.last_progress_at) > t(prev.last_progress_at))) {
@@ -428,7 +608,7 @@ async function recordEvaluation(f, s, h, d, cfg, runner = db) {
       `INSERT INTO seller_activation_touches (seller_profile_id, user_id, mode, decision, stage, blocker, next_owner, guard, reason, message_category,
          attempt, stage_attempt, last_progress_at, snapshot)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)`,
-      [f.seller_profile_id, f.user_id, cfg.mode, row.decision, stage, s.blocker, s.next_owner, row.guard, String(row.reason || '').slice(0, 500),
+      [f.seller_profile_id, f.user_id, cfg.mode, row.decision, ledgerStage, s.blocker, s.next_owner, row.guard, String(row.reason || '').slice(0, 500),
         row.decision === 'would_contact' ? s.message_category : null, d.attempt || null, d.stage_attempt || null, s.last_progress_at, JSON.stringify(snap)]);
   }
   await runner.query(
@@ -472,7 +652,7 @@ async function sendCheckIn(sellerProfileId, selected, deps = {}) {
     `INSERT INTO seller_activation_touches (seller_profile_id, user_id, mode, decision, stage, blocker, next_owner, guard, reason, message_category,
        attempt, stage_attempt, last_progress_at, conversation_id, conversation_ref, idempotency_key, snapshot)
      VALUES ($1,$2,'live',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb) ON CONFLICT DO NOTHING RETURNING id`,
-    [f.seller_profile_id, f.user_id, decision, s.stage, s.blocker, s.next_owner, guard || null, String(reason || '').slice(0, 500), s.message_category,
+    [f.seller_profile_id, f.user_id, decision, s.ledger_stage || s.stage, s.blocker, s.next_owner, guard || null, String(reason || '').slice(0, 500), s.message_category,
       d.attempt || null, d.stage_attempt || null, s.last_progress_at, extra.conversationId || null, extra.ref || null, extra.key || null, JSON.stringify(snapshotFor(f, s, h, d))]);
 
   const progressed = selected && (selected.stage !== s.stage || t(s.last_progress_at) > t(selected.last_progress_at));
@@ -485,12 +665,12 @@ async function sendCheckIn(sellerProfileId, selected, deps = {}) {
   const sasha = await require('./sasha/settings').effective().catch(() => ({}));
   if (!sasha.enabled || !sasha.email_inbound) { await ledger('cancelled', 'SASHA_UNAVAILABLE', 'Sasha or the Shared Inbox is switched off, so replies could not be received.'); return { sent: false, reason: 'SASHA_UNAVAILABLE' }; }
 
-  const key = ['sa', f.seller_profile_id, s.stage, d.stage_attempt, d.attempt].join(':');
+  const key = ['sa', f.seller_profile_id, s.ledger_stage || s.stage, d.stage_attempt, d.attempt].join(':');
   const conversations = require('./sasha/conversationService');
   const channel = require('./sasha/emailChannel');
   // Second check-in in the same stage continues the same thread.
   const prior = (await db.query(`SELECT conversation_id FROM seller_activation_touches WHERE seller_profile_id = $1 AND stage = $2 AND decision = 'contacted'
-    AND conversation_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`, [f.seller_profile_id, s.stage])).rows[0];
+    AND conversation_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`, [f.seller_profile_id, s.ledger_stage || s.stage])).rows[0];
   const conv = prior ? await conversations.get(prior.conversation_id)
     : await conversations.createConversation({ channel: 'email', subject: msg.subject, customerEmail: f.email, customerName: f.full_name || null, contactMatchUserId: f.user_id });
   const claim = (await ledger('contacted', null, d.reason, { conversationId: conv.id, ref: conv.ref, key })).rows[0];
@@ -647,5 +827,5 @@ async function directorView() {
     max_per_stage: cfg.max_per_stage, max_per_seller: cfg.max_per_seller, daily_cap: cfg.daily_cap, recent_human_days: cfg.recent_human_days }, funnel, sellers };
 }
 
-module.exports = { computeStage, decide, composeMessage, exclusion, timezoneFor, inWindow, nextWindowStart, config, loadFacts, loadHistory,
+module.exports = { computeStage, computeProStage, decide, composeMessage, exclusion, attachProfessionalFacts, PRO_PATHS, COORDINATION_HOURS, timezoneFor, inWindow, nextWindowStart, config, loadFacts, loadHistory,
   recordEvaluation, sendCheckIn, runPass, preview, optOut, setConfig, directorView, DEFAULTS, MIN_LOTS };

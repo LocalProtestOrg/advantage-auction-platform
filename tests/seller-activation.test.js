@@ -277,7 +277,7 @@ describe('Sasha check-in messages (verified facts, no em dashes, not marketing)'
     seller(),
     seller({ draft_auctions: 1, draft_id: 'a', draft_title: 'Mid—century\nfurniture', draft_lots: 12 }),
     seller({ rejected_auctions: 1, draft_id: 'a', draft_state: 'rejected', draft_title: 'Tools' }),
-    seller({ seller_type: 'auction_house', verification_status: 'more_info' }),
+    seller({ verification_flag: true, verification_status: 'more_info' }),   // Individual track; Professional messages are covered below
   ];
   test.each(cases.map((c, i) => [i, c]))('case %i composes a safe message', (_i, f) => {
     const { s, d } = run(f);
@@ -481,5 +481,190 @@ describe('scope and wiring', () => {
     const src = read('src/services/sellerActivationService.js');
     expect(src).not.toMatch(/UPDATE (seller_profiles|auctions|agreements|founding_partners|payments|seller_payouts|platform_config)/);
     expect(src).not.toMatch(/platform_fee_bps|buyer_premium|processing_fee/);
+  });
+});
+
+// ── Professional track (owner approval 2026-11-06) ───────────────────────────────────────────────────
+describe('Professional Seller track', () => {
+  const pro = (o = {}) => seller({ seller_type: 'estate_sale_company', full_name: 'Pat Seller', verification_flag: true, verification_approved: true,
+    active_items: 0, draft_items: 0, open_imports: 0, storefront_terms_signed: true, storefront_published: true, storefront_slug: 'pat', ...o });
+  const stageOf = (f) => sa.computeStage(f);
+
+  test('stages come from recorded facts, in the owner order: agreement, verification, first listing, drafts, published', () => {
+    expect(stageOf(pro({ agreement_signed_at: null }))).toMatchObject({ track: 'professional', stage: 'onboarding_incomplete', ledger_stage: 'pro_agreement', blocker: 'agreement_unsigned', next_owner: 'seller' });
+    expect(stageOf(pro({ verification_approved: false, verification_status: 'open' }))).toMatchObject({ ledger_stage: 'pro_verification', blocker: 'verification_documents_needed', next_owner: 'seller' });
+    expect(stageOf(pro({ verification_approved: false, verification_status: null }))).toMatchObject({ ledger_stage: 'pro_verification', blocker: 'verification_documents_needed' });
+    expect(stageOf(pro({ verification_approved: false, verification_status: 'more_info' }))).toMatchObject({ ledger_stage: 'pro_verification', blocker: 'verification_more_info_requested' });
+    expect(stageOf(pro())).toMatchObject({ stage: 'ready_no_auction', ledger_stage: 'pro_first_listing', blocker: 'no_listing_created', message_category: 'ready_no_auction' });
+    expect(stageOf(pro({ draft_auctions: 1, draft_id: 'a1', draft_lots: 5 }))).toMatchObject({ stage: 'draft_started', ledger_stage: 'pro_auction_draft', blocker: 'draft_incomplete', message_category: 'draft_stalled' });
+    expect(stageOf(pro({ rejected_auctions: 1, draft_id: 'a1', draft_state: 'rejected' }))).toMatchObject({ ledger_stage: 'pro_auction_draft', blocker: 'auction_returned_for_changes' });
+    expect(stageOf(pro({ open_imports: 1 }))).toMatchObject({ stage: 'draft_started', ledger_stage: 'pro_storefront_setup', blocker: 'import_not_finished' });
+    expect(stageOf(pro({ draft_items: 4 }))).toMatchObject({ ledger_stage: 'pro_storefront_setup', blocker: 'storefront_items_unpublished' });
+    expect(stageOf(pro({ active_items: 1, draft_items: 3 }))).toMatchObject({ stage: 'activated', ledger_stage: 'activated' });
+    expect(stageOf(pro({ published_auctions: 1 }))).toMatchObject({ stage: 'activated' });
+    expect(stageOf(pro({ submitted_auctions: 1, submitted_ever: 1 }))).toMatchObject({ stage: 'submitted_waiting', next_owner: 'advantage' });
+  });
+  test('a first published listing (auction or storefront item) ends outreach', () => {
+    expect(run(pro({ active_items: 1 })).d).toMatchObject({ decision: 'complete', guard: 'ACTIVATED' });
+  });
+  test('verification follows the one publication gate: a pro without the gate flag or an open request is not asked to verify', () => {
+    const grandfathered = pro({ verification_flag: false, verification_approved: false, verification_status: null });
+    expect(stageOf(grandfathered).ledger_stage).toBe('pro_first_listing');
+    expect(run(pro({ verification_approved: false, verification_status: 'submitted' })).d).toMatchObject({ decision: 'staff_attention', guard: 'ADVANTAGE_OWNS_NEXT_ACTION' });
+  });
+  test('the canonical isProfessional decides the track (retail_gallery_studio included); individual types stay on the individual track', () => {
+    expect(stageOf(pro({ seller_type: 'retail_gallery_studio' })).track).toBe('professional');
+    for (const t of ['private', 'business', 'other', null]) expect(stageOf(seller({ seller_type: t })).track).toBeUndefined();
+  });
+  test('the Individual track is unchanged (same stage objects as before; no Professional fields)', () => {
+    expect(stageOf(seller())).toEqual({ stage: 'ready_no_auction', blocker: 'no_auction_created', next_owner: 'seller', message_category: 'ready_no_auction', last_progress_at: hoursAgo(100) });
+    expect(stageOf(seller({ agreement_signed_at: null }))).toEqual({ stage: 'onboarding_incomplete', blocker: 'agreement_unsigned', next_owner: 'seller', message_category: 'onboarding_incomplete', last_progress_at: hoursAgo(200) });
+    const f = seller({ draft_auctions: 1, draft_id: 'a', draft_title: 'Tools', draft_lots: 3 });
+    const { s, d } = run(f);
+    expect(sa.composeMessage(f, s, d).text).toMatch(/seller-dashboard\.html/);
+    expect(JSON.stringify(sa.composeMessage(f, s, d))).not.toMatch(/app\.html|seller-inventory|seller-how-to/);
+  });
+
+  test('at most 2 check-ins per Professional stage; check-ins sent under the coarse stage count too', () => {
+    const f = pro({ agreement_signed_at: null });
+    expect(run(f, hist({ touches_total: 2, touches_by_stage: { pro_agreement: 2 }, last_touch_at: hoursAgo(900) })).d.guard).toBe('STAGE_CAP');
+    expect(run(f, hist({ touches_total: 2, touches_by_stage: { onboarding_incomplete: 2 }, last_touch_at: hoursAgo(900) })).d.guard).toBe('STAGE_CAP');
+    expect(run(f, hist({ touches_total: 2, touches_by_stage: { onboarding_incomplete: 1, pro_agreement: 1 }, last_touch_at: hoursAgo(900) })).d.guard).toBe('STAGE_CAP');
+    expect(run(pro(), hist({ touches_total: 3, touches_by_stage: { pro_agreement: 2, pro_verification: 1 }, last_touch_at: hoursAgo(900) })).d.guard).toBe('SELLER_CAP');
+    const one = run(f, hist({ touches_total: 1, touches_by_stage: { pro_agreement: 1 }, last_touch_at: hoursAgo(8 * 24), last_touch_by_stage: { pro_agreement: hoursAgo(8 * 24) } })).d;
+    expect(one).toMatchObject({ decision: 'would_contact', stage_attempt: 2, attempt: 2 });
+  });
+  test('the second check-in in a Professional stage waits 7 days after the first (also when the first was under the coarse stage)', () => {
+    const f = pro({ agreement_signed_at: null });
+    const h = hist({ touches_total: 1, touches_by_stage: { onboarding_incomplete: 1 }, last_touch_at: hoursAgo(5 * 24), last_touch_by_stage: { onboarding_incomplete: hoursAgo(5 * 24) } });
+    expect(run(f, h).d).toMatchObject({ decision: 'waiting', guard: 'COOLDOWN' });
+  });
+
+  test('no R-1 message within 72 hours of the Professional welcome email, at any stage', () => {
+    for (const o of [{ agreement_signed_at: null }, {}, { draft_items: 2 }]) {
+      expect(run(pro({ ...o, welcome_at: hoursAgo(10) })).d).toMatchObject({ decision: 'waiting', guard: 'WELCOME_EMAIL_RECENT' });
+      expect(run(pro({ ...o, welcome_at: hoursAgo(73) })).d.decision).toBe('would_contact');
+    }
+  });
+  test('no agreement reminder within 72 hours of the agreement auto-send email; other stages are not held by it', () => {
+    expect(run(pro({ agreement_signed_at: null, agreement_sent_at: hoursAgo(20) })).d).toMatchObject({ decision: 'waiting', guard: 'AGREEMENT_EMAIL_RECENT' });
+    expect(run(pro({ agreement_signed_at: null, agreement_sent_at: hoursAgo(80) })).d.decision).toBe('would_contact');
+    expect(run(pro({ agreement_sent_at: hoursAgo(20) })).d.decision).toBe('would_contact');
+  });
+  test('every existing guard still applies to Professional Sellers', () => {
+    const f = pro({ agreement_signed_at: null });
+    for (const [h, guard] of [[{ opted_out: true }, 'ACTIVATION_OPT_OUT'], [{ suppressed: 'global' }, 'SUPPRESSION_LIST'], [{ replied: true }, 'SELLER_REPLIED'],
+      [{ open_conversation: 'Ref S1, open' }, 'OPEN_CONVERSATION'], [{ recent_human: 'rep email 2026-10-01' }, 'RECENT_HUMAN_CONTACT'],
+      [{ staff_owner: 'assigned sales rep' }, 'STAFF_RELATIONSHIP_OWNER'], [{ other_programme: 'x' }, 'OTHER_PROGRAMME_CONTACT']]) {
+      expect(run(f, hist(h)).d.guard).toBe(guard);
+    }
+    expect(run(f, hist({ sent_today: 6 }), LIVE).d.guard).toBe('DAILY_CAP');
+  });
+  test('Auction Partners held by their relationship owner are never messaged, at any Professional stage', () => {
+    const ap = hist({ auction_partner: { id: 'fp1', name: 'Ashbury', released: false, owner_user_id: 'ty' } });
+    for (const o of [{ agreement_signed_at: null }, { verification_approved: false, verification_status: 'open' }, {}, { draft_items: 2 }, { draft_id: 'a', draft_auctions: 1 }]) {
+      expect(run(pro(o), ap).d).toMatchObject({ decision: 'staff_attention', guard: 'AUCTION_PARTNER_RELATIONSHIP_OWNER' });
+    }
+  });
+  test('a failed Professional fact lookup blocks contact (fail closed); individuals are not queried for it', async () => {
+    route(/FROM marketplace_items m/, () => { throw new Error('relation missing'); });
+    const facts = [pro({ agreement_signed_at: null }), seller({ seller_profile_id: '33333333-3333-4333-8333-333333333333' })];
+    await sa.attachProfessionalFacts(facts, require('../src/db'));
+    expect(facts[0].pro_facts_error).toMatch(/relation missing/);
+    expect(facts[1].pro_facts_error).toBeUndefined();
+    route(/count\(\*\)::int n FROM seller_activation_touches/, () => ({ rows: [{ n: 0 }] }));
+    const h = (await sa.loadHistory([facts[0]], CFG, require('../src/db'), NOW)).get(facts[0].seller_profile_id);
+    expect(sa.decide(facts[0], sa.computeStage(facts[0]), h, CFG, NOW).guard).toBe('LOOKUP_FAILED');
+    calls.length = 0;
+    await sa.attachProfessionalFacts([seller()], require('../src/db'));
+    expect(calls).toHaveLength(0);
+  });
+  test('the Professional facts come from the recorded tables (items, imports, storefront terms, agreement email, welcome email)', async () => {
+    route(/FROM marketplace_items m/, () => ({ rows: [{ seller_profile_id: pro().seller_profile_id, active_items: 0, draft_items: 3, open_imports: 1, welcome_at: hoursAgo(5),
+      agreement_sent_at: hoursAgo(4), storefront_terms_signed: false, storefront_published: false, storefront_slug: null }] }));
+    const [f] = await sa.attachProfessionalFacts([pro()], require('../src/db'));
+    expect(f).toMatchObject({ draft_items: 3, open_imports: 1, welcome_at: hoursAgo(5), agreement_sent_at: hoursAgo(4), storefront_terms_signed: false });
+    const sql = calls.find((c) => /FROM marketplace_items m/.test(c.sql)).sql;
+    for (const re of [/seller_welcome_emails/, /status IN \('sent','viewed'\)/, /storefront_import_batches/, /storefront_fee_schedule IS NOT NULL/, /NOT COALESCE\(m\.is_demo, false\)/]) expect(sql).toMatch(re);
+  });
+
+  // ── messages ──
+  const proCases = [
+    ['agreement', pro({ agreement_signed_at: null })],
+    ['verification', pro({ verification_approved: false, verification_status: 'open' })],
+    ['verification, more info', pro({ verification_approved: false, verification_status: 'more_info' })],
+    ['first listing', pro()],
+    ['auction draft', pro({ draft_auctions: 1, draft_id: 'a', draft_title: 'Estate—contents', draft_lots: 12 })],
+    ['auction returned', pro({ rejected_auctions: 1, draft_id: 'a', draft_state: 'rejected', draft_title: 'Tools' })],
+    ['import not finished', pro({ open_imports: 1 })],
+    ['storefront drafts, terms and page pending', pro({ draft_items: 4, storefront_terms_signed: false, storefront_published: false })],
+  ];
+  const PAGE_FILES = { '/sign-agreement.html': 'sign-agreement.html', '/verify-documents.html': 'verify-documents.html', '/app.html': 'app.html', '/seller-create.html': 'seller-create.html',
+    '/seller-inventory.html': 'seller-inventory.html', '/seller-storefront.html': 'seller-storefront.html', '/seller-how-to': 'seller-how-to.html' };
+  test.each(proCases)('%s: short, accurate, Sasha, real authenticated links, no unavailable features or promises', (_n, f) => {
+    const { s, d } = run(f);
+    const m = sa.composeMessage(f, s, d);
+    expect(m).toBeTruthy();
+    const all = m.subject + '\n' + m.text;
+    expect(all).not.toMatch(/[—–]/);
+    expect(m.text).toMatch(/^Hi Pat,\n\nThis is Sasha from Advantage\.Bid\./);
+    expect(m.text).toMatch(/reply to this email/);
+    expect(m.text).toMatch(/If you would rather I not check in again, reply and let me know\./);
+    expect(all).not.toMatch(/\b(AI|A\.I\.|artificial intelligence|machine learning|GPT|OpenAI|LLM|Stripe|Railway|Cloudinary|Neon|Postmark|unsubscribe|sale|discount|% off)\b/i);
+    expect(all).not.toMatch(/checkout|check out|buy now|purchas|payout|get paid|paid|ship/i);
+    expect(all).not.toMatch(/will be approved|guarantee|approval is|you are approved/i);
+    expect(m.text.split(/\s+/).length).toBeLessThan(140);
+    const urls = m.text.match(/https?:\/\/\S+/g) || [];
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) {
+      const p = u.replace('https://bid.advantage.bid', '').replace(/\?.*$/, '');
+      expect(u).toMatch(/^https:\/\/bid\.advantage\.bid\//);
+      expect(Object.values(sa.PRO_PATHS).map((x) => x.replace(/\?.*$/, ''))).toContain(p);
+      expect(fs.existsSync(path.join(__dirname, '..', 'public', PAGE_FILES[p]))).toBe(true);
+    }
+  });
+  test('each Professional stage gets its own subject and destination', () => {
+    const msg = (f) => { const { s, d } = run(f); return sa.composeMessage(f, s, d); };
+    expect(msg(proCases[0][1])).toMatchObject({ subject: 'Your Advantage.Bid Professional Seller agreement' });
+    expect(msg(proCases[0][1]).text).toContain('https://bid.advantage.bid/sign-agreement.html?onboarding=1');
+    expect(msg(proCases[1][1]).text).toContain('https://bid.advantage.bid/verify-documents.html');
+    expect(msg(proCases[2][1]).text).toMatch(/our team asked for a little more information/);
+    expect(msg(proCases[3][1]).text).toMatch(/seller-create\.html[\s\S]*seller-inventory\.html[\s\S]*seller-how-to/);
+    expect(msg(proCases[4][1]).text).toMatch(/"Estate-contents", and it has 12 lots so far\. An auction needs at least 30 lots before it can go live, so you have 18 to go\./);
+    expect(msg(proCases[6][1]).text).toMatch(/inventory import that has not been finished/);
+    const sf = msg(proCases[7][1]).text;
+    expect(sf).toMatch(/You have 4 storefront items saved as drafts/);
+    expect(sf).toMatch(/current storefront terms needs to be signed/);
+    expect(sf).toMatch(/seller-storefront\.html\?tab=store/);
+    expect(msg(pro({ draft_items: 1 })).text).not.toMatch(/storefront terms|seller-storefront/);
+  });
+  test('no message for a Professional stage Sasha does not handle', () => {
+    for (const f of [pro({ submitted_auctions: 1 }), pro({ active_items: 1 }), pro({ verification_approved: false, verification_status: 'submitted' })]) {
+      expect(sa.composeMessage(f, sa.computeStage(f), {})).toBeNull();
+    }
+  });
+  test('live send uses the Professional stage in the ledger and the idempotency key', async () => {
+    const f = pro({ agreement_signed_at: null }); liveDb(f);
+    const emailService = { sendEmail: jest.fn(async () => ({ messageId: 'abc@ses' })) };
+    const r = await sa.sendCheckIn(f.seller_profile_id, { stage: 'onboarding_incomplete', last_progress_at: sa.computeStage(f).last_progress_at }, { emailService, now: NOW });
+    expect(r).toMatchObject({ sent: true });
+    expect(emailService.sendEmail.mock.calls[0][0].subject).toBe('Your Advantage.Bid Professional Seller agreement [Ref SABC123]');
+    expect(ledger('contacted')[0].params[3]).toBe('pro_agreement');
+    expect(ledger('contacted')[0].params[14]).toMatch(/:pro_agreement:1:1$/);
+  });
+  test('the state table keeps the coarse stage (its CHECK constraint); the ledger records the Professional stage', async () => {
+    const f = pro({ agreement_signed_at: null }); const s = sa.computeStage(f); const d = sa.decide(f, s, hist(), CFG, NOW);
+    await sa.recordEvaluation(f, s, hist(), d, CFG, require('../src/db'));
+    const touch = calls.find((c) => /INSERT INTO seller_activation_touches/.test(c.sql));
+    const state = calls.find((c) => /INSERT INTO seller_activation_state/.test(c.sql));
+    expect(touch.params[4]).toBe('pro_agreement');
+    expect(state.params[2]).toBe('onboarding_incomplete');
+    expect(JSON.parse(state.params[11])).toMatchObject({ track: 'professional', pro_stage: 'pro_agreement', registration_complete: true });
+  });
+  test('the coordination rules are documented in the service header', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'sellerActivationService.js'), 'utf8');
+    expect(src).toMatch(/R-1 is the ONLY automated source of activation and onboarding check-ins to registered sellers/);
+    expect(src).toMatch(/WELCOME_EMAIL_RECENT/);
+    expect(src).toMatch(/AGREEMENT_EMAIL_RECENT/);
   });
 });

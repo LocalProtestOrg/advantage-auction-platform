@@ -34,7 +34,7 @@ const ACTIVE = new Map();   // callId → PhoneCall (this process)
 /** The caller's menu choice, as call context for Sasha (a likely purpose, not a restriction: they may ask anything). */
 const ROUTING = {
   buyer: 'MENU CHOICE: the caller pressed 1 (BUYER). Be ready for bidding, auctions, watchlist, invoices, payments and secure payment links, account questions, purchase status, pickup (after verification) and how buying works.',
-  seller: 'MENU CHOICE: the caller pressed 2 (SELLER). Be ready for how selling works, Individual and Professional Seller questions, seller onboarding, creating auctions, listings, the fees you are allowed to explain, seller account and navigation questions, and taking a message for the team when staff are needed. Never quote a Professional Seller platform rate as a standard public rate.',
+  seller: 'MENU CHOICE: the caller pressed 2 (SELLER). Be ready for how selling works, Individual and Professional Seller questions, seller onboarding, creating auctions, listings, the standard fees (a seller\'s own agreement governs), seller account and navigation questions, and taking a message for the team when staff are needed. Pressing 2 does not make a caller a business: follow SELLING CONVERSATIONS and never pitch.',
   pickup: 'MENU CHOICE: the caller pressed 3 (RECENT PURCHASE / PICKUP). They most likely need post-purchase help: finding the invoice or purchase, payment status, a secure payment link, pickup dates and times, and the pickup address (only after verification and only if paid, as the tools allow).',
   other: 'MENU CHOICE: the caller pressed 4 (OTHER) or made no choice. Find out conversationally what they need and help.',
 };

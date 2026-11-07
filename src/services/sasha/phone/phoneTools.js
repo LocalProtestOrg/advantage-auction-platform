@@ -127,7 +127,13 @@ const STAGE_WORDS = { onboarding_incomplete: 'finishing account setup', ready_no
 const BLOCKER_WORDS = { agreement_unsigned: 'the seller agreement still needs to be signed', verification_review_pending: 'business verification documents are with Advantage.Bid for review',
   verification_more_info_requested: 'Advantage.Bid asked for more business verification information', verification_documents_needed: 'business verification documents still need to be uploaded',
   auction_returned_for_changes: 'an auction came back from review with changes requested', draft_incomplete: 'the draft auction is not finished yet', no_auction_created: 'no auction has been started yet',
-  auction_awaiting_review: 'the submitted auction is waiting for Advantage.Bid review' };
+  auction_awaiting_review: 'the submitted auction is waiting for Advantage.Bid review',
+  // Professional track (sellerActivationService.computeProStage)
+  no_listing_created: 'no auction or storefront item has been started yet', import_not_finished: 'an inventory import was started and not finished',
+  storefront_items_unpublished: 'storefront items are saved as drafts and none are published yet' };
+const PRO_STAGE_WORDS = { pro_agreement: 'finishing account setup (seller agreement)', pro_verification: 'finishing business verification',
+  pro_first_listing: 'ready to create a first auction or storefront listing', pro_auction_draft: 'working on a draft auction',
+  pro_storefront_setup: 'setting up storefront inventory', activated: 'has a published auction or storefront listing' };
 async function getMySellerOnboarding(_a, ctx) {
   const sp = await sellerProfile(ctx.userId);
   if (!sp) return { note: 'This account has no seller profile.' };
@@ -135,7 +141,7 @@ async function getMySellerOnboarding(_a, ctx) {
   const [f] = await activation.loadFacts(db, { sellerProfileIds: [sp.id] });
   if (!f) return { note: 'No seller information found.' };
   const st = activation.computeStage(f);
-  return { stage: STAGE_WORDS[st.stage] || st.stage, blocker: st.blocker ? (BLOCKER_WORDS[st.blocker] || st.blocker) : null,
+  return { stage: (st.track === 'professional' && PRO_STAGE_WORDS[st.ledger_stage]) || STAGE_WORDS[st.stage] || st.stage, blocker: st.blocker ? (BLOCKER_WORDS[st.blocker] || st.blocker) : null,
     next_step_owner: st.next_owner === 'seller' ? 'the seller' : st.next_owner === 'advantage' ? 'Advantage.Bid' : null, seller_dashboard: `${SITE}/seller-dashboard.html` };
 }
 
