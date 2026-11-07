@@ -634,9 +634,73 @@ describe('Professional Seller track', () => {
     expect(msg(proCases[6][1]).text).toMatch(/inventory import that has not been finished/);
     const sf = msg(proCases[7][1]).text;
     expect(sf).toMatch(/You have 4 storefront items saved as drafts/);
-    expect(sf).toMatch(/current storefront terms needs to be signed/);
+    expect(sf).not.toMatch(/storefront terms|agreement|sign/i);   // never a reminder about a newly published agreement version (owner 2026-11-07)
     expect(sf).toMatch(/seller-storefront\.html\?tab=store/);
+    expect(sf).toMatch(/Online buying for storefront items is not open yet, so published items can be viewed but not bought online for now\./);
     expect(msg(pro({ draft_items: 1 })).text).not.toMatch(/storefront terms|seller-storefront/);
+    expect(msg(pro({ draft_items: 1, checkout_enabled: true })).text).not.toMatch(/Online buying/);
+  });
+
+  // ── storefront-only Professional Sellers (owner 2026-11-07) ──
+  test('storefront milestones are distinct and never merged', () => {
+    const sp = (o) => sa.storefrontProgress(pro({ storefront_published: false, storefront_slug: null, ...o }));
+    expect(sp({})).toMatchObject({ stage: 'registration_completed', registration_completed: true, storefront_configured: false, inventory_drafted: false });
+    expect(sp({ storefront_published: true, storefront_slug: 'pat' })).toMatchObject({ stage: 'storefront_configured', storefront_configured: true });
+    expect(sp({ draft_items: 2 })).toMatchObject({ stage: 'inventory_drafted', inventory_published: false });
+    expect(sp({ active_items: 2 })).toMatchObject({ stage: 'inventory_published', inventory_published: true, checkout_enabled: false });
+    expect(sp({ active_items: 2, checkout_enabled: true })).toMatchObject({ stage: 'checkout_enabled' });
+    expect(sp({ checkout_enabled: true })).toMatchObject({ stage: 'registration_completed', checkout_enabled: true });   // the switch alone is not a seller stage
+    expect(sp({ active_items: 1, paid_orders: 1 })).toMatchObject({ stage: 'first_sale', first_sale: true });
+  });
+  test('live public storefront inventory alone completes listing activation; the basis is recorded', () => {
+    expect(stageOf(pro({ active_items: 1 }))).toMatchObject({ stage: 'activated', activation_basis: 'storefront_inventory' });
+    expect(stageOf(pro({ paid_orders: 1 }))).toMatchObject({ stage: 'activated', activation_basis: 'storefront_sale' });
+    expect(stageOf(pro({ published_auctions: 1, active_items: 1 }))).toMatchObject({ activation_basis: 'auction' });
+    expect(stageOf(pro({ sold_items: 2 })).stage).not.toBe('activated');   // a sold-marked item is not live inventory or a paid sale
+    const d = run(pro({ active_items: 1 })).d;
+    expect(d).toMatchObject({ decision: 'complete', guard: 'ACTIVATED' });
+    expect(d.reason).toMatch(/Storefront inventory is live and public\. Storefront stage: inventory_published; online checkout not enabled\./);
+    expect(sa.composeMessage(pro({ active_items: 1 }), stageOf(pro({ active_items: 1 })), d)).toBeNull();   // no message, so never "ready to accept purchases"
+  });
+  test('live inventory uses the one public-visibility rule; paid storefront orders mark the first sale', async () => {
+    route(/FROM marketplace_items m/, () => ({ rows: [] }));
+    await sa.attachProfessionalFacts([pro()], require('../src/db'));
+    const sql = calls.find((c) => /FROM marketplace_items m/.test(c.sql)).sql;
+    expect(sql).toContain(require('../src/lib/marketplaceVisibility').activeMarketplaceItemSql('m'));
+    expect(sql).toMatch(/FROM marketplace_orders o WHERE o\.seller_id = sp\.id AND o\.payment_status = 'paid'/);
+  });
+  test('checkout is read from the existing switches only (general switch, or this seller in the pilot); R-1 never changes it', () => {
+    const id = pro().seller_profile_id;
+    expect(sa.checkoutEnabledFor(id, {})).toBe(false);
+    expect(sa.checkoutEnabledFor(id, { MARKETPLACE_CHECKOUT_ENABLED: 'true' })).toBe(true);
+    expect(sa.checkoutEnabledFor(id, { MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS: id, MARKETPLACE_CHECKOUT_PILOT_USER_IDS: '' })).toBe(true);
+    expect(sa.checkoutEnabledFor(id, { MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS: '99999999-9999-4999-8999-999999999999' })).toBe(false);
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'sellerActivationService.js'), 'utf8');
+    expect(src).not.toMatch(/MARKETPLACE_CHECKOUT_ENABLED\s*=|process\.env\.MARKETPLACE_CHECKOUT[A-Z_]*\s*=/);
+  });
+  test('snapshot and ledger record the storefront stage; a storefront milestone change writes a ledger row', async () => {
+    const f = pro({ active_items: 1 }); const s = stageOf(f); const d = sa.decide(f, s, hist(), CFG, NOW);
+    route(/FROM seller_activation_state WHERE seller_profile_id/, () => ({ rows: [{ stage: 'activated', blocker: null, decision: 'complete', guard: 'ACTIVATED', storefront_stage: 'inventory_drafted' }] }));
+    await sa.recordEvaluation(f, s, hist(), d, CFG, require('../src/db'));
+    const touch = calls.find((c) => /INSERT INTO seller_activation_touches/.test(c.sql));
+    expect(touch.params[8]).toMatch(/^Storefront stage: inventory_drafted -> inventory_published\./);
+    const state = calls.find((c) => /INSERT INTO seller_activation_state/.test(c.sql));
+    expect(JSON.parse(state.params[11])).toMatchObject({ activation_basis: 'storefront_inventory', storefront_stage: 'inventory_published',
+      storefront_progress: { registration_completed: true, inventory_published: true, checkout_enabled: false, first_sale: false } });
+    calls.length = 0; ROUTES = [];
+    route(/FROM seller_activation_state WHERE seller_profile_id/, () => ({ rows: [{ stage: 'activated', blocker: null, decision: 'complete', guard: 'ACTIVATED', storefront_stage: 'inventory_published' }] }));
+    await sa.recordEvaluation(f, s, hist(), d, CFG, require('../src/db'));
+    expect(calls.some((c) => /INSERT INTO seller_activation_touches/.test(c.sql))).toBe(false);   // no repeat rows
+  });
+  test('no R-1 message reminds a seller about a newly published agreement version or announces updated buyer terms', () => {
+    const texts = [];
+    for (const o of [{ agreement_signed_at: null }, { verification_approved: false, verification_status: 'open' }, {}, { draft_id: 'a', draft_auctions: 1 },
+      { open_imports: 1, storefront_terms_signed: false }, { draft_items: 2, storefront_terms_signed: false, storefront_published: false }]) {
+      const f = pro(o); const s = stageOf(f); const m = sa.composeMessage(f, s, sa.decide(f, s, hist(), CFG, NOW));
+      if (m) texts.push(m.subject + '\n' + m.text);
+    }
+    for (const sv of [seller({ agreement_signed_at: null }), seller()]) { const s = stageOf(sv); texts.push(JSON.stringify(sa.composeMessage(sv, s, sa.decide(sv, s, hist(), CFG, NOW)))); }
+    for (const t of texts) expect(t).not.toMatch(/new version|updated (seller )?agreement|current storefront terms|updated terms|buyer terms|terms of service/i);
   });
   test('no message for a Professional stage Sasha does not handle', () => {
     for (const f of [pro({ submitted_auctions: 1 }), pro({ active_items: 1 }), pro({ verification_approved: false, verification_status: 'submitted' })]) {
