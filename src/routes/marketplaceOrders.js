@@ -65,6 +65,8 @@ router.post('/orders', async (req, res, next) => {
     const result = await orders.createOrder(item_id, req.user.id, { fulfillment_method, ship_to, address, idempotencyKey,
       expectedItemPriceCents: expected_item_price_cents, expectedShippingCents: expected_shipping_cents,
       policiesAcknowledged: policies_acknowledged === true, expectedPolicyVersions: expected_policy_versions, quantity,
+      // Buyer Terms acceptance evidence (recorded in terms_acceptances) and the version the page showed
+      expectedBuyerTermsVersion: (req.body || {}).expected_buyer_terms_version, ...require('../services/termsService').requestEvidence(req),
       // signed website passes from sellers' embedded storefronts, if any: verified on the server (never trusted as is)
       channelPasses: Array.isArray(channel_passes) ? channel_passes.filter((p) => typeof p === 'string').slice(0, 10).map((p) => p.slice(0, 2000)) : [] });
     return res.json({ success: true, data: result });

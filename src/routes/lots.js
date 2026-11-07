@@ -9,6 +9,7 @@ const { annotateViewerBidState } = require('../lib/viewerBidState'); // #2/#10
 const { auctionBiddingOpen } = require('../lib/biddingWindow'); // auction start gate
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const db = require('../db');
+const bidRateLimit = require('../middleware/rateLimit').bidRateLimit || []; // per-account bid limit (after auth)
 const { getBidsByLot, createBid, resolveIncrementOverride, resolveAuctionIncrementOverride, effectiveIncrement, nextMinBidCents } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
 const { writeAuditLog }           = require('../lib/auditLog');
@@ -199,7 +200,7 @@ router.get('/:lotId/bids', authMiddleware, async (req, res) => {
 // POST /api/lots/:lotId/bids
 // Bidding only allowed on active lots — draft and closed lots are rejected.
 // Also rejects bids on lots whose scheduled close time has already passed.
-router.post('/:lotId/bids', authMiddleware, async (req, res) => {
+router.post('/:lotId/bids', authMiddleware, ...bidRateLimit, async (req, res) => {
   try {
     const lotRes = await db.query(
       `SELECT l.state, l.closes_at, l.auction_id,

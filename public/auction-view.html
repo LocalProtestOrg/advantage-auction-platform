@@ -1687,6 +1687,7 @@
       const r = await BidUtils.registerForAuction(auctionId, token, true, BidUtils.smsChoices(smsBoxes));
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.code === 'PHONE_VERIFICATION_REQUIRED') { window.location.href = '/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      if (r.code === 'EMAIL_VERIFICATION_REQUIRED') { window.location.href = '/verify-email.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.ok && r.data && r.data.sms_alerts && r.data.sms_alerts.recorded === false) {
         st.className = 'cbf-status err'; st.textContent = 'You are registered. ' + r.data.sms_alerts.message;
         setTimeout(function () { bidGate.can_bid = true; bidGate.registered = true; loadAuction(); }, 4000); return;
@@ -1737,6 +1738,7 @@
         btn.textContent = orig;   // failed submit → restore the prior label
         status.className = 'cbf-status err';
         status.textContent = r.message;
+        if (r.code === 'EMAIL_VERIFICATION_REQUIRED') setTimeout(function () { window.location.href = '/verify-email.html?next=' + encodeURIComponent(location.pathname + location.search); }, 1500);
       }
     }
     btn.addEventListener('click', submitBid);

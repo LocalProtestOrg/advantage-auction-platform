@@ -5,6 +5,7 @@
 const db = require('../db');
 const termsService = require('./termsService');
 const cardService = require('./cardService'); // #20 STEP 4
+const buyerEmailGate = require('./buyerEmailGate'); // verified email to bid (switch ships OFF)
 const { writeAuditLog } = require('../lib/auditLog');
 
 const REGISTRABLE_STATES = ['published', 'active'];
@@ -44,6 +45,9 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged, smsOp
   if (!(await termsService.hasAcceptedCurrentTerms(userId))) {
     throw new RegistrationError('TERMS_NOT_ACCEPTED', 'Please accept the current Buyer Terms & Conditions before registering.', 403);
   }
+  // Verified email address (buyers.require_verified_email_to_bid; OFF by default, see buyerEmailGate).
+  const emailGate = await buyerEmailGate.gate(userId);
+  if (!emailGate.ok) throw new RegistrationError('EMAIL_VERIFICATION_REQUIRED', buyerEmailGate.BLOCK_MESSAGE, 403);
   // STEP 4: a saved/verified card is required to register to bid (no charge).
   if (!(await cardService.hasCardOnFile(userId))) {
     throw new RegistrationError('CARD_REQUIRED', 'Please add a payment method before bidding.', 402);
@@ -126,6 +130,7 @@ async function getRegistrationStatus(userId, auctionId) {
   const phoneSvc = require('./accountPhoneService');
   const phone = await phoneSvc.phoneGate(userId, { registeredAt: reg ? reg.registered_at : null });
   phone.verified = phoneSvc.isVerified((await db.query('SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1', [userId])).rows[0]);
+  const email = await buyerEmailGate.gate(userId);
   let sms = { offer: false };
   try { sms = await require('./smsConsentService').offerFor(userId, phone.verified); } catch (_e) { sms = { offer: false }; }
   return {
@@ -135,7 +140,10 @@ async function getRegistrationStatus(userId, auctionId) {
     terms_accepted_current: termsAccepted,
     card_on_file: cardOnFile,
     paddle_number: reg ? reg.paddle_number : null,
-    can_bid: registeredActive && termsAccepted && cardOnFile && phone.ok,
+    can_bid: registeredActive && termsAccepted && cardOnFile && phone.ok && email.ok,
+    email_verification_required: !email.ok,
+    email_verification_prompt: !!email.must_verify,
+    email_grace_until: email.grace_until || null,
     phone_required: phone.required,
     phone_verified: !!phone.verified,
     sms_offer: sms,   // { offer, current, presentation } — the panel renders presentation verbatim
@@ -158,6 +166,9 @@ async function assertCanBid(userId, auctionId) {
   if (!(await cardService.hasCardOnFile(userId))) {
     return { ok: false, status: 402, code: 'CARD_REQUIRED', message: 'Please add a payment method before bidding.' };
   }
+  // Verified email address (switch OFF by default; established buyers keep a grace period, see buyerEmailGate).
+  const emailGate = await buyerEmailGate.gate(userId);
+  if (!emailGate.ok) return { ok: false, status: 403, code: 'EMAIL_VERIFICATION_REQUIRED', message: buyerEmailGate.BLOCK_MESSAGE };
   // Verified phone (when required): registrations made before the requirement started are not cut off.
   const regAt = (await db.query('SELECT registered_at FROM auction_buyers WHERE auction_id = $1 AND user_id = $2', [auctionId, userId])).rows[0];
   const phone = await require('./accountPhoneService').phoneGate(userId, { registeredAt: regAt ? regAt.registered_at : null });

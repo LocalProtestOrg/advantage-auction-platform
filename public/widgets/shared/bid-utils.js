@@ -53,7 +53,10 @@
   }
 
   // Map a failed bid response to a clear, human message - never a raw JS error.
-  function humanizeBidError(status, serverMsg) {
+  function humanizeBidError(status, serverMsg, code) {
+    // Account-level reasons the server words for the buyer (bid pace limit, email confirmation): shown as sent.
+    if (serverMsg && (status === 429 || code === 'EMAIL_VERIFICATION_REQUIRED' || code === 'BID_RATE_LIMITED')) return serverMsg;
+    if (status === 429) return 'You are placing bids very quickly. Please wait a few seconds and try again.';
     if (serverMsg && /^(Bid|Max bid|Your bid|Enter a bid)/i.test(serverMsg)) {
       return serverMsg; // already buyer-friendly, e.g. "Bid must be at least $25.00"
     }
@@ -93,7 +96,7 @@
       if (res.status === 401) return { ok: false, status: 401, unauthorized: true, message: 'Please log in to bid.' };
       var data = await res.json().catch(function () { return null; });
       if (!res.ok || !data || !data.success) {
-        return { ok: false, status: res.status, data: data, message: humanizeBidError(res.status, data && data.message) };
+        return { ok: false, status: res.status, data: data, code: data && data.code, message: humanizeBidError(res.status, data && data.message, data && data.code) };
       }
       return { ok: true, status: res.status, data: data.data };
     } catch (e) {

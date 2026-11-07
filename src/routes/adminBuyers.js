@@ -41,11 +41,51 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/admin/buyers/safeguards: read-only terms acceptance summary per buyer_terms version (the ledger is never
+// changed here) + the verified-email requirement and the accounts it would affect. Declared before /:userId.
+router.get('/safeguards', async (req, res, next) => {
+  try {
+    const versions = (await db.query(`
+      SELECT tv.version_int, tv.title, tv.is_current, tv.effective_at,
+             COUNT(ta.id)::int AS acceptances,
+             MIN(ta.accepted_at) AS first_accepted_at, MAX(ta.accepted_at) AS last_accepted_at
+        FROM terms_versions tv LEFT JOIN terms_acceptances ta ON ta.terms_version_id = tv.id
+       WHERE tv.kind = 'buyer_terms'
+       GROUP BY tv.id ORDER BY tv.version_int DESC`)).rows;
+    const accounts = (await db.query(`
+      SELECT COUNT(*) FILTER (WHERE u.role = 'buyer')::int AS buyers,
+             COUNT(*) FILTER (WHERE u.role = 'buyer' AND EXISTS (
+               SELECT 1 FROM terms_acceptances ta JOIN terms_versions tv ON tv.id = ta.terms_version_id
+                WHERE ta.user_id = u.id AND tv.kind = 'buyer_terms' AND tv.is_current))::int AS buyers_accepted_current,
+             COUNT(*) FILTER (WHERE u.role = 'buyer' AND u.email_verified IS TRUE)::int AS buyers_email_verified,
+             COUNT(*) FILTER (WHERE u.role = 'buyer' AND u.email_verified IS NOT TRUE
+               AND EXISTS (SELECT 1 FROM bids b WHERE b.bidder_user_id = u.id))::int AS unverified_buyers_with_bids
+        FROM users u WHERE u.is_active IS NOT FALSE`)).rows[0];
+    const email = await require('../services/buyerEmailGate').config();
+    return res.json({ success: true, data: { terms_versions: versions, accounts, email_verification: email } });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/buyers/safeguards/email-verification { required?, grace_days? }: the verified-email switch (audited).
+router.post('/safeguards/email-verification', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const patch = {};
+    if ('required' in b) patch.required = b.required;
+    if ('grace_days' in b) patch.grace_days = b.grace_days;
+    const data = await require('../services/buyerEmailGate').setConfig(patch, { actorId: req.user.id });
+    return res.json({ success: true, data });
+  } catch (err) {
+    if (err && err.code === 'BAD_VALUE') return res.status(400).json({ success: false, message: err.message });
+    next(err);
+  }
+});
+
 // GET /api/admin/buyers/:userId — full buyer profile for support.
 router.get('/:userId', async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const u = (await db.query(`SELECT id, email, role, is_active, created_at FROM users WHERE id = $1`, [userId])).rows[0];
+    const u = (await db.query(`SELECT id, email, role, is_active, created_at, email_verified FROM users WHERE id = $1`, [userId])).rows[0];
     if (!u) return res.status(404).json({ success: false, message: 'User not found' });
 
     const registrations = (await db.query(`
@@ -78,7 +118,7 @@ router.get('/:userId', async (req, res, next) => {
     const tax_exemption = await taxExemption.getForAdmin(userId); // null when the buyer never submitted
 
     return res.json({ success: true, data: {
-      id: u.id, email: u.email, role: u.role, is_active: u.is_active, created_at: u.created_at,
+      id: u.id, email: u.email, role: u.role, is_active: u.is_active, created_at: u.created_at, email_verified: u.email_verified === true,
       card_on_file: !!card_on_file,
       terms_acceptance: terms ? { version_int: terms.version_int, accepted_at: terms.accepted_at, is_current_version: terms.is_current } : null,
       accepted_current_terms: accepted_current,

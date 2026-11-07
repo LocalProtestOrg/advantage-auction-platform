@@ -123,6 +123,10 @@
       border-color: #111;
     }
     .field input.error { border-color: #dc2626; }
+    .terms-check { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.8rem; color: #374151; line-height: 1.45; margin: 0.25rem 0 0.75rem; cursor: pointer; }
+    .terms-check input { width: auto; margin-top: 0.15rem; flex: 0 0 auto; }
+    .terms-check a { color: #111; font-weight: 600; }
+    .terms-check.error span { color: #dc2626; }
 
     .btn-submit {
       width: 100%;
@@ -212,6 +216,10 @@
         <label for="reg-confirm">Confirm password</label>
         <input type="password" id="reg-confirm" autocomplete="new-password" placeholder="••••••••" />
       </div>
+      <label class="terms-check" for="reg-terms">
+        <input type="checkbox" id="reg-terms" />
+        <span>I have read and agree to the Advantage.Bid <a href="/terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="/buyer-terms.html" target="_blank" rel="noopener">Buyer Terms</a>.</span>
+      </label>
       <button class="btn-submit" id="register-btn" onclick="handleRegister()">Create Account</button>
       <p class="note">After creating your account, you'll add a payment method to start bidding. There's no charge to verify your card, though your bank may briefly show a temporary authorization that is released.</p>
       <p class="note" style="margin-top:0.5rem;">Bidder accounts only. Sellers are added by the Advantage team.</p>
@@ -358,6 +366,16 @@
   }
 
   // ── Register ──────────────────────────────────────────────────────────────
+  // The terms version the linked pages show; sent with the acceptance so the server records exactly that version
+  // (and refuses if a newer one was published while this page was open). Null if it could not be read: the server
+  // then records the version current at that moment.
+  var CURRENT_TERMS_V = null;
+  function loadTermsVersion() {
+    fetch('/api/terms/current').then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.success && d.data) CURRENT_TERMS_V = d.data.version_int; }).catch(function () {});
+  }
+  loadTermsVersion();
+
   function handleRegister() {
     clearMessages();
     var email    = document.getElementById('reg-email').value.trim();
@@ -379,6 +397,13 @@
       showMsg('register-error', 'Passwords do not match.');
       return;
     }
+    var termsBox = document.getElementById('reg-terms');
+    if (!termsBox.checked) {
+      termsBox.parentNode.classList.add('error');
+      showMsg('register-error', 'Please agree to the Terms of Service and Buyer Terms to create an account.');
+      return;
+    }
+    termsBox.parentNode.classList.remove('error');
 
     var btn = document.getElementById('register-btn');
     btn.disabled = true;
@@ -389,7 +414,7 @@
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password, meta_event_id: metaEventId, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
+      body: JSON.stringify({ email: email, password: password, accept_terms: true, terms_version_int: CURRENT_TERMS_V, meta_event_id: metaEventId, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
     })
       .then(function (res) { return res.json(); })
       .then(function (data) {
@@ -405,6 +430,7 @@
           btn.textContent = 'Create Account';
           showTab('login');
         } else {
+          if (data.code === 'TERMS_CHANGED') { termsBox.checked = false; loadTermsVersion(); }
           showMsg('register-error', data.error || 'Could not create account.');
           btn.disabled = false;
           btn.textContent = 'Create Account';

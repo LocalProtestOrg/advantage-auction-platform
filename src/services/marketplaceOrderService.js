@@ -313,6 +313,18 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   if (opts.policiesAcknowledged !== true) {
     throw err(422, 'POLICIES_ACK_REQUIRED', "Please confirm you have read the seller's store policies and the Advantage.Bid Buyer Terms.");
   }
+  // That confirmation is the buyer's acceptance of the CURRENT Buyer Terms version: recorded in the same acceptance
+  // ledger as auction registration (terms_acceptances, with address and browser). If the page showed an older version
+  // (expected_buyer_terms_version), nothing is recorded and the buyer is asked to review the current terms.
+  const termsSvc = require('./termsService');
+  // (A database without the terms tables, as in some isolated tests, has nothing to accept; the order records null.)
+  const currentTerms = await termsSvc.getCurrentTerms().catch((e) => { if (e && e.code === '42P01') return null; throw e; });
+  if (currentTerms) {
+    try { termsSvc.assertExpectedVersion(currentTerms, opts.expectedBuyerTermsVersion); }
+    catch (e) { throw err(409, 'TERMS_CHANGED', e.message); }
+    const accepted = await termsSvc.recordAcceptance(db, buyerUserId, currentTerms, { ip: opts.ip || null, userAgent: opts.userAgent || null });
+    termsSvc.afterAcceptance(buyerUserId, currentTerms, accepted, { source: 'storefront_checkout' });
+  }
   const wantShip = opts.fulfillment_method === 'shipping';
   const shipToObj = wantShip && opts.ship_to ? normalizeAddress(opts.ship_to) : null;
   const units = unitsOf(opts.quantity);

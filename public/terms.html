@@ -26,11 +26,30 @@
     .doc strong{color:#0f172a}
     footer{background:#0f172a;color:#94a3b8;text-align:center;padding:1.5rem 1rem;font-size:.85rem;margin-top:2.5rem}
     footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}footer a:hover{color:#fff}
+    .doc-meta{color:#64748b;font-size:.85rem;margin:.6rem 0 0}
+    .doc-accept{margin-top:1.5rem;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.9rem 1rem;font-size:.92rem}
+    .doc-accept a{color:#1d4ed8;font-weight:600;text-decoration:none}
+    .md-toc{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.8rem 1rem;margin:1rem 0}
+    .md-toc-title{font-weight:700;font-size:.9rem;margin-bottom:.3rem}
+    .md-toc ol{margin:.2rem 0 0 1.2rem;columns:2;column-gap:2rem}
+    .md-toc li{font-size:.88rem;margin:.15rem 0;break-inside:avoid}
+    .md-table{overflow-x:auto}
+    .doc h2[id],.doc h3[id]{scroll-margin-top:1rem}
+    @media (max-width:600px){.md-toc ol{columns:1}}
   </style>
 </head>
 <body>
   <script src="/widgets/shared/buyer-nav.js"></script>
-  <div class="wrap"><div id="doc" class="doc">Loading…</div></div>
+  <div class="wrap">
+    <div id="doc-meta" class="doc-meta" hidden></div>
+    <div id="doc" class="doc">
+      <p>The Advantage.Bid Terms of Service and Buyer Terms are published on this page and on the
+        <a href="/buyer-terms.html">Buyer Terms</a> page, where signed-in members can review and accept the current version.
+        Questions: <a href="mailto:info@advantage.bid">info@advantage.bid</a>.</p>
+      <noscript><p>Please turn on JavaScript to read the current version of the terms on this page.</p></noscript>
+    </div>
+    <div id="doc-accept" class="doc-accept" hidden></div>
+  </div>
   <footer>
     <a href="/terms.html">Terms of Use</a> ·
     <a href="/privacy.html">Privacy Policy</a> ·
@@ -701,6 +720,12 @@ Unless otherwise stated in the applicable auction terms, invoice, or lot descrip
 Advantage.Bid may update this Schedule A from time to time.
 </script>
   <script src="/widgets/shared/md-render.js"></script>
-  <script>renderMarkdownInto('doc-md', 'doc');</script>
+  <script src="/widgets/shared/terms-page.js"></script>
+  <script>
+    // The page shows the CURRENT published terms version (the same record as /buyer-terms.html and the one people
+    // accept), so the two pages can never differ. The saved copy above is used only if the current version cannot
+    // be loaded, and is labelled as such.
+    AdvTermsPage.mount({ docId: 'doc', metaId: 'doc-meta', acceptId: 'doc-accept', fallbackId: 'doc-md' });
+  </script>
 </body>
 </html>

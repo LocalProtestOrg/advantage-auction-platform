@@ -33,17 +33,19 @@ router.get('/me/acceptance', auth, async (req, res) => {
   }
 });
 
-// POST /api/terms/accept — auth. Accept the current terms (idempotent).
+// POST /api/terms/accept — auth. Accept the current terms (idempotent). The page sends the version it displayed
+// (version_int); if the current version changed since, nothing is recorded and 409 TERMS_CHANGED asks for a fresh review.
 router.post('/accept', auth, async (req, res) => {
   try {
-    const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim() || null;
-    const userAgent = (req.headers['user-agent'] || '').toString().slice(0, 500) || null;
-    const result = await termsService.acceptCurrentTerms(req.user.id, { ip, userAgent });
+    const { ip, userAgent } = termsService.requestEvidence(req);
+    const body = req.body || {};
+    const result = await termsService.acceptCurrentTerms(req.user.id, { ip, userAgent, expectedVersionInt: body.version_int, source: 'terms_page' });
     return res.json({ success: true, data: result });
   } catch (err) {
     if (err.code === 'NO_CURRENT_TERMS') {
       return res.status(409).json({ success: false, message: 'No current terms configured' });
     }
+    if (err.code === 'TERMS_CHANGED') return res.status(409).json({ success: false, code: err.code, message: err.message });
     console.error('[terms] accept failed:', err.message);
     return res.status(500).json({ success: false, message: 'Failed to record acceptance' });
   }

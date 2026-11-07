@@ -94,6 +94,7 @@ describe('accounts', () => {
     await page.fill('#reg-email', 'new-buyer@fullstack.test');
     await page.fill('#reg-password', seed.TEST_PASSWORD);
     await page.fill('#reg-confirm', seed.TEST_PASSWORD);
+    await page.check('#reg-terms');   // explicit acceptance of the Terms of Service and Buyer Terms (owner 2026-11-06)
     await Promise.all([page.waitForURL((u) => !/login\.html/.test(String(u)), { timeout: 20000 }), page.click('#register-btn')]);
     expect(await page.evaluate(() => !!localStorage.getItem('token'))).toBe(true);
     expect((await stack.query(`SELECT count(*)::int n FROM users WHERE email = 'new-buyer@fullstack.test'`)).rows[0].n).toBe(1);
