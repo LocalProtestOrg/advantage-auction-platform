@@ -34,6 +34,11 @@ async function testSend({ campaignClass = 'LOCAL_EVENT_ALERT', eventKind = null,
   if (list.length > 10) return { ok: false, reason: 'too_many_test_addresses' };   // internal test, not a blast
   if (!list.every((a) => EMAIL_RE.test(a))) return { ok: false, reason: 'invalid_test_address' };
   if (!rendered || !rendered.subject || !rendered.html) return { ok: false, reason: 'nothing_to_send' };
+  // Commercial email carries the business postal address; without it nothing is sent (fail closed).
+  const commercial = require('../lib/commercialEmail');
+  const postal = await commercial.postalAddress(r);
+  if (!postal) return { ok: false, reason: 'postal_address_missing' };
+  rendered = commercial.withPostalAddress(rendered, postal);
 
   const subject = `[TEST] ${rendered.subject}`;
   const results = [];
@@ -69,6 +74,9 @@ async function sendCampaignLive({ campaignId, marketingClass = 'local_event_aler
   if (!campaignId) throw new Error('campaignId required for a live send');
   if (!rendered || !rendered.subject || !rendered.html) throw new Error('rendered campaign required');
   const r = runner || db;
+  // Commercial email carries the business postal address; without it nothing is sent (fail closed).
+  const commercial = require('../lib/commercialEmail');
+  rendered = commercial.withPostalAddress(rendered, await commercial.requirePostalAddress(r));
 
   // Candidate universe: permissioned, non-demo contacts (the audience specification, not a raw dump).
   const { rows: candidates } = await r.query(

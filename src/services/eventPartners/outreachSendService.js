@@ -137,6 +137,10 @@ async function sendOne({ cohortId, prospect, actorId = null, dryRun = false, run
     const tpl = (await runner.query('SELECT * FROM event_partner_templates WHERE id = $1', [cohort.template_id])).rows[0];
     if (!tpl || tpl.status !== 'approved') { outcome.sent = false; outcome.skipped = 'TEMPLATE_NOT_APPROVED'; return outcome; }
     outcome.template = tpl.template_key + ' v' + tpl.version;
+    // A partner invitation is commercial email: it carries the business postal address, or it is not sent.
+    const commercial = require('../../lib/commercialEmail');
+    const postalAddress = await commercial.postalAddress(runner);
+    if (!postalAddress) { outcome.sent = false; outcome.skipped = 'POSTAL_ADDRESS_MISSING'; return outcome; }
 
     if (dryRun) {
       const preview = render(tpl, { company: prospect.company_name, authorize_url: PUBLIC_BASE + '/authorize-event-promotion.html?token=<issued at send>' });
@@ -172,7 +176,7 @@ async function sendOne({ cohortId, prospect, actorId = null, dryRun = false, run
     if (!rawToken) { outcome.sent = false; outcome.skipped = 'NO_TOKEN'; return outcome; }
     const link = PUBLIC_BASE + '/authorize-event-promotion.html?token=' + encodeURIComponent(rawToken);
     outcome.steps.token = 'issued';
-    const msg = render(tpl, { company: prospect.company_name, authorize_url: link });
+    const msg = commercial.withPostalAddress(render(tpl, { company: prospect.company_name, authorize_url: link }), postalAddress);
     outcome.subject = msg.subject;
 
     // 6. Deliver on the Event Partner stream.

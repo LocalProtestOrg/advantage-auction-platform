@@ -55,7 +55,7 @@ function narrative(c, stateRow, actions) {
     WHAT_WE_HAVE_LEARNED: `The campaign is currently ${STATE_WORDS[st] || st}.` + (stateRow && stateRow.facts && stateRow.facts.conversions != null ? ` ${stateRow.facts.conversions} first-party outcomes so far.` : ''),
     WHAT_IT_COST: `${usd(f.spend_cents)} spent (${f.impressions || 0} impressions, ${f.clicks || 0} clicks, as the platform reported them).`,
     WHAT_HAPPENED_AFTER_THE_CLICK: after + '. Outcomes are counted from Advantage.Bid records, not from the ad platform.',
-    WHAT_THE_DIRECTOR_IS_DOING_NEXT: last ? `${last.action.replace(/_/g, ' ').toLowerCase()} — ${(last.evidence && last.evidence.note) || 'recorded with its evidence'}.` : 'Continue to the next checkpoint.',
+    WHAT_THE_DIRECTOR_IS_DOING_NEXT: last ? `${last.action.replace(/_/g, ' ').toLowerCase()}: ${(last.evidence && last.evidence.note) || 'recorded with its evidence'}.` : 'Continue to the next checkpoint.',
     confidence: st,
   };
 }
@@ -100,7 +100,7 @@ async function monthly({ month = new Date().toISOString().slice(0, 7) } = {}, ru
 function render(rep) {
   const h = rep.header;
   const lines = [];
-  lines.push(`Paid growth — ${rep.month}`);
+  lines.push(`Paid growth: ${rep.month}`);
   lines.push(`Monthly authority ${h.MONTHLY_AUTHORITY}. Recommended ${h.RECOMMENDED_SPEND}. Spent ${h.ACTUAL_SPEND}. Remaining ${h.REMAINING_AUTHORITY}.`);
   const ps = rep.paid_status || { state: 'SHADOW', running_campaigns: [], finished_campaigns: [] };
   if (ps.state === 'LIVE') {
@@ -115,7 +115,7 @@ function render(rep) {
     lines.push('Paid advertising stays off until you turn a channel on.');
   }
   for (const c of rep.campaigns) lines.push(`${c.campaign}: ${c.WHAT_IT_COST} ${c.WHAT_HAPPENED_AFTER_THE_CLICK} ${c.WHAT_WE_HAVE_LEARNED} Next: ${c.WHAT_THE_DIRECTOR_IS_DOING_NEXT}`);
-  for (const p of rep.proposals || []) lines.push(`Proposal — ${p.campaign} (${p.market}, ${p.channel}): ${p.budget}. Judged on ${p.success_signal.replace(/_/g, ' ')}. ${p.why || ''}`.trim());
+  for (const p of rep.proposals || []) lines.push(`Proposal: ${p.campaign} (${p.market}, ${p.channel}): ${p.budget}. Judged on ${p.success_signal.replace(/_/g, ' ')}. ${p.why || ''}`.trim());
   return lines.join('\n');
 }
 
@@ -127,7 +127,7 @@ async function weekly({ since = new Date(Date.now() - 7 * 86400000) } = {}, runn
   const conv = await q(r, `SELECT conversion_key, count(*)::int n FROM marketing_conversion_events WHERE is_internal = false AND occurred_at >= $1 GROUP BY 1 ORDER BY 1`, [since]);
   const rep = { kind: 'weekly_digest', since: d, spent: usd(cost[0].s), state_changes: changes.map((c) => `${c.campaign_key}: ${STATE_WORDS[c.state_before] || c.state_before || 'new'} → ${STATE_WORDS[c.state_after] || c.state_after} (${c.action.replace(/_/g, ' ').toLowerCase()})`),
     first_party_outcomes: conv };
-  rep.text = [`Paid growth — week since ${d}`, `Spent ${rep.spent}.`, rep.state_changes.length ? 'Changes: ' + rep.state_changes.join('; ') + '.' : 'No campaign changed state.',
+  rep.text = [`Paid growth: week since ${d}`, `Spent ${rep.spent}.`, rep.state_changes.length ? 'Changes: ' + rep.state_changes.join('; ') + '.' : 'No campaign changed state.',
     'Advantage.Bid outcomes this week: ' + (conv.length ? conv.map((c) => `${c.n} ${c.conversion_key.replace(/_/g, ' ')}`).join(', ') : 'none recorded') + '.'].join('\n');
   assertOwnerSafe(rep);
   return rep;

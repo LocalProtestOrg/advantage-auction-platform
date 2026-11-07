@@ -69,6 +69,12 @@ async function checkHealthAndPause(runner = db) {
   await runner.query(
     `UPDATE platform_config SET value = to_jsonb($1::text), updated_at = now() WHERE key = 'claimed_listings.paused_reason'`, [reason]);
   await runner.query(`UPDATE platform_config SET value = 'false'::jsonb, updated_at = now() WHERE key = 'claimed_listings.sending_enabled'`);
+  // Audited like every platform setting write (the owner alert below is the notice, so no second one is sent).
+  const { recordPlatformConfigChange } = require('../configService');
+  for (const [key, next] of [['claimed_listings.sending_enabled', false], ['claimed_listings.paused_reason', reason]]) {
+    await recordPlatformConfigChange({ key, previous: null, existed: true, next, system: 'claimed_listings_auto_pause',
+      source: 'claimedListings.feedbackService.checkHealthAndPause', notify: false, runner }).catch(() => {});
+  }
   try {
     await require('../ownerAlertService').sendOwnerAlertOnce({ alertType: 'claimed_listing_paused', entityType: 'program',
       entityId: 'claimed_listing:' + new Date().toISOString().slice(0, 10),

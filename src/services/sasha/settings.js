@@ -52,7 +52,10 @@ async function effective(runner) {
   };
 }
 
-async function set(key, value, runner = db) {
+// opts.actor (the signed-in admin, from the route) is checked by the platform setting choke point: sasha.* is sensitive,
+// so only the platform owner may change it, except that any admin may switch a Sasha function OFF (safety stop).
+// A code caller without an actor is recorded as a system change.
+async function set(key, value, runner = db, opts = {}) {
   if (!KEYS.includes(key)) throw Object.assign(new Error('Unknown Sasha setting'), { status: 400 });
   let v = value;
   if (BOOL_KEYS.includes(key)) {
@@ -61,8 +64,9 @@ async function set(key, value, runner = db) {
     v = Number(value);
     if (!Number.isFinite(v) || v < 0 || v > 1000) throw Object.assign(new Error('Budget must be between 0 and 1000 (USD per day)'), { status: 400 });
   }
-  await runner.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'sasha')
-    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [key, JSON.stringify(v)]);
+  await require('../configService').setPlatformConfig(key, v, {
+    runner, category: 'sasha', source: opts.source || 'sasha.settings.set', adminPath: '/admin/sasha.html',
+    ...(opts.actor ? { actor: opts.actor, safetyStop: BOOL_KEYS.includes(key) && v === false } : { system: opts.system || 'sasha.settings.set' }) });
   clear();
   return v;
 }

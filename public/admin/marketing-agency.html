@@ -41,7 +41,7 @@
     <p class="lede">Paid acquisition status, spend authority, campaigns and Owner-approved production creative.</p>
 
     <div class="panel" id="spendPanel">
-      <h2>Spend control &mdash; this month</h2>
+      <h2>Spend control: this month</h2>
       <div id="reconLine" class="msg">Loading…</div>
       <div id="reconFlags"></div>
       <div class="stat-row" id="spendStats"></div>
@@ -50,23 +50,50 @@
       </div>
       <div class="msg" id="spendNote"></div>
       <h2 style="margin-top:.9rem">Campaign authorizations</h2>
-      <div id="spendCampaigns" class="msg">—</div>
+      <div id="spendCampaigns" class="msg">-</div>
       <h2 style="margin-top:.9rem">Pacing</h2>
       <div class="stat-row" id="pacingStats"></div>
       <div class="roots" id="pacingNote"></div>
       <h2 style="margin-top:.9rem">Markets</h2>
       <div class="roots">Every market shares the same monthly ceiling. Adding a market never adds money.</div>
-      <div id="spendMarkets" class="msg">—</div>
+      <div id="spendMarkets" class="msg">-</div>
       <div style="margin-top:.8rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="alt" id="syncSpendBtn">Re-read spend now</button>
+        <button class="alt" id="syncSpendBtn">Re-Read Spend Now</button>
         <span class="msg" id="lastSyncLine"></span>
       </div>
       <details style="margin-top:.6rem">
-        <summary class="msg" style="cursor:pointer">Pacing and freshness settings (Super Admin)</summary>
+        <summary class="msg" style="cursor:pointer">Pacing and freshness settings (platform owner)</summary>
         <div class="stat-row" id="spendSettings"></div>
-        <button id="saveSpendSettingsBtn">Save settings</button>
+        <button id="saveSpendSettingsBtn">Save Settings</button>
         <div class="msg" id="spendSettingsMsg"></div>
       </details>
+    </div>
+
+    <div class="panel" id="authPanel">
+      <h2>Owner authorizations</h2>
+      <div class="roots">
+        Nothing can be built, created or activated at Meta without an open authorization from the platform owner for
+        that campaign. It sets the most the campaign may be given, the dates it may run and the one creative it may use.
+        Activation uses it up, so resuming later needs a new one.
+      </div>
+      <div class="msg" id="ownerLine"></div>
+      <div id="authList" class="msg">Loading…</div>
+      <details style="margin-top:.6rem" id="authFormWrap">
+        <summary class="msg" style="cursor:pointer">Authorize a campaign (platform owner)</summary>
+        <div class="stat-row" id="authForm"></div>
+        <button class="alt" id="authorizeBtn">Authorize Campaign</button>
+        <div class="msg" id="authMsg"></div>
+      </details>
+    </div>
+
+    <div class="panel" id="reportPanel">
+      <h2>Monthly paid report</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="month" id="reportMonth" aria-label="Report month">
+        <button id="reportBtn">Load Report</button>
+      </div>
+      <div class="stat-row" id="reportStats"></div>
+      <div class="roots" id="reportText"></div>
     </div>
 
     <div class="panel">
@@ -77,8 +104,8 @@
       <div class="bar"><span id="budgetBar" style="width:0%"></span></div>
       <div class="msg" id="budgetNote"></div>
       <div style="margin-top:.8rem;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="kill" id="killBtn">Emergency stop — pause all paid marketing</button>
-        <button class="alt" id="clearKillBtn">Clear kill switch</button>
+        <button class="kill" id="killBtn">Emergency Stop: Pause All Paid Marketing</button>
+        <button class="alt" id="clearKillBtn">Clear Kill Switch</button>
         <button id="refreshBtn">Refresh</button>
       </div>
       <div class="msg" id="killMsg"></div>
@@ -86,7 +113,7 @@
 
     <div class="panel">
       <h2>Buyer inventory</h2>
-      <div class="msg" id="inventory">—</div>
+      <div class="msg" id="inventory">-</div>
     </div>
 
     <div class="panel">
@@ -95,7 +122,7 @@
     </div>
 
     <div class="panel">
-      <h2>Audiences — who we are trying to reach</h2>
+      <h2>Audiences: who we are trying to reach</h2>
       <div class="roots">
         A strategy is only usable once Meta has confirmed every targeting id it contains.
         Interest search alone is not proof: a plausible phrase can return the wrong audience, and an
@@ -108,7 +135,7 @@
     </div>
 
     <div class="panel">
-      <h2>Delivery chain &mdash; what would actually run</h2>
+      <h2>Delivery chain: what would actually run</h2>
       <div class="roots">
         Campaign &rarr; ad set (who and where) &rarr; creative (image, words, destination) &rarr; ad.
         Every object is created paused; while build mode is on, nothing can be made active at all.
@@ -122,13 +149,13 @@
     <div class="panel">
       <h2>Production creative</h2>
       <div class="roots">
-        <strong>production-creative</strong> — actual Owner-approved advertisements ·
-        <strong>approved-creative-examples</strong> — training / calibration Gold Standards, reference only ·
-        <strong>brand-assets/logos</strong> — official source brand assets.
+        <strong>production-creative</strong>: actual Owner-approved advertisements ·
+        <strong>approved-creative-examples</strong>: training / calibration Gold Standards, reference only ·
+        <strong>brand-assets/logos</strong>: official source brand assets.
         These three are never interchangeable.
       </div>
       <div class="stat-row" id="creativeStats"></div>
-      <div style="margin:.5rem 0"><button class="alt" id="syncBtn">Re-scan library</button></div>
+      <div style="margin:.5rem 0"><button class="alt" id="syncBtn">Re-Scan Library</button></div>
       <div id="creative" class="msg">Loading…</div>
     </div>
   </div>
@@ -197,7 +224,7 @@
             '<td>' + (c.creative_filename ? esc(c.creative_filename) : '<em>none</em>') + '</td>' +
             '<td class="mono">' + esc(c.destination_url || '') + '</td>' +
             '<td>' + money(c.budget_cents) + '</td><td>' + money(c.actual_spend_cents) + '</td>' +
-            '<td>' + esc(c.signal_state || '—') + '</td>' +
+            '<td>' + esc(c.signal_state || '-') + '</td>' +
             '<td class="mono">' + esc(String(c.updated_at || '').slice(0, 16)) + '</td>' +
             '<td><button class="warn" data-pause="' + esc(c.campaign_key) + '">Pause</button> ' +
             '<button data-stop="' + esc(c.campaign_key) + '">Stop</button></td></tr>';
@@ -229,7 +256,7 @@
 
       if (!d.assets.length) { $('creative').textContent = 'No production creative registered.'; return; }
       $('creative').innerHTML = '<table><thead><tr>' +
-        ['', 'Asset', 'Category', 'Purpose', 'Owner approved', 'Eligible', 'Used by', 'Why not'].map(function (h) {
+        ['', 'Asset', 'Category', 'Purpose', 'Owner approved', 'Eligible', 'Used by', 'Why not', ''].map(function (h) {
           return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
         d.assets.map(function (a) {
           var src = '/marketing-creative/' + a.relative_path;
@@ -242,18 +269,35 @@
             '<td>' + (a.production_eligible ? pill('eligible', 'ok') : pill('blocked', 'bad')) + '</td>' +
             '<td>' + (a.campaign_usage || 0) + '</td>' +
             '<td class="mono">' + esc(a.ineligible_reason || '') +
-              (a.provenance_conflict ? '<br><em>' + esc(a.provenance_conflict) + '</em>' : '') + '</td></tr>';
+              (a.provenance_conflict ? '<br><em>' + esc(a.provenance_conflict) + '</em>' : '') + '</td>' +
+            '<td>' + (a.category === 'do-not-use' ? '' : (a.owner_approved_for_production
+              ? '<button class="warn" data-unapprove="' + esc(a.asset_key) + '">Withdraw Approval</button>'
+              : '<button class="alt" data-approve="' + esc(a.asset_key) + '">Approve</button>')) + '</td></tr>';
         }).join('') + '</tbody></table>';
+      creativeAssets = d.assets;
+      fillCreativeSelect();
+      Array.prototype.forEach.call(document.querySelectorAll('[data-approve],[data-unapprove]'), function (b) {
+        b.onclick = function () {
+          var key = b.getAttribute('data-approve') || b.getAttribute('data-unapprove');
+          var approve = !!b.getAttribute('data-approve');
+          if (!window.confirm((approve ? 'Approve ' : 'Withdraw approval of ') + key + ' for paid advertising?')) return;
+          api('/creative/' + encodeURIComponent(key) + '/approval', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approved: approve }) }).then(function (r) {
+            window.alert(r.body.success ? (approve ? 'Approved.' : 'Approval withdrawn.') : ('Not changed: ' + (r.body.message || 'refused')));
+            load();
+          });
+        };
+      });
     }
 
     function reachText(a) {
-      if (!a.estimated_reach_lower) return '—';
-      return Number(a.estimated_reach_lower).toLocaleString() + ' – ' + Number(a.estimated_reach_upper).toLocaleString();
+      if (!a.estimated_reach_lower) return '-';
+      return Number(a.estimated_reach_lower).toLocaleString() + ' to ' + Number(a.estimated_reach_upper).toLocaleString();
     }
     function targetingText(a) {
       var inc = (a.inclusions || []).map(function (t) { return esc(t.name || t.id) + ' [' + esc(t.id) + ']'; });
       if (!inc.length) return a.audience_mode === 'advantage_plus'
-        ? 'Location only — Meta expands the audience (Advantage+)' : 'Location only';
+        ? 'Location only: Meta expands the audience (Advantage+)' : 'Location only';
       return inc.join(', ');
     }
     function renderAudiences(d) {
@@ -287,7 +331,7 @@
         var arms = (e.arms || []).filter(function (a) { return a && a.arm; });
         return '<div style="margin:.5rem 0"><strong>' + esc(e.experiment_key) + '</strong> ' + statePill(e.state) +
           '<div class="mono">' + esc(e.hypothesis || '') + '</div>' +
-          '<div class="msg">Campaign ' + esc(e.campaign_key) + ' — authorised ' + money(e.campaign_budget_cents) +
+          '<div class="msg">Campaign ' + esc(e.campaign_key) + ': authorised ' + money(e.campaign_budget_cents) +
           ', allocated across arms ' + money(e.allocated_cents) +
           (e.allocated_cents > e.campaign_budget_cents ? ' ' + pill('OVER', 'bad') : ' ' + pill('within budget', 'ok')) + '</div>' +
           '<table><tbody>' + arms.map(function (a) {
@@ -349,17 +393,17 @@
     }
 
     var RECON_TEXT = {
-      IN_SYNC: ['ok', 'In sync — our ledger matches Meta'],
-      IMPORT_LAG: ['warn2', 'Import lag — the last Meta read is older than scheduled'],
+      IN_SYNC: ['ok', 'In sync: our ledger matches Meta'],
+      IMPORT_LAG: ['warn2', 'Import lag: the last Meta read is older than scheduled'],
       PROVIDER_AHEAD: ['warn2', 'Meta reports more spend than our ledger'],
       INTERNAL_AHEAD: ['warn2', 'Our ledger holds more spend than Meta reports'],
-      STALE_PROVIDER_DATA: ['bad', 'Stale — Meta spend could not be read recently; new spending is blocked'],
-      BUDGET_RISK: ['bad', 'Budget risk — new spending is blocked until reviewed'],
-      CEILING_BREACH: ['bad', 'Ceiling breach — paid delivery is paused']
+      STALE_PROVIDER_DATA: ['bad', 'Stale: Meta spend could not be read recently; new spending is blocked'],
+      BUDGET_RISK: ['bad', 'Budget risk: new spending is blocked until reviewed'],
+      CEILING_BREACH: ['bad', 'Ceiling breach: paid delivery is paused']
     };
     var FUNNEL = { individual_seller: 'Individual Seller', professional_seller: 'Professional Seller', buyer: 'Buyer' };
     var SETTING_LABELS = [
-      ['marketing.paid.pacing.daily_budget_safety_factor', 'Daily budget safety factor (0.1–1)', 'safety_factor'],
+      ['marketing.paid.pacing.daily_budget_safety_factor', 'Daily budget safety factor (0.1 to 1)', 'safety_factor'],
       ['marketing.paid.pacing.provider_max_daily_overdelivery', 'Provider single-day overspend allowance (×)', 'provider_max_daily_overdelivery'],
       ['marketing.paid.spend_sync.interval_minutes', 'Re-read spend every (minutes, while live)', 'interval_minutes'],
       ['marketing.paid.spend_sync.decision_max_age_minutes', 'Spending decisions need data newer than (minutes)', 'decision_max_age_minutes'],
@@ -378,13 +422,13 @@
       $('reconLine').innerHTML = 'Reconciliation: ' + pill(rc.state, t[0]) + ' ' + esc(t[1]);
       var flags = (rc.flags || []).filter(function (f) { return f.detail; });
       $('reconFlags').innerHTML = flags.length ? '<ul class="' + (rc.state === 'IN_SYNC' ? 'roots' : 'blockers') + '" style="list-style:none">' +
-        flags.map(function (f) { return '<li>' + esc(f.code) + ' — ' + esc(f.detail) + '</li>'; }).join('') + '</ul>' : '';
+        flags.map(function (f) { return '<li>' + esc(f.code) + ': ' + esc(f.detail) + '</li>'; }).join('') + '</ul>' : '';
       if (!p) { $('spendStats').textContent = 'No provider spend reading yet.'; return; }
 
       $('spendStats').innerHTML = [
         box('Monthly budget ceiling', money(p.monthly_ceiling_cents)),
         box('Actual Meta spend (' + p.month.slice(0, 7) + ')', money(p.actual_spend_cents), p.unmapped_actual_cents ? money(p.unmapped_actual_cents) + ' from campaigns we did not create' : null),
-        box('Authorized but unspent', money(p.authorized_unspent_cents), 'may still be spent — not spent yet'),
+        box('Authorized but unspent', money(p.authorized_unspent_cents), 'may still be spent, not spent yet'),
         box('Total current exposure', money(p.total_exposure_cents), 'spent + authorized-but-unspent'),
         box('Remaining uncommitted authority', money(p.uncommitted_authority_cents), 'the most a NEW campaign could be given'),
         box('Days remaining', String(p.days_remaining), 'of ' + p.days_in_month + ', including today'),
@@ -400,14 +444,14 @@
         '</tr></thead><tbody>' + d.campaigns.map(function (c) {
           var w = c.authorized_cents ? Math.min(100, Math.round((c.spent_cents / c.authorized_cents) * 100)) : 0;
           return '<tr><td><strong>' + esc(FUNNEL[c.funnel] || c.funnel || '') + '</strong><div class="mono">' + esc(c.campaign_key) + '</div></td>' +
-            '<td>' + esc(c.market_key || '—') + '</td><td>' + (c.state ? statePill(c.state) : '—') + '</td>' +
+            '<td>' + esc(c.market_key || '-') + '</td><td>' + (c.state ? statePill(c.state) : '-') + '</td>' +
             '<td><strong>' + money(c.spent_cents) + '</strong> / ' + money(c.authorized_cents) + ' max</td>' +
             '<td style="min-width:120px"><div class="bar"><span style="width:' + w + '%"></span></div></td>' +
             '<td>' + money(c.configured_daily_budget_cents) + '/day <span class="mono">(pacing target)</span></td></tr>';
         }).join('') + '</tbody></table>' : 'No campaigns have spend or authority this month.';
 
       $('pacingStats').innerHTML = [
-        box('Safe daily pacing target', money(p.safe_daily_pacing_target_cents) + '/day', '(ceiling − spent) ÷ days remaining'),
+        box('Safe daily pacing target', money(p.safe_daily_pacing_target_cents) + '/day', '(ceiling minus spent) divided by days remaining'),
         box('Recommended max daily budgets', money(p.recommended_max_daily_budget_cents) + '/day', 'target × safety factor ' + p.safety_factor),
         box('Configured daily budgets now', money(p.configured_daily_budget_cents) + '/day', 'worst single day ≈ ' + money(p.worst_case_single_day_cents)),
         box("Today's spend", money(p.today_spend_cents)),
@@ -420,13 +464,13 @@
       $('spendMarkets').innerHTML = (d.markets || []).length ? '<table><thead><tr>' +
         ['Market', 'Status', 'Launch authorized', 'Geography', 'Allocation'].map(function (h) { return '<th>' + h + '</th>'; }).join('') +
         '</tr></thead><tbody>' + d.markets.map(function (m) {
-          var geo = m.geo_spec && m.geo_spec.label ? m.geo_spec.label : '—';
+          var geo = m.geo_spec && m.geo_spec.label ? m.geo_spec.label : '-';
           return '<tr><td><strong>' + esc(m.name) + '</strong><div class="mono">' + esc(m.market_key) + '</div></td>' +
             '<td>' + pill(m.status, m.status === 'ACTIVE' ? 'ok' : 'neu') + '</td>' +
             '<td>' + (m.launch_authorized ? pill('yes', 'ok') : pill('no', 'warn2')) + '</td>' +
             '<td>' + esc(geo) + ' ' + pill(m.geo_validation, m.geo_validation === 'VALID' ? 'ok' : 'warn2') + '</td>' +
             '<td>' + (m.allocation_cents == null ? 'shares the global ceiling' : money(m.allocation_cents) + ' of the global ceiling') + '</td></tr>';
-        }).join('') + '</tbody></table>' : '—';
+        }).join('') + '</tbody></table>' : '-';
 
       $('lastSyncLine').textContent = d.last_sync ? ('Last Meta read ' + new Date(d.last_sync.finished_at).toLocaleString() +
         ' (' + d.last_sync.trigger + ')') : 'Meta spend has not been read yet.';
@@ -466,7 +510,101 @@
         .then(function (r) { $('spendSettingsMsg').textContent = r.body.success ? 'Saved.' : ('Not saved: ' + r.body.message); loadSpend(); });
     };
 
+    // -- owner authorizations and monthly report (DOM-built) ----------------------------------------
+    var creativeAssets = [];
+    function el(tag, attrs, kids) {
+      var n = document.createElement(tag);
+      Object.keys(attrs || {}).forEach(function (k) {
+        if (k === 'text') n.textContent = attrs[k]; else if (k === 'cls') n.className = attrs[k]; else n.setAttribute(k, attrs[k]);
+      });
+      (kids || []).forEach(function (c) { if (c != null) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+      return n;
+    }
+    function field(label, input) { return el('label', { cls: 'stat-box', style: 'display:block' }, [el('div', { cls: 'l', text: label }), input]); }
+    var AUTH_FIELDS = [
+      ['campaign_key', 'Campaign key', el('input', { type: 'text', id: 'af_campaign_key', style: 'width:16rem;margin-top:.3rem' })],
+      ['channel', 'Channel', (function () { var x = el('select', { id: 'af_channel', style: 'margin-top:.3rem' }); x.appendChild(el('option', { value: 'meta_ads', text: 'Meta' })); return x; })()],
+      ['market_key', 'Market key (optional)', el('input', { type: 'text', id: 'af_market_key', style: 'width:10rem;margin-top:.3rem' })],
+      ['amount_usd', 'Most it may be given (USD)', el('input', { type: 'number', id: 'af_amount_usd', step: '0.01', min: '1', style: 'width:8rem;margin-top:.3rem' })],
+      ['starts_at', 'Starts', el('input', { type: 'datetime-local', id: 'af_starts_at', style: 'margin-top:.3rem' })],
+      ['ends_at', 'Ends', el('input', { type: 'datetime-local', id: 'af_ends_at', style: 'margin-top:.3rem' })],
+      ['creative_asset_key', 'Creative (approved assets only)', el('select', { id: 'af_creative_asset_key', style: 'margin-top:.3rem;max-width:16rem' })],
+      ['package_key', 'Creative package (optional)', el('input', { type: 'text', id: 'af_package_key', style: 'width:12rem;margin-top:.3rem' })],
+      ['notes', 'Notes', el('input', { type: 'text', id: 'af_notes', style: 'width:16rem;margin-top:.3rem' })]
+    ];
+    AUTH_FIELDS.forEach(function (f) { $('authForm').appendChild(field(f[1], f[2])); });
+    function fillCreativeSelect() {
+      var sel = $('af_creative_asset_key'); if (!sel) return;
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      sel.appendChild(el('option', { value: '', text: 'Choose an approved creative' }));
+      creativeAssets.filter(function (a) { return a.production_eligible; }).forEach(function (a) {
+        sel.appendChild(el('option', { value: a.asset_key, text: a.filename + ' (' + a.asset_key + ')' }));
+      });
+    }
+    function renderAuthorizations(rows) {
+      var box = $('authList'); while (box.firstChild) box.removeChild(box.firstChild);
+      if (!rows.length) { box.textContent = 'No authorizations yet.'; return; }
+      var head = el('tr', {}, ['Campaign', 'Status', 'Amount', 'Window', 'Creative', 'Authorized by', ''].map(function (h) { return el('th', { text: h }); }));
+      var body = el('tbody', {}, rows.map(function (a) {
+        var cls = a.status === 'authorized' ? 'ok' : (a.status === 'consumed' ? 'neu' : 'warn2');
+        var revoke = a.status === 'authorized' ? el('button', { cls: 'warn', 'data-revoke': a.id, text: 'Revoke' }) : null;
+        if (revoke) revoke.onclick = function () {
+          if (!window.confirm('Revoke the authorization for ' + a.campaign_key + '?')) return;
+          api('/authorizations/' + encodeURIComponent(a.id) + '/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function (r) { $('authMsg').textContent = r.body.success ? 'Revoked.' : ('Not revoked: ' + (r.body.message || 'refused')); loadAuthorizations(); });
+        };
+        return el('tr', {}, [
+          el('td', {}, [el('strong', { text: a.campaign_key }), el('div', { cls: 'mono', text: a.channel + (a.market_key ? ' · ' + a.market_key : '') })]),
+          el('td', {}, [el('span', { cls: 'pill ' + cls, text: a.status })]),
+          el('td', { text: money(a.amount_cents) }),
+          el('td', { cls: 'mono', text: String(a.starts_at).slice(0, 16) + ' to ' + String(a.ends_at).slice(0, 16) }),
+          el('td', { cls: 'mono', text: (a.creative_filename || a.creative_asset_key || '') + (a.package_key ? ' · ' + a.package_key : '') }),
+          el('td', { cls: 'mono', text: (a.authorized_by_email || '') + ' ' + String(a.authorized_at || '').slice(0, 16) }),
+          el('td', {}, [revoke])
+        ]);
+      }));
+      box.appendChild(el('table', {}, [el('thead', {}, [head]), body]));
+    }
+    function loadAuthorizations() {
+      api('/authorizations').then(function (r) { if (r.body.success) renderAuthorizations(r.body.data || []); else $('authList').textContent = r.body.message || 'Not available'; });
+    }
+    $('authorizeBtn').onclick = function () {
+      var v = function (id) { var n = $('af_' + id); return n ? n.value : ''; };
+      var body = { campaign_key: v('campaign_key').trim(), channel: v('channel'), market_key: v('market_key').trim() || undefined,
+        amount_usd: Number(v('amount_usd')), starts_at: v('starts_at') ? new Date(v('starts_at')).toISOString() : '',
+        ends_at: v('ends_at') ? new Date(v('ends_at')).toISOString() : '', creative_asset_key: v('creative_asset_key'),
+        package_key: v('package_key').trim() || undefined, notes: v('notes').trim() || undefined };
+      if (!window.confirm('Authorize ' + body.campaign_key + ' for up to $' + body.amount_usd.toFixed(2) + '?')) return;
+      api('/authorizations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { $('authMsg').textContent = r.body.success ? 'Authorized.' : ('Not authorized: ' + (r.body.message || 'refused')); loadAuthorizations(); });
+    };
+    function loadReport() {
+      var m = $('reportMonth').value;
+      api('/report' + (m ? '?month=' + encodeURIComponent(m) : '')).then(function (r) {
+        var stats = $('reportStats'); while (stats.firstChild) stats.removeChild(stats.firstChild);
+        if (!r.body.success) { $('reportText').textContent = r.body.message || 'Report not available'; return; }
+        var h = r.body.data.header || {};
+        [['Monthly authority', h.MONTHLY_AUTHORITY], ['Recommended', h.RECOMMENDED_SPEND], ['Actual spend', h.ACTUAL_SPEND], ['Remaining', h.REMAINING_AUTHORITY]]
+          .forEach(function (b) { stats.appendChild(el('div', { cls: 'stat-box' }, [el('div', { cls: 'n', text: String(b[1] == null ? '-' : b[1]) }), el('div', { cls: 'l', text: b[0] })])); });
+        var t = $('reportText'); while (t.firstChild) t.removeChild(t.firstChild);
+        String(r.body.data.text || '').split('\n').forEach(function (line) { t.appendChild(el('div', { text: line })); });
+      });
+    }
+    $('reportBtn').onclick = loadReport;
+    function loadOwner() {
+      api('/me').then(function (r) {
+        var owner = !!(r.body.success && r.body.data && r.body.data.platform_owner);
+        $('ownerLine').textContent = owner
+          ? 'You are the platform owner: you can authorize campaigns, approve creative, change spend settings and clear the kill switch.'
+          : 'Only the platform owner can authorize campaigns, approve creative, change spend settings or clear the kill switch. Any admin can stop spending.';
+        ['authorizeBtn', 'clearKillBtn', 'saveSpendSettingsBtn'].forEach(function (id) { if ($(id)) $(id).disabled = !owner; });
+      });
+    }
+
     function load() {
+      loadOwner();
+      loadAuthorizations();
+      loadReport();
       loadSpend();
       api('/overview').then(function (r) {
         if (!r.body.success) { $('statusLine').textContent = r.body.message || 'Not authorized'; return; }
@@ -489,7 +627,8 @@
         .then(function (r) { $('killMsg').textContent = r.body.success ? 'Kill switch engaged; all campaigns paused.' : 'Failed.'; load(); });
     };
     $('clearKillBtn').onclick = function () {
-      api('/kill/clear', { method: 'POST' }).then(function () { $('killMsg').textContent = 'Kill switch cleared.'; load(); });
+      if (!window.confirm('Clear the kill switch? Paid campaigns can then be activated again under an owner authorization.')) return;
+      api('/kill/clear', { method: 'POST' }).then(function (r) { $('killMsg').textContent = r.body.success ? 'Kill switch cleared.' : ('Not cleared: ' + (r.body.message || 'refused')); load(); });
     };
 
     load();

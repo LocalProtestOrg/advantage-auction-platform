@@ -173,9 +173,10 @@ async function setConfig(patch = {}, { actorId } = {}, deps = {}) {
   if (next.required && !(deps.sender || (process.env.TWILIO_VERIFY_SERVICE_SID && process.env.TWILIO_ACCOUNT_SID))) {
     throw new PhoneError('NOT_READY', 'No phone-code sender is configured yet (Twilio Verify), so requiring verified phones would block registration.');
   }
+  const configService = require('./configService');
   for (const [k, v] of writes) {
-    await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'bidder_phone') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-      ['bidder_phone.' + k, JSON.stringify(v)]);
+    await configService.setPlatformConfig('bidder_phone.' + k, v, { category: 'bidder_phone', source: 'accountPhoneService.setConfig',
+      ...(actorId ? { actor: { id: actorId } } : { system: 'accountPhoneService.setConfig' }) });
   }
   if (next.required && !cur.required) {
     await db.query(`INSERT INTO platform_config (key, value, category) VALUES ('bidder_phone.required_since', to_jsonb(now()::text), 'bidder_phone')

@@ -32,17 +32,78 @@ const PKG = 'marketing_package';
 const ADDL = 'additional_promotion';
 const ADDL_KEYS = ['boost', 'reach', 'spotlight', 'custom'];
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function fail(status, message, code) { const e = new Error(message); e.status = status; if (code) e.code = code; return e; }
+
+// ── Deliverability (owner decision 2026-11-06) ───────────────────────────────────
+// Paid advertising fulfillment is not live (channelDispatch returns paid_provider_inactive for the PAID channel), so a
+// package or promotion that would create ANY paid obligation, guaranteed or discretionary, cannot be sold: the seller
+// would pay for something that cannot be delivered. Decided from the catalogue data itself, so a new package version
+// without paid components becomes purchasable without a code change.
+const UNAVAILABLE_PAID = 'This option includes paid advertising, which is not available yet, so it cannot be purchased right now.';
+const UNAVAILABLE_CUSTOM = 'Custom promotions are arranged with Advantage.Bid directly and cannot be purchased online.';
+
+function featureKeyOf(component) {
+  const key = component && (component.feature_key || component.key || component);
+  try { const f = require('./phase3oContract').featureByKey(String(key)); return f ? f.feature_key : String(key); } catch (_) { return String(key); }
+}
+function isUndeliverable(component) {
+  const channelDispatch = require('./channelDispatch');
+  const ch = component && typeof component === 'object' ? String(component.channel || '').toLowerCase() : '';
+  return ch === 'paid' || channelDispatch.channelOf(featureKeyOf(component)) === 'PAID';
+}
+/** { purchasable, blocked: [labels], reason } for one package version (guaranteed + discretionary components). */
+function packageDeliverability(version) {
+  if (!version) return { purchasable: false, blocked: [], reason: 'No active version for package' };
+  const all = [...(version.guaranteed_deliverables || []), ...(version.discretionary_tools || [])];
+  const blocked = all.filter(isUndeliverable).map((d) => d.label || d.key);
+  return blocked.length ? { purchasable: false, blocked, reason: UNAVAILABLE_PAID } : { purchasable: true, blocked: [], reason: null };
+}
+/** Same for an Additional Promotion, from the recipe children it would execute. CUSTOM has no online composition. */
+function promotionDeliverability(promotionKey) {
+  const key = String(promotionKey || '').toLowerCase();
+  if (key === 'custom') return { purchasable: false, blocked: ['custom bundle'], reason: UNAVAILABLE_CUSTOM };
+  const { children } = require('./additionalPromotionExecutor').composeChildren(key.toUpperCase());
+  if (!children.length) return { purchasable: false, blocked: [], reason: 'Unknown promotion' };
+  const blocked = children.filter((c) => isUndeliverable(c));
+  return blocked.length ? { purchasable: false, blocked, reason: UNAVAILABLE_PAID } : { purchasable: true, blocked: [], reason: null };
+}
+
+// ── Ownership (server-side) ───────────────────────────────────────────────────────
+// A seller may buy only for their OWN auction. An admin may buy for any auction (admin override), and that override is
+// audited. Returns the auction's seller profile id (attribution) or null.
+async function assertAuctionAccess(actor, auctionId, { action, runner = db } = {}) {
+  const isAdmin = actor && actor.role === 'admin';
+  if (!auctionId) {
+    if (isAdmin) return null;
+    throw fail(400, 'Choose the auction this promotion is for.', 'AUCTION_REQUIRED');
+  }
+  if (!UUID.test(String(auctionId))) throw fail(404, 'Auction not found.', 'AUCTION_NOT_FOUND');
+  const row = (await runner.query(
+    `SELECT a.id, sp.id AS seller_profile_id, sp.user_id FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`,
+    [auctionId])).rows[0];
+  if (!row) throw fail(404, 'Auction not found.', 'AUCTION_NOT_FOUND');
+  if (String(row.user_id) === String(actor && actor.id)) return row.seller_profile_id;
+  if (!isAdmin) throw fail(403, 'You can only buy promotion for your own auction.', 'NOT_YOUR_AUCTION');
+  await require('../lib/auditLog').writeAuditLog({ event_type: 'marketing_package.admin_override_purchase', entity_type: 'auction',
+    entity_id: row.id, auction_id: row.id, actor_id: actor.id, metadata: { action, seller_profile_id: row.seller_profile_id } });
+  return row.seller_profile_id;
+}
+
 function getStripe() { if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set'); return Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION }); }
 function appBase() { return (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, ''); }
 
 // ── Checkout: PACKAGE (FEATURED/PREMIUM/SIGNATURE) ───────────────────────────────
 // Dynamic price_data straight from the versioned registry (no per-package Stripe price id needed). Card
 // only (prepaid). Identity + version travel in metadata so the webhook never infers identity from price.
-async function createPackageCheckout(userId, { packageKey, auctionId, origin }) {
+async function createPackageCheckout(userId, { packageKey, auctionId, origin, actor = null }) {
   const key = String(packageKey || '').toLowerCase();
   if (registry.PAID_KEYS.indexOf(key) === -1) { const e = new Error('Only FEATURED/PREMIUM/SIGNATURE are purchasable'); e.status = 400; throw e; }
   const version = await registry.activeVersion(key);
   if (!version) { const e = new Error('No active version for package'); e.status = 409; throw e; }
+  const deliverable = packageDeliverability(version);
+  if (!deliverable.purchasable) throw fail(409, deliverable.reason, 'NOT_AVAILABLE');
+  await assertAuctionAccess(actor || { id: userId, role: 'seller' }, auctionId, { action: 'package:' + key });
   const base = origin || appBase();
   const customerId = await cardService.ensureStripeCustomer(userId);
   const stripe = getStripe();
@@ -69,12 +130,25 @@ async function createPackageCheckout(userId, { packageKey, auctionId, origin }) 
 }
 
 // ── Checkout: ADDITIONAL PROMOTION (BOOST/REACH/SPOTLIGHT/CUSTOM) ─────────────────
-async function createAdditionalPromotionCheckout(userId, { promotionKey, auctionId, packagePurchaseId, customAmountCents, origin }) {
+// CUSTOM is never priced by the buyer: the design is an admin-composed bundle, snapshotted and shown before payment
+// (additionalPromotionExecutor.verifyPrepaidSnapshot). No such composition exists online, so CUSTOM is refused here,
+// and a buyer-entered amount is never used for any promotion.
+async function createAdditionalPromotionCheckout(userId, { promotionKey, auctionId, packagePurchaseId, customAmountCents, origin, actor = null }) {
   const key = String(promotionKey || '').toLowerCase();
   if (ADDL_KEYS.indexOf(key) === -1) { const e = new Error('Invalid promotion'); e.status = 400; throw e; }
-  let amount;
-  if (key === 'custom') { amount = Math.trunc(Number(customAmountCents)); if (!Number.isFinite(amount) || amount <= 0) { const e = new Error('CUSTOM requires a positive amount'); e.status = 400; throw e; } }
-  else { amount = await marketingConfig.getInt('marketing.pkg.addl.' + key + '.price_cents', 0); if (!amount) { const e = new Error('No configured price for ' + key); e.status = 409; throw e; } }
+  void customAmountCents;   // never trusted: prices come only from the admin-managed configuration
+  const deliverable = promotionDeliverability(key);
+  if (!deliverable.purchasable) throw fail(409, deliverable.reason, 'NOT_AVAILABLE');
+  const who = actor || { id: userId, role: 'seller' };
+  await assertAuctionAccess(who, auctionId, { action: 'promotion:' + key });
+  if (packagePurchaseId) {
+    if (!UUID.test(String(packagePurchaseId))) throw fail(404, 'Package purchase not found.', 'PURCHASE_NOT_FOUND');
+    const pp = (await db.query('SELECT seller_user_id, auction_id FROM marketing_package_purchases WHERE id = $1', [packagePurchaseId])).rows[0];
+    if (!pp || (who.role !== 'admin' && String(pp.seller_user_id) !== String(who.id))) throw fail(404, 'Package purchase not found.', 'PURCHASE_NOT_FOUND');
+    if (auctionId && pp.auction_id && String(pp.auction_id) !== String(auctionId)) throw fail(400, 'That package purchase is for a different auction.', 'AUCTION_MISMATCH');
+  }
+  const amount = await marketingConfig.getInt('marketing.pkg.addl.' + key + '.price_cents', 0);
+  if (!amount) { const e = new Error('No configured price for ' + key); e.status = 409; throw e; }
   const base = origin || appBase();
   const customerId = await cardService.ensureStripeCustomer(userId);
   const stripe = getStripe();
@@ -206,4 +280,5 @@ async function handleAdditionalPromotionPaid(session) {
   return res;
 }
 
-module.exports = { createPackageCheckout, createAdditionalPromotionCheckout, handleCheckoutCompleted, handlePackagePaid, handleAdditionalPromotionPaid, PKG, ADDL };
+module.exports = { createPackageCheckout, createAdditionalPromotionCheckout, handleCheckoutCompleted, handlePackagePaid, handleAdditionalPromotionPaid,
+  packageDeliverability, promotionDeliverability, assertAuctionAccess, isUndeliverable, PKG, ADDL, ADDL_KEYS };

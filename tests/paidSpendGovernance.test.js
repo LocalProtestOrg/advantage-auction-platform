@@ -686,7 +686,7 @@ describe('Owner authority is preserved', () => {
     const r = code('src/routes/adminMarketingAgency.js');
     const block = r.slice(r.indexOf('const SPEND_SETTINGS'), r.indexOf("router.post('/spend/settings'"));
     expect(block).not.toMatch(/ceiling/);
-    expect(r).toMatch(/router\.post\('\/spend\/settings', superOnly/);
+    expect(r).toMatch(/router\.post\('\/spend\/settings', ownerOnly/);   // platform owner only (2026-11-06)
     expect(r).toMatch(/router\.post\('\/spend\/sync', superOnly/);
   });
 

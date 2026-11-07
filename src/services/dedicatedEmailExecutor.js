@@ -26,12 +26,20 @@ const { runLadder } = require('./resilienceLadderService');
 const SCOPES = ['LOCAL', 'REGIONAL', 'CATEGORY_SHIPPABLE', 'NATIONWIDE'];
 const DEFAULTS = { floor: 300, maxPerMarketWeek: 2, maxPerDay: 3, spacingHours: 48 };
 
+// The SAME keys the admin Capacity screen edits (adminMarketingPackages CAPACITY_KEYS, seeded by migration 140).
+// The executor previously read marketing.dedicated.*, which nothing could edit; migration 223 copies any such value.
+const CONFIG_KEYS = Object.freeze({
+  floor: 'marketing.pkg.dedicated_email.audience_floor',
+  maxPerMarketWeek: 'marketing.pkg.dedicated_email.max_per_market_week',
+  maxPerDay: 'marketing.pkg.dedicated_email.global_max_per_day',
+  spacingHours: 'marketing.pkg.dedicated_email.overlap_spacing_hours',
+});
 async function cfg() {
   return {
-    floor: await marketingConfig.getInt('marketing.dedicated.audience_floor', DEFAULTS.floor),
-    maxPerMarketWeek: await marketingConfig.getInt('marketing.dedicated.max_per_market_week', DEFAULTS.maxPerMarketWeek),
-    maxPerDay: await marketingConfig.getInt('marketing.dedicated.max_per_day', DEFAULTS.maxPerDay),
-    spacingHours: await marketingConfig.getInt('marketing.dedicated.spacing_hours', DEFAULTS.spacingHours),
+    floor: await marketingConfig.getInt(CONFIG_KEYS.floor, DEFAULTS.floor),
+    maxPerMarketWeek: await marketingConfig.getInt(CONFIG_KEYS.maxPerMarketWeek, DEFAULTS.maxPerMarketWeek),
+    maxPerDay: await marketingConfig.getInt(CONFIG_KEYS.maxPerDay, DEFAULTS.maxPerDay),
+    spacingHours: await marketingConfig.getInt(CONFIG_KEYS.spacingHours, DEFAULTS.spacingHours),
   };
 }
 async function emailGateOn() { return marketingConfig.getBool('marketing.a7_send_enabled', false); }
@@ -127,4 +135,4 @@ async function execute(obligation, { auctionId, market, referenceDate, audienceP
   };
 }
 
-module.exports = { SCOPES, DEFAULTS, cfg, evaluateScope, frequencyGuards, execute };
+module.exports = { SCOPES, DEFAULTS, CONFIG_KEYS, cfg, evaluateScope, frequencyGuards, execute };

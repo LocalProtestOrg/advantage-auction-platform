@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>Advantage.Bid — Marketing Packages</title>
+  <title>Advantage.Bid Marketing Packages</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f6f8fb; color: #1f2937; }
@@ -31,7 +31,7 @@
   </style>
 </head>
 <body>
-  <header><h1>Advantage.Bid — Marketing Packages</h1></header>
+  <header><h1>Advantage.Bid Marketing Packages</h1></header>
   <main>
     <div id="banner" class="banner"></div>
     <p class="note">Choose how far Advantage.Bid promotes your auction. Pick a package, pay securely by card, and we handle the rest.</p>
@@ -44,7 +44,7 @@
     var auctionId = params.get('auction_id') || params.get('auctionId') || '';
     function money(c) { return '$' + (Number(c || 0) / 100).toFixed(Number(c) % 100 === 0 ? 0 : 2); }
     function banner(msg, ok) { var b = document.getElementById('banner'); b.textContent = msg; b.className = 'banner ' + (ok ? 'ok' : 'err'); b.style.display = 'block'; }
-    if (params.get('purchase') === 'success' || params.get('promo') === 'success') banner('Thank you — your purchase is confirmed. Advantage.Bid is setting up your campaign.', true);
+    if (params.get('purchase') === 'success' || params.get('promo') === 'success') banner('Thank you, your purchase is confirmed. Advantage.Bid is setting up your campaign.', true);
     if (params.get('purchase') === 'canceled' || params.get('promo') === 'canceled') banner('Checkout canceled. No charge was made.', false);
 
     var EMAIL_FLAG = {
@@ -63,14 +63,20 @@
         var benefits = (p.guaranteed || []).slice(0, 8).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('');
         var emailFlag = EMAIL_FLAG[p.package_key] ? '<div class="email-flag">✉ ' + EMAIL_FLAG[p.package_key] + '</div>' : '';
         var isPaid = p.price_cents > 0;
+        // The server decides what can be bought (paid advertising is not available yet; an auction is required).
+        var available = isPaid && p.purchasable !== false && !!auctionId;
+        var why = !isPaid ? '' : (p.purchasable === false ? (p.unavailable_reason || 'Not available yet.')
+          : (!auctionId ? 'Open this page from one of your auctions to purchase promotion for it.' : ''));
         card.innerHTML =
           '<div class="tier">' + esc(p.name) + '</div>' +
           '<div class="price">' + money(p.price_cents) + (isPaid ? ' <small>one-time</small>' : ' <small>included</small>') + '</div>' +
           emailFlag +
           '<ul>' + benefits + '</ul>' +
           (isPaid
-            ? '<button data-key="' + p.package_key + '">Purchase ' + esc(p.name) + '</button><div class="refund">Non-refundable. Prepaid card only.</div>'
-            : '<button class="free" disabled>Included with every auction</button>');
+            ? (available
+              ? '<button data-key="' + p.package_key + '">Purchase ' + esc(p.name) + '</button><div class="refund">Non-refundable. Prepaid card only.</div>'
+              : '<button class="free" disabled>Not Available Yet</button><div class="refund">' + esc(why) + '</div>')
+            : '<button class="free" disabled>Included With Every Auction</button>');
         grid.appendChild(card);
       });
       grid.querySelectorAll('button[data-key]').forEach(function (btn) {

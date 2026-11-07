@@ -149,7 +149,10 @@ describe('marketingSendService', () => {
     }));
     jest.doMock('../src/services/marketingConfigService', () => ({ a7SendEnabled: async () => a7, getInt: async (_k, fb) => fb, raw: async (_k, fb) => fb }));
     const audits = [];
-    jest.doMock('../src/db', () => ({ query: async (sql, p) => { audits.push({ sql, p }); return { rows: [], rowCount: 0 }; }, connect: async () => ({ query: async () => ({ rows: [] }), release() {} }) }));
+    // Commercial email needs the business postal address (company.postal_address); the test value is not a real address.
+    jest.doMock('../src/db', () => ({ query: async (sql, p) => { audits.push({ sql, p });
+      if (/company\.postal_address/.test(sql)) return { rows: [{ value: '100 Test St, Testville, TX 00000' }], rowCount: 1 };
+      return { rows: [], rowCount: 0 }; }, connect: async () => ({ query: async () => ({ rows: [] }), release() {} }) }));
     const svc = require('../src/services/marketingSendService');
     return { svc, sent, audits };
   }
@@ -161,6 +164,7 @@ describe('marketingSendService', () => {
     expect(r.ok).toBe(true); expect(r.test).toBe(true); expect(r.sent).toBe(1);
     expect(sent[0].subject).toMatch(/^\[TEST\] /);
     expect(sent[0].mailStream).toBe('marketing');
+    expect(sent[0].html).toContain('100 Test St, Testville, TX 00000');
     expect(audits.some((a) => /INSERT INTO marketing_test_sends/.test(a.sql))).toBe(true);
   });
   test('testSend rejects empty / non-email / oversized recipient lists', async () => {

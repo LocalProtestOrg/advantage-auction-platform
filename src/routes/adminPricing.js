@@ -46,7 +46,7 @@ router.put('/', requirePermission('seller_platform_fee.manage'), async (req, res
       return res.status(400).json({ success: false, message: 'That pricing value cannot be edited here.' });
     }
     const oldVal = await pricingConfig.getInt(key);           // pre-change value for the audit trail
-    const newVal = await pricingConfig.setBps(key, bps);      // validates range; throws 400 on bad input
+    const newVal = await pricingConfig.setBps(key, bps, { actor: req.user, source: 'PUT /api/admin/pricing' });   // 400 on bad input; 403 unless platform owner
     await auditService.logEvent(db, {
       eventType: 'pricing.rate_changed', entityType: 'platform_config', entityId: null,
       actorId: req.user.id,
@@ -55,7 +55,7 @@ router.put('/', requirePermission('seller_platform_fee.manage'), async (req, res
     const pricing = await pricingConfig.getPricing();
     return res.json({ success: true, data: pricing, changed: { key, old_bps: oldVal, new_bps: newVal } });
   } catch (err) {
-    if (err && err.status === 400) return res.status(400).json({ success: false, message: err.message });
+    if (err && (err.status === 400 || err.status === 403)) return res.status(err.status).json({ success: false, message: err.message });
     next(err);
   }
 });

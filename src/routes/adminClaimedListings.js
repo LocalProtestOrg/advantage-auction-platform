@@ -328,10 +328,15 @@ router.post('/program', approve, express.json(), wrap(async (req, res) => {
   if (changes['claimed_listings.sending_enabled'] === true && (String(b.confirm || '') !== 'START-CLAIMED-LISTING-OUTREACH')) {
     return res.status(400).json({ success: false, message: 'Turning sending on requires the confirmation phrase.' });
   }
-  for (const [k, v] of Object.entries(changes)) {
-    await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'claimed_listings')
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [k, JSON.stringify(v)]);
-  }
+  // claimed_listings.* is sensitive (platform owner only; a pure stop stays open below). Audited per key.
+  const configService = require('../services/configService');
+  try {
+    for (const [k, v] of Object.entries(changes)) {
+      await configService.setPlatformConfig(k, v, { actor: req.user, category: k.startsWith('company.') ? 'company' : 'claimed_listings',
+        safetyStop: v === false,   // switching a programme function OFF is a safety stop; turning one on is the owner's
+        source: 'POST /api/admin/claimed-listings/program', adminPath: '/admin/claimed-listings.html' });
+    }
+  } catch (e) { return res.status(e.status || 500).json({ success: false, message: e.status ? e.message : 'Something went wrong.' }); }
   await auditService.logEvent(db, { eventType: 'claimed_listing.program_changed', entityType: 'program', entityId: PROGRAM_ENTITY_ID, actorId: req.user.id, metadata: { changes } });
   res.json({ success: true, data: await programState() });
 }));
@@ -343,9 +348,12 @@ router.post('/program/stop', work, express.json(), wrap(async (req, res) => {
   if (reason.length < 3) return res.status(400).json({ success: false, message: 'Say briefly why outreach is being stopped.' });
   const who = (await db.query(`SELECT COALESCE(full_name, email) AS n FROM users WHERE id = $1`, [req.user.id])).rows[0];
   const pausedReason = 'Stopped by ' + ((who && who.n) || 'staff') + ' on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC: ' + reason;
+  // A stop is open to the people running the campaign (safety); audited and reported to the owner.
+  // sending_enabled=false is a safety stop; the reason travels with it (not owner-notified twice).
+  const configService = require('../services/configService');
   for (const [k, v] of [['claimed_listings.sending_enabled', false], ['claimed_listings.paused_reason', pausedReason]]) {
-    await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'claimed_listings')
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [k, JSON.stringify(v)]);
+    await configService.setPlatformConfig(k, v, { actor: req.user, category: 'claimed_listings', source: 'POST /api/admin/claimed-listings/program/stop',
+      adminPath: '/admin/claimed-listings.html', ...(v === false ? { safetyStop: true } : { system: 'claimed_listings_stop_reason', notify: false }) });
   }
   await auditService.logEvent(db, { eventType: 'claimed_listing.program_stopped', entityType: 'program', entityId: PROGRAM_ENTITY_ID, actorId: req.user.id, metadata: { reason } });
   res.json({ success: true, data: await programState() });

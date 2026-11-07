@@ -198,6 +198,13 @@ async function createCampaign({ campaignKey, runner = db } = {}) {
     return { ok: false, reason: 'creative is no longer production-eligible: ' + ((asset && asset.ineligible_reason) || 'unregistered') };
   }
 
+  // The platform owner's explicit authorization must cover this campaign's amount, channel, market and creative.
+  const authz = require('./paidAuthorizationService');
+  const cover = await authz.assertCovers({ campaignKey, channel: c.channel, marketKey: c.market_key || null,
+    amountCents: c.budget_cents, creativeIds: [c.creative_id], action: 'it is created at the provider', runner });
+  if (!cover.ok) return { ok: false, reason: 'owner authorization refused: ' + cover.reason };
+  await authz.linkCampaign(campaignKey, cover.authorization, runner);
+
   // Never authorize against stale spend, and never in a market the Owner has not launched. The
   // provider is re-read here if the last reading is too old; if it cannot be read, this refuses.
   const governance = require('./paidSpendGovernance');
@@ -272,19 +279,56 @@ async function stopCampaign({ campaignKey, reason = null, runner = db } = {}) {
  * The emergency stop. Sets the kill switch and pauses everything that could be spending.
  * Deliberately best-effort per campaign: one provider failure must not prevent the rest being
  * paused, and the switch itself is set FIRST so nothing new can be created meanwhile.
+ *
+ * Available to every Super Admin (and to the automatic ceiling-breach pause): engaging it is a safety stop, audited,
+ * and the owner is notified. After the local ACTIVE/READY campaigns, it also asks the provider about every other
+ * campaign it knows a provider id for (BUDGET_EXHAUSTED, COMPLETED, PAUSED, FAILED...) and pauses any the provider still
+ * reports ACTIVE, so a campaign our records consider finished can never keep delivering. Historical rows are not
+ * rewritten; the provider sweep is reported in the result.
  */
-async function emergencyKill({ reason = 'owner emergency stop', runner = db } = {}) {
-  await configService.setPlatformConfig('marketing.paid.global_kill', true);
+async function emergencyKill({ reason = 'owner emergency stop', actor = null, runner = db } = {}) {
+  await configService.setPlatformConfig('marketing.paid.global_kill', true, {
+    actor, safetyStop: true, system: actor ? null : (/^automatic/.test(reason) ? reason : 'automatic: ' + reason),
+    source: 'paidExecutionService.emergencyKill', adminPath: '/admin/marketing-agency.html' });
   const rows = (await runner.query(`SELECT campaign_key FROM marketing_paid_campaigns WHERE state IN ('ACTIVE','READY')`)).rows;
   const results = [];
   for (const r of rows) {
     const out = await pauseCampaign({ campaignKey: r.campaign_key, reason, runner }).catch((e) => ({ ok: false, reason: e.message }));
     results.push({ campaign_key: r.campaign_key, ok: out.ok, reason: out.reason || null });
   }
-  return { ok: true, kill: true, paused: results, note: 'no campaign can be created while the kill switch is ON' };
+  const providerSweep = await pauseProviderActive({ skip: rows.map((r) => r.campaign_key), runner })
+    .catch((e) => [{ ok: false, reason: 'provider sweep error: ' + e.message }]);
+  return { ok: true, kill: true, paused: results, provider_sweep: providerSweep, note: 'no campaign can be created while the kill switch is ON' };
 }
 
-async function clearKill() { await configService.setPlatformConfig('marketing.paid.global_kill', false); return { ok: true, kill: false }; }
+/**
+ * Pause, at the provider, every campaign we created that the provider still reports ACTIVE, whatever our local state
+ * says. A campaign whose provider status cannot be read is paused anyway (fail safe). Never activates anything.
+ */
+async function pauseProviderActive({ skip = [], runner = db } = {}) {
+  const rows = (await runner.query(
+    `SELECT campaign_key, state, provider_campaign_id FROM marketing_paid_campaigns
+      WHERE provider_campaign_id IS NOT NULL AND state NOT IN ('ACTIVE','READY')`)).rows
+    .filter((r) => !skip.includes(r.campaign_key));
+  const out = [];
+  for (const c of rows) {
+    const got = await meta.getObject('campaign', c.provider_campaign_id).catch((e) => ({ ok: false, reason: e.message }));
+    const status = got && got.ok && got.object ? (got.object.status || got.object.effective_status || null) : null;
+    const live = !got || !got.ok || status === 'ACTIVE' || (got.object && got.object.effective_status === 'ACTIVE');
+    if (!live) { out.push({ campaign_key: c.campaign_key, local_state: c.state, provider_status: status, action: 'none' }); continue; }
+    const p = await meta.pause(c.provider_campaign_id, runner).catch((e) => ({ ok: false, reason: e.message }));
+    out.push({ campaign_key: c.campaign_key, local_state: c.state, provider_status: status || 'unreadable', action: 'pause',
+      ok: !!(p && p.ok), reason: (p && p.reason) || null });
+  }
+  return out;
+}
+
+/** Clearing the stop lets spending resume: platform owner only (enforced by configService for this sensitive key). */
+async function clearKill({ actor = null } = {}) {
+  await configService.setPlatformConfig('marketing.paid.global_kill', false, {
+    actor, source: 'paidExecutionService.clearKill', adminPath: '/admin/marketing-agency.html' });
+  return { ok: true, kill: false };
+}
 
 /** Observed provider facts for the campaigns we created. Read-only; safe with ads_read alone. */
 async function observe({ since = null, until = null, runner = db } = {}) {
@@ -295,5 +339,5 @@ async function observe({ since = null, until = null, runner = db } = {}) {
 
 module.exports = {
   CHANNEL_GATE, killed, preflight, buyerInventory,
-  prepareCampaign, createCampaign, pauseCampaign, stopCampaign, emergencyKill, clearKill, observe,
+  prepareCampaign, createCampaign, pauseCampaign, stopCampaign, emergencyKill, pauseProviderActive, clearKill, observe,
 };

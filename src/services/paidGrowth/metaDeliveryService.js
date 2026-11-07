@@ -35,7 +35,7 @@ const registry = require('../productionCreativeRegistry');
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 
 /** Attribution every paid destination carries. Uses the existing UTM architecture, not a new one. */
-function buildDestination({ destinationUrl, funnel, campaignKey, strategyKey, experimentKey, armLabel, packageKey }) {
+function buildDestination({ destinationUrl, funnel, campaignKey, strategyKey, experimentKey, armLabel, packageKey, auctionId = null }) {
   const u = new URL(destinationUrl);
   const set = (k, v) => { if (v) u.searchParams.set(k, String(v)); };
   set('utm_source', 'meta');
@@ -48,6 +48,8 @@ function buildDestination({ destinationUrl, funnel, campaignKey, strategyKey, ex
   set('adv_experiment', experimentKey);
   set('adv_arm', armLabel);
   set('adv_provider', 'meta');
+  // A seller-authorized auction campaign (future) names the auction it promotes, so a visit is attributable to it.
+  set('adv_auction', auctionId);
   return u.toString();
 }
 
@@ -253,7 +255,8 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
   // (a hard provider-side total) instead of a daily pacing target. Used when the authorization is below
   // Meta's $100 minimum campaign spend cap, so the campaign itself cannot carry the cap.
   const exp = (await runner.query(
-    `SELECT e.*, c.funnel AS campaign_funnel, c.budget_cents AS campaign_budget_cents, c.destination_url
+    `SELECT e.*, c.funnel AS campaign_funnel, c.budget_cents AS campaign_budget_cents, c.destination_url,
+            c.channel AS campaign_channel, c.market_key AS campaign_market_key, c.auction_id AS campaign_auction_id
        FROM marketing_audience_experiments e
        JOIN marketing_paid_campaigns c ON c.campaign_key = e.campaign_key
       WHERE e.experiment_key = $1`, [experimentKey])).rows[0];
@@ -309,6 +312,52 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     }
   }
 
+  // The platform owner's authorization must cover the amount, the dates and every creative this build would use
+  // (migration 223). A daily-budget build is scheduled to end inside the authorized window at the provider.
+  let schedule = lifetimeSchedule;
+  let reservedHere = null;
+  if (!dryRun) {
+    const keys = arms.map((a) => packageKeyByArm[a.arm_label]);
+    if (keys.some((k) => !k)) return { ok: false, reason: 'every arm needs an assigned creative package before it can be authorized' };
+    const pkgs = (await runner.query(
+      'SELECT package_key, production_creative_id FROM marketing_creative_packages WHERE package_key = ANY($1::text[])', [keys])).rows;
+    const authz = require('./paidAuthorizationService');
+    const cover = await authz.assertCovers({ campaignKey: exp.campaign_key, channel: exp.campaign_channel || 'meta_ads',
+      marketKey: exp.campaign_market_key || null, amountCents: Math.max(Number(exp.campaign_budget_cents), allocated),
+      creativeIds: keys.map((k) => (pkgs.find((p) => p.package_key === k) || {}).production_creative_id || null),
+      packageKeys: keys, window: lifetimeSchedule || null, action: 'it is built at the provider', runner });
+    if (!cover.ok) return { ok: false, reason: 'owner authorization refused: ' + cover.reason };
+    const a = cover.authorization;
+    if (!lifetimeSchedule) {
+      const starts = new Date(a.starts_at);
+      schedule = { startTime: starts > new Date() ? starts.toISOString() : null, endTime: new Date(a.ends_at).toISOString(), daily: true };
+    }
+    await authz.linkCampaign(exp.campaign_key, a, runner);
+
+    // Budget is reserved by the build itself (never trusted to the caller): the campaign's committed authority must
+    // cover its authorized total before a single provider call.
+    const ledger = require('../paidBudgetLedger');
+    const led = (await runner.query(
+      `SELECT COALESCE(sum(CASE kind WHEN 'commit' THEN amount_cents WHEN 'release' THEN -amount_cents ELSE 0 END),0)::int AS net,
+              count(*) FILTER (WHERE kind = 'commit')::int AS commits
+         FROM marketing_paid_budget_ledger WHERE campaign_key = $1`, [exp.campaign_key])).rows[0] || { net: 0, commits: 0 };
+    const need = Number(exp.campaign_budget_cents) - Number(led.net || 0);
+    if (need > 0) {
+      const idem = Number(led.commits || 0) === 0 ? 'campaign:' + exp.campaign_key : 'campaign:' + exp.campaign_key + ':build:' + Number(led.commits);
+      const res = await ledger.reserve({ campaignKey: exp.campaign_key, amountCents: need, idempotencyKey: idem, note: 'reserved by build ' + experimentKey });
+      if (!res.ok) return { ok: false, reason: 'budget refused: ' + res.reason };
+      if (!res.replayed) reservedHere = { amount: need, idem };
+    }
+  }
+  // A failure before any provider object exists hands back the authority this build reserved.
+  const fail = async (reason) => {
+    if (reservedHere) {
+      const any = (await runner.query(`SELECT 1 FROM marketing_provider_objects WHERE campaign_key = $1 AND certification_artifact = false LIMIT 1`, [exp.campaign_key])).rows[0];
+      if (!any) await require('../paidBudgetLedger').release({ campaignKey: exp.campaign_key, amountCents: reservedHere.amount, idempotencyKey: reservedHere.idem + ':release', note: 'build failed' });
+    }
+    return { ok: false, reason };
+  };
+
   const ids = await identities();
   const plan = {
     experiment_key: experimentKey, campaign_key: exp.campaign_key, funnel: exp.funnel,
@@ -325,7 +374,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
   if (!campaignId) {
     const r = await meta.createCampaign({ account, name: providerName(exp.campaign_key), funnel: exp.funnel,
       spendCapCents: Number(exp.campaign_budget_cents), idempotencyKey: campKey }, runner);
-    if (!r.ok) return { ok: false, reason: 'campaign: ' + r.reason };
+    if (!r.ok) return fail('campaign: ' + r.reason);
     campaignId = r.provider_campaign_id;
     await rememberObject({ objectType: 'campaign', providerId: campaignId, account, campaignKey: exp.campaign_key,
       idempotencyKey: campKey, evidence: { spend_cap_cents: Number(exp.campaign_budget_cents) }, runner });
@@ -338,31 +387,31 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
 
   for (const a of arms) {
     const packageKey = packageKeyByArm[a.arm_label];
-    if (!packageKey) return { ok: false, reason: 'no creative package assigned to arm ' + a.arm_label };
+    if (!packageKey) return fail('no creative package assigned to arm ' + a.arm_label);
     const pkg = (await runner.query(
       `SELECT p.*, c.id AS asset_id, c.sha256 AS asset_sha256, c.filename, c.production_eligible
          FROM marketing_creative_packages p
          JOIN marketing_production_creative c ON c.id = p.production_creative_id
         WHERE p.package_key = $1`, [packageKey])).rows[0];
-    if (!pkg) return { ok: false, reason: 'unknown package ' + packageKey };
+    if (!pkg) return fail('unknown package ' + packageKey);
     if (pkg.approval_state !== 'OWNER_APPROVED' || pkg.policy_status !== 'OK' || pkg.active !== true) {
-      return { ok: false, reason: 'package ' + packageKey + ' is not an approved, policy-clean, active package' };
+      return fail('package ' + packageKey + ' is not an approved, policy-clean, active package');
     }
-    if (pkg.production_eligible !== true) return { ok: false, reason: 'package ' + packageKey + ' image is not production-eligible' };
-    if (pkg.funnel !== exp.funnel) return { ok: false, reason: 'package ' + packageKey + ' is for the wrong funnel' };
+    if (pkg.production_eligible !== true) return fail('package ' + packageKey + ' image is not production-eligible');
+    if (pkg.funnel !== exp.funnel) return fail('package ' + packageKey + ' is for the wrong funnel');
     // An Owner approval may be SCOPED — to named campaigns and a maximum authorization. Outside that
     // scope the package is not approved, whatever its approval_state says.
     const scope = pkg.approval_scope || null;
     if (scope && Array.isArray(scope.campaign_keys) && !scope.campaign_keys.includes(exp.campaign_key)) {
-      return { ok: false, reason: 'package ' + packageKey + ' is approved only for ' + scope.campaign_keys.join(', ') };
+      return fail('package ' + packageKey + ' is approved only for ' + scope.campaign_keys.join(', '));
     }
     if (scope && scope.max_authorization_cents != null && Number(exp.campaign_budget_cents) > Number(scope.max_authorization_cents)) {
-      return { ok: false, reason: `package ${packageKey} is approved only up to $${(scope.max_authorization_cents / 100).toFixed(2)}` };
+      return fail(`package ${packageKey} is approved only up to $${(scope.max_authorization_cents / 100).toFixed(2)}`);
     }
 
     // ── image (uploaded once, reused) ──
     const img = await ensureImage({ productionCreativeId: pkg.asset_id, account, runner });
-    if (!img.ok) return { ok: false, reason: 'image for ' + packageKey + ': ' + img.reason };
+    if (!img.ok) return fail('image for ' + packageKey + ': ' + img.reason);
 
     // ── ad set ──
     const adsetKey = 'live:adset:' + experimentKey + ':' + a.arm_label;
@@ -371,21 +420,22 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
       const r = await meta.createAdSet({ account, name: providerName(experimentKey, a.arm_label + ' (' + a.strategy_key + ')'),
         campaignId, dailyBudgetCents: perArmDaily, targetingSpec: a.targeting_spec, pixelId: ids.pixelId,
         optimizationGoal: a.optimization_goal || 'OFFSITE_CONVERSIONS', customEventType: customEventType || undefined,
-        ...(lifetimeSchedule ? { lifetimeBudgetCents: Number(a.allocated_cents), startTime: lifetimeSchedule.startTime, endTime: lifetimeSchedule.endTime } : {}) }, runner);
-      if (!r.ok) return { ok: false, reason: 'ad set ' + a.arm_label + ': ' + r.reason };
+        ...(lifetimeSchedule ? { lifetimeBudgetCents: Number(a.allocated_cents), startTime: lifetimeSchedule.startTime, endTime: lifetimeSchedule.endTime }
+          : (schedule ? { startTime: schedule.startTime || null, endTime: schedule.endTime } : {})) }, runner);
+      if (!r.ok) return fail('ad set ' + a.arm_label + ': ' + r.reason);
       adsetId = r.provider_adset_id;
       await rememberObject({ objectType: 'adset', providerId: adsetId, parentProviderId: campaignId, account,
         campaignKey: exp.campaign_key, experimentArmId: a.id, idempotencyKey: adsetKey,
         evidence: lifetimeSchedule
           ? { strategy: a.strategy_key, lifetime_budget_cents: Number(a.allocated_cents), start_time: lifetimeSchedule.startTime, end_time: lifetimeSchedule.endTime, daily_equivalent_cents: perArmDaily }
-          : { strategy: a.strategy_key, daily_budget_cents: perArmDaily }, runner });
+          : { strategy: a.strategy_key, daily_budget_cents: perArmDaily, start_time: schedule ? schedule.startTime || null : null, end_time: schedule ? schedule.endTime : null }, runner });
       await runner.query('UPDATE marketing_audience_experiment_arms SET provider_adset_id=$2 WHERE id=$1', [a.id, adsetId]);
     }
 
     // ── creative ──
     const destination = buildDestination({
       destinationUrl: pkg.destination_url, funnel: exp.funnel, campaignKey: exp.campaign_key,
-      strategyKey: a.strategy_key, experimentKey, armLabel: a.arm_label, packageKey });
+      strategyKey: a.strategy_key, experimentKey, armLabel: a.arm_label, packageKey, auctionId: exp.campaign_auction_id || null });
     const creativeKey = 'live:creative:' + experimentKey + ':' + a.arm_label + ':' + packageKey + ':v' + pkg.version;
     let creativeId = (await findObject(creativeKey, runner) || {}).provider_id || null;
     if (!creativeId) {
@@ -393,7 +443,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
         pageId: ids.pageId, instagramId: ids.instagramId, imageHash: img.image_hash,
         message: pkg.primary_text, headline: pkg.headline, description: pkg.description,
         destinationUrl: destination, ctaType: pkg.cta_type }, runner);
-      if (!r.ok) return { ok: false, reason: 'creative ' + packageKey + ': ' + r.reason };
+      if (!r.ok) return fail('creative ' + packageKey + ': ' + r.reason);
       creativeId = r.provider_creative_id;
       await rememberObject({ objectType: 'adcreative', providerId: creativeId, account, campaignKey: exp.campaign_key,
         experimentArmId: a.id, packageKey, idempotencyKey: creativeKey,
@@ -406,7 +456,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     if (!adId) {
       const r = await meta.createAd({ account, name: providerName(experimentKey, a.arm_label),
         adsetId, creativeId }, runner);
-      if (!r.ok) return { ok: false, reason: 'ad ' + a.arm_label + ': ' + r.reason };
+      if (!r.ok) return fail('ad ' + a.arm_label + ': ' + r.reason);
       adId = r.provider_ad_id;
       await rememberObject({ objectType: 'ad', providerId: adId, parentProviderId: adsetId, account,
         campaignKey: exp.campaign_key, experimentArmId: a.id, packageKey, idempotencyKey: adKey, runner });
@@ -435,6 +485,28 @@ async function activateExperiment({ experimentKey, account, runner = db } = {}) 
   const allowed = await require('./paidSpendGovernance').assertNewSpendAllowed({ campaignKey: exp.campaign_key, action: 'activate_experiment' });
   if (!allowed.ok) return { ok: false, reason: 'spend governance refused: ' + allowed.reason };
 
+  // The platform owner's authorization must still cover the amount, the creative actually built and the schedule
+  // every ad set carries (migration 223). An ad set with no end inside the window is refused: it must be rebuilt.
+  const camp = (await runner.query('SELECT budget_cents, channel, market_key FROM marketing_paid_campaigns WHERE campaign_key = $1', [exp.campaign_key])).rows[0];
+  const built = (await runner.query(
+    `SELECT o.object_type, o.package_key, o.evidence, p.production_creative_id
+       FROM marketing_provider_objects o LEFT JOIN marketing_creative_packages p ON p.package_key = o.package_key
+      WHERE o.account_ref = $1 AND o.campaign_key = $2 AND o.provider_id IS NOT NULL AND o.certification_artifact = false
+        AND o.object_type IN ('ad','adset')`, [account, exp.campaign_key])).rows;
+  const adsUsed = built.filter((o) => o.object_type === 'ad');
+  const authz = require('./paidAuthorizationService');
+  const cover = await authz.assertCovers({ campaignKey: exp.campaign_key, channel: camp ? camp.channel : null, marketKey: camp ? camp.market_key : null,
+    amountCents: camp ? camp.budget_cents : 0, creativeIds: adsUsed.map((o) => o.production_creative_id || null),
+    packageKeys: adsUsed.map((o) => o.package_key), action: 'activation', runner });
+  if (!cover.ok) return { ok: false, reason: 'owner authorization refused: ' + cover.reason };
+  const authEnd = new Date(cover.authorization.ends_at);
+  for (const o of built.filter((x) => x.object_type === 'adset')) {
+    const end = o.evidence && o.evidence.end_time ? new Date(o.evidence.end_time) : null;
+    if (!end || Number.isNaN(end.getTime()) || end > authEnd) {
+      return { ok: false, reason: 'owner authorization refused: an ad set has no end inside the authorized window; rebuild it under the current authorization' };
+    }
+  }
+
   // Ads first, then ad sets, then the campaign: a parent that turns on before its children cannot
   // deliver anything, whereas the reverse order could briefly leave an orphan live.
   const rows = (await runner.query(
@@ -462,6 +534,8 @@ async function activateExperiment({ experimentKey, account, runner = db } = {}) 
       [exp.campaign_key]);
     await runner.query(
       `UPDATE marketing_audience_experiments SET state='RUNNING', updated_at=now() WHERE experiment_key=$1`, [experimentKey]);
+    // Activation consumes the authorization: resuming later needs a fresh owner decision.
+    await authz.consume(cover.authorization.id, runner);
   }
   return { ok, results };
 }

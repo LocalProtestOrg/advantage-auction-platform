@@ -208,7 +208,7 @@ router.get('/staff-alerts', wrap(async (req, res) => {
 }));
 router.post('/staff-alerts', superAdminOnly, wrap(async (req, res) => {
   const before = await staffAlerts.recipients();
-  const after = await staffAlerts.setRecipients({ emails: (req.body || {}).emails, sms: (req.body || {}).sms });
+  const after = await staffAlerts.setRecipients({ emails: (req.body || {}).emails, sms: (req.body || {}).sms }, db, { actor: req.user });
   const { maskEmailForLog } = require('../lib/logSafe');
   const m = (r) => ({ emails: r.emails.map(maskEmailForLog), sms: r.sms.map((n) => '…' + n.slice(-4)) });
   await auditService.logEvent(db, { eventType: 'sasha.staff_alert_recipients_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
@@ -225,7 +225,7 @@ router.post('/staff-alerts/test', superAdminOnly, wrap(async (req, res) => {
 router.post('/settings', superAdminOnly, wrap(async (req, res) => {
   const { key, value } = req.body || {};
   const before = (await settings.load())[String(key || '').replace('sasha.', '')];
-  const v = await settings.set(String(key || ''), value);
+  const v = await settings.set(String(key || ''), value, db, { actor: req.user, source: 'POST /api/admin/sasha/settings' });
   await auditService.logEvent(db, { eventType: 'sasha.setting_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
     actorId: req.user.id, metadata: { key, before, after: v } });
   res.json({ success: true, data: await settings.effective() });
@@ -276,8 +276,9 @@ router.post('/phone/settings', superAdminOnly, wrap(async (req, res) => {
     if (!Number.isFinite(v) || v < lo || v > hi) return res.status(400).json({ success: false, message: k.replace(/_/g, ' ') + ' must be between ' + lo + ' and ' + hi + '.' });
   }
   const before = (await phoneSettings.load())[k];
-  await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'sasha_phone')
-    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, ['sasha.phone.' + k, JSON.stringify(v)]);
+  // sasha.phone.* is sensitive: platform owner only (configService checks the database), audited and reported.
+  await require('../services/configService').setPlatformConfig('sasha.phone.' + k, v, { actor: req.user, category: 'sasha_phone',
+    source: 'POST /api/admin/sasha/phone/settings', adminPath: '/admin/sasha.html' });
   phoneSettings.clear();
   await auditService.logEvent(db, { eventType: 'sasha.phone_setting_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
     actorId: req.user.id, metadata: { key: k, before, after: v } });
@@ -367,9 +368,10 @@ router.post('/phone/bidder-sms-settings', superAdminOnly, wrap(async (req, res) 
     if (keys.some((k) => typeof b.auction_sms[k] !== 'boolean')) return res.status(400).json({ success: false, message: 'Switches must be true or false.' });
     const next = { ...(await require('../services/smsConsentService').settings()), ...Object.fromEntries(keys.map((k) => [k, b.auction_sms[k]])) };
     if (next.enabled && !next.a2p_confirmed) return res.status(400).json({ success: false, message: 'Confirm the A2P campaign covers these texts before turning them on.' });
+    // auction_sms.* is sensitive: turning a switch on is platform owner only; any Super Admin may turn one off.
     for (const k of keys) {
-      await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'auction_sms') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-        ['auction_sms.' + k, JSON.stringify(b.auction_sms[k])]);
+      await require('../services/configService').setPlatformConfig('auction_sms.' + k, b.auction_sms[k], { actor: req.user, category: 'auction_sms',
+        safetyStop: b.auction_sms[k] === false, source: 'POST /api/admin/sasha/phone/bidder-sms-settings', adminPath: '/admin/sasha.html' });
     }
     await auditService.logEvent(db, { eventType: 'auction_sms.config_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
       actorId: req.user.id, metadata: { changes: Object.fromEntries(keys.map((k) => [k, b.auction_sms[k]])) } });

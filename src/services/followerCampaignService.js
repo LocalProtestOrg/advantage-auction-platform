@@ -250,10 +250,10 @@ async function listCampaignsForSeller(sellerId, runner = db) {
 }
 
 // Build the FOLLOWER_EVENT email for the worker: signs a per-recipient unsubscribe token from the payload.
-function buildQueueEmail(payload, userId, toAddress) {
+function buildQueueEmail(payload, userId, toAddress, postalAddress = null) {
   const token = emailToken.sign(userId, payload.seller_id);
   const unsubscribeUrl = `${APP_BASE}/api/public/follower-emails/unsubscribe?token=${encodeURIComponent(token)}`;
-  return followerEmails.buildFollowerEventEmail(payload, { toAddress, unsubscribeUrl });
+  return followerEmails.buildFollowerEventEmail(payload, { toAddress, unsubscribeUrl, postalAddress });
 }
 
 module.exports = {

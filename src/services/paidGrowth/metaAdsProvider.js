@@ -195,6 +195,11 @@ async function setStatus({ objectId, status }, runner = db) {
     if (!owner || !owner.campaign_key) return { ok: false, reason: 'object ' + objectId + ' is not a recorded Advantage.Bid delivery object — activation refused' };
     const allowed = await require('./paidSpendGovernance').assertNewSpendAllowed({ campaignKey: owner.campaign_key, action: 'activate_object' });
     if (!allowed.ok) return { ok: false, reason: 'spend governance refused: ' + allowed.reason };
+    // And an open owner authorization must cover the campaign (migration 223). Nothing goes live without one.
+    const camp = (await runner.query('SELECT budget_cents, channel, market_key FROM marketing_paid_campaigns WHERE campaign_key = $1', [owner.campaign_key])).rows[0];
+    const cover = await require('./paidAuthorizationService').assertCovers({ campaignKey: owner.campaign_key, channel: camp ? camp.channel : null,
+      marketKey: camp ? camp.market_key : null, amountCents: camp ? camp.budget_cents : 0, creativeIds: null, action: 'activation', runner });
+    if (!cover.ok) return { ok: false, reason: 'owner authorization refused: ' + cover.reason };
   }
   const perms = await permissions();
   if (!perms.ok) return { ok: false, reason: 'cannot read permissions: ' + perms.reason };
@@ -295,7 +300,8 @@ function buildAdSetBody({ name, campaignId, dailyBudgetCents, lifetimeBudgetCent
   // requires an end time. A daily budget, by contrast, is only a pacing target.
   const budget = lifetimeBudgetCents != null
     ? { lifetime_budget: Math.round(Number(lifetimeBudgetCents)), end_time: endTime, ...(startTime ? { start_time: startTime } : {}) }
-    : { daily_budget: Math.round(Number(dailyBudgetCents)) };
+    // A daily budget may also carry a schedule: an end time inside the owner's authorization window (migration 223).
+    : { daily_budget: Math.round(Number(dailyBudgetCents)), ...(endTime ? { end_time: endTime } : {}), ...(startTime ? { start_time: startTime } : {}) };
   const body = {
     name,
     campaign_id: String(campaignId),
