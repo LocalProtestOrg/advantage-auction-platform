@@ -280,8 +280,9 @@ describe('M4 — NULL password safety + native login', () => {
       if (/INSERT INTO users/.test(sql)) { expect(params[1]).not.toBe('pw-12345678'); expect(params[2]).toBe('buyer'); return Promise.resolve({ rows: [{ id: 'new-1', role: 'buyer' }] }); }
       return Promise.resolve({ rows: [] });
     });
+    db.connect.mockResolvedValue({ query: db.query, release: () => {} });   // account + terms acceptance in one transaction
     const res = mkRes();
-    await register({ body: { email: 'new@x.test', password: 'pw-12345678' }, headers: {} }, res);
+    await register({ body: { email: 'new@x.test', password: 'pw-12345678', accept_terms: true }, headers: {} }, res);
     expect(res.body.success).toBe(true); expect(jwt.verify(res.body.token, SECRET).role).toBe('buyer');
   });
 });

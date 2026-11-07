@@ -33,8 +33,10 @@
 </head>
 <body>
   <script src="/widgets/shared/admin-nav.js"></script>
+  <script src="/admin/buyer-safeguards.js" defer></script>
   <div class="wrap">
     <h1>Buyer Management</h1>
+    <div id="safeguards" class="panel" style="margin:0 0 16px"></div>
     <div class="bar">
       <input type="text" id="q" placeholder="Search by email…" />
       <select id="active"><option value="">All</option><option value="true">Active</option><option value="false">Suspended</option></select>

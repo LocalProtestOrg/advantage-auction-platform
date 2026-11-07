@@ -408,12 +408,16 @@ describe('each order records the platform Buyer Terms version in force', () => {
     const before = await buy(it1.id, 'bea');
     expect((await one('SELECT buyer_terms_version_int FROM marketplace_orders WHERE id = $1', [before.body.data.order.id])).buyer_terms_version_int).toBeNull();
     await global.__PG.exec(mig('061_create_terms.sql'));
-    const cur = await one(`SELECT version_int FROM terms_versions WHERE kind = 'buyer_terms' AND is_current`);   // seeded by 061
+    // the column migration 158 adds in production (read with the current version)
+    await global.__PG.exec('ALTER TABLE terms_versions ADD COLUMN IF NOT EXISTS includes_sales_near_you BOOLEAN NOT NULL DEFAULT false');
+    const cur = await one(`SELECT id, version_int FROM terms_versions WHERE kind = 'buyer_terms' AND is_current`);   // seeded by 061
     const it2 = await listQ(1);
     const o = await buy(it2.id, 'ben');
     expect(o.body.data.order.buyer_terms_version).toBe(cur.version_int);
     const row = await one('SELECT buyer_terms_version_id, buyer_terms_version_int, policy_snapshot FROM marketplace_orders WHERE id = $1', [o.body.data.order.id]);
     expect(row.buyer_terms_version_int).toBe(cur.version_int);
     expect(row.buyer_terms_version_id).toEqual(expect.any(String));
+    // the buyer's agreement at checkout is also an acceptance of that version in the terms ledger (owner 2026-11-06)
+    expect((await one('SELECT count(*)::int n FROM terms_acceptances WHERE terms_version_id = $1', [cur.id])).n).toBe(1);
   });
 });

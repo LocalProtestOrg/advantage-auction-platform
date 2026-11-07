@@ -1127,6 +1127,14 @@
       return;
     }
 
+    if (gate.email_verification_required) {
+      form.innerHTML =
+        '<div style="text-align:center; padding:0.5rem 0;">' +
+        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Confirm your email address to bid in this auction. We sent a confirmation link to the email on your account.</p>' +
+        '<a href="/verify-email.html?next=' + encodeURIComponent(location.pathname + location.search) + '" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Confirm Your Email</a></div>';
+      return;
+    }
+
     // terms accepted + card on file but not registered → register-to-bid with pickup ack
     form.innerHTML = '';
     const p = document.createElement('p');
@@ -1149,6 +1157,7 @@
       const r = await BidUtils.registerForAuction(currentAuctionId, token, true, BidUtils.smsChoices(smsBoxes));
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.code === 'PHONE_VERIFICATION_REQUIRED') { window.location.href = '/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      if (r.code === 'EMAIL_VERIFICATION_REQUIRED') { window.location.href = '/verify-email.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.ok && r.data && r.data.sms_alerts && r.data.sms_alerts.recorded === false) {
         st.style.color = '#92400e'; st.textContent = 'You are registered. ' + r.data.sms_alerts.message; setTimeout(function () { window.location.reload(); }, 4000); return;
       }
@@ -2011,7 +2020,8 @@
 
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || !data.success) {
-        setStatus(humanizeBidError(res.status, data && data.message), 'err');
+        setStatus(BidUtils.humanizeBidError(res.status, data && data.message, data && data.code), 'err');
+        if (data && data.code === 'EMAIL_VERIFICATION_REQUIRED') setTimeout(function () { window.location.href = '/verify-email.html?next=' + encodeURIComponent(location.pathname + location.search); }, 1500);
         return;
       }
 

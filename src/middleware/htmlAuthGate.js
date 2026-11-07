@@ -49,6 +49,7 @@ const MEMBER_PAGES = new Set([
   '/marketplace-purchases.html', // buyer's fixed-price Marketplace purchases (any signed-in member)
   '/my-questions.html', // buyer's questions to sellers about items (any signed-in member; API off unless enabled)
   '/verify-phone.html', '/notifications.html', // verified mobile number + optional text-alert preferences (self only)
+  '/verify-email.html', // confirm the account's email address (resend link; self only)
   // Seller company work pages also used by seller STAFF (buyer-role accounts with an active membership, mig 199); the
   // APIs resolve the company from the session and enforce each role's permissions.
   '/seller-orders.html', '/seller-staff-invite.html', '/seller-messages.html', '/seller-inventory.html',

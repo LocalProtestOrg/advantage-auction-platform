@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Confirm Your Email - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1f2937; }
+    .wrap { max-width: 460px; margin: 0 auto; padding: 2.5rem 1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.6rem 1.4rem 1.8rem; }
+    h1 { font-size: 1.3rem; margin: 0 0 0.5rem; }
+    p { font-size: 0.92rem; line-height: 1.55; color: #374151; margin: 0 0 1rem; }
+    button { width: 100%; background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.98rem; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: default; }
+    button:focus-visible, a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+    .msg { font-size: 0.88rem; margin-top: 0.9rem; min-height: 1em; }
+    .msg.err { color: #b91c1c; } .msg.ok { color: #15803d; }
+    .back { display: inline-block; margin-top: 1rem; color: #1d4ed8; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+    .done { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 8px; padding: 0.8rem 0.9rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Confirm your email address</h1>
+      <p id="lead">We sent a confirmation link to the email address on your account. Select the link in that email to confirm it. If you cannot find it, check your spam folder or send a new one.</p>
+      <div id="done" class="done" hidden>Your email address is confirmed.</div>
+      <button id="resend" type="button">Resend Confirmation Email</button>
+      <button id="check" type="button" style="margin-top:0.6rem;background:#111">I Have Confirmed My Email</button>
+      <div id="msg" class="msg" role="status" aria-live="polite"></div>
+      <a id="back" class="back" href="/app.html">Back to My Account</a>
+    </div>
+  </div>
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script>
+    (function () {
+      var token = null; try { token = localStorage.getItem('token'); } catch (e) { token = null; }
+      function safeNext(raw) {
+        if (!raw || !/^\/(?!\/)[^\s]*$/.test(raw)) return '';
+        try { var u = new URL(raw, location.origin); return u.origin === location.origin ? (u.pathname + u.search + u.hash) : ''; } catch (e) { return ''; }
+      }
+      var NEXT = safeNext(new URLSearchParams(location.search).get('next') || '');
+      var back = document.getElementById('back');
+      if (NEXT) { back.href = NEXT; back.textContent = 'Return to the Auction'; }
+      var msg = document.getElementById('msg');
+      function say(t, cls) { msg.className = 'msg' + (cls ? ' ' + cls : ''); msg.textContent = t; }
+      if (!token) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      var H = { Authorization: 'Bearer ' + token };
+      function showDone() {
+        document.getElementById('done').hidden = false;
+        document.getElementById('resend').hidden = true;
+        document.getElementById('check').hidden = true;
+        document.getElementById('lead').hidden = true;
+      }
+      function check(announce) {
+        return fetch('/api/auth/email-verification', { headers: H }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.success && d.data && d.data.verified) { showDone(); if (NEXT && announce) { say('Returning you to the auction…', 'ok'); setTimeout(function () { location.href = NEXT; }, 900); } return true; }
+          if (announce) say('We have not received your confirmation yet. Select the link in the email, then try again.', 'err');
+          return false;
+        }).catch(function () { if (announce) say('Could not check right now. Please try again.', 'err'); return false; });
+      }
+      check(false);
+      document.getElementById('check').addEventListener('click', function () { check(true); });
+      var btn = document.getElementById('resend');
+      btn.addEventListener('click', function () {
+        btn.disabled = true; say('Sending…');
+        fetch('/api/auth/resend-verification', { method: 'POST', headers: H })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (x) {
+            if (x.ok && x.d.data && x.d.data.already_verified) { showDone(); say('', ''); return; }
+            if (x.ok) say('Sent. Check your inbox (and spam folder) for the confirmation link.', 'ok');
+            else say(x.d.message || 'We could not send the email right now. Please try again shortly.', 'err');
+          })
+          .catch(function () { say('We could not send the email right now. Please try again shortly.', 'err'); })
+          .then(function () { setTimeout(function () { btn.disabled = false; }, 60000); });
+      });
+    })();
+  </script>
+</body>
+</html>

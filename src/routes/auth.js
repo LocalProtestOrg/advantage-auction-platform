@@ -6,6 +6,8 @@ const auth = require('../middleware/authMiddleware');
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 const { requestReset, resetPassword } = require('../services/passwordResetService');
 const emailVerificationService = require('../services/emailVerificationService');
+const termsService = require('../services/termsService');
+const buyerEmailGate = require('../services/buyerEmailGate');
 const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../lib/sessionCookie');
 const { bdMemberAdminUrl } = require('../lib/bridgeConfig');
 const agreementService = require('../services/agreementService');
@@ -49,20 +51,44 @@ router.post('/register', normalLimiter, async (req, res) => {
   if (password.length < 8) {
     return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
   }
+  // Explicit acceptance of the Terms of Service and Buyer Terms is required to create an account (the box on the page
+  // starts unchecked). Only a literal true counts.
+  if ((req.body || {}).accept_terms !== true) {
+    return res.status(400).json({ success: false, code: 'TERMS_REQUIRED', error: 'Please agree to the Terms of Service and Buyer Terms to create an account.' });
+  }
   try {
     if (await accountEmail.findUserByEmail(email, 'id')) {
       return res.status(409).json({ success: false, error: 'An account with this email already exists' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await db.query(
-      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, role',
-      [email, hashedPassword, 'buyer']
-    );
-    const user = result.rows[0];
+    // The account and its acceptance of the CURRENT terms version are written together (one transaction): an account
+    // can never exist without the acceptance the person just gave, nor the reverse. The page sends the version it
+    // linked (terms_version_int); if the current version changed in between, nothing is created (409 TERMS_CHANGED).
+    const evidence = termsService.requestEvidence(req);
+    let user; let current = null; let acceptance = null;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      current = await termsService.getCurrentTerms(termsService.DEFAULT_KIND, client);
+      if (current) termsService.assertExpectedVersion(current, (req.body || {}).terms_version_int);
+      const result = await client.query(
+        'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, role',
+        [email, hashedPassword, 'buyer']
+      );
+      user = result.rows[0];
+      if (current) acceptance = await termsService.recordAcceptance(client, user.id, current, evidence);
+      else console.warn('[auth] register: no current buyer terms version is published; acceptance not recorded');
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      client.release();
+    }
+    if (current && acceptance) termsService.afterAcceptance(user.id, current, acceptance, { source: 'account_registration' });
     const token = sessionTokens.issueToken(user);
-    // Launch: professional welcome email + OPTIONAL (non-blocking) email verification.
-    // Fire-and-forget — registration must never fail because email delivery did, and
-    // nothing downstream gates on verification.
+    // Welcome email with the email confirmation link. Fire-and-forget: registration must never fail because email
+    // delivery did. Whether bidding needs the confirmation is the buyers.require_verified_email_to_bid switch.
     emailVerificationService.sendWelcome(user.id, email).catch(() => {});
     setSessionCookie(res, token); // server-side session for the HTML gate (same JWT)
     // First-party conversion ledger (fire-and-forget; never affects registration). visitor_id is the anonymous
@@ -73,6 +99,7 @@ router.post('/register', normalLimiter, async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ success: false, error: 'An account with this email already exists' });
     }
+    if (err.code === 'TERMS_CHANGED') return res.status(409).json({ success: false, code: err.code, error: err.message, message: err.message });
     console.error('[auth] register failed:', { email: maskEmailForLog(email), error: err.message });
     return res.status(500).json({ success: false, error: 'Registration failed' });
   }
@@ -91,11 +118,15 @@ router.get('/verify-email', async (req, res) => {
   }
   const home = (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
   const heading = ok ? 'Email confirmed' : 'Link expired or invalid';
+  let required = false;
+  try { required = (await buyerEmailGate.config()).required; } catch (_e) { required = false; }
   const msg = ok
-    ? 'Thank you — your email address is confirmed. You can close this tab and return to Advantage.Bid.'
-    : 'This confirmation link is no longer valid. Confirming your email is optional — your account already works for bidding and checkout.';
+    ? 'Thank you. Your email address is confirmed. You can close this tab and return to Advantage.Bid.'
+    : (required
+      ? 'This confirmation link is no longer valid. Sign in and open the Confirm Your Email page to send a new link.'
+      : 'This confirmation link is no longer valid. Confirming your email is optional; your account already works for bidding and checkout.');
   res.status(ok ? 200 : 400).type('html').send(
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} — Advantage.Bid</title></head>` +
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} - Advantage.Bid</title></head>` +
     `<body style="font-family:system-ui,-apple-system,sans-serif;background:#fafafa;margin:0;padding:2.5rem 1rem;color:#111;">` +
     `<div style="max-width:460px;margin:0 auto;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#fff;">` +
     `<div style="background:#111;color:#fff;padding:1rem 1.25rem;font-weight:700;">Advantage.Bid</div>` +
@@ -104,6 +135,41 @@ router.get('/verify-email', async (req, res) => {
     `<a href="${home}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:700;padding:.65rem 1.25rem;border-radius:7px;font-size:.9rem;">Go to Advantage.Bid</a>` +
     `</div></div></body></html>`
   );
+});
+
+// GET /api/auth/email-verification: the signed-in account's email confirmation state and whether bidding needs it
+// (buyers.require_verified_email_to_bid). Never reveals the switch's internals beyond what the page needs.
+router.get('/email-verification', auth, async (req, res) => {
+  try {
+    const s = await buyerEmailGate.status(req.user.id);
+    res.json({ success: true, data: { verified: s.verified, required_to_bid: s.required, can_bid: s.ok,
+      must_verify: s.must_verify, grace_until: s.grace_until } });
+  } catch (err) {
+    console.error('[auth] email-verification status failed:', err.message);
+    res.status(500).json({ success: false, message: 'Could not check your email confirmation.' });
+  }
+});
+
+// POST /api/auth/resend-verification: one-click resend of the confirmation link to the account's own address.
+// Throttled per account (one a minute, five an hour) on top of the per-address limiter.
+router.post('/resend-verification', normalLimiter, auth, async (req, res) => {
+  try {
+    const u = (await db.query('SELECT email, email_verified FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!u) return res.status(404).json({ success: false, message: 'Account not found.' });
+    if (u.email_verified === true) return res.json({ success: true, data: { already_verified: true } });
+    const allowed = buyerEmailGate.resendAllowed(req.user.id);
+    if (!allowed.ok) {
+      return res.status(429).json({ success: false, code: 'RESEND_THROTTLED', retry_after_s: allowed.retry_after_s,
+        message: 'We sent a confirmation email recently. Please check your inbox (and spam folder) or try again in a few minutes.' });
+    }
+    buyerEmailGate.noteResend(req.user.id);
+    const sent = await emailVerificationService.sendVerification(req.user.id, u.email);
+    if (!sent.ok) return res.status(502).json({ success: false, message: 'We could not send the email right now. Please try again shortly.' });
+    return res.json({ success: true, data: { sent: true } });
+  } catch (err) {
+    console.error('[auth] resend-verification failed:', err.message);
+    return res.status(500).json({ success: false, message: 'We could not send the email right now. Please try again shortly.' });
+  }
 });
 
 // Login

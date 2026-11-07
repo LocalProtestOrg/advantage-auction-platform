@@ -25,6 +25,10 @@ CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text UN
   is_active boolean DEFAULT true, staff_role text, staff_active boolean, last_login_at timestamptz, created_at timestamptz DEFAULT now());
 CREATE TABLE password_reset_tokens (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, token_hash text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL, used_at timestamptz, requested_ip text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE terms_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), kind text, version_int int, title text, body_markdown text,
+  effective_at timestamptz DEFAULT now(), is_current boolean, includes_sales_near_you boolean DEFAULT false, created_at timestamptz DEFAULT now());
+CREATE TABLE terms_acceptances (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, terms_version_id uuid, accepted_at timestamptz DEFAULT now(),
+  ip_address text, user_agent text, UNIQUE (user_id, terms_version_id));
 `;
 const M194 = fs.readFileSync(path.join(__dirname, '..', 'db', 'migrations', '194_session_revocation.sql'), 'utf8');
 const M195 = fs.readFileSync(path.join(__dirname, '..', 'db', 'migrations', '195_users_email_case_insensitive_unique.sql'), 'utf8');
@@ -67,9 +71,9 @@ describe('case-insensitive email', () => {
     expect((await q(`SELECT email FROM users WHERE lower(email) = 'mixed.case@example.com'`))[0].email).toBe('Mixed.Case@Example.com'); // never rewritten
   });
   test('registration stores the address lower-case and refuses a case variant of an existing account', async () => {
-    expect((await post('/api/auth/register', { email: '  New.Person@Example.com ', password: 'longenough1' })).status).toBe(200);
+    expect((await post('/api/auth/register', { email: '  New.Person@Example.com ', password: 'longenough1', accept_terms: true })).status).toBe(200);
     expect((await q(`SELECT email FROM users WHERE email = 'new.person@example.com'`))).toHaveLength(1);
-    const dup = await post('/api/auth/register', { email: 'MIXED.case@example.COM', password: 'longenough1' });
+    const dup = await post('/api/auth/register', { email: 'MIXED.case@example.COM', password: 'longenough1', accept_terms: true });
     expect(dup.status).toBe(409);
     expect((await q(`SELECT count(*)::int n FROM users WHERE lower(email) = 'mixed.case@example.com'`))[0].n).toBe(1);
   });

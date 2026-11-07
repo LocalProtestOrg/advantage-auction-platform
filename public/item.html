@@ -256,11 +256,11 @@
         '<tr class="tot"><td>Total</td><td align="right">'+money(b.total_charge_cents)+'</td></tr></table>';
       openModal('<h3>Review your order</h3><div class="meta">'+esc(ITEM.title)+' · '+(method==='shipping'?'Shipping':'Local pickup')+'</div>'+
         lines+
-        '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:12px"><input type="checkbox" id="ackPol" style="width:auto;margin-top:3px"> <span>I have read '+
+        '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:12px"><input type="checkbox" id="ackPol" style="width:auto;margin-top:3px"> <span>I have read and agree to '+
           (ITEM.policies&&(ITEM.policies.store_terms||ITEM.policies.shipping_pickup)&&ITEM.storefront_slug?(esc(ITEM.seller_name||'the seller')+'&#39;s '+
             [ITEM.policies.store_terms?'<a href="/pro/'+encodeURIComponent(ITEM.storefront_slug)+'/terms" target="_blank" rel="noopener">Store Terms</a>':'',
              ITEM.policies.shipping_pickup?'<a href="/pro/'+encodeURIComponent(ITEM.storefront_slug)+'/shipping-pickup" target="_blank" rel="noopener">Shipping &amp; Pickup Policy</a>':''].filter(Boolean).join(' and ')+' and ')
-            :'')+'the Advantage.Bid <a href="/buyer-terms.html" target="_blank" rel="noopener">Buyer Terms</a>.</span></label>'+
+            :'')+'the Advantage.Bid <a href="/terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="/buyer-terms.html" target="_blank" rel="noopener">Buyer Terms</a>.</span></label>'+
         '<label>Card details</label><div id="card-el"></div>'+
         '<div class="err" id="payErr"></div>'+
         '<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-primary" id="payBtn">Pay '+money(b.total_charge_cents)+'</button><button class="btn btn-ghost" id="payCancel">Back</button></div>'+
@@ -271,13 +271,17 @@
       var elements=stripe.elements();
       cardEl=elements.create('card'); cardEl.mount('#card-el');
       document.getElementById('payBtn').addEventListener('click',function(){
-        if(!document.getElementById('ackPol').checked){document.getElementById('payErr').textContent='Please confirm you have read the store policies and Buyer Terms.';return;}
+        if(!document.getElementById('ackPol').checked){document.getElementById('payErr').textContent='Please confirm you have read and agree to the store policies and terms.';return;}
         pay(method,addr);});
     }
 
     // Server-confirmed card flow: the browser only turns the card field into a payment method; the server checks
     // the card (debit/credit only) and confirms the charge. "Try again" reuses the same order + payment.
     var ORDER_KEY=null; var REVIEWED=null;   // the price and shipping the buyer reviewed (the server refuses if they changed)
+    // The Buyer Terms version linked on the review screen: the server records acceptance of exactly this version and
+    // refuses (TERMS_CHANGED) if a newer one was published while the page was open.
+    var BUYER_TERMS_V=null;
+    fetch('/api/terms/current').then(function(r){return r.json();}).then(function(x){if(x&&x.success&&x.data)BUYER_TERMS_V=x.data.version_int;}).catch(function(){});
     var QTY=1, REVIEWED_UNIT=null;          // units chosen, and the unit price reviewed (the server compares the unit price)
     function orderKey(method,addr){return method+'|'+QTY+'|'+(method==='shipping'?JSON.stringify(addr):'');}
     function ensureOrder(method,addr){
@@ -286,6 +290,7 @@
       var body={item_id:ITEM.id,quantity:QTY,fulfillment_method:method,address:addr};
       if(REVIEWED){body.expected_item_price_cents=(REVIEWED_UNIT!=null?REVIEWED_UNIT:ITEM.price_cents);body.expected_shipping_cents=REVIEWED.shipping_cents;}
       var ack=document.getElementById('ackPol'); body.policies_acknowledged=!!(ack&&ack.checked);
+      if(BUYER_TERMS_V!=null)body.expected_buyer_terms_version=BUYER_TERMS_V;
       body.expected_policy_versions=ITEM.policy_versions||{store_terms:null,shipping_pickup:null};   // the versions this buyer was shown
       if(method==='shipping')body.ship_to=addr;
       var wp=websitePasses(); if(wp.length)body.channel_passes=wp;
@@ -293,6 +298,7 @@
         .then(function(r){return r.json();}).then(function(res){
           if(!res.success){
             // The seller changed its policies (or price) since this page loaded: refresh the item so the buyer reviews the current ones.
+            if(res.code==='TERMS_CHANGED'){var ap=document.getElementById('ackPol');if(ap)ap.checked=false;fetch('/api/terms/current').then(function(r){return r.json();}).then(function(x){if(x&&x.success&&x.data)BUYER_TERMS_V=x.data.version_int;}).catch(function(){});}
             if(res.code==='POLICIES_CHANGED'||res.code==='PRICE_CHANGED'){fetch('/api/public/storefront/item/'+encodeURIComponent(ID),{headers:authHdr()}).then(function(r){return r.json();}).then(function(x){if(x&&x.success){ITEM=x.data;}}).catch(function(){});}
             throw new Error(res.message||'Could not start payment.');
           }
