@@ -39,6 +39,7 @@ describe.each(CASES)('%s prompt for %s', (channel, _who, ctx) => {
     expect(p).toMatch(/PROFESSIONAL SELLER CONVERSATIONS: benefit-led conversations are only for a legitimate commercial business that has itself expressed interest in selling on Advantage\.Bid \(an auction house, estate sale company, liquidator, antique or vintage shop, gallery or established specialty retailer\), or a signed-in Professional Seller\./);
     expect(p).toMatch(/keep it relevant to their type of business/);
     expect(p).toMatch(/never promise results, traffic, sale prices, approval, eligibility or an invitation/);
+    expect(p).toMatch(/NO TERMS ANNOUNCEMENTS: never announce, promote or remind anyone about a new or updated seller agreement version or updated Buyer Terms, and never ask a seller to sign a newer version\./);
   });
 
   test('the old sales-representative-for-individuals language is gone', () => {
@@ -61,14 +62,16 @@ describe.each(CASES)('%s prompt for %s', (channel, _who, ctx) => {
   });
 
   test('fee statements match the approved standard pricing (read from code); a seller agreement governs', () => {
-    expect(p).toMatch(new RegExp(`Individual Sellers pay no platform fee and no listing fee, only the payment-processing fee on the hammer price, and their auctions have a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)} buyer's premium`));
-    expect(p).toMatch(new RegExp(`Professional Seller auctions: a ${pct(billing.DEFAULT_PRO_PLATFORM_FEE_BPS)} platform fee plus the payment-processing fee on the hammer price, and the Professional Seller sets and keeps their own buyer's premium`));
-    expect(p).toMatch(new RegExp(`The payment-processing fee is ${pct(billing.DEFAULT_PROCESSING_FEE_BPS)} unless get_platform_rules \\(seller_fees\\) shows a different current rate`));
-    expect(p).toMatch(new RegExp(`Professional Storefront fixed-price sales \\(Seller Agreement v4\\): ${pct(FEE_BPS.seller_website)} when the sale comes through the seller's own website, ${pct(FEE_BPS.marketplace)} through the Advantage\\.Bid marketplace, card processing included`));
-    expect([pct(billing.DEFAULT_PRO_PLATFORM_FEE_BPS), pct(billing.DEFAULT_PROCESSING_FEE_BPS), pct(FEE_BPS.seller_website), pct(FEE_BPS.marketplace), pct(billing.DEFAULT_BUYER_PREMIUM_BPS)])
-      .toEqual(['4%', '3%', '5%', '9%', '18%']);   // the owner-approved numbers
-    expect(p).toMatch(/always add that the seller's own agreement governs/);
-    expect(p).toMatch(/Never reveal another seller's rates/);
+    const total = pct(billing.DEFAULT_PRO_PLATFORM_FEE_BPS + billing.DEFAULT_PROCESSING_FEE_BPS);   // derived from code, never a setting
+    expect(p).toMatch(new RegExp(`PROFESSIONAL SELLER AUCTIONS \\(approved wording\\): "Our Professional Seller auction fees are just ${total} total, consisting of a ${pct(billing.DEFAULT_PRO_PLATFORM_FEE_BPS)} Advantage\\.Bid platform fee and a ${pct(billing.DEFAULT_PROCESSING_FEE_BPS)} payment processing fee\\. No monthly subscription fees\\. No listing fees\\."`));
+    expect(p).toMatch(new RegExp(`Lead with the ${total} total, then explain the two parts`));
+    expect(p).toMatch(/never describe it as what card processors charge Advantage\.Bid \(actual processor costs vary\)/);
+    expect(p).toMatch(new RegExp(`INDIVIDUAL SELLER AUCTIONS: no platform fee and no listing fee, only the payment-processing fee on the hammer price; their auctions have a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)} buyer's premium`));
+    expect(p).toMatch(new RegExp(`PROFESSIONAL STOREFRONT fixed-price sales are SEPARATE from auction fees \\(never combine them or add them to the auction total\\): all-in, card processing included, ${pct(FEE_BPS.seller_website)} when the sale comes through the seller's own embedded storefront and ${pct(FEE_BPS.marketplace)} through the Advantage\\.Bid marketplace \\(Seller Agreement v4\\); no monthly or listing fees\\. Online checkout for storefront items is not enabled yet\\.`));
+    expect([pct(billing.DEFAULT_PRO_PLATFORM_FEE_BPS), pct(billing.DEFAULT_PROCESSING_FEE_BPS), total, pct(FEE_BPS.seller_website), pct(FEE_BPS.marketplace), pct(billing.DEFAULT_BUYER_PREMIUM_BPS)])
+      .toEqual(['4%', '3%', '7%', '5%', '9%', '18%']);   // the owner-approved numbers
+    expect(p).toMatch(/a seller's own negotiated agreement governs and is honored/);
+    expect(p).toMatch(/never reveal another seller's rates/);
     expect(p).not.toMatch(/Never quote a standard professional fee percentage/);
     expect(p).not.toMatch(/\b11%/);   // the retired flat storefront fee
     for (const l of p.split('\n').filter((x) => /25%/.test(x))) expect(l).toMatch(/never "18% to 25%"/);   // only ever named as forbidden
@@ -129,8 +132,12 @@ describe('the rules Sasha looks up agree with the prompt', () => {
   });
   test('seller_fees states the approved standard rates and that the seller agreement governs', () => {
     const f = t('seller_fees');
-    expect(f).toMatch(/Professional Seller auctions \(standard rates, owner-approved 2026-11-06\): a 4% platform fee plus a 3% payment-processing fee on the hammer price\. A seller's own Professional Seller agreement governs/);
-    expect(f).toMatch(/5% when the sale comes through the seller's own website, 9% through the Advantage\.Bid marketplace, card processing included/);
+    expect(f).toMatch(/"Just 7% Total Seller Fees\. Our Professional Seller auction fees are just 7% total, consisting of a 4% Advantage\.Bid platform fee and a 3% payment processing fee\. No monthly subscription fees\. No listing fees\."/);
+    expect(f).toMatch(/not the exact amount card processors charge Advantage\.Bid \(actual processor costs vary\)/);
+    expect(f).toMatch(/all-in, card processing included, 5% when the sale comes through the seller's own embedded storefront and 9% through the Advantage\.Bid marketplace; no monthly or listing fees/);
+    // the total follows the live processing rate (derived, never a separate setting)
+    const live = platformFacts.getFacts('seller_fees', { processingBps: 350 }).seller_fees.facts.join('\n');
+    expect(live).toMatch(/just 7\.50% total, consisting of a 4% Advantage\.Bid platform fee and a 3\.50% payment processing fee/);
     expect(f).not.toMatch(/Never quote a standard or default Professional Seller platform-fee percentage/);
     expect(t('storefront')).toMatch(/5%[^\n]*9%/);   // the storefront commission summary, from the same constants
   });
@@ -143,7 +150,11 @@ describe('Sasha knowledge documents agree with the code', () => {
     expect(kb).not.toMatch(/11%/);
     expect(kb).toMatch(/5%/);
     expect(kb).toMatch(/9%/);
-    expect(kb).toMatch(/4% platform fee/);
+    expect(kb).toMatch(/\*\*Just 7% Total Seller Fees\.\*\* Our Professional Seller auction fees are just 7% total, consisting of a 4% Advantage\.Bid platform fee and a 3% payment processing fee\. No monthly subscription fees\. No listing fees\./);
+    expect(kb).toMatch(/not presented as the exact amount card processors charge Advantage\.Bid/);
+    expect(kb).toMatch(/Negotiated agreements are honored/);
+    expect(kb).toMatch(/separate from auction fees/);
+    expect(read('knowledge-decisions.md')).toMatch(/Approved public auction wording \(owner 2026-11-07\): "Just 7% Total Seller Fees\./);
     expect(kb).not.toMatch(/Do not quote a standard professional fee percentage/);
   });
   test('knowledge-decisions.md: Professional buyer premium range matches the code (0% through 100%) and the fee decision is updated', () => {

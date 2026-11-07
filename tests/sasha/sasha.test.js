@@ -442,7 +442,7 @@ describe('engine', () => {
     expect(p).toContain(engine.IDENTITY_ANSWER);
     expect(p).toMatch(/NOT verified/);
     expect(p).toMatch(/city and state only/);
-    expect(p).toMatch(/STANDARD SELLER RATES \(you may state these; always add that the seller's own agreement governs\)/);
+    expect(p).toMatch(/STANDARD SELLER RATES \(state them only when asked; a seller's own negotiated agreement governs and is honored/);
     expect(p).toMatch(/Never reveal another seller's rates/);
     expect(p).not.toMatch(/Never quote a standard professional fee percentage/);
   });
