@@ -12,7 +12,7 @@
  */
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const SUPPORT = 'info@advantage.bid';
-const COMPANY_FOOTER = 'Advantage.Bid';
+const COMPANY_FOOTER = require('../lib/companyContact').POSTAL_LINE;   // name + postal address (CAN-SPAM)
 
 function escHtml(str) {
   return String(str == null ? '' : str)

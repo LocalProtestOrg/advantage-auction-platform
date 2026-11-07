@@ -135,6 +135,8 @@
         seller_type: document.getElementById('seller-type').value,
         legal_name:  legalName,
         phone:       phone,
+        // the first-party visitor id, so the seller registration is credited to the campaign that brought them
+        visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })(),
       };
       var btn = document.getElementById('submit-btn');
       btn.disabled = true; btn.textContent = 'Setting up your seller account…';

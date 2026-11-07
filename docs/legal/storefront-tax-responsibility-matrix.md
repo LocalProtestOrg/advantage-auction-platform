@@ -31,7 +31,7 @@ taxed state without a row.
    transaction thresholds? From which date?
 2. Where Advantage.Bid is the facilitator, is the seller still required to register or report those sales?
 3. Pickup orders: is the pickup location the correct sourcing point in each state (origin vs. destination rules)?
-4. Taxability of shipping charges per state, and of the 11% fee (not charged to buyers today).
+4. Taxability of shipping charges per state, and of the 5% / 9% storefront commission (not charged to buyers today).
 5. Remittance mechanics for platform-remitted tax: Stripe Tax filing, a filing service, or the CPA; account and timing.
 6. Tax information to sellers: what report is required (per-payout tax lines exist; a seller-facing tax statement is not built).
 7. Refund after the seller remitted the tax themselves: the recovery from the seller includes that tax; confirm that is correct.
@@ -39,5 +39,5 @@ taxed state without a row.
 9. 1099-K / information reporting: handled by Stripe Connect for connected accounts; confirm no additional platform filing.
 
 ## 4. Owner decision also needed (not tax law)
-- On a refund after payout, Advantage.Bid refunds the buyer in full but recovers only what the seller received; the 11% fee
+- On a refund after payout, Advantage.Bid refunds the buyer in full but recovers only what the seller received; the storefront commission
   and card processing are absorbed by Advantage.Bid unless the owner decides otherwise.

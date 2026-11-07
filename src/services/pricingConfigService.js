@@ -19,7 +19,6 @@ const KEYS = Object.freeze({
   PROCESSING_BPS:          'pricing.auction.processing_fee_bps',
   INDIVIDUAL_PLATFORM_BPS: 'pricing.auction.individual.platform_fee_bps',
   INDIVIDUAL_BP_BPS:       'pricing.auction.individual.buyer_premium_bps',
-  STOREFRONT_FEE_BPS:      'pricing.storefront.seller_fee_bps',
   ESTATE_SALE_CENTS:       'pricing.estate_sale.price_cents',
   APPRAISER_CENTS:         'pricing.appraiser.price_cents',
 });
@@ -28,7 +27,6 @@ const DEFAULTS = Object.freeze({
   [KEYS.PROCESSING_BPS]: 300,
   [KEYS.INDIVIDUAL_PLATFORM_BPS]: 0,
   [KEYS.INDIVIDUAL_BP_BPS]: 1800,
-  [KEYS.STOREFRONT_FEE_BPS]: 1100,
   [KEYS.ESTATE_SALE_CENTS]: 3900,
   [KEYS.APPRAISER_CENTS]: 1999,
 });
@@ -68,7 +66,7 @@ async function getPricing() {
       },
     },
     // Storefront commission by sales channel (owner decision 2026-11-03): fixed in code (storefrontChannelService.FEE_BPS) and
-    // recorded on each order; the old single-rate key (pricing.storefront.seller_fee_bps) is no longer used.
+    // recorded on each order (the old single-rate key was removed by migration 226).
     storefront: { website_fee_bps: require('./storefrontChannelService').FEE_BPS.seller_website,
       marketplace_fee_bps: require('./storefrontChannelService').FEE_BPS.marketplace, processing_included: true },
     estate_sale: { price_cents: estate },

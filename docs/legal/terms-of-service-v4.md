@@ -1,0 +1,669 @@
+# Advantage.Bid Terms of Service - General and Buyers (version 4 source)
+
+Published as `terms_versions` kind `buyer_terms` version 4 (the full terms buyers accept; supersedes the short v3 summary).
+Body = everything below the line. Changes from the production page of October 7, 2026 are listed in docs/legal/pre-counsel-publication-record.md.
+
+---
+
+# Advantage.Bid Terms of Service - General and Buyers
+
+**Version 4. Last Updated: November 6, 2026**
+
+PLEASE READ THESE TERMS OF SERVICE CAREFULLY. THESE TERMS GOVERN YOUR ACCESS TO AND USE OF ADVANTAGE.BID AND YOUR PARTICIPATION IN ANY AUCTION CONDUCTED THROUGH THE PLATFORM.
+
+These Terms of Service (“Terms”) apply to all users (“you” or “your”) who access, browse, register for, bid in, buy from, or otherwise use the website, software, services, tools, communications, auction listings, payment features, and related properties operated by **Advantage.Bid** (“Advantage.Bid,” “we,” “us,” or “our”).
+
+By accessing or using Advantage.Bid, creating an account, registering for an auction, placing a bid, accepting buyer terms, submitting payment information, or purchasing any property through the Platform, you agree to be bound by these Terms.
+
+If you do not agree, do not use Advantage.Bid.
+
+---
+
+## 1. Eligibility
+
+You must be at least eighteen (18) years old to use Advantage.Bid or participate in any auction.
+
+By using the Platform, you represent that:
+
+1. You are at least eighteen (18) years old;
+2. You have legal authority to enter into these Terms;
+3. If acting for a company, estate, trust, organization, or other entity, you have authority to bind that entity;
+4. All information you provide is accurate and current;
+5. You will comply with all applicable laws and these Terms.
+
+We may deny, suspend, restrict, or terminate access to the Platform at any time and in our sole discretion.
+
+---
+
+## 2. Changes to These Terms
+
+Advantage.Bid may update these Terms at any time. Updated Terms will be posted on Advantage.Bid with a revised “Last Updated” date.
+
+Changes are effective when posted unless otherwise stated. Continued use of the Platform after updated Terms are posted constitutes acceptance of the revised Terms.
+
+---
+
+## 3. The Advantage.Bid Platform
+
+Advantage.Bid is an online auction and bidding platform that allows sellers to offer property for sale through timed auctions and other auction formats.
+
+Advantage.Bid may provide auction technology, marketing, cataloging assistance, payment processing support, bidder registration tools, communications, pickup coordination, seller support, and other related services.
+
+Unless expressly stated otherwise, Advantage.Bid is not the owner of the property offered for sale. Property is offered by sellers, consignors, estates, business owners, private individuals, or their representatives.
+
+All purchases are transactions between the buyer and the applicable seller. Advantage.Bid facilitates the transaction but does not guarantee the condition, quality, authenticity, legality, value, safety, marketability, or availability of any item.
+
+---
+
+## 4. Accounts and Registration
+
+You may browse certain parts of the Platform without registering. However, you must create an account and complete all required registration steps before bidding.
+
+Registration may require:
+
+1. Name;
+2. Email address;
+3. Phone number;
+4. Billing information;
+5. Valid credit or debit card;
+6. Agreement to these Terms;
+7. Acceptance of auction-specific terms;
+8. Pickup acknowledgment;
+9. Identity or payment verification;
+10. Any other information reasonably required by Advantage.Bid.
+
+We may approve, deny, suspend, or revoke registration or bidding privileges at any time.
+
+You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account.
+
+---
+
+## 5. Credit Card on File and Payment Authorization
+
+A valid credit or debit card may be required before you can bid or register for an auction.
+
+Only debit and credit cards are accepted; prepaid cards are not accepted. Your card is verified with your bank when you save it. Advantage.Bid does not charge you to verify a card, although your bank may briefly show a temporary authorization. By providing a payment method, you authorize Advantage.Bid and its payment processors to charge your payment method for amounts due under these Terms.
+
+Amounts due may include, without limitation:
+
+1. Winning bids;
+2. Buyer’s premiums;
+3. Taxes;
+4. Shipping or handling charges, if applicable;
+5. Pickup-related fees;
+6. Storage or abandonment fees;
+7. Administrative or processing fees;
+8. Chargeback fees;
+9. Collection costs;
+10. Any other fees disclosed in the auction terms or invoice.
+
+You are responsible for keeping your payment information current. Failure to maintain a valid payment method may result in suspension of bidding privileges, cancellation of bids, forfeiture of items, collection activity, or account termination.
+
+---
+
+## 6. Personal Information and Communications
+
+Personal information collected through Advantage.Bid is handled in accordance with our Privacy Policy.
+
+By using the Platform, registering, bidding, or buying, you agree that Advantage.Bid may contact you by email, in-platform notification, or telephone call regarding:
+
+1. Account activity;
+2. Auction registration;
+3. Bids;
+4. Outbid notices;
+5. Invoices;
+6. Payment status;
+7. Pickup instructions;
+8. Auction updates;
+9. Disputes;
+10. Customer service;
+11. Platform-related notices.
+
+Auction-related messages are transactional in nature and may be necessary to provide the Services.
+
+**Sales Near You.** Registration includes email notifications about qualifying upcoming auctions and estate sales near you, generally within 30 miles of your location.
+
+**Text messages are not part of this consent.** Advantage.Bid sends text messages only as described in Section 6A.
+
+Notifications may be delayed, fail to send, fail to deliver, or be filtered by your device, carrier, email provider, or software. You are responsible for monitoring your bids and auctions directly through the Platform.
+
+---
+
+## 6A. Text Messages (SMS)
+
+**Program.** Advantage.Bid text alerts.
+
+**Optional alerts.** You may choose to receive either or both of:
+
+* **Outbid alerts:** a text when another bidder outbids you, at most one text per lot every 5 minutes;
+* **Watched-auction closing reminders:** a text about 1 hour before lots begin closing in an auction you are watching, about one per watched auction.
+
+Each alert type is a separate, optional choice. You make it by checking a box on the auction registration panel or on your Notifications settings page, and you need a verified mobile number. The boxes are never checked for you, and checking one is never required to create an account, register for an auction, bid, or buy.
+
+**Other texts.** Verifying your mobile number sends you a one-time code. If you ask during a support conversation for a text, such as a link to pay an invoice, we send that one message. Neither signs you up for text alerts.
+
+**Frequency and cost.** Message frequency varies. Message and data rates may apply.
+
+**Stopping texts.** Reply STOP to any text to stop all texts from Advantage.Bid to that number, or turn alerts off at any time on your Notifications settings page. Replying START later does not turn alerts back on; you can turn them on again in your account. Reply HELP for help, or contact info@advantage.bid or (551) 655-7050.
+
+**Your number.** Texts go only to the verified mobile number on your account. If you change it, alerts you turned on stop until you turn them on again for the new number.
+
+**Delivery.** Carriers are not liable for delayed or undelivered messages. Text alerts are a convenience. You remain responsible for monitoring your bids and auctions on the Platform.
+
+**Privacy.** See our [Privacy Policy](/privacy.html), including how we handle mobile information.
+
+---
+
+## 7. Auction Listings and Item Descriptions
+
+Each auction may contain one or more lots. Each lot may include one or more items.
+
+Descriptions, photographs, measurements, condition notes, categories, estimates, age, origin, maker, material, and other information are provided for convenience only.
+
+All lots are sold **as is, where is, with all faults**, and with no guarantees unless expressly stated in writing.
+
+Descriptions are not warranties. Photographs are part of the description but may not show all flaws, damage, wear, defects, incompleteness, repairs, alterations, or condition issues.
+
+If a description and photograph appear inconsistent, the written lot description generally controls, unless Advantage.Bid determines otherwise.
+
+Buyers are responsible for reviewing all available information before bidding.
+
+---
+
+## 8. Smart Description Tools
+
+Some lot titles, descriptions, categories, keywords, recommendations, or condition summaries may be generated or assisted by automated Smart Tools.
+
+Content produced by these Smart Tools is provided for convenience only. It is not an appraisal, authentication, warranty, expert opinion, or guarantee.
+
+Buyers remain solely responsible for inspecting items, reviewing photographs, asking questions where available, and making their own bidding decisions.
+
+---
+
+## 9. Condition of Items
+
+All items are sold **as is, where is, with all faults**.
+
+Advantage.Bid does not guarantee:
+
+1. Authenticity;
+2. Attribution;
+3. Age;
+4. Origin;
+5. Completeness;
+6. Functionality;
+7. Safety;
+8. Usability;
+9. Measurements;
+10. Weight;
+11. Color accuracy;
+12. Regulatory compliance;
+13. Market value;
+14. Fitness for any purpose.
+
+Used, antique, vintage, estate, household, business, and secondhand items may have wear, defects, missing parts, repairs, stains, odors, cracks, chips, scratches, fading, alterations, damage, or other issues.
+
+Buyer beware.
+
+---
+
+## 10. Bidding
+
+Every bid you place is treated as your maximum bid (see Section 11). By placing a bid, you make an irrevocable offer to purchase the lot for up to that amount, plus buyer’s premium, taxes, and any applicable fees. If you win, you pay the winning bid determined under Section 11, which may be less than your maximum, plus buyer’s premium, taxes, and any applicable fees.
+
+Bids cannot be canceled, deleted, lowered, retracted, or changed by you after submission.
+
+If your bid is the highest valid bid at the close of the lot and any reserve has been met, you are the winning bidder and are obligated to pay for and pick up the lot.
+
+Advantage.Bid may reject, cancel, or remove bids in its sole discretion, including in cases of error, fraud, platform malfunction, suspicious activity, seller issue, or violation of these Terms.
+
+---
+
+## 11. Maximum Bids
+
+Every bid you enter, whether you enter it as a bid amount or as a maximum bid, is recorded as the highest amount you are willing to pay for the lot (your maximum bid).
+
+The Platform bids for you automatically, in the applicable increments, only as high as needed to make or keep you the high bidder, and never above your maximum bid.
+
+Your maximum bid may not be visible to other bidders, but you remain responsible for any winning bid generated through the automatic bidding feature.
+
+---
+
+## 12. Bid Increments
+
+Bid increments are determined by Advantage.Bid and may vary by auction, seller, lot, category, or current bid amount.
+
+The Platform may calculate and display the next required minimum bid. In the event of a discrepancy between a displayed bid amount and the Platform’s official records, Advantage.Bid’s records control.
+
+---
+
+## 13. Soft Close / Anti-Sniping Extensions
+
+Advantage.Bid may use a soft-close or anti-sniping feature.
+
+If a bid is placed near the end of a lot’s closing period, the bidding period may automatically extend. This may continue until no further qualifying bids are placed during the extension period.
+
+Extension rules, timing, and duration are determined by Advantage.Bid and may vary by auction or lot.
+
+---
+
+## 14. Reserves
+
+Some lots may be subject to a reserve price. A reserve is the minimum amount the seller is willing to accept.
+
+If a reserve is not met, the lot may be passed, withdrawn, relisted, sold conditionally, or otherwise handled at the seller’s or Advantage.Bid’s discretion.
+
+---
+
+## 15. Auction Changes, Errors, and Withdrawal
+
+Advantage.Bid may, at any time and in its sole discretion:
+
+1. Correct listing errors;
+2. Update descriptions;
+3. Add or remove photographs;
+4. Reset bidding;
+5. Extend bidding;
+6. Reopen a lot;
+7. Withdraw a lot;
+8. Cancel an auction;
+9. Cancel a sale;
+10. Suspend bidding;
+11. Decline a bidder;
+12. Resolve technical or administrative issues.
+
+Advantage.Bid is not liable for typographical errors, cataloging errors, software errors, bidding errors, server issues, internet outages, delayed notifications, or other technical problems.
+
+---
+
+## 16. Buyer’s Premium
+
+A buyer’s premium will be added to the winning bid amount.
+
+The buyer’s premium percentage or amount will be disclosed on the applicable auction page, lot page, invoice, or auction-specific terms.
+
+The winning bid plus buyer’s premium, taxes, and applicable fees equals the total purchase price.
+
+---
+
+## 17. Taxes
+
+All purchases are subject to applicable sales tax, use tax, or other taxes unless a valid exemption is accepted by Advantage.Bid before invoicing or payment.
+
+You are responsible for providing accurate tax exemption documentation where applicable.
+
+---
+
+## 18. Invoicing and Payment
+
+Winning bidders will receive an invoice after the auction or lot closes.
+
+Payment is due by the deadline stated on the invoice or auction terms.
+
+Advantage.Bid may automatically charge the payment method on file for amounts due.
+
+If payment fails, you must promptly update your payment information and complete payment.
+
+Unpaid invoices may result in:
+
+1. Suspension of bidding privileges;
+2. Forfeiture of items;
+3. Cancellation of sale;
+4. Processing fees;
+5. Storage or abandonment fees;
+6. Collection activity;
+7. Recovery of attorney fees and costs;
+8. Permanent account termination.
+
+---
+
+## 19. Chargebacks and Payment Disputes
+
+You agree not to initiate a chargeback, payment reversal, or payment dispute without first contacting Advantage.Bid and allowing a reasonable opportunity to investigate and resolve the issue.
+
+Improper chargebacks may result in suspension or termination of your account.
+
+You may be responsible for chargeback fees, collection costs, attorney fees, court costs, and other expenses incurred by Advantage.Bid in responding to or recovering an improper chargeback.
+
+---
+
+## 20. Pickup and Removal
+
+Unless expressly stated otherwise, shipping is not offered.
+
+You are solely responsible for pickup, removal, loading, packing, tools, equipment, labor, transportation, and all related costs.
+
+Do not bid if you cannot attend or arrange pickup during the published pickup date, time, and location.
+
+At pickup, buyers may be required to present:
+
+1. Paid invoice;
+2. Valid government-issued photo ID;
+3. The credit card used for purchase;
+4. Proof of authorization if picking up for someone else;
+5. Any auction-specific documentation.
+
+Advantage.Bid and sellers are not required to provide tools, packing materials, loading assistance, labor, boxes, blankets, dollies, carts, straps, or moving equipment.
+
+Bring adequate help for large, heavy, fragile, or specialty items. Professional movers are recommended when appropriate.
+
+You are responsible for any damage caused by you, your agents, movers, guests, vehicles, or representatives during pickup.
+
+---
+
+## 21. Pickup Site Safety
+
+Pickup locations may include private homes, estates, storage facilities, warehouses, businesses, outdoor areas, or other locations that may contain hazards.
+
+Hazards may include stairs, uneven surfaces, low lighting, heavy objects, sharp objects, dust, mold, insects, animals, weather, traffic, limited access, or other unsafe conditions.
+
+You enter pickup locations at your own risk.
+
+Do not bring pets, young children, or vulnerable individuals to pickup locations.
+
+Advantage.Bid may refuse access to anyone who creates a safety concern or violates instructions.
+
+---
+
+## 22. Failure to Pick Up / Abandoned Items
+
+If you fail to pick up your items during the published pickup window, your items may be deemed abandoned and forfeited without refund.
+
+Advantage.Bid or the seller may, but is not obligated to, offer an alternative pickup time.
+
+If an alternative pickup is approved, additional fees may apply.
+
+Abandoned items may be resold, donated, discarded, stored, or otherwise disposed of without further notice.
+
+You remain responsible for any unpaid invoice amounts, fees, storage costs, disposal costs, or damages.
+
+---
+
+## 23. Shipping
+
+Shipping is only available if expressly offered in the auction or lot description.
+
+If shipping is offered, all shipping, handling, packing, insurance, carrier, and related costs are the buyer’s responsibility unless otherwise stated.
+
+Advantage.Bid is not responsible for carrier delays, shipping damage, lost packages, packing issues, or delivery problems unless expressly required by law.
+
+---
+
+## 24. Inspection and Disputes at Pickup
+
+You must inspect your items before leaving the pickup location.
+
+If you believe there is a material issue, you must notify the seller, seller representative, or Advantage.Bid before removing the item from the premises.
+
+Once you leave the pickup location with the item, you are deemed to have accepted the item, and no condition-related claim will be accepted unless required by law or approved by Advantage.Bid in its sole discretion.
+
+---
+
+## 25. Refunds
+
+All sales are final except as expressly allowed by Advantage.Bid.
+
+A refund may be considered only where Advantage.Bid determines, in its sole discretion, that there was a material misrepresentation in the lot description.
+
+No refund will be issued for ordinary wear, condition issues visible in photographs, buyer’s remorse, failure to inspect, failure to pick up, inability to transport, mistaken bidding, delayed notifications, or assumptions not expressly stated in the listing.
+
+Refund requests must be made promptly and within the time period stated in the auction terms or invoice. If no time period is stated, refund requests must be made before leaving the pickup location.
+
+Advantage.Bid may require return of the item in the same condition before issuing any refund.
+
+Processing fees may apply.
+
+---
+
+## 26. Trespassing and Seller Contact
+
+Being at a seller’s property or pickup location outside the published pickup time, without express authorization, is trespassing.
+
+Buyers may not contact sellers directly unless expressly authorized by Advantage.Bid.
+
+Buyers may not return to a pickup location after pickup without permission.
+
+Trespassing, harassment, unauthorized contact, threats, or inappropriate behavior may result in account suspension, permanent banning, forfeiture of items, and referral to law enforcement.
+
+---
+
+## 27. Community Standards
+
+Advantage.Bid is committed to a safe, respectful, and professional auction environment.
+
+You may not harass, threaten, abuse, intimidate, discriminate against, stalk, defame, or mistreat sellers, staff, contractors, other bidders, pickup personnel, or Advantage.Bid representatives.
+
+We may suspend or permanently ban users whose conduct we determine to be unsafe, abusive, dishonest, disruptive, or inconsistent with these Terms.
+
+---
+
+## 28. Fraud, Collusion, and Bid Manipulation
+
+You may not engage in fraudulent, deceptive, manipulative, or collusive bidding practices.
+
+Prohibited conduct includes, without limitation:
+
+1. Shill bidding;
+2. Bid shielding;
+3. Collusion;
+4. False identities;
+5. Account sharing to manipulate bidding;
+6. Interference with other bidders;
+7. Attempting to bypass the Platform;
+8. False payment disputes;
+9. Unauthorized chargebacks;
+10. Any conduct intended to undermine auction fairness.
+
+Advantage.Bid may investigate suspicious activity, cancel bids, suspend accounts, reverse transactions, or report conduct to law enforcement.
+
+---
+
+## 29. Restricted and Regulated Items
+
+Some items may be subject to federal, state, or local laws, restrictions, licensing requirements, age requirements, transfer rules, export controls, or use limitations.
+
+You are solely responsible for determining whether you may lawfully purchase, possess, transport, export, import, resell, or use any item.
+
+Advantage.Bid may withdraw, restrict, cancel, or refuse sale of any item it believes may present legal, safety, regulatory, or reputational concerns.
+
+---
+
+## 30. Compliance with Law
+
+You agree to comply with all applicable laws, rules, and regulations when using the Platform, bidding, purchasing, picking up, transporting, reselling, or using any item.
+
+You may not use Advantage.Bid for unlawful purposes.
+
+---
+
+## 31. Platform Restrictions
+
+You may not:
+
+1. Copy, scrape, harvest, crawl, index, or extract data from the Platform without written permission;
+2. Reverse engineer or attempt to access source code;
+3. Interfere with Platform security;
+4. Use bots, scripts, or automated bidding tools unless expressly authorized;
+5. Upload viruses, malware, or harmful code;
+6. Overburden or disrupt the Platform;
+7. Misrepresent your identity;
+8. Create multiple accounts to avoid restrictions;
+9. Use the Platform to build a competing service;
+10. Frame, mirror, or reproduce Platform content without permission;
+11. Violate intellectual property rights;
+12. Circumvent payment, registration, or bidding controls.
+
+---
+
+## 32. Intellectual Property
+
+The Platform, website, software, design, text, graphics, logos, trademarks, photographs, videos, data, code, and other content are owned by Advantage.Bid or its licensors, sellers, or content providers.
+
+You receive a limited, revocable, non-transferable license to use the Platform for lawful auction participation.
+
+No ownership rights are transferred to you.
+
+---
+
+## 33. User Content
+
+If you submit questions, comments, images, documents, feedback, or other content to Advantage.Bid, you grant Advantage.Bid a non-exclusive, worldwide, royalty-free license to use, store, reproduce, display, modify, and distribute that content as needed to operate the Platform, provide services, resolve disputes, improve the Platform, or comply with law.
+
+You represent that you have the right to submit such content.
+
+---
+
+## 34. Records and System of Record
+
+Advantage.Bid’s internal records, server logs, bid history, timestamps, invoices, payment records, registration records, and account records are the official system of record.
+
+In the event of a dispute, you agree that Advantage.Bid’s records are accurate and controlling unless Advantage.Bid determines otherwise.
+
+---
+
+## 35. Realized Prices and Privacy
+
+Advantage.Bid may display, limit, hide, redact, or restrict access to realized prices, winning bids, bidder identities, auction results, or historical sales information.
+
+Access to certain auction results may require login or account approval.
+
+Advantage.Bid may change visibility rules at any time.
+
+---
+
+## 36. Suspension and Termination
+
+Advantage.Bid may suspend, restrict, or terminate your account or bidding privileges at any time, with or without notice, for any reason, including suspected violation of these Terms.
+
+Suspension or termination does not relieve you of payment obligations or other amounts owed.
+
+---
+
+## 37. Law Enforcement and Legal Requests
+
+Advantage.Bid may disclose user information, account information, transaction records, communications, and related data to law enforcement, governmental authorities, courts, attorneys, sellers, payment processors, insurers, or other third parties when we believe disclosure is appropriate or required.
+
+This may include situations involving suspected fraud, theft, trespassing, property damage, threats, chargebacks, civil claims, criminal investigations, subpoenas, court orders, or legal process.
+
+---
+
+## 38. Disclaimers
+
+ADVANTAGE.BID IS PROVIDED ON AN “AS IS” AND “AS AVAILABLE” BASIS.
+
+ALL ITEMS ARE SOLD “AS IS, WHERE IS, WITH ALL FAULTS.”
+
+ADVANTAGE.BID MAKES NO WARRANTIES REGARDING THE PLATFORM OR ANY ITEM SOLD THROUGH THE PLATFORM, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AUTHENTICITY, NON-INFRINGEMENT, CONDITION, VALUE, SAFETY, ACCURACY, AVAILABILITY, OR REGULATORY COMPLIANCE.
+
+ADVANTAGE.BID DOES NOT GUARANTEE THAT THE PLATFORM WILL BE ERROR-FREE, UNINTERRUPTED, SECURE, OR AVAILABLE AT ALL TIMES.
+
+YOU ACKNOWLEDGE THAT AUCTION PARTICIPATION INVOLVES RISK AND THAT YOU ARE RESPONSIBLE FOR YOUR OWN DUE DILIGENCE.
+
+---
+
+## 39. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, ADVANTAGE.BID SHALL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, INCLUDING LOST PROFITS, LOST OPPORTUNITIES, LOSS OF GOODWILL, BUSINESS INTERRUPTION, DATA LOSS, REPUTATIONAL HARM, OR DAMAGES ARISING FROM USE OF OR INABILITY TO USE THE PLATFORM.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, ADVANTAGE.BID’S TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATED TO THE PLATFORM, AN AUCTION, A LOT, A PURCHASE, OR THESE TERMS SHALL NOT EXCEED THE AMOUNT PAID BY YOU TO ADVANTAGE.BID FOR THE SPECIFIC ITEM GIVING RISE TO THE CLAIM.
+
+---
+
+## 40. Indemnification
+
+You agree to defend, indemnify, and hold harmless Advantage.Bid, its owners, officers, directors, employees, contractors, agents, affiliates, successors, assigns, sellers, and representatives from and against any claims, damages, losses, liabilities, costs, expenses, attorney fees, and court costs arising out of or relating to:
+
+1. Your use of the Platform;
+2. Your bids or purchases;
+3. Your breach of these Terms;
+4. Your violation of law;
+5. Your conduct at pickup;
+6. Your damage to property;
+7. Your injury to yourself or others;
+8. Your transportation, resale, use, or possession of purchased items;
+9. Your chargebacks or payment disputes;
+10. Your violation of another party’s rights.
+
+---
+
+## 41. Force Majeure
+
+Advantage.Bid is not liable for delay, failure, cancellation, interruption, or inability to perform caused by events beyond its reasonable control, including weather, fire, flood, power outage, internet failure, platform outage, labor dispute, illness, emergency, governmental action, natural disaster, transportation disruption, seller unavailability, property access issue, or other unforeseen event.
+
+---
+
+## 42. Electronic Signatures and Consent
+
+By clicking “I agree,” registering, bidding, submitting payment information, or otherwise using the Platform, you consent to transact electronically and agree that your electronic acceptance has the same legal effect as a handwritten signature.
+
+---
+
+## 43. No Class Actions
+
+To the maximum extent permitted by law, you agree that any dispute must be brought only in your individual capacity and not as a plaintiff or class member in any class, collective, consolidated, or representative proceeding.
+
+---
+
+## 44. Waiver of Jury Trial
+
+To the maximum extent permitted by law, you and Advantage.Bid knowingly and voluntarily waive any right to trial by jury in any action, claim, lawsuit, or proceeding arising out of or relating to these Terms, the Platform, any auction, any bid, or any purchase.
+
+---
+
+## 45. Governing Law and Venue
+
+These Terms shall be governed by the laws of the State of Texas and applicable federal law, without regard to conflict-of-law rules.
+
+Unless otherwise required by law, any legal action arising out of or relating to these Terms, the Platform, an auction, a bid, or a purchase shall be brought in the state or federal courts located in Harris County, Texas.
+
+You consent to personal jurisdiction and venue in those courts.
+
+---
+
+## 46. General Terms
+
+These Terms, together with any auction-specific terms, invoices, pickup instructions, privacy policy, and other policies incorporated by reference, constitute the entire agreement between you and Advantage.Bid regarding your use of the Platform.
+
+If any provision is found unenforceable, the remaining provisions remain in effect.
+
+Failure to enforce any provision does not waive our right to enforce it later.
+
+You may not assign your rights or obligations without our written consent.
+
+Advantage.Bid may assign these Terms without restriction.
+
+Headings are for convenience only.
+
+The word “including” means “including, without limitation.”
+
+Provisions that by their nature should survive termination shall survive, including payment obligations, disclaimers, limitations of liability, indemnification, governing law, venue, and dispute provisions.
+
+---
+
+## 47. Inquiries and Contact
+
+By submitting an inquiry, registration, bid, contact form, or request through Advantage.Bid, you consent to being contacted by Advantage.Bid regarding your inquiry, account, auction participation, purchases, services, or related matters. Text messages are sent only as described in Section 6A.
+
+For questions about these Terms, contact:
+
+**Advantage.Bid**
+**Email:** [support@advantage.bid](mailto:support@advantage.bid)
+**Address:** 300 Communipaw Ave #137, Jersey City, NJ 07304
+
+---
+
+# Schedule A - Fees
+
+Unless otherwise stated in the applicable auction terms, invoice, or lot description, the following fees may apply:
+
+| Fee Type | Description | Amount |
+| --- | --- | --- |
+| Buyer’s Premium | Added to the winning bid | As disclosed on the auction page |
+| Processing Fee | Fee for approved refund, failed pickup, administrative processing, or account issue | $20 or 30% of the winning bid, whichever is greater, up to the winning bid amount |
+| Alternative Pickup Fee | Fee if an alternative pickup is approved | $20 per change, or as otherwise disclosed |
+| Failed Payment Fee | Fee for failed, declined, reversed, or invalid payment | Actual cost plus administrative fee, where permitted by law |
+| Chargeback Fee | Fee for improper chargeback or payment dispute | Actual processor/bank fee plus collection costs |
+| Storage Fee | Fee for items not picked up during the pickup window, if storage is available | As disclosed or reasonably assessed |
+| Disposal Fee | Fee for abandoned items requiring removal, disposal, donation, or handling | Actual cost plus administrative fee |
+
+Advantage.Bid may update this Schedule A from time to time.

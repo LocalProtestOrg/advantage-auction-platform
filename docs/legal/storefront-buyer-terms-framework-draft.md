@@ -30,7 +30,7 @@ The platform already enforces each of these in code, whatever a seller's policy 
 | Refunds: administrator-controlled only; the seller cannot refund or block one | `refundOrder` (admin route only) |
 | Disputes and chargebacks: handled by Advantage.Bid; disputed orders are held from payout | settlement eligibility (`payment_disputes`) |
 | Sales tax: calculated and collected by Advantage.Bid | Stripe Tax, `taxResponsibility` |
-| Fees: 11% of item price, not shown as a seller term | storefront fee in `marketplaceOrderService` / `billingTermsService` |
+| Fees: 5% / 9% of item price by channel (Seller Agreement v4 §6.9), not shown as a seller term | storefront fee in `marketplaceOrderService` / `billingTermsService` |
 `[COUNSEL TO DRAFT]`: the clause stating that conflicting seller terms are void to the extent of the conflict.
 
 ## 4. Display before purchase (already built)

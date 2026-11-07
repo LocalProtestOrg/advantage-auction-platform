@@ -2,7 +2,7 @@
 id: seller-fees
 status: draft (content approved by Owner decision 1; awaiting article approval in the Knowledge page)
 audience: sellers
-sources: src/services/billingTermsService.js; platform_config pricing.*; Owner decision 1 (2026-09-27)
+sources: src/services/billingTermsService.js; src/lib/settlementPolicy.js; src/services/storefrontChannelService.js; Owner decision 1 (2026-09-27); owner baseline corrections (2026-11-06)
 live_data: a professional seller's own rates come from their account, and only after identity verification
 ---
 # What does it cost to sell at auction?
@@ -13,19 +13,20 @@ live_data: a professional seller's own rates come from their account, and only a
 - There are no listing, photo or setup fees.
 - The buyer pays the buyer's premium on top of the winning bid.
 
-**Professional sellers** (auction houses, estate sale companies, professional liquidators)
-- Your platform fee is set in your Professional Seller agreement.
-- A 3% payment processing fee applies to the hammer price.
+**Professional sellers** (auction houses, estate sale companies, professional liquidators, retail shops, galleries and studios)
+- A platform fee of 4% of the hammer price, unless your Professional Seller agreement sets a different rate.
+- A separate 3% payment processing fee on the hammer price. The two are always stated separately.
 - You set your own buyer's premium and keep it.
 
-Do not quote a standard professional fee percentage. A professional seller's own rates may be shared only with that seller, once their identity is verified.
+The 4% is the standard rate published on the Professional Sellers page (updated 2026-11-06). A professional seller's own negotiated rates may be shared only with that seller, once their identity is verified.
 
 ## Professional Storefront
 
-> status: draft (added 2026-09-30; the Owner approves it in Admin, Sasha Settings & Knowledge). Source: seller agreement §6.9, `marketplaceOrderService.STOREFRONT_FEE_BPS`.
+> status: updated 2026-11-06 (Seller Agreement version 4, §6.9; replaces the flat 11%). Source: `storefrontChannelService.FEE_BPS`.
 
-- Professional Storefront fixed-price sales have a flat 11% seller fee on the item selling price.
-- The 11% includes card processing. Shipping and sales tax are not part of the calculation.
-- It is the same for every Professional Seller and is separate from auction fees.
+- A Website Sale (a sale that starts from the seller's own website storefront) carries a 5% commission on the item price.
+- A Marketplace Sale (any other storefront sale through Advantage.Bid) carries a 9% commission on the item price.
+- Card processing is included. Shipping and sales tax are not part of the calculation. There are no monthly or listing fees.
+- Online purchasing of storefront items through Advantage.Bid checkout is not open yet; until it opens, buyers contact the seller.
 
-Keep storefront and auction fees apart. Never quote a standard professional auction percentage.
+Keep storefront and auction fees apart.

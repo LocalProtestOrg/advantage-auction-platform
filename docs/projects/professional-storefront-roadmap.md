@@ -14,7 +14,7 @@ mismatch is rejected, never corrected. Each milestone ships with authorization t
 adversarial cross-seller tests (Nora/Sue, multiple buyers and staff) and a security review **before** deployment.
 
 **Pricing separation.** Storefront Buy Now never carries a buyer's premium: buyer pays item + shipping + tax; seller pays the
-flat 11% fee on the item price (includes card processing). The storefront pricing code never loads auction pricing.
+5% (website) or 9% (marketplace) commission on the item price (includes card processing; replaced the flat 11% on 2026-11-06; the 11% figures further down are historical planning text). The storefront pricing code never loads auction pricing.
 
 **Distribution.** All storefront inventory is always displayed on Advantage.Bid; widgets read the same authoritative
 inventory (one record, never a second copy). A seller-site-only option is not part of the model. Sellers without a website

@@ -108,6 +108,18 @@ function render(template, vars) {
   return { subject: fill(template.subject), text: fill(template.body_text), html: fill(template.body_html) };
 }
 
+// Every commercial email carries the company's postal address (CAN-SPAM). Added when the approved template lacks it.
+function withPostalFooter(msg) {
+  const { POSTAL_ADDRESS, POSTAL_LINE } = require('../../lib/companyContact');
+  const out = { ...msg };
+  if (!String(out.text || '').includes(POSTAL_ADDRESS)) out.text = String(out.text || '') + '\n\n' + POSTAL_LINE;
+  if (out.html && !String(out.html).includes(POSTAL_ADDRESS)) {
+    const p = '<p style="color:#8a97a6;font-size:12px">' + POSTAL_LINE.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>';
+    out.html = /<\/body>/i.test(out.html) ? out.html.replace(/<\/body>(?![\s\S]*<\/body>)/i, p + '</body>') : out.html + p;
+  }
+  return out;
+}
+
 /**
  * Send one invitation. Returns a structured outcome; never throws into a batch.
  * `dryRun` performs every check and renders the message but does not contact the provider.
@@ -172,7 +184,7 @@ async function sendOne({ cohortId, prospect, actorId = null, dryRun = false, run
     if (!rawToken) { outcome.sent = false; outcome.skipped = 'NO_TOKEN'; return outcome; }
     const link = PUBLIC_BASE + '/authorize-event-promotion.html?token=' + encodeURIComponent(rawToken);
     outcome.steps.token = 'issued';
-    const msg = render(tpl, { company: prospect.company_name, authorize_url: link });
+    const msg = withPostalFooter(render(tpl, { company: prospect.company_name, authorize_url: link }));
     outcome.subject = msg.subject;
 
     // 6. Deliver on the Event Partner stream.
@@ -230,4 +242,4 @@ async function sendCohort({ cohortId, prospects, max, actorId = null, dryRun = f
     sent, results };
 }
 
-module.exports = { slugFor, ensureOrganizationForProspect, render, sendOne, sendCohort, PUBLIC_BASE };
+module.exports = { slugFor, ensureOrganizationForProspect, render, withPostalFooter, sendOne, sendCohort, PUBLIC_BASE };

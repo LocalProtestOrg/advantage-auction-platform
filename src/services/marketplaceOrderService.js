@@ -11,9 +11,8 @@
  * automatic transfer). No second payment platform is introduced.
  *
  * Money policy (owner-decided):
- *   • Platform fee  = seller's configured platform_fee_bps applied to the ITEM PRICE only
- *                     (NOT tax, NOT shipping). One configurable Professional Seller rate; no
- *                     Marketplace-specific commission setting.
+ *   • Platform fee  = the storefront channel commission (5% website / 9% marketplace, see below) applied to
+ *                     the ITEM PRICE only (NOT tax, NOT shipping), fixed on each order.
  *   • Seller proceeds = item_price + shipping − platform_fee.  Sales tax is NEVER seller proceeds.
  *   • Buyer total   = item_price + shipping + sales_tax.  The platform fee is NOT a buyer-facing charge.
  *   • Tax           = Stripe Tax; jurisdiction = seller pickup location (pickup) or the order ship-to (shipping);

@@ -4,7 +4,7 @@
  * /api/admin/pricing — internal Pricing & Fees control center. Reads the centralized authoritative
  * pricing; allows a Super Admin to change ONLY the two editable auction rates (professional platform
  * fee + card-processing fee). Platform and processing are ALWAYS kept SEPARATE — there is no combined
- * "7%" setting; the total is derived for display only. Individual buyer premium (18%), Storefront (11%),
+ * "7%" setting; the total is derived for display only. Individual buyer premium (18%), Storefront (5% website / 9% marketplace, storefrontChannelService),
  * Estate Sale ($39) and Appraiser ($19.99) are shown read-only here (governed elsewhere / by Stripe).
  *
  * Authorization (existing RBAC, no new authority invented):

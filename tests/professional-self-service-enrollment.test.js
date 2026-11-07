@@ -9,7 +9,7 @@
  *   - invalid types are rejected, not silently downgraded;
  *   - organization association uses the seller's OWN org (no name-based takeover);
  *   - the individual /enroll path, buyer registration, and economics are unchanged;
- *   - the public landing page presents accurate economics (flat 11% Storefront; no legacy
+ *   - the public landing page presents accurate economics (5% / 9% Storefront commission; no legacy
  *     "no platform fee"/"~3%" as the professional-auction fee; no BD checkout) and never
  *     exposes the writable demo-seller account;
  *   - the acquisition pages are public (not auth-gated).
@@ -107,7 +107,9 @@ describe('professional-sellers.html landing', () => {
   });
   test('does not perpetuate the legacy auction-fee conflicts', () => {
     expect(page).not.toMatch(/no seller platform fee/i);
-    expect(page).not.toMatch(/~?3% payment processing/i);
+    // the legacy "~3% processing" as the whole professional fee is gone; the standard 4% + 3% is stated (owner 2026-11-06)
+    expect(page).not.toMatch(/~3% payment processing/i);
+    expect(page).toMatch(/4% platform fee plus a 3% payment processing fee/);
     expect(page).not.toMatch(/no minimum lot/i);
   });
   test('never routes professional selling through a BD membership checkout', () => {

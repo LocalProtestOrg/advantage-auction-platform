@@ -15,7 +15,7 @@
  *   • Platform (software) fee and processing fee stay SEPARATE. Only the PLATFORM fee is negotiated here;
  *     the processing fee is recorded for a transparent record and never negotiated/collapsed.
  *   • An ACCEPTED agreement is an immutable historical record. Any change issues a NEW version that
- *     supersedes it — historical acceptance is never mutated. Storefront (11%) and Individual economics are
+ *     supersedes it — historical acceptance is never mutated. Storefront (5% / 9% channel commission) and Individual economics are
  *     untouched by this service.
  */
 
