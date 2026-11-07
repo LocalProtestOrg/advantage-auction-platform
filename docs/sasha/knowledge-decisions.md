@@ -22,18 +22,24 @@ These are the authoritative answers Sasha may rely on, recorded one decision at 
 - Remove "at launch" from fee statements.
 - State the individual fee precisely: 3% of the hammer price.
 
-**Professional fees, public:** do NOT advertise a standard percentage. Say that fees are established in each Professional Seller agreement.
+**Professional fees, public:** superseded by the Decision 1 update below.
 
 **What Sasha may say**
 - Individual seller fees: yes.
-- Professional fees: only that they are set in the seller's agreement.
+- Professional fees: the standard rates in the Decision 1 update below, always adding that the seller's own agreement governs.
 - A specific professional seller's rates: only to that seller, after proper identity verification (for example, logged-in chat).
+
+**Decision 1 update (owner approval 2026-11-06)**
+- Sasha may state the standard Professional Seller rates: auctions, a 4% platform fee plus 3% payment processing on the hammer price; Professional Storefront fixed-price sales, 5% through the seller's own website and 9% through the Advantage.Bid marketplace, card processing included (Seller Agreement v4).
+- She always adds that the seller's own agreement governs, and never reveals another seller's rates.
+- Online checkout (Buy Now) for storefront items and shipping for auctions are not enabled: Sasha never presents them as available.
+- Selling conversations (owner hard stop): Sasha never recruits buyers or casual individuals into selling, gives individuals who ask about selling their own items factual information only, and keeps benefit-led conversations for commercial businesses that independently express interest. Source: `sellingBoundaries()` in `src/services/sasha/engine.js`.
 
 ## Decision 2: Buyer's premium (approved 2026-09-27)
 
 **Policy (keep what the code already does)**
 - **Individual-seller auctions:** a fixed 18% buyer's premium, kept by Advantage.Bid.
-- **Professional-seller auctions:** the seller configures a premium between 0% and 25%. It defaults to 18% when not configured, and the professional seller keeps it.
+- **Professional-seller auctions:** the seller configures a premium, any whole percentage from 0% through 100% (the range the code enforces: `auctionService.assertProfessionalPremiumBps`). It defaults to 18% when not configured, and the professional seller keeps it. Sasha never states a minimum, maximum, typical range or default for Professional Sellers; she gives the specific auction's premium.
 
 **Historical terms:** historical auction and invoice terms are preserved.
 

@@ -442,7 +442,9 @@ describe('engine', () => {
     expect(p).toContain(engine.IDENTITY_ANSWER);
     expect(p).toMatch(/NOT verified/);
     expect(p).toMatch(/city and state only/);
-    expect(p).toMatch(/Never quote a standard professional fee percentage/);
+    expect(p).toMatch(/STANDARD SELLER RATES \(you may state these; always add that the seller's own agreement governs\)/);
+    expect(p).toMatch(/Never reveal another seller's rates/);
+    expect(p).not.toMatch(/Never quote a standard professional fee percentage/);
   });
   test('model failure → error outcome (callers hand off), never a guessed reply', async () => {
     useSettings();
