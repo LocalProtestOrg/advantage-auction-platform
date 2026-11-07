@@ -109,7 +109,8 @@ describe('professional-sellers.html landing', () => {
     expect(page).not.toMatch(/no seller platform fee/i);
     // the legacy "~3% processing" as the whole professional fee is gone; the standard 4% + 3% is stated (owner 2026-11-06)
     expect(page).not.toMatch(/~3% payment processing/i);
-    expect(page).toMatch(/4% platform fee plus a 3% payment processing fee/);
+    expect(page).toMatch(/Just 7% Total Seller Fees/);
+    expect(page).toMatch(/4% Advantage\.Bid platform fee<\/b> and a <b>3% payment processing fee/);
     expect(page).not.toMatch(/no minimum lot/i);
   });
   test('never routes professional selling through a BD membership checkout', () => {

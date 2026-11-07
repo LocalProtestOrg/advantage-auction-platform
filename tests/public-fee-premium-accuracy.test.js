@@ -28,10 +28,19 @@ describe('Decision 1: seller fee wording', () => {
     expect(html).not.toMatch(/approximate(ly)? 3%|about 3%|~\s*3%|roughly 3%/i);
     expect(html).not.toMatch(/no seller platform fee/i);
   });
-  test.each(SELLER_PAGES)('%s states any standard professional fee as 4% plus a separate 3% processing fee, never combined', (f) => {
-    const html = read(f);
-    expect(html).not.toMatch(/\b7\s*%\s*(commission|fee|total)/i);
-    if (/\b4\s*%\s*(platform|software)/i.test(html)) expect([f, /4% platform fee plus a 3% payment processing fee/i.test(html)]).toEqual([f, true]);
+  // Owner-approved wording (2026-11-07): "Just 7% Total Seller Fees", always with the 4% platform + 3% processing breakdown.
+  test.each(SELLER_PAGES)('%s states professional auction fees as 7% total with the 4% platform + 3% processing breakdown', (f) => {
+    const html = read(f).replace(/<[^>]+>/g, '');
+    expect(html).not.toMatch(/7\s*%\s*commission/i);
+    if (/\b7\s*%\s*total|\b4\s*%\s*(Advantage\.Bid\s+)?(platform|software)/i.test(html)) {
+      expect([f, /just 7% total/i.test(html)]).toEqual([f, true]);
+      expect([f, /4% Advantage\.Bid platform fee and a 3% payment processing fee/i.test(html)]).toEqual([f, true]);
+    }
+  });
+  test('the Professional Sellers page and FAQ lead with the 7% total', () => {
+    expect(read('professional-sellers.html')).toMatch(/<div class="fee">Just 7% Total Seller Fees<\/div>/);
+    expect(read('professional-sellers.html')).toMatch(/No monthly subscription fees\. No listing fees\./);
+    expect(read('faq.html')).toMatch(/<b>just 7% total<\/b>/);
   });
   test('fee pages state the individual fee exactly and point professionals to their agreement', () => {
     for (const f of ['faq.html', 'how-sellers-get-paid.html', 'seller-faq.html', 'start-selling.html', 'how-it-works.html']) {
