@@ -93,7 +93,8 @@ describe('migration 222', () => {
   test('additive, designates nobody, seeds the two owner notice addresses only when absent, has a written reverse', () => {
     expect(sql.replace(/^--.*$/gm, '')).not.toMatch(/\bDROP\b|\bTRUNCATE\b|\bDELETE\s+FROM\b|UPDATE\s+users/i);
     expect(sql).toMatch(/is_platform_owner BOOLEAN NOT NULL DEFAULT false/);
-    expect(sql).toMatch(/\["tylerwitt@gmail\.com","advantageauction\.bid@gmail\.com"\]/);
+    expect(sql).toMatch(/\["tylerwitt2015@gmail\.com","advantageauction\.bid@gmail\.com"\]/);
+    expect(sql).not.toMatch(/tylerwitt@gmail\.com/);   // the incorrect address is never used (owner 2026-11-07)
     expect(sql).toMatch(/ON CONFLICT \(key\) DO NOTHING/);
     expect(sql).toMatch(/-- Reverse:/);
     const runner = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'prod-migrate-222.js'), 'utf8');
