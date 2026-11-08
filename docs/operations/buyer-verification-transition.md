@@ -10,8 +10,8 @@ and reads as OFF when its rows are absent.
 | New accounts must tick "I have read and agree to the Terms of Service and Buyer Terms"; the acceptance of the current `buyer_terms` version is recorded in `terms_acceptances` (ip, user agent) in the same transaction as the account | ON | `POST /api/auth/register`, `public/login.html` |
 | Accepting the terms (terms page, storefront checkout, registration) records exactly the version shown; a newer version published meanwhile gives 409 `TERMS_CHANGED` and nothing is recorded | ON | `termsService.assertExpectedVersion` |
 | Storefront checkout records a `terms_acceptances` row for the current version when the buyer ticks the policies box (the order already stored the version) | ON | `marketplaceOrderService.createOrder` |
-| "Our terms have been updated: Review and Accept" notice in the member dashboard for accounts that have not accepted the current version (dismissible, never blocks) | ON | `public/widgets/shared/account-notices.js` in `/app.html` |
-| `/terms.html` and `/buyer-terms.html` both render the current `buyer_terms` version from `/api/terms/current` with one safe renderer (headings with anchors, contents list, tables; raw HTML is shown as text; only http(s), mailto, tel, site paths and #anchors become links) | ON | `md-render.js`, `terms-page.js` |
+| No announcement of updated terms (no email, notification or member-area notice, owner decision 2026-11-07). A buyer is asked to accept the current version only when they next register to bid, bid or buy; earlier acceptances never count for a newer version; existing bids, maximum bids and completed purchases are untouched | ON | server gates (`auctionRegistrationService`, `marketplaceOrderService`) |
+| `/buyer-terms.html` renders the current `buyer_terms` version (what is accepted) from `/api/terms/current` with the safe renderer (headings with anchors, contents list, tables; raw HTML is shown as text; only http(s), mailto, tel, site paths and #anchors become links). `/terms.html` stays the full static Terms of Service (including section 6A, Text Messages) until the owner approves and publishes the full Terms as a `buyer_terms` version | ON | `md-render.js`, `terms-page.js` |
 | Bid rate limit per account: 20 bids / 10 s and 120 bids / min; admins exempt; 429 `BID_RATE_LIMITED` | ON in production | `src/middleware/rateLimit.js` (`bidRateLimit`) on `POST /api/lots/:lotId/bids` |
 | Confirmed email required to register for an auction or bid | **OFF** (switch) | `buyers.require_verified_email_to_bid`, `src/services/buyerEmailGate.js` |
 
@@ -25,13 +25,12 @@ which point the lot page shows "Review & Accept Terms" and returns them to the l
 1. Insert the new `terms_versions` row (`kind = 'buyer_terms'`, next `version_int`, full `body_markdown`).
 2. In one transaction: set the old current row `is_current = false`, the new row `is_current = true` (the partial
    unique index allows only one current version).
-3. Everyone then sees the update notice in the member area, and the gates ask for acceptance at the next auction
+3. Nothing is sent or shown to anyone at that moment; the gates ask for acceptance at the next auction
    registration, bid or storefront purchase.
 
-Note: until the full text is published, `/terms.html` shows the current version (v3, the short summary). The long
-static text that the page used to show stays in the file only as the labelled fallback for when the current version
-cannot be loaded. Make sure the published version keeps the text-message (SMS) program section, because the text
-consent wording links to `/terms.html`.
+Note: `/terms.html` is the static full Terms of Service page and is not changed by publishing a version. When the full
+Terms are published as a `buyer_terms` version, keep the text-message (SMS) section in it, and update `/terms.html`
+to match in the same release, because the text consent wording links to `/terms.html`.
 
 ## Bid rate limit
 

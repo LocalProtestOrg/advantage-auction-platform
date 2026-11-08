@@ -1,8 +1,8 @@
 /* Member-area account notices (non-blocking). Shown at the top of the member dashboard (/app.html) for a signed-in
- * account that:
- *   - has not accepted the CURRENT terms version: "Our terms have been updated." + Review and Accept
- *   - needs to confirm its email address to bid (only while the verified-email requirement is ON, including an
- *     established buyer's grace period): a one-click resend
+ * account that needs to confirm its email address to bid (only while the verified-email requirement is ON, including
+ * an established buyer's grace period): a one-click resend.
+ * Updated terms are NOT announced here (owner decision 2026-11-07): a buyer is asked to accept the current terms only
+ * when they next register to bid, bid or buy (the server gates and the lot, auction and checkout pages).
  * Nothing here blocks browsing; "Not Now" hides a notice for the rest of the browser session.
  * Built with DOM calls only (no markup strings).
  */
@@ -57,18 +57,6 @@
     var tk = token();
     if (!tk) return;
     var h = { Authorization: 'Bearer ' + tk };
-    if (!dismissed('terms')) {
-      try {
-        var r = await fetch('/api/terms/me/acceptance', { headers: h });
-        if (r.ok) {
-          var d = await r.json();
-          if (d && d.success && d.data && d.data.accepted_current === false && d.data.current_version_int != null) {
-            var a = el('a', { class: 'act', href: '/buyer-terms.html?next=' + encodeURIComponent(location.pathname + location.search) }, 'Review and Accept');
-            notice('terms', 'Our terms have been updated. Please review and accept the current version.', a);
-          }
-        }
-      } catch (e) { /* never block the page */ }
-    }
     if (!dismissed('email')) {
       try {
         var r2 = await fetch('/api/auth/email-verification', { headers: h });

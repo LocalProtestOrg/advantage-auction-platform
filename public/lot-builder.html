@@ -339,6 +339,7 @@
     }
   </style>
 <script src="/widgets/shared/company-contact.js"></script>
+<script src="/widgets/shared/agreement-prompt.js"></script>
 </head>
 <body>
 
@@ -776,7 +777,7 @@
         })
       });
       const lotData = await lotRes.json();
-      if (!lotData.success) throw new Error(lotData.message || 'Failed to save lot');
+      if (!lotData.success) { if (window.AdvAgreementPrompt) AdvAgreementPrompt.show(lotData); throw new Error(lotData.message || 'Failed to save lot'); }
       const lotId = lotData.data.id;
 
       // 2. Upload any images not yet on Cloudinary, then attach real URLs

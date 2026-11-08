@@ -102,16 +102,37 @@ function publishProblems(item) {
 // Before a storefront item goes live: the seller's storefront agreement must be in place (signed or waived). When it is
 // not, the seller is sent the current agreement if they have none pending, and the error names the agreement to sign.
 // Called outside any transaction (it may send the agreement by email). Drafts never call this.
-async function assertStorefrontAgreement(sellerId) {
-  const st = await require('./agreementService').storefrontAgreementStatus(sellerId);
-  if (st.ok) return true;
-  return sendAgreementIfNeeded(agreementRequired(sellerId, st));
+// newListing (owner decisions 2026-11-07): a NEW item going live (create as active, draft or removed -> active, relist)
+// also needs the CURRENT Seller Agreement version accepted (agreementService.currentAgreementStatus). Re-activating a
+// paused item that was already published is managing an existing listing and does not.
+async function assertStorefrontAgreement(sellerId, { newListing = true } = {}) {
+  const ag = require('./agreementService');
+  const st = await ag.storefrontAgreementStatus(sellerId);
+  if (!st.ok) return sendAgreementIfNeeded(agreementRequired(sellerId, st));
+  if (newListing) {
+    const cur = await ag.currentAgreementStatus(sellerId);
+    if (!cur.ok) return sendAgreementIfNeeded(currentAgreementRequired(sellerId, cur));
+  }
+  return true;
 }
 // The same check inside a transaction (read-only): throws AGREEMENT_REQUIRED; the caller passes the error to
-// sendAgreementIfNeeded after the transaction, so an email is never sent from inside one.
-async function checkStorefrontAgreement(sellerId, client) {
-  const st = await require('./agreementService').storefrontAgreementStatus(sellerId, client);
+// sendAgreementIfNeeded after the transaction, so nothing is issued from inside one.
+async function checkStorefrontAgreement(sellerId, client, { newListing = true } = {}) {
+  const ag = require('./agreementService');
+  const st = await ag.storefrontAgreementStatus(sellerId, client);
   if (!st.ok) throw agreementRequired(sellerId, st);
+  if (newListing) {
+    const cur = await ag.currentAgreementStatus(sellerId, client);
+    if (!cur.ok) throw currentAgreementRequired(sellerId, cur);
+  }
+}
+function currentAgreementRequired(sellerId, cur) {
+  const e = err(409, 'AGREEMENT_REQUIRED', require('./agreementService').CURRENT_AGREEMENT_MESSAGE);
+  e.agreement_reason = cur.reason || 'agreement_update_required';
+  e.agreement_id = cur.agreement_id || null;
+  Object.defineProperty(e, 'sellerToSend', { value: sellerId, enumerable: false });
+  Object.defineProperty(e, 'currentVersion', { value: true, enumerable: false });
+  return e;
 }
 function agreementRequired(sellerId, st) {
   const e = err(409, 'AGREEMENT_REQUIRED', st && st.reason === 'agreement_update_required'
@@ -122,12 +143,17 @@ function agreementRequired(sellerId, st) {
   Object.defineProperty(e, 'sellerToSend', { value: sellerId, enumerable: false });
   return e;
 }
-// Rethrows e; for AGREEMENT_REQUIRED with no pending agreement, sends the current one first and names it on the error.
+// Rethrows e; for AGREEMENT_REQUIRED with no pending agreement, issues the current one in the app (no email: the seller
+// is on the page and signs it there, owner decision 2026-11-07) and names it on the error.
 async function sendAgreementIfNeeded(e) {
   if (e && e.code === 'AGREEMENT_REQUIRED' && e.sellerToSend && !e.agreement_id) {
     const agreements = require('./agreementService');
-    await agreements.autoSendAgreement(e.sellerToSend, null, { currentTermsOnly: true });
-    e.agreement_id = (await agreements.storefrontAgreementStatus(e.sellerToSend)).agreement_id || null;
+    if (e.currentVersion) {
+      e.agreement_id = (await agreements.ensureCurrentAgreement(e.sellerToSend, null).catch(() => ({}))).agreement_id || null;
+    } else {
+      await agreements.autoSendAgreement(e.sellerToSend, null, { currentTermsOnly: true, sendEmail: false });
+      e.agreement_id = (await agreements.storefrontAgreementStatus(e.sellerToSend)).agreement_id || null;
+    }
   }
   throw e;
 }
@@ -414,7 +440,9 @@ async function updateItem(id, actingUserId, patch = {}) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     }
     // Publishing (draft, paused or removed -> active) needs the storefront agreement; editing and drafts never do.
-    if (patch.status === 'active' && item.status !== 'active') await checkStorefrontAgreement(seller.id, client);
+    // A draft or removed item going live is a NEW listing (also needs the current Seller Agreement version); a paused
+    // item that was already published is an existing listing being managed (owner 2026-11-07).
+    if (patch.status === 'active' && item.status !== 'active') await checkStorefrontAgreement(seller.id, client, { newListing: item.status !== 'paused' });
   }
   // The seller's choice to show a sold item's realized price to signed-in members may be changed at any time.
   if (fullySold && Object.keys(patch).some((k) => k !== 'status' && k !== 'show_realized_price_to_members' && patch[k] !== undefined)) {

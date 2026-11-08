@@ -516,6 +516,7 @@
 </div>
 
 <script src="/widgets/shared/timezone-utils.js"></script>
+<script src="/widgets/shared/agreement-prompt.js"></script>
 <script>
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html';
@@ -539,6 +540,8 @@
   const _createParams = new URLSearchParams(location.search);
   const EDIT_ID = _createParams.get('edit') || _createParams.get('id');
   const IS_EDIT = isUuidLike(EDIT_ID);
+  // Starting a NEW auction: offer the current Seller Agreement when it is not accepted yet (owner 2026-11-07). Never blocks.
+  if (!IS_EDIT && window.AdvAgreementPrompt) AdvAgreementPrompt.checkCurrent();
   let existingVideo = null; // most-recent walkthrough video row (edit mode)
 
   if (IS_EDIT) {

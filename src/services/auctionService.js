@@ -299,6 +299,16 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     }
     // All other non-admin state requests silently dropped.
   }
+  // Current Seller Agreement (owner decisions 2026-11-07): a seller submitting (or an administrator publishing) a NEW
+  // auction needs the current agreement version accepted; refused with AGREEMENT_REQUIRED, nothing changes and the
+  // draft is kept. Administrators may proceed (admin override), which is audited.
+  if (stateToWrite === 'submitted' || stateToWrite === 'published') {
+    const own = (await db.query('SELECT seller_id, state FROM auctions WHERE id = $1', [auctionId])).rows[0];
+    if (own && ['draft', 'submitted'].includes(own.state) && own.state !== stateToWrite) {
+      await require('./agreementService').assertCurrentAgreementForPublish(own.seller_id,
+        { actorUserId: userId, actorRole, action: 'auction_' + stateToWrite, entityType: 'auction', entityId: auctionId });
+    }
+  }
 
   // Phase C: server-authoritative schedule validation. Validate ONLY when the
   // patch touches a schedule field, or on a submit/publish transition — so
@@ -804,6 +814,12 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
       e.code = 'VERIFICATION_REQUIRED'; e.status = 422;
       throw e;
     }
+
+    // Current Seller Agreement (owner decisions 2026-11-07): the single publish authority refuses a seller (Professional
+    // self-publish) who has not accepted the current version; an administrator publishing proceeds (audited override).
+    const actorRole = actorId ? ((await client.query('SELECT role FROM users WHERE id = $1', [actorId])).rows[0] || {}).role : null;
+    await require('./agreementService').assertCurrentAgreementForPublish(current.rows[0].seller_id,
+      { actorUserId: actorId, actorRole: actorId ? actorRole : 'admin', action: 'auction_publish', entityType: 'auction', entityId: auctionId }, client);
 
     // PUB-5: publish no longer overwrites seller-provided start_time/end_time.
     // The seller chose these in seller-create.html and they are authoritative
