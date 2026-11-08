@@ -19,25 +19,28 @@ of this release.
 ## Deploy order (each step needs the owner's go-ahead)
 
 1. **Backup.** Neon branch `prod-pre-baseline-2026-11` from production.
-2. **Migrations, before the code** (the new code fails closed without 222), each `--check`, `--dry-run`, then apply:
+2. **Read-only pre-checks done 2026-11-08:** `prod-migrate-222.js --check` PASS, `prod-migrate-226.js --check` PASS
+   (the four keys hold exactly the seeded values 0, 0, 0, 1100, so the Reverse restores them identically);
+   223's check passes only after 222 (by design).
+3. **Migrations, before the code** (the new code fails closed without 222), each `--check`, `--dry-run`, then apply:
    `scripts/prod-migrate-222.js`, `scripts/prod-migrate-223.js`, `scripts/prod-migrate-226.js`.
    - 222: `users.is_platform_owner`, `platform_setting_audit`, `owner.notify_emails` = tylerwitt2015@gmail.com and
      advantageauction.bid@gmail.com (only if absent).
    - 223: `marketing_paid_authorizations` + nullable attribution columns on `marketing_paid_campaigns`.
    - 226: deletes 4 unused config rows (old 11% storefront rate, retired 0% pilot values).
-3. **Designate the platform owner:** `scripts/prod-set-platform-owner.js --email=tylerwitt2015@gmail.com --apply`
+4. **Designate the platform owner:** `scripts/prod-set-platform-owner.js --email=tylerwitt2015@gmail.com --apply`
    (verified read-only 2026-11-08: one account, active admin). `admin@advantage.bid` stays an ordinary admin.
    Recovery: `docs/operations/platform-owner-recovery.md`.
-4. **Postal address for commercial email** (owner instruction 2026-11-07): set `company.postal_address` to
+5. **Postal address for commercial email** (owner instruction 2026-11-07): set `company.postal_address` to
    "Advantage.Bid, 2205 Ogden Hwy, Adrian, MI 49221" (today it holds the Jersey City address). Owner-only once 222 and
-   step 3 are done; audited and notified.
-5. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
-6. **Verify on production:** the seven pricing pages show "Just 7% Total Seller Fees"; registration shows the unchecked
+   step 4 are done; audited and notified.
+6. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
+7. **Verify on production:** the seven pricing pages show "Just 7% Total Seller Fees"; registration shows the unchecked
    terms box; /terms.html shows the full Terms with 6A Text Messages; an admin who is not the owner is refused a
    pricing change; the seller marketing page shows every package "Not Available Yet"; Admin, Agreements: the v4
    preview, a signing page and a generated PDF show no `**`; owner notice email and text arrive for one harmless
    sensitive-setting change made by the owner.
-7. **Baseline record:** git tag `baseline-2026-11`, Neon branch `baseline-2026-11`, and the baseline document.
+8. **Baseline record:** git tag `baseline-2026-11`, Neon branch `baseline-2026-11`, and the baseline document.
 
 Buyer Terms v4 (the full Terms of Service as accepted buyer terms) is **not** published in this deploy: it waits for the
 owner's decision on its substantive provisions (see "Owner decisions").
@@ -50,14 +53,38 @@ owner's decision on its substantive provisions (see "Owner decisions").
 - Owner designation: `prod-set-platform-owner.js --replace` for another admin, only with the owner's authorization.
 - Full restore: the Neon backup branch from step 1.
 
-## Owner decisions
+## Owner decisions (2026-11-08)
 
-1. Buyer Terms v4: approve its substantive provisions (governing law Texas / Harris County vs the Seller Agreement's
-   Michigan; jury and class waivers; indemnity; liability cap; Schedule A fees; chargeback costs) before it is published.
-2. Should the privacy policy, data-deletion page and Terms also change their contact address from Jersey City to
-   Adrian, MI?
-3. Sellers with an administrator waiver (11 in production) are treated as accepted and are not asked to accept v4.
-4. The Auction Partner page says processing is "passed through at actual cost"; review against the 7% wording rule.
+1. **Buyer Terms v4: not published.** Live terms and acceptance behaviour are unchanged. Review of the provisions that
+   need approval: `docs/legal/buyer-terms-v4-substantive-review.md`.
+2. **Contact address: 2205 Ogden Hwy, Adrian, MI 49221** everywhere (privacy policy, data-deletion page, Terms page and
+   v4 source: done in this release; commercial-email setting: deploy step 4). The phone number is unchanged.
+3. **Waivers preserved** (records unchanged). Investigation (read-only, 2026-11-08): **10** sellers (not 11), all waived
+   on 2026-06-17, the day the Seller Agreement system launched, all created before it (May to June 17). None has ever
+   signed an agreement; 5 have auctions (up to 21). No audit row records who set them (a launch-time bulk grandfathering).
+   Their purpose was to keep existing sellers' dashboards open when signing became a gate, not to accept terms. In this
+   release a waiver still satisfies the current-version check, so these 10 can list without ever accepting an
+   agreement. **Recommendation:** keep the waiver for account and dashboard access and existing listings, but ask them to
+   accept the current version at their next new listing like everyone else. That is a one-line code change, made only on
+   the owner's approval.
+4. **Auction Partner page kept:** "passed through at actual cost, with no markup" matches the program (migration 186,
+   actual processing pass-through). Standard Professional auctions advertise 7% total (4% + 3%).
+5. **Seller Agreement §7.6 (payouts ACH only) vs the payout page (also offers a mailed check).** Production: 0 sellers chose
+   a check, 0 payouts paid by check (4 ACH, 42 settled manually). **Recommendation:** remove the check option from the
+   payout page (a small code change) so the product matches the signed agreement; the alternative is a new agreement
+   version allowing checks. Not changed in this release.
+
+## At GO time, two live behaviours to confirm
+
+- **Paid advertising gates are open in production today** (`marketing.paid.execution_enabled` = true,
+  `meta_ads_enabled` = true, mode `live`, kill switch off). No campaign is active and none can be built or activated
+  after this release without an owner authorization (none exists), so no spend can start. The owner may also engage
+  the kill switch at deploy as an extra stop (owner-only, audited).
+- **R-1 seller activation is live** (`seller_activation.enabled` = true, mode `live`, already sending to registered
+  sellers before this release). This release adds the Professional track, so after deploy Professional Sellers may
+  receive onboarding check-ins (max 2 per stage, 3 per seller, quiet periods). If the owner counts this as outreach to
+  hold, set `seller_activation.mode` to `shadow` at deploy (records decisions, sends nothing). Claimed-listing sending
+  and Event Partner outreach are off.
 
 ## Known issues not fixed here
 

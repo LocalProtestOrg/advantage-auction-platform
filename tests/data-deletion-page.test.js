@@ -25,7 +25,7 @@ describe('data-deletion.html — Meta user data deletion instructions', () => {
     expect(html).toMatch(/<address>/); expect(html).toMatch(/Facebook and Instagram/);
   });
   test('reuses the official privacy contact exactly as the Privacy Policy states it', () => {
-    for (const s of ['privacy@advantage.bid', '(551) 655-7050', '300 Communipaw Ave #137', 'Jersey City, NJ 07304', '<strong>Advantage.Bid</strong>']) {
+    for (const s of ['privacy@advantage.bid', '(551) 655-7050', '2205 Ogden Hwy', 'Adrian, MI 49221', '<strong>Advantage.Bid</strong>']) {
       expect(html).toContain(s); if (!s.startsWith('<')) expect(privacy).toContain(s);
     }
     expect(privacy).toContain('**Advantage.Bid**');

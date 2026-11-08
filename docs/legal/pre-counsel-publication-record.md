@@ -90,6 +90,6 @@ open yet. Migration 226 removes four unused settings that stated retired rates (
    and other state laws, and whether a "Do Not Sell or Share" link is needed.
 2. Phone: whether Sasha's call notice (transcription, automated assistant) is adequate in two-party-consent states.
 3. Storefront purchase terms: buyer-facing terms for fixed-price purchases must be ready before checkout opens.
-4. Commercial email footers now carry the postal address (Advantage.Bid, 300 Communipaw Ave. #137, Jersey City, NJ
-   07304). Follower announcements are sent by Advantage.Bid on a Professional Seller's behalf: confirm Advantage.Bid's
+4. Commercial email footers now carry the postal address (Advantage.Bid, 2205 Ogden Hwy, Adrian, MI 49221; owner
+   2026-11-08). Follower announcements are sent by Advantage.Bid on a Professional Seller's behalf: confirm Advantage.Bid's
    address is the right one, or whether the seller's must also appear.
