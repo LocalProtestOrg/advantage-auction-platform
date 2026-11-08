@@ -56,15 +56,15 @@ async function emailLink(agreement, rawToken) {
 // template with a current version when no type-specific one exists. The fallback
 // supports self-service onboarding (all self-serve seller types accept the one
 // general seller agreement) until type-specific templates are authored.
-async function resolveActiveTemplateId(sellerType) {
-  const typed = await db.query(
+async function resolveActiveTemplateId(sellerType, runner = db) {
+  const typed = await runner.query(
     `SELECT id FROM agreement_templates
       WHERE agreement_type = $1 AND is_active = true AND current_version_id IS NOT NULL
       ORDER BY updated_at DESC LIMIT 1`,
     [sellerType || 'private']
   );
   if (typed.rows[0]) return typed.rows[0].id;
-  const fallback = await db.query(
+  const fallback = await runner.query(
     `SELECT id FROM agreement_templates
       WHERE is_active = true AND current_version_id IS NOT NULL AND id <> $1
       ORDER BY updated_at DESC LIMIT 1`, [ADDENDUM_TEMPLATE_ID]
@@ -406,7 +406,7 @@ async function autoSendAgreement(sellerProfileId, actorId = null, { currentTerms
 async function currentAgreementStatus(sellerProfileId, runner = db) {
   const sp = (await runner.query('SELECT id, seller_type, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
   if (!sp) return { ok: false, reason: 'seller_not_found', agreement_id: null };
-  const tplId = await resolveActiveTemplateId(sp.seller_type);
+  const tplId = await resolveActiveTemplateId(sp.seller_type, runner);
   const cur = tplId ? (await runner.query(
     `SELECT t.current_version_id, v.version_int FROM agreement_templates t
        JOIN agreement_template_versions v ON v.id = t.current_version_id WHERE t.id = $1`, [tplId])).rows[0] : null;
