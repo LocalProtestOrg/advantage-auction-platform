@@ -29,8 +29,13 @@
  *     pro_first_listing      no auction, no storefront item and no import yet                 -> ready_no_auction
  *     pro_auction_draft      a draft (or returned) auction                                     -> draft_started
  *     pro_storefront_setup   an unfinished inventory import, or storefront items only in draft -> draft_started
- *     activated              first published listing: a published auction OR an active or sold storefront item
- *                            (initial activation; outreach ends).
+ *     activated              first published listing: a published auction, OR genuinely live public storefront inventory
+ *                            (marketplaceVisibility.activeMarketplaceItemSql), OR a first paid storefront sale
+ *                            (initial activation; outreach ends; activation_basis says which).
+ *   Storefront progress is recorded separately and never merged (snapshot storefront_progress / storefront_stage, and a
+ *   ledger row when it changes): registration_completed, storefront_configured, inventory_drafted, inventory_published,
+ *   checkout_enabled, first_sale. Published inventory completes listing activation, but while storefront checkout is
+ *   off no message describes the seller as ready to accept purchases (owner 2026-11-07). R-1 never enables checkout.
  *   Professional messages never say purchasing, checkout, Buy Now or payouts are available and never promise approval.
  *
  * Coordination: R-1 is the ONLY automated source of activation and onboarding check-ins to registered sellers.
@@ -47,6 +52,7 @@
  */
 
 const db = require('../db');
+const { activeMarketplaceItemSql } = require('../lib/marketplaceVisibility');   // the one public-visibility rule for items
 const { normalizeEmail } = require('../lib/emailNormalize');
 
 const ADDENDUM_TEMPLATE_ID = 'a9000000-0000-4000-8000-0000000000a1';
@@ -116,7 +122,12 @@ function computeProStage(f) {
   const out = (stage, proStage, blocker, nextOwner, category) => ({ stage, ledger_stage: proStage, track: 'professional', blocker, next_owner: nextOwner,
     message_category: category || null, last_progress_at: lastProgressMs ? new Date(lastProgressMs).toISOString() : null });
 
-  if (Number(f.published_auctions) > 0 || Number(f.active_items) > 0) return out('activated', 'activated', null, null);
+  // Listing activation: a published auction, or genuinely live public storefront inventory (canonical visibility:
+  // active and not demo), or a first paid storefront sale. Storefront-only activation never means the seller can
+  // accept online purchases: that depends on checkout, which is recorded separately (storefront_stage).
+  if (Number(f.published_auctions) > 0) return { ...out('activated', 'activated', null, null), activation_basis: 'auction' };
+  if (Number(f.paid_orders) > 0) return { ...out('activated', 'activated', null, null), activation_basis: 'storefront_sale' };
+  if (Number(f.active_items) > 0) return { ...out('activated', 'activated', null, null), activation_basis: 'storefront_inventory' };
   if (Number(f.submitted_auctions) > 0) return out('submitted_waiting', 'submitted_waiting', 'auction_awaiting_review', 'advantage');
 
   const agreementOk = !!f.agreement_waived_at || !!f.agreement_signed_at || Number(f.submitted_ever) > 0;
@@ -136,6 +147,30 @@ function computeProStage(f) {
   if (Number(f.open_imports) > 0) return out('draft_started', 'pro_storefront_setup', 'import_not_finished', 'seller', 'draft_stalled');
   if (Number(f.draft_items) > 0) return out('draft_started', 'pro_storefront_setup', 'storefront_items_unpublished', 'seller', 'draft_stalled');
   return out('ready_no_auction', 'pro_first_listing', 'no_listing_created', 'seller', 'ready_no_auction');
+}
+
+/**
+ * Professional storefront progress (pure), recorded in the snapshot and the ledger. Distinct milestones, never merged:
+ *   registration_completed, storefront_configured (page published with a link), inventory_drafted, inventory_published
+ *   (live public items), checkout_enabled (Advantage.Bid's switch, or this seller in the controlled pilot), first_sale
+ *   (a paid storefront order). `stage` is the furthest milestone the seller has actually reached; checkout_enabled
+ *   counts as a stage only once this seller has published inventory.
+ */
+function storefrontProgress(f) {
+  const m = {
+    registration_completed: true,
+    storefront_configured: !!(f.storefront_published && f.storefront_slug),
+    inventory_drafted: Number(f.draft_items) > 0 || Number(f.open_imports) > 0 || Number(f.active_items) > 0 || Number(f.sold_items) > 0,
+    inventory_published: Number(f.active_items) > 0,
+    checkout_enabled: !!f.checkout_enabled,
+    first_sale: Number(f.paid_orders) > 0,
+  };
+  const stage = m.first_sale ? 'first_sale'
+    : m.inventory_published && m.checkout_enabled ? 'checkout_enabled'
+      : m.inventory_published ? 'inventory_published'
+        : m.inventory_drafted ? 'inventory_drafted'
+          : m.storefront_configured ? 'storefront_configured' : 'registration_completed';
+  return { ...m, stage };
 }
 
 /** Check-ins already sent in this stage. A Professional stage also counts touches sent under its coarse stage. */
@@ -190,7 +225,14 @@ function decide(f, s, h, cfg, now = new Date()) {
   const ex = exclusion(f);
   if (ex) return r('excluded', ex, 'Not a real seller account for outreach (' + ex.toLowerCase().replace(/_/g, ' ') + ').');
   if (h.lookup_error) return r('suppressed', 'LOOKUP_FAILED', 'A safety lookup failed, so no contact (fail closed): ' + h.lookup_error);
-  if (s.stage === 'activated') return r('complete', 'ACTIVATED', 'First auction published. Activation outreach has ended.');
+  if (s.stage === 'activated') {
+    if (s.activation_basis === 'storefront_inventory' || s.activation_basis === 'storefront_sale') {
+      const sp = storefrontProgress(f);
+      return r('complete', 'ACTIVATED', (s.activation_basis === 'storefront_sale' ? 'First paid storefront sale recorded.' : 'Storefront inventory is live and public.')
+        + ' Storefront stage: ' + sp.stage + '; online checkout ' + (sp.checkout_enabled ? 'enabled' : 'not enabled') + '. Activation outreach has ended.');
+    }
+    return r('complete', 'ACTIVATED', 'First auction published. Activation outreach has ended.');
+  }
 
   if (h.auction_partner && !h.auction_partner.released) {
     return r('staff_attention', 'AUCTION_PARTNER_RELATIONSHIP_OWNER', 'Auction Partner (' + h.auction_partner.name + '). The relationship owner handles this seller; Sasha does not contact it until released.',
@@ -353,8 +395,10 @@ function composeProMessage(f, s, d) {
     body = follow + me + (s.blocker === 'import_not_finished'
       ? 'You started an inventory import that has not been finished yet. You can pick it up here: ' + link('inventory')
       : 'You have ' + n + (n === 1 ? ' storefront item' : ' storefront items') + ' saved as drafts and none published yet. You can review and publish them from your inventory: ' + link('inventory'));
-    if (!f.storefront_terms_signed) body += '\n\nBefore storefront items can be published, the seller agreement with the current storefront terms needs to be signed: ' + link('agreement');
+    // Never remind a seller about a newly published agreement version (owner 2026-11-07): storefront terms are not mentioned.
     if (!(f.storefront_published && f.storefront_slug)) body += '\n\nPublishing your storefront page lets your storefront link and website widget show your items: ' + link('storefront');
+    // Never imply items can be bought online while checkout is off (owner 2026-11-07).
+    if (!f.checkout_enabled) body += '\n\nOnline buying for storefront items is not open yet, so published items can be viewed but not bought online for now.';
   } else return null;
   const text = (hi + '\n\n' + body + '\n\n' + close).replace(/[—–]/g, '-');
   return { subject, text };
@@ -419,18 +463,28 @@ async function loadFacts(runner = db, { sellerProfileIds = null } = {}) {
  * Professional-track facts (storefront items, imports, storefront terms and page, the pending agreement email and the
  * welcome email). Read-only. Professional sellers only; a failed read marks them pro_facts_error, which blocks contact.
  */
+/** Storefront online checkout for this seller: Advantage.Bid's general switch, or this seller in the controlled pilot. Read only. */
+function checkoutEnabledFor(sellerProfileId, env = process.env) {
+  try {
+    const g = require('../lib/launchGuards');
+    return g.marketplaceCheckoutEnabled(env) || g.marketplaceCheckoutPilot(env).sellers.includes(String(sellerProfileId).toLowerCase());
+  } catch (_) { return false; }
+}
+
 async function attachProfessionalFacts(facts, runner = db) {
   const pros = facts.filter((f) => isProfessional(f.seller_type));
   if (!pros.length) return facts;
   try {
     const rows = (await runner.query(
       `SELECT sp.id AS seller_profile_id, sp.storefront_published, sp.storefront_slug,
-              mi.active_items, mi.draft_items, mi.last_item_at, ib.open_imports, ib.last_import_at, pa.sent_at AS agreement_sent_at, we.welcome_at,
+              mi.active_items, mi.sold_items, mi.draft_items, mi.last_item_at, ib.open_imports, ib.last_import_at, pa.sent_at AS agreement_sent_at, we.welcome_at,
+              (SELECT count(*)::int FROM marketplace_orders o WHERE o.seller_id = sp.id AND o.payment_status = 'paid') AS paid_orders,
               EXISTS (SELECT 1 FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
                        WHERE a.seller_profile_id = sp.id AND a.status IN ('signed','countersigned') AND v.template_id <> $2
                          AND v.storefront_fee_schedule IS NOT NULL) AS storefront_terms_signed
          FROM seller_profiles sp
-         LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE m.status IN ('active','sold'))::int AS active_items,
+         LEFT JOIN LATERAL (SELECT count(*) FILTER (WHERE ${activeMarketplaceItemSql('m')})::int AS active_items,
+                                   count(*) FILTER (WHERE m.status = 'sold')::int AS sold_items,
                                    count(*) FILTER (WHERE m.status = 'draft')::int AS draft_items,
                                    max(GREATEST(m.created_at, m.updated_at)) AS last_item_at
                               FROM marketplace_items m WHERE m.seller_id = sp.id AND NOT COALESCE(m.is_demo, false)) mi ON true
@@ -443,7 +497,8 @@ async function attachProfessionalFacts(facts, runner = db) {
         WHERE sp.id = ANY($1::uuid[])`, [pros.map((f) => f.seller_profile_id), ADDENDUM_TEMPLATE_ID])).rows;
     for (const f of pros) {
       const r = rows.find((x) => x.seller_profile_id === f.seller_profile_id) || {};
-      Object.assign(f, { active_items: r.active_items || 0, draft_items: r.draft_items || 0, last_item_at: r.last_item_at || null,
+      Object.assign(f, { active_items: r.active_items || 0, sold_items: r.sold_items || 0, paid_orders: r.paid_orders || 0,
+        checkout_enabled: checkoutEnabledFor(f.seller_profile_id), draft_items: r.draft_items || 0, last_item_at: r.last_item_at || null,
         open_imports: r.open_imports || 0, last_import_at: r.last_import_at || null, agreement_sent_at: r.agreement_sent_at || null,
         welcome_at: r.welcome_at || null, storefront_terms_signed: !!r.storefront_terms_signed,
         storefront_published: !!r.storefront_published, storefront_slug: r.storefront_slug || null });
@@ -586,13 +641,15 @@ function snapshotFor(f, s, h, d) {
     first_published_at: f.first_published_at || null,
     ...(s.track === 'professional' ? { track: 'professional', pro_stage: s.ledger_stage, registration_complete: true,
       storefront_items_active: Number(f.active_items) || 0, storefront_items_draft: Number(f.draft_items) || 0, open_imports: Number(f.open_imports) || 0,
-      storefront_terms_signed: !!f.storefront_terms_signed, welcome_at: f.welcome_at || null, agreement_sent_at: f.agreement_sent_at || null } : {}),
+      storefront_terms_signed: !!f.storefront_terms_signed, welcome_at: f.welcome_at || null, agreement_sent_at: f.agreement_sent_at || null,
+      activation_basis: s.activation_basis || null, storefront_stage: storefrontProgress(f).stage, storefront_progress: storefrontProgress(f),
+      storefront_paid_orders: Number(f.paid_orders) || 0 } : {}),
   };
 }
 
 async function recordEvaluation(f, s, h, d, cfg, runner = db) {
-  const prev = (await runner.query(`SELECT stage, blocker, decision, guard, last_progress_at FROM seller_activation_state WHERE seller_profile_id = $1`,
-    [f.seller_profile_id])).rows[0];
+  const prev = (await runner.query(`SELECT stage, blocker, decision, guard, last_progress_at, snapshot->>'storefront_stage' AS storefront_stage
+    FROM seller_activation_state WHERE seller_profile_id = $1`, [f.seller_profile_id])).rows[0];
   const stage = d.decision === 'excluded' ? 'excluded' : s.stage;
   const ledgerStage = d.decision === 'excluded' ? 'excluded' : (s.ledger_stage || s.stage);   // the Professional stage, in the ledger
   const snap = snapshotFor(f, s, h, d);
@@ -600,8 +657,11 @@ async function recordEvaluation(f, s, h, d, cfg, runner = db) {
   if (prev && prev.decision === 'would_contact' && (prev.stage !== stage || t(s.last_progress_at) > t(prev.last_progress_at))) {
     ledgerRows.push({ decision: 'cancelled', guard: 'PROGRESSED', reason: 'Seller progressed (' + prev.stage + ' -> ' + stage + '); the planned check-in was cancelled.' });
   }
-  if (!prev || prev.stage !== stage || prev.blocker !== s.blocker || prev.decision !== d.decision || (prev.guard || null) !== (d.guard || null)) {
-    ledgerRows.push({ decision: LEDGER_DECISION[d.guard] || d.decision, guard: d.guard, reason: d.reason });
+  // A Professional storefront milestone (configured, drafted, published, checkout, first sale) is a ledger event too.
+  const sfChanged = s.track === 'professional' && !!prev && (prev.storefront_stage || null) !== (snap.storefront_stage || null);
+  if (!prev || prev.stage !== stage || prev.blocker !== s.blocker || prev.decision !== d.decision || (prev.guard || null) !== (d.guard || null) || sfChanged) {
+    ledgerRows.push({ decision: LEDGER_DECISION[d.guard] || d.decision, guard: d.guard,
+      reason: sfChanged && prev.stage === stage && prev.decision === d.decision ? 'Storefront stage: ' + (prev.storefront_stage || 'none') + ' -> ' + snap.storefront_stage + '. ' + d.reason : d.reason });
   }
   for (const row of ledgerRows) {
     await runner.query(
@@ -830,5 +890,5 @@ async function directorView() {
     max_per_stage: cfg.max_per_stage, max_per_seller: cfg.max_per_seller, daily_cap: cfg.daily_cap, recent_human_days: cfg.recent_human_days }, funnel, sellers };
 }
 
-module.exports = { computeStage, computeProStage, decide, composeMessage, exclusion, attachProfessionalFacts, PRO_PATHS, COORDINATION_HOURS, timezoneFor, inWindow, nextWindowStart, config, loadFacts, loadHistory,
+module.exports = { computeStage, computeProStage, storefrontProgress, checkoutEnabledFor, decide, composeMessage, exclusion, attachProfessionalFacts, PRO_PATHS, COORDINATION_HOURS, timezoneFor, inWindow, nextWindowStart, config, loadFacts, loadHistory,
   recordEvaluation, sendCheckIn, runPass, preview, optOut, setConfig, directorView, DEFAULTS, MIN_LOTS };

@@ -299,7 +299,7 @@ describe('core public rules in call context (live pricing; account access unchan
     expect(r.seller_fees.facts.join(' ')).toMatch(/3\.50% payment-processing fee/);
     expect(platformFacts.getFacts('seller_fees').seller_fees.facts.join(' ')).toMatch(/3% payment-processing fee/);   // code default stays the fallback
     await q(`DELETE FROM platform_config WHERE key = 'pricing.auction.processing_fee_bps'`);
-    expect((await platformFacts.getCurrentFacts('seller_fees')).seller_fees.facts.join(' ')).toMatch(/a 3% payment-processing fee/);
+    expect((await platformFacts.getCurrentFacts('seller_fees')).seller_fees.facts.join(' ')).toMatch(/the standard 3% payment-processing fee/);
   });
   test('buyer calls carry bidding, premium, payment and pickup rules; "other" carries only contact and account basics', async () => {
     const mb = model([{ text: 'Sure.' }]);
@@ -430,8 +430,9 @@ describe('seller guidance: lot minimum, dimensions, easy listing, benefits, mark
     const pol = platformFacts.getFacts('buyer_policies').buyer_policies.facts.join('\n');
     expect(pol).toMatch(/Never make a blanket promise such as "ships nationwide" and never imply every item can be shipped/);
     const fees = platformFacts.getFacts('seller_fees').seller_fees.facts.join('\n');
-    expect(fees).toMatch(/Professional Seller auctions \(standard rates, owner-approved 2026-11-06\): a 4% platform fee plus a 3% payment-processing fee on the hammer price\. A seller's own Professional Seller agreement governs/);
-    expect(fees).toMatch(/Professional Storefront fixed-price sales \(standard rates under Seller Agreement v4\): 5% when the sale comes through the seller's own website, 9% through the Advantage\.Bid marketplace/);
+    expect(fees).toMatch(/"Just 7% Total Seller Fees\. Our Professional Seller auction fees are just 7% total, consisting of a 4% Advantage\.Bid platform fee and a 3% payment processing fee\. No monthly subscription fees\. No listing fees\."/);
+    expect(fees).toMatch(/A seller's own negotiated agreement governs and is honored/);
+    expect(fees).toMatch(/Professional Storefront fixed-price sales \(separate from auction fees; Seller Agreement v4\): all-in, card processing included, 5% when the sale comes through the seller's own embedded storefront and 9% through the Advantage\.Bid marketplace; no monthly or listing fees/);
     expect(fees).toMatch(/Never reveal another seller's rate/);
     expect(fees).not.toMatch(/Never quote a standard or default Professional Seller platform-fee percentage/);
     const progs = platformFacts.getFacts('programs').programs.facts.join('\n');
