@@ -406,6 +406,10 @@ async function autoSendAgreement(sellerProfileId, actorId = null, { currentTerms
 async function currentAgreementStatus(sellerProfileId, runner = db) {
   const sp = (await runner.query('SELECT id, seller_type, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
   if (!sp) return { ok: false, reason: 'seller_not_found', agreement_id: null };
+  // A database without the agreement templates table (it exists in production since migration 070; some unit-test
+  // schemas leave it out) has no published version to accept. Checked without raising, so a surrounding transaction is
+  // never aborted.
+  if (!(await runner.query(`SELECT to_regclass('agreement_templates') IS NOT NULL AS ok`)).rows[0].ok) return { ok: true, reason: 'no_current_version', agreement_id: null };
   const tplId = await resolveActiveTemplateId(sp.seller_type, runner);
   const cur = tplId ? (await runner.query(
     `SELECT t.current_version_id, v.version_int FROM agreement_templates t
