@@ -33,6 +33,6 @@ CREATE INDEX IF NOT EXISTS idx_platform_setting_audit_key ON platform_setting_au
 CREATE INDEX IF NOT EXISTS idx_platform_setting_audit_created ON platform_setting_audit (created_at DESC);
 
 INSERT INTO platform_config (key, value, category, description)
-VALUES ('owner.notify_emails', '["tylerwitt@gmail.com","advantageauction.bid@gmail.com"]'::jsonb, 'owner',
+VALUES ('owner.notify_emails', '["tylerwitt2015@gmail.com","advantageauction.bid@gmail.com"]'::jsonb, 'owner',
         'Email addresses that receive owner security notices (sensitive settings, paid advertising authority). Platform owner only.')
 ON CONFLICT (key) DO NOTHING;

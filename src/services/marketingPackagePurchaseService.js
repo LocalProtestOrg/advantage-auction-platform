@@ -47,17 +47,40 @@ function featureKeyOf(component) {
   const key = component && (component.feature_key || component.key || component);
   try { const f = require('./phase3oContract').featureByKey(String(key)); return f ? f.feature_key : String(key); } catch (_) { return String(key); }
 }
+// Owned placements (owner decision 2026-11-07: sell only what the production system actually delivers). The placement
+// executor records reservations and evidence, but no public page or public API reads them yet (verified 2026-11-08),
+// so a featured badge, listing priority, category prominence, notable-lot spotlight, Closing Soon or homepage
+// placement never reaches buyers. A component whose key is not mapped to a real channel only falls through to the
+// generic SERVICE default, which the fulfillment monitor marks complete without delivering anything; it is
+// undeliverable too. Mapped SERVICE items (analytics, reports, reviews) are real.
+const MAPPED_SERVICE_KEYS = ['listing_standard', 'follower_launch_notification', 'performance_standard', 'reporting_standard', 'reporting_detailed',
+  'catalog_readiness_review', 'managed_campaign_documents', 'managed_review_added_wave', 'recommendations_written', 'custom_bundle'];
+const UNAVAILABLE_NOT_DELIVERED = 'This option is not available yet: some of its benefits cannot be delivered yet, so it cannot be purchased right now.';
 function isUndeliverable(component) {
   const channelDispatch = require('./channelDispatch');
   const ch = component && typeof component === 'object' ? String(component.channel || '').toLowerCase() : '';
-  return ch === 'paid' || channelDispatch.channelOf(featureKeyOf(component)) === 'PAID';
+  const key = featureKeyOf(component);
+  const channel = channelDispatch.channelOf(key);
+  if (ch === 'paid' || channel === 'PAID') return 'paid';
+  if (channel === 'OWNED' || ['listing', 'onsite', 'homepage'].includes(ch)) return 'not_delivered';
+  if (channel === 'SERVICE' && MAPPED_SERVICE_KEYS.indexOf(key) === -1) return 'not_delivered';
+  return false;
+}
+function deliverabilityOf(components) {
+  const reasons = components.map((c) => [c, isUndeliverable(c)]).filter(([, r]) => r);
+  if (!reasons.length) return { purchasable: true, blocked: [], reason: null };
+  const paid = reasons.some(([, r]) => r === 'paid');
+  return { purchasable: false, blocked: reasons.map(([c]) => (c && (c.label || c.key)) || String(c)), reason: paid ? UNAVAILABLE_PAID : UNAVAILABLE_NOT_DELIVERED };
 }
 /** { purchasable, blocked: [labels], reason } for one package version (guaranteed + discretionary components). */
 function packageDeliverability(version) {
   if (!version) return { purchasable: false, blocked: [], reason: 'No active version for package' };
-  const all = [...(version.guaranteed_deliverables || []), ...(version.discretionary_tools || [])];
-  const blocked = all.filter(isUndeliverable).map((d) => d.label || d.key);
-  return blocked.length ? { purchasable: false, blocked, reason: UNAVAILABLE_PAID } : { purchasable: true, blocked: [], reason: null };
+  // Guaranteed deliverables must all be delivered; discretionary tools are "may include" extras, but a paid one is
+  // still never sold (owner decision 2026-11-06).
+  const guaranteed = deliverabilityOf(version.guaranteed_deliverables || []);
+  if (!guaranteed.purchasable) return guaranteed;
+  const paidExtras = (version.discretionary_tools || []).filter((d) => isUndeliverable(d) === 'paid');
+  return paidExtras.length ? { purchasable: false, blocked: paidExtras.map((d) => d.label || d.key), reason: UNAVAILABLE_PAID } : { purchasable: true, blocked: [], reason: null };
 }
 /** Same for an Additional Promotion, from the recipe children it would execute. CUSTOM has no online composition. */
 function promotionDeliverability(promotionKey) {
@@ -65,8 +88,7 @@ function promotionDeliverability(promotionKey) {
   if (key === 'custom') return { purchasable: false, blocked: ['custom bundle'], reason: UNAVAILABLE_CUSTOM };
   const { children } = require('./additionalPromotionExecutor').composeChildren(key.toUpperCase());
   if (!children.length) return { purchasable: false, blocked: [], reason: 'Unknown promotion' };
-  const blocked = children.filter((c) => isUndeliverable(c));
-  return blocked.length ? { purchasable: false, blocked, reason: UNAVAILABLE_PAID } : { purchasable: true, blocked: [], reason: null };
+  return deliverabilityOf(children);
 }
 
 // ── Ownership (server-side) ───────────────────────────────────────────────────────

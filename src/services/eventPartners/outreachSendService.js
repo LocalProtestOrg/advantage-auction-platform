@@ -101,6 +101,14 @@ async function ensureOrganizationForProspect(prospect, runner = db) {
   return { ok: true, organizationId: row.id, created: true };
 }
 
+// A visible way to stop further email, at the end of the text and HTML (CAN-SPAM). The same link is the one-click header.
+function withUnsubscribe(msg, url) {
+  const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const line = '<p style="margin:14px 0 0;font-size:11.5px;color:#94a3b8">To stop receiving these emails, <a href="' + esc(url) + '" style="color:#94a3b8">unsubscribe</a>.</p>';
+  const html = msg.html ? (/<\/body>/i.test(msg.html) ? msg.html.replace(/<\/body>(?![\s\S]*<\/body>)/i, line + '</body>') : msg.html + line) : msg.html;
+  return { ...msg, text: String(msg.text || '') + '\n\nTo stop receiving these emails: ' + url, html, unsubscribeUrl: url };
+}
+
 /** Render the approved template. Only these placeholders exist; anything else stays literal. */
 function render(template, vars) {
   const fill = (s) => String(s || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) =>
@@ -141,6 +149,10 @@ async function sendOne({ cohortId, prospect, actorId = null, dryRun = false, run
     const commercial = require('../../lib/commercialEmail');
     const postalAddress = await commercial.postalAddress(runner);
     if (!postalAddress) { outcome.sent = false; outcome.skipped = 'POSTAL_ADDRESS_MISSING'; return outcome; }
+    // ...and a working one-click unsubscribe (the shared business suppression every outreach program honours), or it is
+    // not sent (baseline audit 2026-11-08: invitations had none).
+    const unsubToken = require('../../lib/listingUnsubscribeToken');
+    if (!unsubToken.configured()) { outcome.sent = false; outcome.skipped = 'UNSUBSCRIBE_NOT_CONFIGURED'; return outcome; }
 
     if (dryRun) {
       const preview = render(tpl, { company: prospect.company_name, authorize_url: PUBLIC_BASE + '/authorize-event-promotion.html?token=<issued at send>' });
@@ -176,13 +188,15 @@ async function sendOne({ cohortId, prospect, actorId = null, dryRun = false, run
     if (!rawToken) { outcome.sent = false; outcome.skipped = 'NO_TOKEN'; return outcome; }
     const link = PUBLIC_BASE + '/authorize-event-promotion.html?token=' + encodeURIComponent(rawToken);
     outcome.steps.token = 'issued';
-    const msg = commercial.withPostalAddress(render(tpl, { company: prospect.company_name, authorize_url: link }), postalAddress);
+    const msg = withUnsubscribe(commercial.withPostalAddress(render(tpl, { company: prospect.company_name, authorize_url: link }), postalAddress),
+      PUBLIC_BASE + '/api/public/listing-outreach/unsubscribe?t=' + encodeURIComponent(unsubToken.sign({ email: prospect.business_email, organizationId: null })));
     outcome.subject = msg.subject;
 
     // 6. Deliver on the Event Partner stream.
     const fromAddress = await configService.get(null, 'event_partners.from_address');
     const send = await emailService.sendEmail({
       to: prospect.business_email, subject: msg.subject, html: msg.html, text: msg.text,
+      headers: { 'List-Unsubscribe': '<' + msg.unsubscribeUrl + '>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
       mailStream: 'event_partner',
       ...(fromAddress ? { fromAddress } : {}),
     });
@@ -234,4 +248,4 @@ async function sendCohort({ cohortId, prospects, max, actorId = null, dryRun = f
     sent, results };
 }
 
-module.exports = { slugFor, ensureOrganizationForProspect, render, sendOne, sendCohort, PUBLIC_BASE };
+module.exports = { slugFor, ensureOrganizationForProspect, render, withUnsubscribe, sendOne, sendCohort, PUBLIC_BASE };
