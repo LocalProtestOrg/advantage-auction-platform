@@ -289,11 +289,12 @@ describe('the storefront agreement at first publication', () => {
   });
   test('the updated agreement is sent automatically only as the current version, never another old one, and never supersedes a signed one', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'agreementService.js'), 'utf8');
-    expect(src).toMatch(/async function autoSendAgreement\(sellerProfileId, actorId = null, \{ currentTermsOnly = false \} = \{\}\)/);
+    // sendEmail: false when the seller signs in the app (owner 2026-11-07: no automatic agreement emails to existing sellers)
+    expect(src).toMatch(/async function autoSendAgreement\(sellerProfileId, actorId = null, \{ currentTermsOnly = false, sendEmail: emailTheLink = true \} = \{\}\)/);
     expect(src).toMatch(/currentTermsOnly \? 'AND v\.storefront_fee_schedule IS NOT NULL' : ''/);
     expect(src).toMatch(/if \(!cur \|\| !cur\.storefront_fee_schedule\) return \{ status: 'no_current_terms' \};/);
     const item = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'marketplaceItemService.js'), 'utf8');
-    expect(item).toMatch(/autoSendAgreement\(e\.sellerToSend, null, \{ currentTermsOnly: true \}\)/);
+    expect(item).toMatch(/autoSendAgreement\(e\.sellerToSend, null, \{ currentTermsOnly: true, sendEmail: false \}\)/);
   });
   test('a published version is marked from its own text: the 5% / 9% section defines "Website Sale" (migration 216)', () => {
     const mig = require('fs').readFileSync(require('path').join(__dirname, '..', 'db', 'migrations', '216_storefront_agreement_terms_and_refund_fault.sql'), 'utf8');
