@@ -45,18 +45,21 @@ describe('both terms pages render the current version (they can never differ)', 
     expect(loader).toMatch(/fetch\('\/api\/terms\/current'\)/);
     expect(loader).toMatch(/window\.renderMarkdown\(t\.body_markdown/);
   });
-  test('/terms.html and /buyer-terms.html both load md-render.js and terms-page.js', () => {
-    for (const p of [terms, buyer]) {
-      expect(p).toMatch(/<script src="\/widgets\/shared\/md-render\.js"><\/script>/);
-      expect(p).toMatch(/<script src="\/widgets\/shared\/terms-page\.js"><\/script>/);
-    }
-    expect(terms).toMatch(/AdvTermsPage\.mount\(\{ docId: 'doc', metaId: 'doc-meta', acceptId: 'doc-accept', fallbackId: 'doc-md' \}\)/);
+  test('/buyer-terms.html renders the current buyer_terms version (what is accepted) with the shared loader', () => {
+    expect(buyer).toMatch(/<script src="\/widgets\/shared\/md-render\.js"><\/script>/);
+    expect(buyer).toMatch(/<script src="\/widgets\/shared\/terms-page\.js"><\/script>/);
     expect(buyer).toMatch(/AdvTermsPage\.mount\(\{ docId: 'doc-body', metaId: 'doc-meta' \}\)/);
     expect(buyer).not.toMatch(/function renderMarkdown/);   // no second renderer
   });
-  test('/terms.html has a static statement of where the terms are (no script needed) and a noscript note', () => {
-    expect(terms).toMatch(/are published on this page and on the\s+<a href="\/buyer-terms\.html">Buyer Terms<\/a> page/);
-    expect(terms).toMatch(/<noscript>/);
+  test('/terms.html stays the full static Terms of Service (including 6A Text Messages), never the current short version', () => {
+    // Owner 2026-11-07: the full Terms (v4) are not published yet; the current buyer_terms version is the short v3 summary,
+    // which must never be shown as the Terms of Service. The SMS consent wording links to /terms.html section 6A.
+    expect(terms).toMatch(/## 6A\. Text Messages \(SMS\)/);
+    expect(terms).toMatch(/# Advantage\.Bid Terms of Service - General and Buyers/);
+    expect(terms).not.toMatch(/terms-page\.js|\/api\/terms\/current/);
+    expect(terms).toMatch(/renderMarkdownInto\('doc-md', 'doc'\)/);
+    const html = md.render(terms.match(/<script type="text\/plain" id="doc-md">([\s\S]*?)<\/script>/)[1]);
+    expect(html).toMatch(/<h2 id="6a-text-messages-sms">6A\. Text Messages \(SMS\)<\/h2>/);
   });
   test('the accept button sends the version shown and handles TERMS_CHANGED', () => {
     expect(buyer).toMatch(/body: JSON\.stringify\(\{ version_int: versionInt \}\)/);
@@ -84,11 +87,9 @@ describe('registration page', () => {
     expect(login).toMatch(/if \(!termsBox\.checked\)/);
     expect(login).toMatch(/accept_terms: true, terms_version_int: CURRENT_TERMS_V/);
   });
-  test('the member dashboard loads the non-blocking account notices', () => {
-    expect(read('public', 'app.html')).toMatch(/<script src="\/widgets\/shared\/account-notices\.js"><\/script>/);
+  test('updated terms are never announced in the member area (owner 2026-11-07); only the email notice remains', () => {
     const n = read('public', 'widgets', 'shared', 'account-notices.js');
-    expect(n).toMatch(/Our terms have been updated\./);
-    expect(n).toMatch(/'Review and Accept'/);
-    expect(n).toMatch(/'Not Now'/);
+    expect(n).not.toMatch(/Our terms have been updated|\/api\/terms\/me\/acceptance/);
+    expect(n).toMatch(/Resend Confirmation Email/);
   });
 });

@@ -264,7 +264,13 @@ router.post('/items/bulk', seller('company.inventory.edit'), async (req, res, ne
     }
     if (!patch) return res.status(422).json({ success: false, code: 'ACTION_INVALID', message: 'Choose publish, pause, unpublish, remove, set category, set price or set quantity.' });
     // Publishing needs the storefront agreement: one answer for the whole selection (no item changes).
-    if (b.action === 'publish') await items.assertStorefrontAgreement(req.sellerCtx.sellerId);
+    // A selection with a draft or removed item publishes a NEW listing, which also needs the current Seller Agreement
+    // version (owner 2026-11-07); re-publishing paused items alone does not.
+    if (b.action === 'publish') {
+      const fresh = (await db.query(`SELECT 1 FROM marketplace_items WHERE id = ANY($1::uuid[]) AND seller_id = $2 AND status IN ('draft','removed') LIMIT 1`,
+        [ids.filter((x) => /^[0-9a-f-]{36}$/i.test(String(x))), req.sellerCtx.sellerId])).rows.length > 0;
+      await items.assertStorefrontAgreement(req.sellerCtx.sellerId, { newListing: fresh });
+    }
     const results = [];
     for (const id of ids) {
       try { await items.updateItem(id, req.sellerCtx, { ...patch }); results.push({ id, ok: true }); }

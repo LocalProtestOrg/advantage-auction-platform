@@ -287,6 +287,18 @@ router.post('/', auth, async (req, res, next) => {
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
+    // A lot added to a non-draft (live or published) auction is a NEW public listing at once: the seller must have
+    // accepted the current Seller Agreement version (owner 2026-11-07). Drafts wait for the auction's own publish check.
+    if (gate.reason === 'professional_seller') {
+      const own = (await db.query('SELECT seller_id FROM auctions WHERE id = $1', [auctionId])).rows[0];
+      try {
+        await require('../services/agreementService').assertCurrentAgreementForPublish(own.seller_id,
+          { actorUserId: req.user.id, actorRole: req.user.role, action: 'lot_create', entityType: 'auction', entityId: auctionId });
+      } catch (e) {
+        if (e && e.code === 'AGREEMENT_REQUIRED') return res.status(409).json({ success: false, code: e.code, message: e.message, agreement_reason: e.agreement_reason, agreement_id: e.agreement_id || null });
+        throw e;
+      }
+    }
     // H2: enforce required launch fields server-side. The pickup tier may arrive as
     // size_category OR pickup_category (client-dependent); normalize and require it.
     const tier = normalizeTier(size_category, pickup_category);

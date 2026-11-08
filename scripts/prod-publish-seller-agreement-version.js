@@ -6,6 +6,8 @@
    Never modifies an existing version row, an issued or signed agreement, a signature, or a seller. Existing agreements
    keep the version they pinned (their frozen rendered_body and signature content hash). The variable schema and
    defaults are copied from the current version (only the body text changes). One transaction; audited.
+   It sends NOTHING: no email, SMS or reminder to any seller (owner decision 2026-11-07). Sellers are asked to accept the
+   new version in the app when they next start a new listing, and before a new listing is published.
 
      railway run node scripts/prod-publish-seller-agreement-version.js            # dry run
      railway run node scripts/prod-publish-seller-agreement-version.js --apply    # publish */

@@ -123,6 +123,16 @@
     async function load() {
       try {
         var res, json;
+        // Current version entry (/sign-agreement.html?current=1): the seller's current Seller Agreement, issued in the
+        // app when needed (no email is sent).
+        if (!token && !idParam && qs.get('current') && authToken) {
+          try {
+            var cur = await (await fetch('/api/agreements/current/issue', { method: 'POST', headers: { Authorization: 'Bearer ' + authToken } })).json();
+            if (cur && cur.success && cur.data && cur.data.agreement_id) { idParam = cur.data.agreement_id; }
+            else if (cur && cur.success && cur.data && cur.data.status === 'not_needed') { showError('You have already accepted the current Seller Agreement.'); return; }
+            else { showError((cur && cur.message) || 'Could not open the current Seller Agreement.'); return; }
+          } catch (e) { showError('Could not open the current Seller Agreement.'); return; }
+        }
         // Onboarding entry (/sign-agreement.html?onboarding=1): resolve the seller's pending agreement id from the gate.
         if (!token && !idParam && qs.get('onboarding') && authToken) {
           try {

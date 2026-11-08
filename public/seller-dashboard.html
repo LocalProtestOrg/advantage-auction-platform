@@ -340,6 +340,7 @@
 <body>
 <!-- Seller onboarding gate: routes unsigned sellers to sign before the dashboard. -->
 <script src="/widgets/shared/seller-guard.js"></script>
+<script src="/widgets/shared/agreement-prompt.js"></script>
 <script src="/widgets/shared/website-widgets.js"></script>
 
 <header>
@@ -900,6 +901,7 @@ async function submitAuctionForReview(auctionId, title, btn) {
     } else {
       btn.disabled = false;
       btn.textContent = originalLabel;
+      if (window.AdvAgreementPrompt) AdvAgreementPrompt.show(r);   // the current Seller Agreement is needed first; the draft is kept
       showBanner((pro ? 'Publish failed: ' : 'Submit failed: ') + (r && r.message ? r.message : 'unknown error'), 'error');
     }
   } catch (err) {

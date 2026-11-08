@@ -69,48 +69,55 @@ test('registration: the box starts unchecked and is required; with it, the accou
   await ctx.close();
 });
 
-test('/terms.html and /buyer-terms.html render the same current version with contents and anchors; raw HTML stays text', async () => {
-  for (const p of ['/terms.html', '/buyer-terms.html']) {
-    const { ctx, page, errors } = await open({ viewport: { width: 375, height: 800 } });
-    await page.goto(stack.baseUrl + p, { waitUntil: 'networkidle' });
-    await page.waitForSelector('h2[id="1-eligibility"]');
-    const info = await page.evaluate(() => ({
-      h1: document.querySelector('.doc h1') && document.querySelector('.doc h1').textContent,
-      toc: [...document.querySelectorAll('.md-toc a')].map((a) => a.getAttribute('href')),
-      meta: document.getElementById('doc-meta').textContent,
-      img: document.querySelectorAll('.doc img').length,
-      xss: window.__xss || 0,
-      table: !!document.querySelector('.doc table td'),
-      sms: /Reply STOP/.test(document.body.textContent),
-      noHScroll: document.documentElement.scrollWidth <= window.innerWidth,
-    }));
-    expect([p, info.h1]).toEqual([p, 'Advantage.Bid Terms of Service - General and Buyers']);
-    expect(info.toc).toEqual(['#1-eligibility', '#2-bidding', '#3-buyer-premium-and-payment', '#4-pickup', '#5-text-messages-sms']);
-    expect(info.meta).toMatch(/^Version 90/);
-    expect([info.img, info.xss, info.table, info.sms, info.noHScroll]).toEqual([0, 0, true, true, true]);
-    expect([p, errors]).toEqual([p, []]);
-    await ctx.close();
-  }
+test('/buyer-terms.html renders the current version (what buyers accept) with contents and anchors; raw HTML stays text', async () => {
+  const { ctx, page, errors } = await open({ viewport: { width: 375, height: 800 } });
+  await page.goto(stack.baseUrl + '/buyer-terms.html', { waitUntil: 'networkidle' });
+  await page.waitForSelector('h2[id="1-eligibility"]');
+  const info = await page.evaluate(() => ({
+    h1: document.querySelector('.doc h1') && document.querySelector('.doc h1').textContent,
+    toc: [...document.querySelectorAll('.md-toc a')].map((a) => a.getAttribute('href')),
+    meta: document.getElementById('doc-meta').textContent,
+    img: document.querySelectorAll('.doc img').length,
+    xss: window.__xss || 0,
+    table: !!document.querySelector('.doc table td'),
+    noHScroll: document.documentElement.scrollWidth <= window.innerWidth,
+  }));
+  expect(info.h1).toBe('Advantage.Bid Terms of Service - General and Buyers');
+  expect(info.toc).toEqual(['#1-eligibility', '#2-bidding', '#3-buyer-premium-and-payment', '#4-pickup', '#5-text-messages-sms']);
+  expect(info.meta).toMatch(/^Version 90/);
+  expect([info.img, info.xss, info.table, info.noHScroll]).toEqual([0, 0, true, true]);
+  expect(errors).toEqual([]);
+  await ctx.close();
 });
 
-test('member area: an account that has not accepted the current version sees a non-blocking notice and can accept and return', async () => {
+// Owner 2026-11-07: /terms.html stays the full published Terms of Service (with 6A Text Messages, which the SMS consent
+// links to) until the owner approves publishing the full Terms as the accepted buyer terms; it never shows the short summary.
+test('/terms.html is the full static Terms of Service with the Text Messages section, whatever version is current', async () => {
+  const { ctx, page, errors } = await open({ viewport: { width: 375, height: 800 } });
+  await page.goto(stack.baseUrl + '/terms.html', { waitUntil: 'networkidle' });
+  await page.waitForSelector('#doc h2');
+  const text = await page.textContent('#doc');
+  expect(text).toMatch(/6A\. Text Messages \(SMS\)/);
+  expect(text).toMatch(/Advantage.Bid Terms of Service - General and Buyers/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+test('member area: updated terms are never announced; the buyer accepts them at the next bid, registration or purchase', async () => {
   const email = 'older-acceptance@fullstack.test';
   await seed.user(stack, { email, role: 'buyer', fullName: 'Old Acceptance' });
   const { ctx, page, errors } = await open({ viewport: { width: 1200, height: 900 } });
   await seed.browserLogin(page, stack, email);
   await page.goto(stack.baseUrl + '/app.html', { waitUntil: 'load' });
-  await page.waitForSelector('[data-notice="terms"]', { timeout: 20000 });
-  expect(await page.textContent('[data-notice="terms"]')).toMatch(/Our terms have been updated\./);
-  await page.waitForSelector('#adv-main', { timeout: 20000 });   // the dashboard still renders (never blocked)
-  await Promise.all([page.waitForURL(/buyer-terms\.html/), page.click('[data-notice="terms"] a.act')]);
-  await page.waitForSelector('#accept-action button');
-  await Promise.all([page.waitForURL(/\/app\.html/, { timeout: 20000 }), page.click('#accept-action button')]);
+  await page.waitForSelector('#adv-main', { timeout: 20000 });   // signing in and the dashboard are never blocked
+  await page.waitForTimeout(1500);
+  expect(await page.$('[data-notice="terms"]')).toBeNull();
+  expect(await page.textContent('body')).not.toMatch(/Our terms have been updated/);
+  // ...and nothing was recorded for them: an old (or missing) acceptance is never treated as acceptance of the current version
   const n = (await stack.query(`SELECT count(*)::int n FROM terms_acceptances ta JOIN users u ON u.id = ta.user_id
     WHERE u.email = $1 AND ta.terms_version_id = $2`, [email, versionId])).rows[0].n;
-  expect(n).toBe(1);
-  await page.waitForSelector('#adv-main', { timeout: 20000 });
-  await page.waitForTimeout(800);
-  expect(await page.$('[data-notice="terms"]')).toBeNull();
+  expect(n).toBe(0);
   expect(errors).toEqual([]);
   await ctx.close();
 });

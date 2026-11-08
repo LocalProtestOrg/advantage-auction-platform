@@ -79,6 +79,28 @@ router.get('/onboarding-status', auth, async (req, res, next) => {
   catch (err) { handleErr(res, err, next); }
 });
 
+// Current Seller Agreement version for the signed-in seller (owner decisions 2026-11-07). Read-only: never issues or
+// sends anything. Used when the seller starts a new listing, to offer "Review and Accept". Declared before /:id.
+router.get('/current-status', auth, async (req, res, next) => {
+  try {
+    const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    if (!sp) return res.json({ success: true, data: { is_seller: false, ok: true } });
+    const st = await agreements.currentAgreementStatus(sp.id);
+    return res.json({ success: true, data: { is_seller: true, ok: st.ok, reason: st.reason, agreement_id: st.agreement_id || null,
+      current_version: st.current_version_int || null, signed_version: st.signed_version_int || null } });
+  } catch (err) { handleErr(res, err, next); }
+});
+
+// In-app "Review and Accept": the seller's pending current-version agreement, issued now if needed, to open on
+// /sign-agreement.html. No email, SMS or reminder is sent.
+router.post('/current/issue', auth, async (req, res, next) => {
+  try {
+    const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    if (!sp) return res.status(404).json({ success: false, code: 'NOT_A_SELLER', message: 'No seller account.' });
+    return res.json({ success: true, data: await agreements.ensureCurrentAgreement(sp.id, req.user.id) });
+  } catch (err) { handleErr(res, err, next); }
+});
+
 // Authenticated single (owner or admin).
 router.get('/:id', auth, async (req, res, next) => {
   try {

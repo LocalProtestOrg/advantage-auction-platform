@@ -265,7 +265,8 @@
       return j;}
     // A small web-sized version of a stored photo for the list (the original is untouched).
     function small(u,w){return /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(u)&&!/\/upload\/[a-z]_/.test(u)?u.replace('/upload/','/upload/c_fill,w_'+w+',h_'+w+',f_auto,q_auto/'):u;}
-    function tab(n){['inv','imp','pho','his'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});
+    function tab(n){if(n==='imp'&&window.AdvAgreementPrompt)AdvAgreementPrompt.checkCurrent();   // starting an import: offer the current Seller Agreement (never blocks)
+      ['inv','imp','pho','his'].forEach(function(x){document.getElementById('pane-'+x).style.display=x===n?'':'none';document.getElementById('t-'+x).classList.toggle('active',x===n);});
       if(n==='inv'){loadItems();loadReadiness();}if(n==='his')loadHistory();}
     function copy(id){var el=document.getElementById(id);el.select();try{navigator.clipboard.writeText(el.value);}catch(e){document.execCommand('copy');}}
 

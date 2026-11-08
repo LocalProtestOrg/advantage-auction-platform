@@ -18,6 +18,21 @@ const rbac                = require('../lib/rbac');            // Super Admin / 
 const optionalAuth        = require('../middleware/optionalAuthMiddleware');
 const { canViewAuction }  = require('../lib/auctionVisibility'); // not-yet-public auctions: owner/admin/staff only
 
+// The answer when a new listing needs the current Seller Agreement first: the agreement to sign (when one is pending)
+// so the page can open it (AdvAgreementPrompt).
+function agreementBody(err) {
+  return { success: false, code: 'AGREEMENT_REQUIRED', message: err.message, agreement_reason: err.agreement_reason || null,
+    agreement_id: err.agreement_id || null };
+}
+// A lot added to an auction that is no longer a draft is published at once: it is a NEW listing and needs the current
+// Seller Agreement version (owner 2026-11-07). Lots added to a draft wait for the auction's own publication check.
+async function assertAgreementForNewLot(user, auctionId) {
+  if (!user || user.role === 'admin') return;
+  const a = (await db.query('SELECT seller_id, state FROM auctions WHERE id = $1', [auctionId])).rows[0];
+  if (!a || a.state === 'draft') return;
+  await agreementService.assertCurrentAgreementForPublish(a.seller_id, { actorUserId: user.id, actorRole: user.role, action: 'lot_create', entityType: 'auction', entityId: auctionId });
+}
+
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
@@ -192,6 +207,8 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
+    try { await assertAgreementForNewLot(req.user, auctionId); }
+    catch (e) { if (e && e.code === 'AGREEMENT_REQUIRED') return res.status(409).json(agreementBody(e)); throw e; }
     const {
       title, description, starting_price, pickup_category, category,
       condition, material, era, maker_artist, weight, dimensions, shippable,
@@ -388,6 +405,8 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
       return res.status(422).json({ success: false, code: err.code, message: err.message,
         valid_lots: err.valid_lots, required: err.required, adminOverrideAvailable: !!err.adminOverrideAvailable });
     }
+    // The current Seller Agreement is needed before a new auction is submitted (owner 2026-11-07); the draft is kept.
+    if (err && err.code === 'AGREEMENT_REQUIRED') return res.status(err.status || 409).json(agreementBody(err));
     console.error('Update Auction Error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -411,6 +430,7 @@ router.post('/:auctionId/submit', authMiddleware, async (req, res) => {
       return res.status(422).json({ success: false, code: err.code,
         message: (err.violations && err.violations[0] && err.violations[0].message) || err.message, violations: err.violations || [] });
     }
+    if (err && err.code === 'AGREEMENT_REQUIRED') return res.status(err.status || 409).json(agreementBody(err));
     // publishAuction validation codes (START_TIME_REQUIRED / AUCTION_HAS_NO_LOTS / VERIFICATION_REQUIRED)
     if (err && err.status && err.code) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
     if (err && /already published/i.test(err.message || '')) return res.status(409).json({ success: false, code: 'ALREADY_PUBLISHED', message: err.message });

@@ -56,15 +56,15 @@ async function emailLink(agreement, rawToken) {
 // template with a current version when no type-specific one exists. The fallback
 // supports self-service onboarding (all self-serve seller types accept the one
 // general seller agreement) until type-specific templates are authored.
-async function resolveActiveTemplateId(sellerType) {
-  const typed = await db.query(
+async function resolveActiveTemplateId(sellerType, runner = db) {
+  const typed = await runner.query(
     `SELECT id FROM agreement_templates
       WHERE agreement_type = $1 AND is_active = true AND current_version_id IS NOT NULL
       ORDER BY updated_at DESC LIMIT 1`,
     [sellerType || 'private']
   );
   if (typed.rows[0]) return typed.rows[0].id;
-  const fallback = await db.query(
+  const fallback = await runner.query(
     `SELECT id FROM agreement_templates
       WHERE is_active = true AND current_version_id IS NOT NULL AND id <> $1
       ORDER BY updated_at DESC LIMIT 1`, [ADDENDUM_TEMPLATE_ID]
@@ -337,7 +337,9 @@ async function storefrontAgreementStatus(sellerProfileId, runner = db) {
 // signed agreement. Never throws (onboarding/registration must not crash). Resolves
 // the template's required variables from platform defaults (effective_terms_defaults)
 // + the seller's account identity, so no admin is needed.
-async function autoSendAgreement(sellerProfileId, actorId = null, { currentTermsOnly = false } = {}) {
+// sendEmail: false when the seller is in the app and signs there (storefront publishing, owner decision 2026-11-07:
+// no automatic emails to existing sellers about a new agreement version). New-seller onboarding keeps the email.
+async function autoSendAgreement(sellerProfileId, actorId = null, { currentTermsOnly = false, sendEmail: emailTheLink = true } = {}) {
   try {
     const sp = (await db.query(
       `SELECT sp.id, sp.seller_type, sp.display_name, sp.agreement_waived_at, u.email, u.full_name
@@ -375,7 +377,7 @@ async function autoSendAgreement(sellerProfileId, actorId = null, { currentTerms
       ...autoSendParty(sp, (await identityService.getIdentity(sellerProfileId)) || {}),
     };
     try {
-      const { agreement } = await sendAgreement({ sellerProfileId, overrides, actorId });
+      const { agreement } = await sendAgreement({ sellerProfileId, overrides, actorId, sendEmail: emailTheLink });
       await writeAuditLog({ event_type: 'seller_agreement_autosent', entity_type: 'agreement', entity_id: agreement.id, actor_id: actorId, metadata: { seller_profile_id: sellerProfileId } });
       return { status: 'sent', agreement_id: agreement.id };
     } catch (e) {
@@ -388,6 +390,81 @@ async function autoSendAgreement(sellerProfileId, actorId = null, { currentTerms
     console.error('[onboarding] autoSendAgreement error for seller ' + sellerProfileId + ': ' + e.message);
     return { status: 'error' };
   }
+}
+
+// ── Current Seller Agreement version (owner decisions 2026-11-07) ─────────────────────────────────────────────────
+// Publishing a new agreement version sends nothing to anyone. An existing seller is asked to review and accept the
+// CURRENT version of the Seller Agreement that applies to their seller type (resolveActiveTemplateId: a type-specific
+// template, else the shared general one) when they next start a new listing, and must have accepted it before a NEW
+// listing is published (auction submit/publish, a lot added to a live auction, a storefront item going live). Their
+// account, dashboard, existing listings, signed agreements and completed sales are never affected; earlier signed
+// versions stay on record untouched. An administrator's waiver counts (admin override, audited when given).
+// Returns { ok, reason, agreement_id, current_version_int, signed_version_int }:
+//   reason 'signed_current' | 'waived' | 'no_current_version' (nothing to accept) | 'agreement_update_required'
+//   (signed an earlier version) | 'agreement_required' (never signed); agreement_id = a pending current-version
+//   agreement to sign, when one exists.
+async function currentAgreementStatus(sellerProfileId, runner = db) {
+  const sp = (await runner.query('SELECT id, seller_type, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
+  if (!sp) return { ok: false, reason: 'seller_not_found', agreement_id: null };
+  const tplId = await resolveActiveTemplateId(sp.seller_type, runner);
+  const cur = tplId ? (await runner.query(
+    `SELECT t.current_version_id, v.version_int FROM agreement_templates t
+       JOIN agreement_template_versions v ON v.id = t.current_version_id WHERE t.id = $1`, [tplId])).rows[0] : null;
+  if (!cur) return { ok: true, reason: 'no_current_version', agreement_id: null };
+  const rows = (await runner.query(
+    `SELECT a.id, a.status, a.template_version_id, a.expires_at, v.version_int
+       FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+      WHERE a.seller_profile_id = $1 AND a.status IN ('signed','countersigned','sent','viewed') AND v.template_id <> $2
+      ORDER BY a.created_at DESC`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows;
+  const isSigned = (r) => r.status === 'signed' || r.status === 'countersigned';
+  const base = { current_version_int: cur.version_int };
+  const signedCurrent = rows.find((r) => isSigned(r) && r.template_version_id === cur.current_version_id);
+  if (signedCurrent) return { ...base, ok: true, reason: 'signed_current', agreement_id: signedCurrent.id, signed_version_int: cur.version_int };
+  const lastSigned = rows.find(isSigned);
+  if (sp.agreement_waived_at) return { ...base, ok: true, reason: 'waived', agreement_id: null, signed_version_int: lastSigned ? lastSigned.version_int : null };
+  const pending = rows.find((r) => !isSigned(r) && r.template_version_id === cur.current_version_id
+    && !(r.expires_at && new Date(r.expires_at) < new Date()));
+  return { ...base, ok: false, reason: lastSigned ? 'agreement_update_required' : 'agreement_required',
+    agreement_id: pending ? pending.id : null, signed_version_int: lastSigned ? lastSigned.version_int : null };
+}
+
+// In-app "review and accept the current agreement": returns the seller's pending current-version agreement, issuing one
+// when there is none. NO email, SMS or reminder is sent: the seller is already on the page and signs it there
+// (/sign-agreement.html?id=...). Earlier agreements and signatures are never changed.
+async function ensureCurrentAgreement(sellerProfileId, actorId = null) {
+  const st = await currentAgreementStatus(sellerProfileId);
+  if (st.ok) return { status: 'not_needed', reason: st.reason, agreement_id: null };
+  if (st.agreement_id) return { status: 'exists', agreement_id: st.agreement_id };
+  const sp = (await db.query(
+    `SELECT sp.id, sp.seller_type, sp.display_name, u.email, u.full_name
+       FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1`, [sellerProfileId])).rows[0];
+  if (!sp) throw new AgreementError('SELLER_NOT_FOUND', 'Seller profile not found', 404);
+  const overrides = {
+    effective_date: new Date().toISOString().slice(0, 10),
+    seller_type: sp.seller_type || 'private',
+    ...autoSendParty(sp, (await identityService.getIdentity(sellerProfileId)) || {}),
+  };
+  const { agreement } = await sendAgreement({ sellerProfileId, overrides, actorId, sendEmail: false });
+  await writeAuditLog({ event_type: 'seller_agreement_issued_in_app', entity_type: 'agreement', entity_id: agreement.id, actor_id: actorId,
+    metadata: { seller_profile_id: sellerProfileId, current_version_int: st.current_version_int, previous_signed_version_int: st.signed_version_int || null } });
+  return { status: 'issued', agreement_id: agreement.id };
+}
+
+const CURRENT_AGREEMENT_MESSAGE = 'Before this new listing can be published, please review and accept the current Seller Agreement. Your work is saved.';
+
+// The server-side publication check for a NEW listing. A seller who has not accepted the current version gets 409
+// AGREEMENT_REQUIRED (agreement_reason, agreement_id) and nothing is published; their data is untouched. An
+// administrator may still publish (admin override, CLAUDE.md), and that override is audited.
+async function assertCurrentAgreementForPublish(sellerProfileId, { actorUserId = null, actorRole = null, action = 'publish', entityType = null, entityId = null } = {}, runner = db) {
+  const st = await currentAgreementStatus(sellerProfileId, runner);
+  if (st.ok) return st;
+  if (actorRole === 'admin') {
+    writeAuditLog({ event_type: 'seller_agreement_gate_admin_override', entity_type: entityType || 'seller_profile', entity_id: entityId || sellerProfileId,
+      actor_id: actorUserId, metadata: { seller_profile_id: sellerProfileId, action, reason: st.reason, current_version_int: st.current_version_int || null } }).catch(() => {});
+    return { ...st, overridden: true };
+  }
+  throw new AgreementError('AGREEMENT_REQUIRED', CURRENT_AGREEMENT_MESSAGE, 409,
+    { agreement_reason: st.reason, agreement_id: st.agreement_id || null, current_version_int: st.current_version_int || null });
 }
 
 async function getOnboardingStatus(userId) {
@@ -481,4 +558,5 @@ module.exports = {
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
   signAgreement, resend, reissue, revoke, revokeLink, expireOverdue,
   emailSignedPdf, dashboardAccess, storefrontAgreementStatus, getOnboardingStatus, waiveSellerGate, autoSendAgreement, autoSendParty,
+  currentAgreementStatus, ensureCurrentAgreement, assertCurrentAgreementForPublish, CURRENT_AGREEMENT_MESSAGE,
 };
