@@ -1,65 +1,71 @@
 # Baseline release 2026-11 (owner approval required before merge or deploy)
 
-Branch `release/baseline-2026-11` = origin/main 2e3a543 plus four owner-authorized branches:
+Branch `release/baseline-2026-11` = origin/main 2e3a543 plus the owner-authorized work:
 
 | Branch | What it does |
 |---|---|
 | `fix/baseline-corrections` | 5% / 9% pricing references; migration 226; the two `seller_profiles.updated_at` 500s; seller-registration campaign attribution; Terms of Service v4 source + publisher; privacy update; agreement renderer fix (wrapped bold in v4) |
-| `fix/admin-security-ads` | Owner-only sensitive settings with audit + owner notices; paid-ad authorizations (amount, dates, creative) and overspend/stop safeguards; package checkout fixes; postal address in commercial email (fails closed); migrations 222, 223 |
-| `fix/sasha-r1-pro` | Sasha never recruits buyers or individuals (chat, email, phone); standard rates from code; R-1 Professional onboarding track (2 per stage, quiet periods) |
-| `fix/buyer-safeguards` | Registration requires accepting the current Terms (versioned, timestamped); Terms pages render the current version; bid rate limit; verified-email requirement built but OFF |
+| `fix/admin-security-ads` | Owner-only sensitive settings with audit + owner notices; paid-ad authorizations (amount, dates, creative) and overspend/stop safeguards; package checkout ownership; postal address in commercial email (fails closed); migrations 222, 223 |
+| `fix/sasha-r1-pro` | Sasha never recruits buyers or individuals (chat, email, phone); standard rates from code; R-1 Professional onboarding track |
+| `fix/buyer-safeguards` | Registration requires accepting the current buyer terms (versioned, timestamped); bid rate limit; verified-email requirement built but OFF |
+| `fix/baseline-r2-pricing` | Public "Just 7% Total Seller Fees" (4% platform + 3% processing) on seven public pages |
+| `fix/baseline-r2-sasha` | Sasha uses the approved 7% wording; storefront-only Professional Sellers count as activated, with distinct storefront milestones; no message announces agreement or terms updates |
+| `fix/baseline-r2-acceptance` | Current Seller Agreement accepted when a seller starts new listing activity (enforced at publish, all paths); nothing sent on publish; buyer terms asked only at the next transaction; /terms.html stays the full static Terms |
+| `fix/baseline-r2-admin` | Owner email corrected; only packages whose benefits are delivered can be bought (all blocked today); legacy purchase route retired; Event Partner invitation unsubscribe; owner recovery; zero-spend Meta verification |
 
 Nothing here turns on storefront checkout, shipping, payouts or ad spend. Migrations 218 to 220 (PR #86) are NOT part
 of this release.
 
-## Deploy order
+## Deploy order (each step needs the owner's go-ahead)
 
-1. **Backup.** Neon branch `prod-pre-baseline-2026-11` from production (scratchpad mkbackup script).
-2. **Migrations, before the code** (the new code fails closed without 222):
-   `railway run node scripts/prod-migrate-222.js --check`, then `--dry-run`, then apply. Same for 223 and 226.
-   - 222: `users.is_platform_owner`, `platform_setting_audit`, `owner.notify_emails` (only if absent).
+1. **Backup.** Neon branch `prod-pre-baseline-2026-11` from production.
+2. **Migrations, before the code** (the new code fails closed without 222), each `--check`, `--dry-run`, then apply:
+   `scripts/prod-migrate-222.js`, `scripts/prod-migrate-223.js`, `scripts/prod-migrate-226.js`.
+   - 222: `users.is_platform_owner`, `platform_setting_audit`, `owner.notify_emails` = tylerwitt2015@gmail.com and
+     advantageauction.bid@gmail.com (only if absent).
    - 223: `marketing_paid_authorizations` + nullable attribution columns on `marketing_paid_campaigns`.
    - 226: deletes 4 unused config rows (old 11% storefront rate, retired 0% pilot values).
-3. **Designate the platform owner:** `scripts/prod-set-platform-owner.js --email=<owner account> --apply`.
-   Until this runs, every sensitive setting change and every paid authorization is refused (stops still work).
-4. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
-5. **Publish Terms of Service v4:** `scripts/prod-publish-buyer-terms-version.js` (dry run), then `--apply`.
-   Do this right after the deploy: the new /terms.html shows the current version from the database.
-6. **Verify on production:** /terms.html and /buyer-terms.html show v4; registration shows the unchecked terms box;
-   the FAQ, Professional Sellers page and Seller Demo show 5% / 9% and 4% + 3%; an admin who is not the owner gets
-   "Only the platform owner can make this change." on a pricing change; Admin > Agreements preview of v4 shows no `**`.
-7. **Baseline record:** git tag `baseline-2026-11`, Neon branch `baseline-2026-11`, and the baseline document
-   (commit, migrations, backup, agreement versions, fees, switches, disabled features, known issues).
+3. **Designate the platform owner:** `scripts/prod-set-platform-owner.js --email=tylerwitt2015@gmail.com --apply`
+   (verified read-only 2026-11-08: one account, active admin). `admin@advantage.bid` stays an ordinary admin.
+   Recovery: `docs/operations/platform-owner-recovery.md`.
+4. **Postal address for commercial email** (owner instruction 2026-11-07): set `company.postal_address` to
+   "Advantage.Bid, 2205 Ogden Hwy, Adrian, MI 49221" (today it holds the Jersey City address). Owner-only once 222 and
+   step 3 are done; audited and notified.
+5. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
+6. **Verify on production:** the seven pricing pages show "Just 7% Total Seller Fees"; registration shows the unchecked
+   terms box; /terms.html shows the full Terms with 6A Text Messages; an admin who is not the owner is refused a
+   pricing change; the seller marketing page shows every package "Not Available Yet"; Admin, Agreements: the v4
+   preview, a signing page and a generated PDF show no `**`; owner notice email and text arrive for one harmless
+   sensitive-setting change made by the owner.
+7. **Baseline record:** git tag `baseline-2026-11`, Neon branch `baseline-2026-11`, and the baseline document.
+
+Buyer Terms v4 (the full Terms of Service as accepted buyer terms) is **not** published in this deploy: it waits for the
+owner's decision on its substantive provisions (see "Owner decisions").
 
 ## Rollback
 
 - Code: revert the merge commit on main and push (auto-deploys the previous code).
 - 226: re-insert the four rows (Reverse section in the migration file).
 - 222 / 223: additive; the previous code ignores them. Drop only if required (Reverse sections in each file).
-- Terms v4: publish the previous text as a new version (history is never rewritten; acceptances of v4 stay recorded).
+- Owner designation: `prod-set-platform-owner.js --replace` for another admin, only with the owner's authorization.
 - Full restore: the Neon backup branch from step 1.
 
-## Owner decisions before deploy
+## Owner decisions
 
-1. Which account is the platform owner (the active production admin accounts are admin@advantage.bid and
-   tylerwitt2015@gmail.com).
-2. Owner notice email addresses: seeded as tylerwitt@gmail.com and advantageauction.bid@gmail.com as instructed; the
-   production admin account is tylerwitt2015@gmail.com. Confirm.
-3. Premium and Signature packages are blocked (their v1 lists paid advertising as optional extras). Sell them now only
-   via new versions without the paid extras.
-4. Publishing Terms v4 asks every buyer to accept again at their next registration, bid or storefront purchase.
-5. Sasha will state the standard rates (4% + 3%; 5% / 9%) and stop all sales talk with buyers and individuals.
-6. A Professional Seller with only live storefront items counts as activated (onboarding check-ins stop).
-7. Public pages now state the standard 4% + 3% (your 2026-11-06 instruction replaces the 2026-09-27
-   "no standard % advertised" rule).
+1. Buyer Terms v4: approve its substantive provisions (governing law Texas / Harris County vs the Seller Agreement's
+   Michigan; jury and class waivers; indemnity; liability cap; Schedule A fees; chargeback costs) before it is published.
+2. Should the privacy policy, data-deletion page and Terms also change their contact address from Jersey City to
+   Adrian, MI?
+3. Sellers with an administrator waiver (11 in production) are treated as accepted and are not asked to accept v4.
+4. The Auction Partner page says processing is "passed through at actual cost"; review against the 7% wording rule.
 
 ## Known issues not fixed here
 
-- `paidCostIngestionService` measurement status writes and `bidder_phone.required_since` still write settings without an
+- The admin Marketing Agency browser test is opt-in (`RUN_PGLITE_BURST_TESTS=1`): on the in-memory test database a
+  burst of parallel requests intermittently goes unanswered; reproduced on main; production is unaffected. Its rules are
+  covered by API tests.
+- `paidCostIngestionService` measurement status writes and `bidder_phone.required_since` write settings without an
   audit row.
-- Event Partner invitations have no unsubscribe link (postal address added).
-- Package v1 deliverable keys `dedicated_email` and `homepage_module` do not match the feature catalog. No purchases
-  exist (production audit 2026-11-07: 0 package or promotion purchases), so nothing is affected yet.
-- Seller Agreement §7.6 says ACH only while the payout page offers checks; §11.2 liability cap may be $0 for individuals
-  (owner/counsel decisions, docs/legal/pre-counsel-publication-record.md).
+- Owned marketing placements are recorded but never displayed; packages stay blocked until a public surface shows them.
+- Seller Agreement §7.6 says ACH only while the payout page offers checks; §11.2 liability cap may be $0 for individuals.
 - Two local-only test failures on Windows (line endings in migration 158; a timing test under load); both pass in CI.
