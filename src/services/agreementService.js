@@ -398,9 +398,12 @@ async function autoSendAgreement(sellerProfileId, actorId = null, { currentTerms
 // template, else the shared general one) when they next start a new listing, and must have accepted it before a NEW
 // listing is published (auction submit/publish, a lot added to a live auction, a storefront item going live). Their
 // account, dashboard, existing listings, signed agreements and completed sales are never affected; earlier signed
-// versions stay on record untouched. An administrator's waiver counts (admin override, audited when given).
+// versions stay on record untouched. An administrator's waiver keeps the seller's account, dashboard and existing listings
+// open (dashboardAccess), but it is NOT acceptance of the current version: a waived seller is asked like everyone else
+// at their next new listing (owner decision 2026-11-08; the 10 waivers are 2026-06-17 launch grandfathering and are
+// preserved unchanged). Administrators may still publish on a seller's behalf (audited override).
 // Returns { ok, reason, agreement_id, current_version_int, signed_version_int }:
-//   reason 'signed_current' | 'waived' | 'no_current_version' (nothing to accept) | 'agreement_update_required'
+//   reason 'signed_current' | 'no_current_version' (nothing to accept) | 'agreement_update_required'
 //   (signed an earlier version) | 'agreement_required' (never signed); agreement_id = a pending current-version
 //   agreement to sign, when one exists.
 async function currentAgreementStatus(sellerProfileId, runner = db) {
@@ -425,7 +428,6 @@ async function currentAgreementStatus(sellerProfileId, runner = db) {
   const signedCurrent = rows.find((r) => isSigned(r) && r.template_version_id === cur.current_version_id);
   if (signedCurrent) return { ...base, ok: true, reason: 'signed_current', agreement_id: signedCurrent.id, signed_version_int: cur.version_int };
   const lastSigned = rows.find(isSigned);
-  if (sp.agreement_waived_at) return { ...base, ok: true, reason: 'waived', agreement_id: null, signed_version_int: lastSigned ? lastSigned.version_int : null };
   const pending = rows.find((r) => !isSigned(r) && r.template_version_id === cur.current_version_id
     && !(r.expires_at && new Date(r.expires_at) < new Date()));
   return { ...base, ok: false, reason: lastSigned ? 'agreement_update_required' : 'agreement_required',

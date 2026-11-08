@@ -63,7 +63,14 @@ const COORDINATION_HOURS = 72;   // quiet period after the Professional welcome 
 const BASE_URL = () => (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const HOUR = 3600 * 1000; const DAY = 24 * HOUR;
 
-const DEFAULTS = { enabled: false, mode: 'shadow', first_touch_hours: 72, second_touch_days: 7, max_per_stage: 2, max_per_seller: 3,
+// The Professional track has its own switch, seller_activation.pro_mode (owner decision 2026-11-08): RECORD-ONLY unless it
+// is exactly 'live', whatever the general mode. Professional check-ins are new automated outreach, so deploying the track
+// sends nothing to Professional Sellers until the owner turns it on; the Individual track keeps the general mode.
+function trackCfg(cfg, s) {
+  return s && s.track === 'professional' && cfg.pro_mode !== 'live' ? { ...cfg, mode: 'shadow' } : cfg;
+}
+
+const DEFAULTS = { enabled: false, mode: 'shadow', pro_mode: 'shadow', first_touch_hours: 72, second_touch_days: 7, max_per_stage: 2, max_per_seller: 3,
   daily_cap: 6, recent_human_days: 14 };
 
 // ── exclusions ─────────────────────────────────────────────────────────────────────────────────────────
@@ -413,6 +420,7 @@ async function config(runner = db) {
       const k = key.slice('seller_activation.'.length);
       if (k === 'enabled') c.enabled = value === true || value === 'true';
       else if (k === 'mode') c.mode = value === 'live' ? 'live' : 'shadow';     // anything else is shadow
+      else if (k === 'pro_mode') c.pro_mode = value === 'live' ? 'live' : 'shadow';   // Professional track; anything else is shadow
       else if (k in DEFAULTS && Number.isFinite(Number(value)) && Number(value) >= 0) c[k] = Number(value);
     }
     return c;
@@ -707,6 +715,7 @@ async function sendCheckIn(sellerProfileId, selected, deps = {}) {
   if (!f) return { sent: false, reason: 'seller_missing' };
   const h = (await loadHistory([f], cfg, db, now)).get(sellerProfileId);
   const s = computeStage(f);
+  if (trackCfg(cfg, s).mode !== 'live') return { sent: false, reason: 'not_live' };   // Professional track: record-only unless pro_mode is live
   const d = decide(f, s, h, cfg, now);
   const ledger = async (decision, guard, reason, extra = {}) => db.query(
     `INSERT INTO seller_activation_touches (seller_profile_id, user_id, mode, decision, stage, blocker, next_owner, guard, reason, message_category,
@@ -773,11 +782,11 @@ async function runPass({ allowSend = true, now = new Date(), deps = {} } = {}) {
       const hist = await loadHistory(facts, cfg, db, now);
       const counts = {}; const due = [];
       for (const f of facts) {
-        const s = computeStage(f); const h = hist.get(f.seller_profile_id); const d = decide(f, s, h, cfg, now);
+        const s = computeStage(f); const h = hist.get(f.seller_profile_id); const tc = trackCfg(cfg, s); const d = decide(f, s, h, tc, now);
         counts[d.decision] = (counts[d.decision] || 0) + 1;
-        await recordEvaluation(f, s, h, d, cfg);
+        await recordEvaluation(f, s, h, d, tc);
         if (d.guard === 'AUCTION_PARTNER_RELATIONSHIP_OWNER') await openApTask(f, h);
-        if (d.decision === 'would_contact') due.push({ id: f.seller_profile_id, stage: s.stage, last_progress_at: s.last_progress_at });
+        if (d.decision === 'would_contact' && tc.mode === 'live') due.push({ id: f.seller_profile_id, stage: s.stage, last_progress_at: s.last_progress_at });
       }
       const sends = [];
       if (cfg.mode === 'live' && allowSend) {
@@ -813,7 +822,7 @@ async function setConfig(patch = {}, { actorId, confirm, actor = null } = {}) {
   const writes = [];
   const bad = (m) => { const e = new Error(m); e.status = 400; throw e; };
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) bad('settings must be an object');
-  const unknown = Object.keys(patch).filter((k) => !['enabled', 'mode', ...Object.keys(LIMITS)].includes(k));
+  const unknown = Object.keys(patch).filter((k) => !['enabled', 'mode', 'pro_mode', ...Object.keys(LIMITS)].includes(k));
   if (unknown.length) bad('Unknown setting: ' + unknown.join(', '));
   if ('enabled' in patch && typeof patch.enabled !== 'boolean') bad('enabled must be true or false');
   if ('enabled' in patch) writes.push(['enabled', patch.enabled]);
@@ -821,6 +830,11 @@ async function setConfig(patch = {}, { actorId, confirm, actor = null } = {}) {
     if (!['shadow', 'live'].includes(patch.mode)) { const e = new Error('mode must be shadow or live'); e.status = 400; throw e; }
     if (patch.mode === 'live' && confirm !== 'LIVE') { const e = new Error('Type LIVE to confirm that Sasha may start sending check-ins.'); e.status = 400; throw e; }
     writes.push(['mode', patch.mode]);
+  }
+  if ('pro_mode' in patch) {
+    if (!['shadow', 'live'].includes(patch.pro_mode)) { const e = new Error('pro_mode must be shadow or live'); e.status = 400; throw e; }
+    if (patch.pro_mode === 'live' && confirm !== 'LIVE') { const e = new Error('Type LIVE to confirm that Sasha may start sending Professional Seller check-ins.'); e.status = 400; throw e; }
+    writes.push(['pro_mode', patch.pro_mode]);
   }
   for (const [k, [lo, hi]] of Object.entries(LIMITS)) {
     if (!(k in patch)) continue;
@@ -886,7 +900,7 @@ async function directorView() {
     submitted: real.filter((s) => s.submitted_ever).length,
     first_auction_published: real.filter((s) => s.published).length,
   };
-  return { config: { enabled: cfg.enabled, mode: cfg.mode, first_touch_hours: cfg.first_touch_hours, second_touch_days: cfg.second_touch_days,
+  return { config: { enabled: cfg.enabled, mode: cfg.mode, pro_mode: cfg.pro_mode, first_touch_hours: cfg.first_touch_hours, second_touch_days: cfg.second_touch_days,
     max_per_stage: cfg.max_per_stage, max_per_seller: cfg.max_per_seller, daily_cap: cfg.daily_cap, recent_human_days: cfg.recent_human_days }, funnel, sellers };
 }
 

@@ -61,20 +61,11 @@ router.get('/me/connect/status', auth, role(['seller']), requireConnectEnabled, 
   } catch (err) { next(err); }
 });
 
-// Seller saves their OWN check details. (ACH uses the Stripe SetupIntent endpoints below.)
-router.put('/me', auth, role(['seller']), async (req, res, next) => {
-  try {
-    const method = (req.body || {}).payout_method;
-    if (method !== 'check') {
-      return res.status(422).json({ success: false, message: "payout_method must be 'check' here; use the ACH setup endpoints for ACH." });
-    }
-    const pref = await svc.saveCheckProfile(req.user.id, req.body);
-    res.json({ success: true, data: serialize(pref) });
-  } catch (err) {
-    if (/required|Invalid/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
-    next(err);
-  }
-});
+// Mailed checks are no longer offered to sellers (owner decision 2026-11-08): the Seller Agreement (7.6) pays by direct
+// deposit (ACH) only, which is set up through the Stripe endpoints below. Check details saved earlier stay on record for
+// Advantage.Bid's manual settlement; nothing here changes them.
+router.put('/me', auth, role(['seller']), (req, res) => res.status(409).json({ success: false, code: 'CHECK_NOT_OFFERED',
+  message: 'Payouts are made by direct deposit (ACH). Please set up direct deposit on this page.' }));
 
 // ACH via Stripe (current flow: SetupIntent + us_bank_account / Financial Connections).
 // Step 1: seller starts ACH setup — server returns a SetupIntent client_secret.

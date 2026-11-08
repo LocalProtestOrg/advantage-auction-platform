@@ -55,8 +55,8 @@
         <h2>Preferred Payment Method</h2>
         <div class="methods">
           <div class="method" id="m-ach" data-m="ach"><input type="radio" name="method" value="ach" /> Direct Deposit (ACH)</div>
-          <div class="method" id="m-check" data-m="check"><input type="radio" name="method" value="check" /> Check</div>
         </div>
+        <p class="msg" id="method-note" style="margin-top:.6rem">Payouts are made by direct deposit (ACH), as your Seller Agreement provides.</p>
       </div>
 
       <!-- Direct Deposit (Stripe Connect) -->
@@ -78,26 +78,6 @@
           <div class="reassure">Your banking information is securely collected and stored by Stripe. Advantage.Bid never sees or stores your routing or account numbers.</div>
           <div class="msg" id="ach-msg"></div>
         </div>
-      </div>
-
-      <!-- Check -->
-      <div class="card hide" id="sec-check">
-        <h2>Mailed Check</h2>
-        <label class="f" for="ck-payee">Payee Name</label>
-        <input class="t" id="ck-payee" placeholder="Name the check is payable to" />
-        <label class="f" for="ck-a1">Address Line 1</label>
-        <input class="t" id="ck-a1" autocomplete="address-line1" />
-        <label class="f" for="ck-a2">Address Line 2</label>
-        <input class="t" id="ck-a2" autocomplete="address-line2" placeholder="Optional" />
-        <div class="row2">
-          <div><label class="f" for="ck-city">City</label><input class="t" id="ck-city" autocomplete="address-level2" /></div>
-          <div><label class="f" for="ck-state">State</label><input class="t" id="ck-state" autocomplete="address-level1" maxlength="2" placeholder="MI" /></div>
-        </div>
-        <label class="f" for="ck-zip">ZIP Code</label>
-        <input class="t" id="ck-zip" autocomplete="postal-code" style="max-width:180px" />
-        <button id="ck-save">Save Check Details</button>
-        <div class="reassure">We mail your check to this address after each settlement is approved. Keep it current.</div>
-        <div class="msg" id="ck-msg"></div>
       </div>
 
       <!-- Tax Information placeholder -->
@@ -138,10 +118,12 @@
       // Direct Deposit visibility: only when Stripe Connect is enabled server-side.
       const connectEnabled = !!(data && data.connect_enabled);
       $('m-ach').style.display = connectEnabled ? '' : 'none';
-      // method selection (fall back to check if ACH is hidden)
-      let method = p.method || null;
-      if (method === 'ach' && !connectEnabled) method = 'check';
-      selectMethod(method, false);
+      // Direct deposit (ACH) is the only standard payout method (Seller Agreement 7.6; owner 2026-11-08). A mailed check
+      // saved earlier stays on record for Advantage.Bid's manual settlement, but is no longer offered here.
+      selectMethod(connectEnabled ? 'ach' : null, false);
+      $('method-note').textContent = p.method === 'check'
+        ? 'Payouts are made by direct deposit (ACH). Please set up direct deposit below; the mailed-check details on file stay on record.'
+        : (connectEnabled ? 'Payouts are made by direct deposit (ACH), as your Seller Agreement provides.' : 'Direct deposit setup is not available right now. Please contact Advantage.Bid.');
       // Direct Deposit (Connect) status display
       if (p.method === 'ach') {
         const ready = !!(p.transfers_active && p.payouts_enabled);
@@ -161,36 +143,17 @@
           $('ach-connect-btn').textContent = p.stripe_account_id ? 'Resume Direct Deposit Setup' : 'Set Up Direct Deposit';
         }
       } else { $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide'); }
-      // check prefill
-      if (p.method === 'check') {
-        $('ck-payee').value = p.payee_name || ''; $('ck-a1').value = p.address_line1 || ''; $('ck-a2').value = p.address_line2 || '';
-        $('ck-city').value = p.city || ''; $('ck-state').value = p.state || ''; $('ck-zip').value = p.postal_code || '';
-      }
       $('tax-status').value = (data && data.tax_status) || 'not_started';
     }
     function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
     function selectMethod(m, persistNote) {
-      $('m-ach').classList.toggle('active', m === 'ach'); $('m-check').classList.toggle('active', m === 'check');
-      $('sec-ach').classList.toggle('hide', m !== 'ach'); $('sec-check').classList.toggle('hide', m !== 'check');
+      $('m-ach').classList.toggle('active', m === 'ach');
+      $('sec-ach').classList.toggle('hide', m !== 'ach');
       const r = document.querySelector('input[name=method][value="' + m + '"]'); if (r) r.checked = true;
     }
 
     document.querySelectorAll('.method').forEach(el => el.addEventListener('click', () => selectMethod(el.getAttribute('data-m'))));
     $('ach-update').addEventListener('click', () => { $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide'); });
-
-    // Check save
-    $('ck-save').addEventListener('click', async () => {
-      setMsg('ck-msg', ''); const btn = $('ck-save'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Saving…';
-      try {
-        const d = await api('PUT', '/api/payout-profile/me', {
-          payout_method: 'check', payee_name: $('ck-payee').value.trim(), address_line1: $('ck-a1').value.trim(),
-          address_line2: $('ck-a2').value.trim() || null, city: $('ck-city').value.trim(), state: $('ck-state').value.trim().toUpperCase(), postal_code: $('ck-zip').value.trim(),
-        });
-        if (d.success) { render(d.data); setMsg('ck-msg', 'Check details saved.', true); }
-        else setMsg('ck-msg', d.message || 'Could not save.');
-      } catch (e) { if (e.message !== 'unauthorized') setMsg('ck-msg', 'Could not save. Please try again.'); }
-      finally { btn.disabled = false; btn.textContent = t; }
-    });
 
     // Tax placeholder save
     $('tax-save').addEventListener('click', async () => {

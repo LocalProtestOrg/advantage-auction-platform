@@ -29,6 +29,10 @@ router.get('/seller/:sellerId', auth, role(['admin']), async (req, res, next) =>
 // Seller saves or updates their own payout preference.
 router.put('/me', auth, role(['seller', 'admin']), async (req, res, next) => {
   try {
+    // A seller can no longer choose a mailed check (owner decision 2026-11-08; Seller Agreement 7.6 pays by ACH only).
+    if (req.user.role !== 'admin' && (req.body || {}).payout_method === 'check') {
+      return res.status(409).json({ success: false, code: 'CHECK_NOT_OFFERED', message: 'Payouts are made by direct deposit (ACH).' });
+    }
     const pref = await upsertSellerPayoutPreference(req.user.id, req.body);
     return res.json({ success: true, data: pref });
   } catch (err) {

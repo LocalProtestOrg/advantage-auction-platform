@@ -37,6 +37,13 @@ beforeAll(async () => {
   await mk('esme', 'estate_sale_company', { storefront_slug: 'esme-co', storefront_published: true,
     default_pickup_address_line1: '100 Main St', default_pickup_city: 'Houston', default_pickup_state: 'TX', default_pickup_postal_code: '77002',
     default_pickup_country: 'US', default_pickup_confirmed_at: new Date() });
+  // A seller grandfathered with an administrator waiver at launch (2026-06-17) who never signed anything.
+  {
+    const email = 'wanda@fullstack.test';
+    const userId = await seed.user(stack, { email, role: 'seller', fullName: 'wanda' });
+    const profileId = await seed.sellerProfile(stack, { userId, sellerType: 'private', displayName: 'wanda Co', extra: { agreement_waived_at: new Date('2026-06-17') } });
+    S.wanda = { email, userId, profileId, token: await seed.apiLogin(stack, email) };
+  }
   // An existing auction already submitted under the earlier version: never touched by the new version.
   S.indy.oldAuction = (await stack.query(`INSERT INTO auctions (seller_id, title, state, city, address_state, zip, street_address, end_time)
     VALUES ($1, 'Earlier Auction', 'submitted', 'Houston', 'TX', '77002', '1 Old St', now() + interval '5 days') RETURNING id`, [S.indy.profileId])).rows[0].id;
@@ -114,4 +121,19 @@ test('once the current version is signed, the new listing proceeds and the selle
   // pausing and re-publishing an existing listing is managing it, not a new listing: allowed for that version, never re-asked
   expect((await api('PATCH', '/api/seller-storefront/items/' + S.esme.itemId, S.esme.token, { status: 'paused' })).status).toBe(200);
   expect((await api('PATCH', '/api/seller-storefront/items/' + S.esme.itemId, S.esme.token, { status: 'active' })).status).toBe(200);
+});
+
+// Owner decision 2026-11-08: the launch-time waivers are preserved (account, dashboard, existing listings), but a waiver
+// is not acceptance of the current Seller Agreement: a waived seller accepts it at their next new listing.
+test('a waived seller keeps dashboard access, but a NEW auction waits for the current agreement; the waiver is unchanged', async () => {
+  const onb = await api('GET', '/api/agreements/onboarding-status', S.wanda.token);
+  expect(onb.body.data.dashboard_access).toBe(true);
+  const st = await api('GET', '/api/agreements/current-status', S.wanda.token);
+  expect(st.body.data).toMatchObject({ ok: false, reason: 'agreement_required' });
+  const draft = (await stack.query(`INSERT INTO auctions (seller_id, title, state, city, address_state, zip, street_address, end_time)
+    VALUES ($1, 'Wanda New Auction', 'draft', 'Houston', 'TX', '77002', '3 Waiver St', now() + interval '7 days') RETURNING id`, [S.wanda.profileId])).rows[0].id;
+  const r = await api('POST', '/api/auctions/' + draft + '/submit', S.wanda.token);
+  expect([r.status, r.body.code]).toEqual([409, 'AGREEMENT_REQUIRED']);
+  expect((await stack.query('SELECT state FROM auctions WHERE id = $1', [draft])).rows[0].state).toBe('draft');
+  expect((await stack.query('SELECT agreement_waived_at IS NOT NULL AS w FROM seller_profiles WHERE id = $1', [S.wanda.profileId])).rows[0].w).toBe(true);
 });

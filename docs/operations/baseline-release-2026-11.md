@@ -31,16 +31,21 @@ of this release.
 4. **Designate the platform owner:** `scripts/prod-set-platform-owner.js --email=tylerwitt2015@gmail.com --apply`
    (verified read-only 2026-11-08: one account, active admin). `admin@advantage.bid` stays an ordinary admin.
    Recovery: `docs/operations/platform-owner-recovery.md`.
-5. **Postal address for commercial email** (owner instruction 2026-11-07): set `company.postal_address` to
+5. **Engage the advertising emergency stop** (owner decision 2026-11-08):
+   `scripts/prod-engage-ad-kill-switch.js` (dry run), then `--apply`. Sets `marketing.paid.global_kill` = true through the
+   audited safety-stop path (owner notified). It makes **no call to Meta**, so the historical campaigns and every
+   campaign record stay exactly as they are (the Emergency Stop button would also query and pause campaigns at Meta).
+   Clearing it is the owner's decision, never part of this deployment.
+6. **Postal address for commercial email** (owner instruction 2026-11-07): set `company.postal_address` to
    "Advantage.Bid, 2205 Ogden Hwy, Adrian, MI 49221" (today it holds the Jersey City address). Owner-only once 222 and
    step 4 are done; audited and notified.
-6. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
-7. **Verify on production:** the seven pricing pages show "Just 7% Total Seller Fees"; registration shows the unchecked
+7. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
+8. **Verify on production:** the seven pricing pages show "Just 7% Total Seller Fees"; registration shows the unchecked
    terms box; /terms.html shows the full Terms with 6A Text Messages; an admin who is not the owner is refused a
    pricing change; the seller marketing page shows every package "Not Available Yet"; Admin, Agreements: the v4
    preview, a signing page and a generated PDF show no `**`; owner notice email and text arrive for one harmless
    sensitive-setting change made by the owner.
-8. **Baseline record:** git tag `baseline-2026-11`, Neon branch `baseline-2026-11`, and the baseline document.
+9. **Baseline record:** git tag `baseline-2026-11`, Neon branch `baseline-2026-11`, and the baseline document.
 
 Buyer Terms v4 (the full Terms of Service as accepted buyer terms) is **not** published in this deploy: it waits for the
 owner's decision on its substantive provisions (see "Owner decisions").
@@ -63,28 +68,29 @@ owner's decision on its substantive provisions (see "Owner decisions").
    on 2026-06-17, the day the Seller Agreement system launched, all created before it (May to June 17). None has ever
    signed an agreement; 5 have auctions (up to 21). No audit row records who set them (a launch-time bulk grandfathering).
    Their purpose was to keep existing sellers' dashboards open when signing became a gate, not to accept terms. In this
-   release a waiver still satisfies the current-version check, so these 10 can list without ever accepting an
-   agreement. **Recommendation:** keep the waiver for account and dashboard access and existing listings, but ask them to
-   accept the current version at their next new listing like everyone else. That is a one-line code change, made only on
-   the owner's approval.
+   **Approved and implemented:** the waivers keep access, but these sellers accept the current version at their next new
+   listing (see "Resolved for the deployment").
 4. **Auction Partner page kept:** "passed through at actual cost, with no markup" matches the program (migration 186,
    actual processing pass-through). Standard Professional auctions advertise 7% total (4% + 3%).
 5. **Seller Agreement §7.6 (payouts ACH only) vs the payout page (also offers a mailed check).** Production: 0 sellers chose
-   a check, 0 payouts paid by check (4 ACH, 42 settled manually). **Recommendation:** remove the check option from the
-   payout page (a small code change) so the product matches the signed agreement; the alternative is a new agreement
-   version allowing checks. Not changed in this release.
+   a check, 0 payouts paid by check (4 ACH, 42 settled manually). **Approved and implemented:** the seller page and routes
+   offer ACH only.
 
-## At GO time, two live behaviours to confirm
+## Resolved for the deployment (owner decisions 2026-11-08)
 
-- **Paid advertising gates are open in production today** (`marketing.paid.execution_enabled` = true,
-  `meta_ads_enabled` = true, mode `live`, kill switch off). No campaign is active and none can be built or activated
-  after this release without an owner authorization (none exists), so no spend can start. The owner may also engage
-  the kill switch at deploy as an extra stop (owner-only, audited).
-- **R-1 seller activation is live** (`seller_activation.enabled` = true, mode `live`, already sending to registered
-  sellers before this release). This release adds the Professional track, so after deploy Professional Sellers may
-  receive onboarding check-ins (max 2 per stage, 3 per seller, quiet periods). If the owner counts this as outreach to
-  hold, set `seller_activation.mode` to `shadow` at deploy (records decisions, sends nothing). Claimed-listing sending
-  and Event Partner outreach are off.
+- **Waivers:** the 10 launch-time waivers are preserved unchanged (account, dashboard, existing listings stay open), but a
+  waiver no longer counts as acceptance of the current Seller Agreement: these sellers accept it at their next new
+  listing, like everyone else. No notification is sent.
+- **Payouts:** the seller payout page offers direct deposit (ACH) only, matching Seller Agreement 7.6; both seller save
+  routes refuse a mailed check. Historical payout and check records and the administrator's manual settlement are
+  unchanged. (Production: 0 sellers chose a check, 0 payouts paid by check.)
+- **Seller activation:** the new Professional track has its own switch, `seller_activation.pro_mode`, which defaults to
+  record-only: Professional Sellers receive no automated check-in after this deployment (decisions are only recorded)
+  until the owner sets it live (typed LIVE confirmation, owner-only). The Individual track is unchanged. Transactional
+  notifications are not affected.
+- **Advertising:** the emergency stop is engaged at deploy (step 5). No spend is authorized; no authorization exists.
+- **Unchanged restrictions:** Buyer Terms v4 unpublished; storefront checkout, Sell Online, auction shipping, claimed-listing
+  sending and Event Partner outreach stay off; PR #86 (migrations 218 to 220) is not part of this release.
 
 ## Known issues not fixed here
 

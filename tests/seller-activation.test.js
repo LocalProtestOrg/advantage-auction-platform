@@ -323,9 +323,9 @@ describe('switches', () => {
   });
 });
 
-function liveDb(f, { claim = true, owner = 'sasha', sashaOn = true } = {}) {
+function liveDb(f, { claim = true, owner = 'sasha', sashaOn = true, proMode = null } = {}) {
   route(/pg_try_advisory_lock/, () => ({ rows: [{ ok: true }] }));
-  route(/seller_activation\.%/, () => cfgRows({ mode: 'live' }));
+  route(/seller_activation\.%/, () => cfgRows({ mode: 'live', ...(proMode ? { pro_mode: proMode } : {}) }));
   route(/FROM platform_config/, () => ({ rows: [['enabled', sashaOn], ['engine_enabled', true], ['email_inbound_enabled', true], ['email_autoreply_enabled', true]].map(([k, v]) => ({ key: 'sasha.' + k, value: v })) }));
   route(/FROM seller_profiles sp JOIN users u/, () => ({ rows: [f] }));
   route(/count\(\*\)::int n FROM seller_activation_touches/, () => ({ rows: [{ n: 0 }] }));
@@ -707,8 +707,21 @@ describe('Professional Seller track', () => {
       expect(sa.composeMessage(f, sa.computeStage(f), {})).toBeNull();
     }
   });
-  test('live send uses the Professional stage in the ledger and the idempotency key', async () => {
+  // Owner decision 2026-11-08: Professional check-ins are record-only until seller_activation.pro_mode is 'live'.
+  test('with the general mode live but pro_mode not set, a Professional Seller is never sent anything', async () => {
     const f = pro({ agreement_signed_at: null }); liveDb(f);
+    const emailService = { sendEmail: jest.fn(async () => ({ messageId: 'abc@ses' })) };
+    const r = await sa.sendCheckIn(f.seller_profile_id, { stage: 'onboarding_incomplete', last_progress_at: sa.computeStage(f).last_progress_at }, { emailService, now: NOW });
+    expect(r).toEqual({ sent: false, reason: 'not_live' });
+    expect(emailService.sendEmail).not.toHaveBeenCalled();
+    expect(ledger('contacted')).toHaveLength(0);
+  });
+  test('pro_mode defaults to record-only; turning it live needs the typed LIVE confirmation', async () => {
+    expect(sa.DEFAULTS.pro_mode).toBe('shadow');
+    await expect(sa.setConfig({ pro_mode: 'live' }, { actorId: 'u1' })).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/Type LIVE/) });
+  });
+  test('live send uses the Professional stage in the ledger and the idempotency key', async () => {
+    const f = pro({ agreement_signed_at: null }); liveDb(f, { proMode: 'live' });
     const emailService = { sendEmail: jest.fn(async () => ({ messageId: 'abc@ses' })) };
     const r = await sa.sendCheckIn(f.seller_profile_id, { stage: 'onboarding_incomplete', last_progress_at: sa.computeStage(f).last_progress_at }, { emailService, now: NOW });
     expect(r).toMatchObject({ sent: true });
