@@ -59,33 +59,14 @@ router.get('/auctions/:auctionId/packages', auth, role(['seller', 'admin']), asy
   } catch (err) { next(err); }
 });
 
-// POST /api/marketing/auctions/:auctionId/package
-// Seller selects a marketing package for their auction — creates a marketing_job record.
-router.post('/auctions/:auctionId/package', auth, role(['seller', 'admin']), async (req, res, next) => {
-  try {
-    const { auctionId } = req.params;
-    const { package_type, budget, target_radius_miles } = req.body;
-
-    const job = await marketingService.createMarketingJob(
-      req.user.id,
-      auctionId,
-      { package_type, budget, target_radius_miles },
-      req.user.role === 'admin'
-    );
-
-    return res.status(201).json({ success: true, data: job });
-  } catch (err) {
-    if (err.message === 'Auction not found' || err.message === 'Auction not found or not owned by seller') {
-      return res.status(404).json({ success: false, message: err.message });
-    }
-    if (err.message === 'package_type is required') {
-      return res.status(400).json({ success: false, message: err.message });
-    }
-    if (err.code === 'MARKETING_UNAVAILABLE') {
-      return res.status(409).json({ success: false, code: err.code, message: err.message });
-    }
-    next(err);
-  }
-});
+// POST /api/marketing/auctions/:auctionId/package: RETIRED (owner decision 2026-11-07).
+// This older path created a marketing_job and could record a legacy package price (marketing_packages: Basic Listing,
+// Featured Placement, Premium Marketing, still active rows) that settlement then deducts from the seller's proceeds,
+// outside the current package system's deliverability and ownership rules. Unavailable packages must not be purchasable
+// or chargeable through any alternate route, so it refuses for everyone (admins included). The current, rule-checked
+// purchase path is /api/marketing-packages. Production held no legacy jobs (read-only check 2026-11-08).
+router.post('/auctions/:auctionId/package', auth, role(['seller', 'admin']), (req, res) => res.status(409).json({
+  success: false, code: 'NOT_AVAILABLE', message: 'Marketing packages are not available for purchase right now.',
+}));
 
 module.exports = router;

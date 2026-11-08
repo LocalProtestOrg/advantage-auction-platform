@@ -35,6 +35,12 @@ jest.mock('../src/db/index', () => mockAdapter());
 const mockSessionCreate = jest.fn(async () => ({ id: 'cs_test_' + Math.random().toString(36).slice(2), url: 'https://checkout.example/session' }));
 jest.mock('stripe', () => jest.fn(() => ({ checkout: { sessions: { create: (...a) => mockSessionCreate(...a) } } })));
 jest.mock('../src/services/cardService', () => ({ ensureStripeCustomer: jest.fn(async () => 'cus_test_placeholder') }));
+// The promotion recipe is the real one, except where a test supplies a fully deliverable recipe to exercise the checkout
+// rules (every real promotion is blocked today).
+jest.mock('../src/services/additionalPromotionExecutor', () => {
+  const actual = jest.requireActual('../src/services/additionalPromotionExecutor');
+  return { ...actual, composeChildren: jest.fn((k) => actual.composeChildren(k)) };
+});
 jest.mock('../src/services/emailService', () => ({ sendEmail: jest.fn(async () => ({ messageId: 'mail-1' })), isConfigured: () => true }));
 
 const purchases = require('../src/services/marketingPackagePurchaseService');
@@ -86,30 +92,35 @@ afterAll(async () => { if (pg) await pg.close(); delete process.env.STRIPE_SECRE
 beforeEach(() => { mockSessionCreate.mockClear(); mail.sendEmail.mockClear(); });
 
 describe('catalogue deliverability (decided from the catalogue data)', () => {
-  const version = async (k) => require('../src/services/packageRegistryService').activeVersion(k);
-  test('Featured has no paid component and can be bought', async () => {
-    expect(purchases.packageDeliverability(await version('featured'))).toMatchObject({ purchasable: true });
+  // Owner decision 2026-11-07: sell an option only if every benefit it promises is actually delivered today.
+  const v1 = async (k) => (await q('SELECT * FROM marketing_package_versions WHERE package_key = $1 AND version = 1', [k]))[0];
+  test('Featured cannot be bought: its placements are never shown to buyers yet', async () => {
+    const d = purchases.packageDeliverability(await v1('featured'));
+    expect(d).toMatchObject({ purchasable: false, reason: expect.stringMatching(/some of its benefits cannot be delivered yet/) });
+    expect(d.blocked).toEqual(expect.arrayContaining(['Featured badge & listing priority']));
   });
-  test('Premium and Signature include paid advertising (discretionary) and cannot be bought until paid fulfillment works', async () => {
-    const p = purchases.packageDeliverability(await version('premium'));
-    expect(p).toMatchObject({ purchasable: false, blocked: ['Paid local boost when appropriate'] });
-    const s = purchases.packageDeliverability(await version('signature'));
-    expect(s.purchasable).toBe(false);
-    expect(s.blocked).toEqual(expect.arrayContaining(['Paid local/regional/national', 'Lot-level paid promotion']));
+  test('Premium and Signature cannot be bought', async () => {
+    for (const k of ['premium', 'signature']) expect(purchases.packageDeliverability(await v1(k)).purchasable).toBe(false);
   });
-  test('BOOST is deliverable; REACH, SPOTLIGHT (paid promotion) and CUSTOM (no online composition) are not', () => {
-    expect(purchases.promotionDeliverability('boost').purchasable).toBe(true);
-    expect(purchases.promotionDeliverability('reach')).toMatchObject({ purchasable: false, blocked: ['paid_local_promotion'] });
-    expect(purchases.promotionDeliverability('spotlight').blocked).toEqual(['paid_local_promotion', 'lot_level_promotion']);
+  test('BOOST, REACH, SPOTLIGHT and CUSTOM cannot be bought', () => {
+    for (const k of ['boost', 'reach', 'spotlight']) expect(purchases.promotionDeliverability(k).purchasable).toBe(false);
+    expect(purchases.promotionDeliverability('reach').reason).toMatch(/paid advertising/);
     expect(purchases.promotionDeliverability('custom')).toMatchObject({ purchasable: false, reason: expect.stringMatching(/arranged with Advantage\.Bid/) });
   });
-  test('a new package version without paid components becomes purchasable with no code change', () => {
-    expect(purchases.packageDeliverability({ guaranteed_deliverables: [{ key: 'homepage_module', channel: 'homepage' }], discretionary_tools: [{ key: 'organic_facebook', channel: 'social' }] }).purchasable).toBe(true);
+  test('a new package version whose benefits are all delivered becomes purchasable with no code change', () => {
+    expect(purchases.packageDeliverability({ guaranteed_deliverables: [{ key: 'reporting_standard', channel: 'analytics', label: 'Standard analytics' }],
+      discretionary_tools: [{ key: 'organic_facebook', channel: 'social' }] }).purchasable).toBe(true);
   });
 });
 
 describe('package checkout', () => {
-  test('a seller can buy Featured for their own auction', async () => {
+  // A test-only Featured version whose benefits are all delivered, so the checkout and ownership rules are exercised.
+  beforeAll(async () => {
+    await q("UPDATE marketing_package_versions SET is_active = false WHERE package_key = 'featured' AND version = 1");
+    await q(`INSERT INTO marketing_package_versions (package_key, version, seller_name, seller_description, seller_benefits, guaranteed_deliverables, discretionary_tools, price_cents, economic_policy_version, capacity_ref)
+      VALUES ('featured', 2, 'Featured', 'test', '[]', '[{"key":"reporting_standard","channel":"analytics","label":"Standard analytics"}]', '[]', 9900, 'v1', '{}')`);
+  });
+  test('a seller can buy a deliverable package for their own auction', async () => {
     const out = await purchases.createPackageCheckout(SELLER_A.id, { packageKey: 'featured', auctionId: AUCTION_A, actor: SELLER_A });
     expect(out.url).toBe('https://checkout.example/session');
     expect(mockSessionCreate).toHaveBeenCalledTimes(1);
@@ -136,14 +147,25 @@ describe('package checkout', () => {
   test('Premium and Signature are refused server-side with a clear message', async () => {
     for (const k of ['premium', 'signature']) {
       await expect(purchases.createPackageCheckout(SELLER_A.id, { packageKey: k, auctionId: AUCTION_A, actor: SELLER_A }))
-        .rejects.toMatchObject({ status: 409, code: 'NOT_AVAILABLE', message: expect.stringMatching(/paid advertising, which is not available yet/) });
+        .rejects.toMatchObject({ status: 409, code: 'NOT_AVAILABLE', message: expect.stringMatching(/cannot be purchased right now/) });
     }
     expect(mockSessionCreate).not.toHaveBeenCalled();
   });
 });
 
 describe('additional promotion checkout', () => {
-  test('BOOST uses the admin-configured price; a buyer-entered amount is ignored', async () => {
+  const executor = require('../src/services/additionalPromotionExecutor');
+  const real = (k) => jest.requireActual('../src/services/additionalPromotionExecutor').composeChildren(k);
+  const deliverable = () => executor.composeChildren.mockImplementation((k) => (String(k).toUpperCase() === 'BOOST'
+    ? { children: [{ key: 'reporting_standard', channel: 'analytics', label: 'Standard analytics' }] } : real(k)));
+  afterEach(() => executor.composeChildren.mockImplementation(real));
+  test('BOOST as catalogued today is refused server-side; no checkout is created', async () => {
+    await expect(purchases.createAdditionalPromotionCheckout(SELLER_A.id, { promotionKey: 'boost', auctionId: AUCTION_A, actor: SELLER_A }))
+      .rejects.toMatchObject({ status: 409, code: 'NOT_AVAILABLE' });
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+  test('a deliverable promotion uses the admin-configured price; a buyer-entered amount is ignored', async () => {
+    deliverable();
     const out = await purchases.createAdditionalPromotionCheckout(SELLER_A.id, { promotionKey: 'boost', auctionId: AUCTION_A, customAmountCents: 1, actor: SELLER_A });
     expect(mockSessionCreate.mock.calls[0][0].line_items[0].price_data.unit_amount).toBe(4900);
     expect((await q(`SELECT amount_paid_cents FROM marketing_additional_promotions WHERE stripe_checkout_session_id = $1`, [out.id]))[0].amount_paid_cents).toBe(4900);
@@ -156,6 +178,7 @@ describe('additional promotion checkout', () => {
     expect(mockSessionCreate).not.toHaveBeenCalled();
   });
   test('ownership: another seller\'s auction or package purchase is refused', async () => {
+    deliverable();
     await expect(purchases.createAdditionalPromotionCheckout(SELLER_A.id, { promotionKey: 'boost', auctionId: AUCTION_B, actor: SELLER_A })).rejects.toMatchObject({ status: 403 });
     const other = (await q(`INSERT INTO marketing_package_purchases (seller_user_id, auction_id, package_key, package_version, amount_paid_cents, status)
                             VALUES ($1, $2, 'featured', 1, 9900, 'paid') RETURNING id`, [SELLER_B.id, AUCTION_B]))[0];

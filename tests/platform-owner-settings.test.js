@@ -161,7 +161,7 @@ describe('PUT /api/config/platform', () => {
     expect(row).toMatchObject({ previous_value: 300, new_value: 290, sensitive: true, actor_kind: 'user', actor_user_id: global.__USERS.owner.id });
     expect(row.owner_notified_at).not.toBeNull();
     const to = mail.sendEmail.mock.calls.map((c) => c[0].to).sort();
-    expect(to).toEqual(['advantageauction.bid@gmail.com', 'tylerwitt@gmail.com']);
+    expect(to).toEqual(['advantageauction.bid@gmail.com', 'tylerwitt2015@gmail.com']);
     const m = mail.sendEmail.mock.calls[0][0];
     expect(m.subject).toBe('Advantage.Bid owner notice: Sensitive setting changed: pricing.auction.processing_fee_bps');
     expect(m.text).toMatch(/Previous value: 300/); expect(m.text).toMatch(/New value: 290/); expect(m.text).toMatch(/owner@advantage\.test/);
@@ -190,7 +190,7 @@ describe('PUT /api/config/platform', () => {
   });
   test('the owner notice addresses themselves are owner only', async () => {
     expect((await call('PUT', '/api/config/platform', 'admin', { key: 'owner.notify_emails', value: ['attacker@example.com'] })).status).toBe(403);
-    expect((await q(`SELECT value FROM platform_config WHERE key = 'owner.notify_emails'`))[0].value).toEqual(['tylerwitt@gmail.com', 'advantageauction.bid@gmail.com']);
+    expect((await q(`SELECT value FROM platform_config WHERE key = 'owner.notify_emails'`))[0].value).toEqual(['tylerwitt2015@gmail.com', 'advantageauction.bid@gmail.com']);
   });
   test('the audit trail is readable by admins', async () => {
     const r = await call('GET', '/api/config/platform/audit?key=pricing.auction.processing_fee_bps', 'admin');
