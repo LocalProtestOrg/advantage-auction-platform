@@ -25,7 +25,9 @@ beforeEach(() => {
   db.query.mockImplementation(async (sql, params) => {
     if (/FROM terms_versions\s+WHERE kind = \$1 AND is_current = true/.test(sql)) return { rows: [CURRENT] };
     if (/INSERT INTO terms_acceptances/.test(sql)) { inserts.push(params); return { rows: [{ id: 'acc-1' }], rowCount: 1 }; }
-    if (/JOIN seller_profiles sp/.test(sql)) return { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su', seller_type: 'estate_sale_company', platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: false, shipping_cost_cents: null }] };
+    if (/JOIN seller_profiles sp/.test(sql)) return { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su', seller_type: 'estate_sale_company', platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: false, shipping_cost_cents: null,
+      pickup_location_source: 'item', pickup_address_line1: '9 Dock Rd', pickup_city: 'Houston', pickup_state: 'TX', pickup_postal_code: '77002', pickup_country: 'US' }] };
+    if (/FROM marketplace_tax_jurisdictions WHERE state = \$1/.test(sql)) return { rows: [{ state: 'TX', remitter: 'seller_direct' }] };   // the sale state's approved tax rule (test)
     return { rows: [] };
   });
   // The locked item shows sold: the order stops right after the acceptance step, before any payment.

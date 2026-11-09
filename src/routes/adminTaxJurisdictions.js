@@ -2,10 +2,11 @@
 
 /**
  * /api/admin/tax-jurisdictions — who remits sales tax on storefront orders, per state (migration 214; owner decision
- * 2026-11-02). Maintained by an administrator from professional tax advice; every change is audited. A storefront order with
- * tax in a state that has no rule is refused (marketplaceOrderService.taxResponsibility), so nothing is assumed nationwide.
- *   remitter 'platform' = Advantage.Bid remits (marketplace-facilitator law applies); 'seller' = the seller remits and the
- *   collected tax is paid to them with their proceeds.
+ * 2026-11-02). Maintained by an administrator from professional tax advice; every change is audited. EVERY storefront order
+ * in a state without a rule is refused, even with no tax calculated (safeguard 2026-11-09, marketplaceOrderService.taxConfiguration).
+ *   remitter 'platform' = collected at checkout, Advantage.Bid remits; 'seller' = collected at checkout and paid to the seller
+ *   with their proceeds, the seller remits; 'seller_direct' = not collected at checkout, the seller handles its own tax
+ *   (migration 227). For 'platform' and 'seller' checkout also refuses an order when tax is not actually being collected.
  */
 
 const express = require('express');
@@ -32,7 +33,7 @@ router.put('/:state', async (req, res, next) => {
     if (!US_STATES.has(state)) return bad(res, 'STATE_INVALID', 'Choose a US state or territory.');
     const b = req.body || {};
     const remitter = String(b.remitter || '');
-    if (!['platform', 'seller'].includes(remitter)) return bad(res, 'REMITTER_INVALID', 'Choose Advantage.Bid or the seller.');
+    if (!['platform', 'seller', 'seller_direct'].includes(remitter)) return bad(res, 'REMITTER_INVALID', 'Choose how sales tax is handled in this state.');
     const basis = String(b.legal_basis || '').trim().slice(0, 1000);
     if (basis.length < 10) return bad(res, 'BASIS_REQUIRED', 'Record the advice or law this rule relies on (who advised it and when).');
     const eff = b.effective_from ? new Date(b.effective_from) : new Date();

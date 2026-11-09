@@ -42,7 +42,10 @@ jest.mock('../src/services/emailService', () => ({ sendEmail: jest.fn(async () =
 jest.mock('../src/services/taxCalculationService', () => ({
   // Switchable per test: global.__TAX = { cents } turns tax on with that amount.
   taxEnabled: () => !!global.__TAX, addressComplete: () => true,
-  computeTax: jest.fn(async () => (global.__TAX ? { taxCents: global.__TAX.cents, enabled: true, exempt: false, calculationId: 'calc_t' }
+  // `collecting` (the processor is actually collecting for that state) defaults to "tax was calculated"; a test sets
+  // collecting: false for "no registration" ($0, taxability reason not_collecting).
+  computeTax: jest.fn(async () => (global.__TAX ? { taxCents: global.__TAX.cents, enabled: true, exempt: !!global.__TAX.exempt, calculationId: 'calc_t',
+    collecting: global.__TAX.collecting != null ? global.__TAX.collecting : global.__TAX.cents > 0 }
     : { taxCents: 0, enabled: false, exempt: false, calculationId: null })),
   recordTransaction: jest.fn(async () => null), reverseFullTransaction: jest.fn(async () => null), reversePartialTransaction: jest.fn(async () => null),
 }));
@@ -133,7 +136,7 @@ beforeAll(async () => {
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
     '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql',
     '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql',
-    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql', '217_storefront_commission_adjustments.sql']) {
+    '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '213_storefront_payouts.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '227_storefront_tax_rule_seller_direct.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql', '217_storefront_commission_adjustments.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
@@ -323,13 +326,59 @@ describe('the storefront agreement at first publication', () => {
 });
 
 describe('sales tax responsibility (decided per jurisdiction, never assumed)', () => {
-  afterEach(() => { global.__TAX = null; });
-  test('tax in a state without a rule: the order is refused before any payment, and the units are released', async () => {
+  // Every other test in this file runs with the fixture rule (TX: not collected at checkout); put it back after each test.
+  const restoreTx = () => q(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis, effective_from) VALUES ('TX', 'seller_direct', 'Test fixture only', DATE '2020-01-01')
+    ON CONFLICT (state) DO UPDATE SET remitter = 'seller_direct', effective_from = DATE '2020-01-01'`);
+  afterEach(async () => { global.__TAX = null; await restoreTx(); });
+  const orderCount = async (itemId) => (await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [itemId])).n;
+  test('safeguard: a state without a rule refuses every order, taxed or not, before any unit is held or anything charged', async () => {
+    await q(`DELETE FROM marketplace_tax_jurisdictions WHERE state = 'TX'`);
+    for (const tax of [{ cents: 825 }, null]) {   // tax calculated, and no tax at all (e.g. no registration): both refused
+      global.__TAX = tax;
+      const it = await listQ(2);
+      const qr = await call('bea', 'POST', '/api/marketplace/orders/quote', { item_id: it.id });
+      expect([qr.status, qr.body.code]).toEqual([409, 'TAX_CONFIGURATION_REQUIRED']);
+      const r = await buy(it.id, 'bea', 1);
+      expect([r.status, r.body.code]).toEqual([409, 'TAX_CONFIGURATION_REQUIRED']);
+      expect(r.body.message).toBe('Online purchase is not available for this location yet. Choose local pickup or contact the seller.');
+      expect(await stock(it.id)).toMatchObject({ quantity: 2, status: 'active' });
+      expect(await orderCount(it.id)).toBe(0);
+    }
+  });
+  test('safeguard: a rule that says tax is collected at checkout, but none is being collected (no registration), is refused', async () => {
+    for (const remitter of ['platform', 'seller']) {
+      await q(`UPDATE marketplace_tax_jurisdictions SET remitter = $1 WHERE state = 'TX'`, [remitter]);
+      for (const tax of [{ cents: 0, collecting: false }, null]) {   // processor not registered for TX / tax calculation switched off
+        global.__TAX = tax;
+        const it = await listQ(1);
+        const r = await buy(it.id, 'bea', 1);
+        expect([r.status, r.body.code]).toEqual([409, 'TAX_NOT_COLLECTING']);
+        expect(await stock(it.id)).toMatchObject({ quantity: 1, status: 'active' });   // units released, no payment started
+      }
+    }
+  });
+  test('safeguard: $0 tax is fine when the processor IS collecting there (not taxable) or the buyer has an approved exemption', async () => {
+    await q(`UPDATE marketplace_tax_jurisdictions SET remitter = 'platform' WHERE state = 'TX'`);
+    for (const tax of [{ cents: 0, collecting: true }, { cents: 0, exempt: true, collecting: false }]) {
+      global.__TAX = tax;
+      const it = await listQ(1);
+      const r = await buy(it.id, 'bea', 1);
+      expect(r.status).toBe(200);
+      expect((await one('SELECT tax_cents, tax_remitter, tax_jurisdiction FROM marketplace_orders WHERE id = $1', [r.body.data.order.id])))
+        .toEqual({ tax_cents: 0, tax_remitter: 'none', tax_jurisdiction: 'TX' });
+    }
+  });
+  test('safeguard: "not collected at checkout" refuses an order if tax is nevertheless calculated (a registration added without updating the rule)', async () => {
     global.__TAX = { cents: 825 };
-    const it = await listQ(2);
+    const it = await listQ(1);
     const r = await buy(it.id, 'bea', 1);
-    expect([r.status, r.body.code]).toEqual([409, 'TAX_RESPONSIBILITY_UNSET']);
-    expect(await stock(it.id)).toMatchObject({ quantity: 2, status: 'active' });
+    expect([r.status, r.body.code]).toEqual([409, 'TAX_CONFIGURATION_CONFLICT']);
+    expect(await stock(it.id)).toMatchObject({ quantity: 1, status: 'active' });
+  });
+  test('safeguard: a rule that takes effect in the future does not count yet', async () => {
+    await q(`UPDATE marketplace_tax_jurisdictions SET effective_from = CURRENT_DATE + 30 WHERE state = 'TX'`);
+    const it = await listQ(1);
+    expect((await buy(it.id, 'bea', 1)).body.code).toBe('TAX_CONFIGURATION_REQUIRED');
   });
   test('seller remits: the order records it and the tax is paid to the seller with the proceeds', async () => {
     await q(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis) VALUES ('TX', 'seller', 'Test rule only')
@@ -344,7 +393,7 @@ describe('sales tax responsibility (decided per jurisdiction, never assumed)', (
     expect(line).toEqual({ amount_cents: 9100 + 825, tax_to_seller_cents: 825 });
   });
   test('Advantage.Bid remits: the tax is never paid to the seller and never counted as fee', async () => {
-    await q(`UPDATE marketplace_tax_jurisdictions SET remitter = 'platform' WHERE state = 'TX'`);
+    await q(`UPDATE marketplace_tax_jurisdictions SET remitter = 'platform' WHERE state = 'TX'`);   // (restored after each test)
     global.__TAX = { cents: 825 };
     const id = await paidAndPickedUp(10000);
     global.__TAX = null;
@@ -352,9 +401,17 @@ describe('sales tax responsibility (decided per jurisdiction, never assumed)', (
     await S().prepareWeek({ cutoff: future });
     expect(await one('SELECT amount_cents, tax_to_seller_cents FROM storefront_payout_lines WHERE marketplace_order_id = $1', [id])).toEqual({ amount_cents: 9100, tax_to_seller_cents: 0 });
   });
-  test('no tax collected: recorded as none', async () => {
+  test('not collected at checkout (the seller handles its own tax): no tax, recorded as none, nothing passed to the seller', async () => {
     const id = await paidAndPickedUp(3000);
-    expect((await one('SELECT tax_remitter FROM marketplace_orders WHERE id = $1', [id])).tax_remitter).toBe('none');
+    expect((await one('SELECT tax_cents, tax_remitter, tax_jurisdiction FROM marketplace_orders WHERE id = $1', [id]))).toEqual({ tax_cents: 0, tax_remitter: 'none', tax_jurisdiction: 'TX' });
+  });
+  test('the administrator can record each of the three answers; anything else is refused', async () => {
+    for (const remitter of ['platform', 'seller', 'seller_direct']) {
+      const r = await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter, legal_basis: 'Test advice recorded for this suite' });
+      expect(r.body.data).toMatchObject({ state: 'NM', remitter });
+    }
+    expect((await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter: 'none', legal_basis: 'Test advice recorded for this suite' })).body.code).toBe('REMITTER_INVALID');
+    await expect(global.__PG.query(`UPDATE marketplace_tax_jurisdictions SET remitter = 'buyer' WHERE state = 'NM'`)).rejects.toThrow(/remitter_check/);
   });
 });
 

@@ -473,7 +473,9 @@ test('createOrder by the same buyer while their hold is live returns the SAME or
   const future = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const f = install([
     [/JOIN seller_profiles sp ON sp.id = mi.seller_id/, { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su',
-      seller_type: 'estate_sale_company', price_cents: 10000, status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001', pending_expires_at: future, shippable: false }] }],
+      seller_type: 'estate_sale_company', price_cents: 10000, status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001', pending_expires_at: future, shippable: false,
+      pickup_location_source: 'item', pickup_address_line1: '9 Dock Rd', pickup_city: 'Houston', pickup_state: 'TX', pickup_postal_code: '77002', pickup_country: 'US' }] }],
+    [/FROM marketplace_tax_jurisdictions WHERE state = \$1/, { rows: [{ state: 'TX', remitter: 'seller_direct' }] }],   // the sale state's approved tax rule (test)
     // migration 212: the buyer's own live hold is found on the orders (units reserved, hold not expired)
     [/FROM marketplace_orders WHERE marketplace_item_id = \$1 AND payment_status = 'pending' AND stock_released_at IS NULL/,
       { rows: [ORDER({ shipping_cents: 0, ship_to: null, quantity: 1, hold_expires_at: future })] }],

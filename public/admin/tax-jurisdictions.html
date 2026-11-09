@@ -27,11 +27,11 @@
   <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
     <h1>Storefront Sales Tax Rules</h1>
-    <p class="sub">Advantage.Bid calculates and collects sales tax on storefront purchases. For each state, record who remits it, from professional tax advice: Advantage.Bid (marketplace-facilitator law applies; the tax is never paid to the seller) or the seller (the collected tax is paid to the seller with their proceeds). A storefront order with tax in a state that has no rule here is refused, so nothing is assumed nationwide. Every change is recorded.</p>
+    <p class="sub">Record, for each state, how sales tax on storefront purchases is handled, from professional tax advice: collected at checkout and remitted by Advantage.Bid (the tax is never paid to the seller); collected at checkout and paid to the seller with their proceeds (the seller remits); or not collected at checkout because the seller handles its own tax. <b>Every storefront order is refused in a state without a rule here</b>, even when no tax is calculated. When a rule says tax is collected at checkout, an order is also refused if tax is not actually being collected for that state (for example, no active registration with the payment processor). Every change is recorded.</p>
     <div class="card">
       <div class="row">
         <div><label for="st">State</label><select id="st"></select></div>
-        <div><label for="rem">Who remits</label><select id="rem"><option value="platform">Advantage.Bid</option><option value="seller">The seller</option></select></div>
+        <div><label for="rem">Who remits</label><select id="rem"><option value="platform">Collected at checkout; Advantage.Bid remits</option><option value="seller">Collected at checkout; the seller remits</option><option value="seller_direct">Not collected at checkout; the seller handles its own tax</option></select></div>
         <div><label for="basis">Legal basis (advice or law relied on, who and when)</label><input id="basis" maxlength="1000"></div>
         <div><label for="eff">Effective from</label><input id="eff" type="date"></div>
       </div>

@@ -42,6 +42,10 @@ async function publishedStorefront(stack, { email = 'shop-owner@fullstack.test',
   } });
   await seed.signedStorefrontAgreement(stack, sellerProfileId);   // storefront publishing needs the current agreement version
   await seed.publishedStorePolicies(stack, sellerProfileId, userId);   // an online purchase needs both store policies (2026-11-09)
+  // Every storefront order needs an approved tax rule for its state (sales tax safeguard, 2026-11-09). This isolated test
+  // environment collects no tax, so Texas gets the TEST rule "not collected at checkout" unless a test set its own.
+  await stack.query(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis, effective_from)
+    VALUES ('TX', 'seller_direct', 'TEST ONLY: isolated test environment', DATE '2020-01-01') ON CONFLICT (state) DO NOTHING`);
   return { userId, sellerProfileId, slug, email };
 }
 

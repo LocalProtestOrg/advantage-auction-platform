@@ -88,8 +88,11 @@ maybe('storefront checkout on Stripe TEST mode (certification)', () => {
     R.connect_transfers = await transfers();
     await stack.query(`INSERT INTO seller_payout_preferences (seller_user_id, payout_method, stripe_account_id, stripe_account_livemode, connect_status,
       connect_details_submitted, connect_transfers_active, connect_payouts_enabled) VALUES ($1, 'ach', $2, false, 'ready', true, true, true)`, [T.shop.userId, acct.id]);
-    // Tax: who remits Texas tax must be recorded (an administrator's rule from professional advice); test value only.
-    await stack.query(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis) VALUES ('TX', 'platform', 'TEST ONLY: certification run')`);
+    // Tax: how Texas tax is handled must be recorded (an administrator's rule from professional advice); test value only.
+    // Starts as "collected at checkout, Advantage.Bid remits"; the first test proves the safeguard refuses that while the
+    // test account has no Texas registration, then switches to "not collected at checkout" for the rest of the run.
+    await stack.query(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis, effective_from) VALUES ('TX', 'platform', 'TEST ONLY: certification run', DATE '2020-01-01')
+                       ON CONFLICT (state) DO UPDATE SET remitter = 'platform', legal_basis = EXCLUDED.legal_basis, effective_from = EXCLUDED.effective_from`);
     // Inventory: single items and one multi-quantity item.
     const item = async (title, priceCents, qty, inv) => { const id = await sj.publishedItem(stack, { sellerProfileId: T.shop.sellerProfileId, title, priceCents, inventoryNumber: inv });
       await stack.query('UPDATE marketplace_items SET quantity = $2 WHERE id = $1', [id, qty]); return id; };
@@ -112,6 +115,24 @@ maybe('storefront checkout on Stripe TEST mode (certification)', () => {
       console.log('SERVER NOTES\n' + stack.logs().split('\n').filter((l) => /\[marketplace\]|\[webhook\]|processing fee|transfer/i.test(l)).slice(-40).join('\n'));
       await stack.stop();
     }
+  });
+
+  test('tax safeguard against the real calculation: "collected at checkout" with no Texas registration is refused before any charge', async () => {
+    const reg = await stripe.tax.registrations.list({ status: 'active', limit: 100 });
+    const txRegistered = reg.data.some((r) => r.country === 'US' && r.country_options && r.country_options.us && r.country_options.us.state === 'TX');
+    R.test_account_tx_registration = txRegistered;
+    const qr = await api(T.buyer.token, 'POST', '/api/marketplace/orders/quote', { item_id: T.lamp, fulfillment_method: 'pickup' });
+    if (txRegistered) expect(qr.status).toBe(200);
+    else expect([qr.status, qr.j && qr.j.code]).toEqual([409, 'TAX_NOT_COLLECTING']);
+    const o = await order(T.lamp);
+    if (!txRegistered) {
+      expect([o.status, o.j && o.j.code]).toEqual([409, 'TAX_NOT_COLLECTING']);
+      expect((await one('SELECT status, quantity FROM marketplace_items WHERE id = $1', [T.lamp]))).toEqual({ status: 'active', quantity: 1 });
+    }
+    R.tax_safeguard = { quote: qr.status, order: o.status, code: o.j && o.j.code };
+    // The rest of the run: "not collected at checkout" (the seller handles its own tax).
+    await stack.query(`UPDATE marketplace_tax_jurisdictions SET remitter = 'seller_direct' WHERE state = 'TX'`);
+    if (txRegistered) await stack.query(`UPDATE marketplace_tax_jurisdictions SET remitter = 'platform' WHERE state = 'TX'`);   // an account that collects keeps collecting
   });
 
   test('marketplace sale (9%): real charge, tax, actual card cost, item sold, Stripe amount matches the order', async () => {

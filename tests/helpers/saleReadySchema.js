@@ -84,6 +84,23 @@ BEGIN
 END $$;
 DROP TRIGGER IF EXISTS test_sale_ready_policies ON seller_profiles;
 CREATE TRIGGER test_sale_ready_policies AFTER INSERT ON seller_profiles FOR EACH ROW EXECUTE FUNCTION test_sale_ready_policies();
+-- Sales tax safeguard (2026-11-09): every storefront order needs an approved tax rule for its state. These harnesses run with
+-- tax calculation off, so every state gets a TEST rule "not collected at checkout" ('seller_direct', migration 227) when the
+-- first seller is created. Existing rules are never replaced. Tests about tax rules set or remove their own.
+CREATE OR REPLACE FUNCTION test_sale_ready_tax_rules() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF to_regclass('marketplace_tax_jurisdictions') IS NULL THEN RETURN NEW; END IF;
+  BEGIN
+    INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis, effective_from, notes)
+    SELECT s, 'seller_direct', 'Test fixture only: no tax collected at checkout (not real tax advice).', DATE '2020-01-01', 'test'
+      FROM unnest(string_to_array('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR VI GU AS MP', ' ')) AS s
+    ON CONFLICT (state) DO NOTHING;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS test_sale_ready_tax_rules ON seller_profiles;
+CREATE TRIGGER test_sale_ready_tax_rules AFTER INSERT ON seller_profiles FOR EACH ROW EXECUTE FUNCTION test_sale_ready_tax_rules();
 `;
 
 module.exports = { SALE_READY_SQL };

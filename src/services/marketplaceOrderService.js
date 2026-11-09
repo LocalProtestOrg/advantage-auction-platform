@@ -139,8 +139,8 @@ function normalizeAddress(a) {
 // Never the buyer's billing address, the seller's legal address or Advantage.Bid's own address. A missing or
 // incomplete location blocks the sale; the seller and admin are told what is missing (once per item).
 // Returns { address, shipFrom } for taxService.computeTax, or null when tax is off. Only consulted when tax is ON.
-async function resolveTaxLocation({ method, item, shipTo }) {
-  if (!taxActive()) return null;
+async function resolveTaxLocation({ method, item, shipTo }, { always = false } = {}) {
+  if (!taxActive() && !always) return null;
   // The item's effective location: its own (auction-inherited or changed for this item) or the seller's confirmed default.
   const eff = saleLocation.forItem(item);
   const origin = eff.address;
@@ -160,23 +160,66 @@ async function resolveTaxLocation({ method, item, shipTo }) {
   return { address: origin, shipFrom: origin };
 }
 
-// Who remits the sales tax on a storefront order (migration 214, owner decision 2026-11-02): decided per jurisdiction from
-// the administrator-maintained rules (marketplace_tax_jurisdictions), never assumed. No tax collected -> 'none'. Tax in a
-// state without a rule (or the rules table missing) -> refused before anything is charged.
 // The platform Buyer Terms version in force when the order was placed (recorded on the order with the seller's policy
 // versions; migration 214). Null when no version is published.
 async function currentBuyerTerms(runner = db) {
   try { return (await runner.query(`SELECT id, version_int FROM terms_versions WHERE kind = 'buyer_terms' AND is_current LIMIT 1`)).rows[0] || null; }
   catch (e) { return null; }
 }
-async function taxResponsibility(state, taxCents, runner = db) {
-  if (!(Number(taxCents) > 0)) return { remitter: 'none', jurisdiction: state ? String(state).toUpperCase() : null };
+// Who remits the sales tax on a storefront order is recorded per order from the administrator-maintained rule for the
+// sale's state (marketplace_tax_jurisdictions): see the sales tax safeguard below (taxConfiguration). It replaced
+// taxResponsibility (2026-11-09), which refused only when tax was calculated and so let an unconfigured state sell untaxed.
+
+// ── Storefront sales tax safeguard (owner 2026-11-09; fail closed) ───────────────────────────────────────────────────
+// No storefront order proceeds in a state without an administrator-entered rule recording the CPA-approved configuration
+// (Admin > Tax Jurisdictions; migrations 214, 227), WHETHER OR NOT any tax was calculated. The rule says how tax is handled:
+//   'platform' / 'seller'  tax is collected at checkout (Advantage.Bid remits / passes it to the seller). The processor must
+//                          actually be collecting for that state: a $0 result because the platform has no registration there
+//                          is refused. A $0 result for an approved buyer exemption or a non-taxable sale is allowed.
+//   'seller_direct'        no tax is collected at checkout; the seller handles its own tax. If tax is nevertheless calculated
+//                          (e.g. a registration was added without updating the rule), the order is refused.
+// Nothing here decides who is legally responsible: it only enforces the configuration an administrator recorded.
+// Checked before any unit is held (the rule exists) and again after the calculation (the rule still exists and the result
+// agrees with it), at the quote and at the order. Auction tax is not affected.
+const TAX_NOT_READY_MESSAGE = 'Online purchase is not available for this location yet. Choose local pickup or contact the seller.';
+async function taxRuleFor(state, runner = db) {
   const st = String(state || '').toUpperCase();
-  let row = null;
-  try { row = (await runner.query('SELECT remitter FROM marketplace_tax_jurisdictions WHERE state = $1 AND effective_from <= CURRENT_DATE', [st])).rows[0]; }
-  catch (e) { if (!(e && e.code === '42P01')) throw e; }
-  if (!row) throw err(409, 'TAX_RESPONSIBILITY_UNSET', 'Online purchase is not available for this location yet. Choose local pickup or contact the seller.');
-  return { remitter: row.remitter, jurisdiction: st };
+  if (!st) return null;
+  try {
+    return (await runner.query('SELECT state, remitter FROM marketplace_tax_jurisdictions WHERE state = $1 AND effective_from <= CURRENT_DATE', [st])).rows[0] || null;
+  } catch (e) { if (e && e.code === '42P01') return null; throw e; }
+}
+// The state the sale is taxed in (pickup location, or the ship-to address), whether or not tax calculation is switched on.
+async function saleStateFor({ method, item, shipTo }) {
+  const loc = await resolveTaxLocation({ method, item, shipTo }, { always: true });
+  return loc && loc.address && loc.address.state ? String(loc.address.state).toUpperCase() : null;
+}
+async function assertTaxRule(state, runner = db) {
+  const rule = await taxRuleFor(state, runner);
+  if (!rule) throw err(409, 'TAX_CONFIGURATION_REQUIRED', TAX_NOT_READY_MESSAGE);
+  return rule;
+}
+// The calculated tax checked against the rule. Returns what the order records: { remitter, jurisdiction }.
+function taxConfiguration(rule, state, tax) {
+  const jurisdiction = state ? String(state).toUpperCase() : null;
+  if (!rule) throw err(409, 'TAX_CONFIGURATION_REQUIRED', TAX_NOT_READY_MESSAGE);
+  const cents = Math.max(0, Number(tax && tax.taxCents) || 0);
+  if (rule.remitter === 'seller_direct') {
+    if (cents > 0) {
+      console.error('[storefront-tax] tax calculated where the rule says none is collected at checkout', jurisdiction);
+      throw err(409, 'TAX_CONFIGURATION_CONFLICT', TAX_NOT_READY_MESSAGE);
+    }
+    return { remitter: 'none', jurisdiction };
+  }
+  if (rule.remitter !== 'platform' && rule.remitter !== 'seller') throw err(409, 'TAX_CONFIGURATION_REQUIRED', TAX_NOT_READY_MESSAGE);
+  const notCollecting = () => {
+    console.error('[storefront-tax] the rule says tax is collected at checkout, but it is not being collected for', jurisdiction);
+    return err(409, 'TAX_NOT_COLLECTING', TAX_NOT_READY_MESSAGE);
+  };
+  if (!(tax && tax.enabled)) throw notCollecting();
+  if (cents > 0) return { remitter: rule.remitter, jurisdiction };
+  if (tax.exempt === true || tax.collecting === true) return { remitter: 'none', jurisdiction };   // approved exemption / not taxable
+  throw notCollecting();
 }
 
 // Load an item joined to its seller, with the purchase-eligibility validations that don't need a lock.
@@ -260,6 +303,9 @@ async function quote(itemId, buyerUserId, opts = {}) {
   if (Number(item.quantity == null ? 1 : item.quantity) < units) throw err(409, 'NOT_ENOUGH_AVAILABLE', availabilityMessage(item.quantity));
   assertPurchasePolicies(await sellerPolicies.snapshotFor(item.seller_id, db, { shown: brandingVisible(item.seller_type, item.show_branding_to_buyers) }));
   const goods = Number(item.price_cents) * units;
+  // Sales tax safeguard: the sale's state needs an approved tax rule before anything is quoted.
+  const saleState = await saleStateFor({ method, item, shipTo: opts.ship_to || opts.address });
+  const taxRule = await assertTaxRule(saleState);
   // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
   const loc = await resolveTaxLocation({ method, item, shipTo: opts.ship_to || opts.address });
   const taxable = goods + shippingCents;
@@ -267,6 +313,7 @@ async function quote(itemId, buyerUserId, opts = {}) {
     buyerUserId, taxableBaseCents: taxable, address: loc && loc.address, shipFrom: loc && loc.shipFrom,
     addressSource: 'shipping', reference: 'marketplace-quote:' + itemId,
   });
+  taxConfiguration(taxRule, saleState, tax);   // the result must agree with the rule (refused before the buyer pays)
   const b = computeBreakdown({ itemPriceCents: goods, shippingCents, taxCents: tax.taxCents, feeBps });
   return {
     item: { id: item.id, title: item.title, thumbnail_url: item.thumbnail_url, seller_id: item.seller_id,
@@ -343,8 +390,9 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   const pre = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db, dest);
   const { method, shippingCents, feeBps } = pre;
   if (method === 'shipping' && !shipToObj) throw err(422, 'SHIP_TO_REQUIRED', 'A shipping address is required.');
-  // Check the sale location BEFORE any unit is held, so a blocked sale never claims inventory.
-  if (taxActive()) await resolveTaxLocation({ method, item: pre.item, shipTo: shipToObj });
+  // Check the sale location and its approved tax rule BEFORE any unit is held, so a blocked sale never claims inventory.
+  const saleState = await saleStateFor({ method, item: pre.item, shipTo: shipToObj });
+  await assertTaxRule(saleState);
 
   // This buyer's own checkout for this item still in progress: reuse it ("Try again" is safe) or retire it. Expired
   // holds on this item (anyone's) are released first so their units are available again.
@@ -449,11 +497,11 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     await releaseOrder(order.id, 'tax:' + (taxErr.code || 'error'));
     throw taxErr;
   }
-  // Who remits the tax (jurisdiction rule). Refused, and the units released, before any payment is started.
+  // The calculated tax checked against the approved rule (re-read: a rule removed during checkout fails closed). Refused,
+  // and the units released, before any payment is started.
   let resp;
   try {
-    const taxedState = taxActive() ? (await resolveTaxLocation({ method, item: pre.item, shipTo: order.ship_to || shipToObj }) || {}).address : null;
-    resp = await taxResponsibility(taxedState && taxedState.state, tax.taxCents);
+    resp = taxConfiguration(await taxRuleFor(saleState), saleState, tax);
   } catch (respErr) {
     await releaseOrder(order.id, 'tax:' + (respErr.code || 'error'));
     throw respErr;
@@ -1446,7 +1494,7 @@ async function listForAdmin({ status, limit } = {}) {
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
 
-module.exports = { taxResponsibility, recordProcessingFee, backfillProcessingFees,
+module.exports = { taxRuleFor, taxConfiguration, saleStateFor, recordProcessingFee, backfillProcessingFees,
   STOREFRONT_FEE_WEBSITE_BPS, STOREFRONT_FEE_MARKETPLACE_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,

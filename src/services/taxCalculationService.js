@@ -128,7 +128,18 @@ async function computeTax({ buyerUserId, taxableBaseCents, address, shipFrom = n
   }
 
   const taxCents = Math.max(0, Math.round(Number(calc.tax_amount_exclusive) || 0));
-  return { enabled: true, taxCents, calculationId: calc.id, exempt: false };
+  return { enabled: true, taxCents, calculationId: calc.id, exempt: false, collecting: isCollecting(calc, taxCents) };
+}
+
+// Whether the processor is actually COLLECTING tax for this address, read from the calculation itself. A $0 result can mean
+// "not taxable here" (collecting) or "no tax registration for this state" (taxability reason not_collecting / not_supported).
+// Used by the storefront tax safeguard (marketplaceOrderService.taxConfiguration); fails closed: no breakdown and no tax
+// means not collecting. Auction checkout does not read it.
+const NOT_COLLECTING_REASONS = ['not_collecting', 'not_supported'];
+function isCollecting(calc, taxCents) {
+  if (taxCents > 0) return true;
+  const rows = Array.isArray(calc && calc.tax_breakdown) ? calc.tax_breakdown : [];
+  return rows.length > 0 && rows.some((r) => r && r.taxability_reason && !NOT_COLLECTING_REASONS.includes(r.taxability_reason));
 }
 
 /**
@@ -184,6 +195,7 @@ module.exports = {
   taxEnabled,
   addressComplete,
   computeTax,
+  isCollecting,
   recordTransaction,
   reverseFullTransaction,
   reversePartialTransaction,

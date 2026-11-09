@@ -17,16 +17,16 @@
       if (!sel.options.length) r.data.states.forEach(function (s) { var o = el('option', s); o.value = s; sel.appendChild(o); });
       var tb = $('rows'); while (tb.firstChild) tb.removeChild(tb.firstChild);
       if (!r.data.rules.length) {
-        var tr0 = el('tr'); var td0 = el('td', 'No rules yet. Storefront orders with sales tax are refused until a rule exists for the state.'); td0.colSpan = 6;
+        var tr0 = el('tr'); var td0 = el('td', 'No rules yet. Every storefront order is refused until a rule exists for its state.'); td0.colSpan = 6;
         tr0.appendChild(td0); tb.appendChild(tr0);
       }
       r.data.rules.forEach(function (x) {
         var tr = el('tr');
-        [x.state, x.remitter === 'platform' ? 'Advantage.Bid' : 'The seller', x.legal_basis, String(x.effective_from).slice(0, 10), new Date(x.updated_at).toLocaleString()]
+        [x.state, ({ platform: 'Collected at checkout; Advantage.Bid remits', seller: 'Collected at checkout; the seller remits', seller_direct: 'Not collected at checkout; the seller handles its own tax' })[x.remitter] || x.remitter, x.legal_basis, String(x.effective_from).slice(0, 10), new Date(x.updated_at).toLocaleString()]
           .forEach(function (v) { tr.appendChild(el('td', v)); });
         var td = el('td'); var b = el('button', 'Remove'); b.className = 'btn btn-mut'; b.type = 'button';
         b.addEventListener('click', function () {
-          if (!confirm('Remove the rule for ' + x.state + '? Storefront orders with tax there will be refused.')) return;
+          if (!confirm('Remove the rule for ' + x.state + '? Every storefront order there will be refused.')) return;
           api('DELETE', '/api/admin/tax-jurisdictions/' + x.state).then(function () { say('Rule removed.', true); load(); });
         });
         td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);

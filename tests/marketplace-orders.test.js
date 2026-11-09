@@ -157,7 +157,9 @@ describe('createOrder concurrency guard', () => {
   test('refuses when the item is already sold', async () => {
     // loadItemForPurchase (pre-lock) passes, but the FOR UPDATE row shows sold → NOT_AVAILABLE.
     db.query.mockImplementation(async (sql) => {
-      if (/JOIN seller_profiles sp/.test(sql)) return { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su', seller_type: 'estate_sale_company', platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: false, shipping_cost_cents: null }] };
+      if (/JOIN seller_profiles sp/.test(sql)) return { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su', seller_type: 'estate_sale_company', platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: false, shipping_cost_cents: null,
+        pickup_location_source: 'item', pickup_address_line1: '9 Dock Rd', pickup_city: 'Houston', pickup_state: 'TX', pickup_postal_code: '77002', pickup_country: 'US' }] };
+      if (/FROM marketplace_tax_jurisdictions WHERE state = \$1/.test(sql)) return { rows: [{ state: 'TX', remitter: 'seller_direct' }] };   // the sale state's approved tax rule (test)
       return { rows: [] };
     });
     mockClient = makeClient([[/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', status: 'sold', price_cents: 100000 }] }]]);
