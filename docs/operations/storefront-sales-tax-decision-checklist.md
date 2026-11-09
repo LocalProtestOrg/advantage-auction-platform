@@ -9,9 +9,14 @@ quoted from the Texas Comptroller's own pages (links at the end) and should be c
 
 - Stripe Tax is ON in production. It calculates tax **only where Advantage.Bid's own Stripe account has an active tax
   registration**. Without a Texas registration, a Texas order calculates **$0 tax**.
-- **Important:** an order with $0 tax needs no tax rule, so it is **accepted with no tax collected**. Today, a Lewis &
-  Maese purchase would go through untaxed. Nothing in the code refuses it (the tax behavior is deliberately unchanged
-  until this decision). **Do not start the pilot until section C is decided and section D is done.**
+- **Important (production as of 2026-11-09, commit 330ea1c):** an order with $0 tax needs no tax rule, so it is
+  **accepted with no tax collected**. A Lewis & Maese purchase would go through untaxed. **Do not start the pilot until
+  section C is decided and section D is done.**
+- **Safeguard built, not deployed (branch `feat/storefront-tax-safeguard`, migration 227):** every storefront order is
+  refused in a state without a rule, taxed or not; a rule saying tax is collected at checkout is refused unless the
+  processor is actually collecting there (an active registration); a third rule, "not collected at checkout; the seller
+  handles its own tax", covers that CPA answer. With it deployed, the untaxed sale above cannot happen. Deploy order:
+  migration 227 first, then the code.
 - When tax is calculated, the order needs a state rule saying who remits it (Admin > Storefront Tax Rules, table
   `marketplace_tax_jurisdictions`, with the legal basis recorded). Production has **no rules**. A taxed order in a state
   without a rule is refused before payment ("Online purchase is not available for this location yet").
