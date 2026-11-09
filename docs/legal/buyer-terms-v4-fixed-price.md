@@ -75,10 +75,15 @@ You are buying from the Professional Seller named on the item page. Advantage.Bi
 processes your payment and keeps the record of your order. The seller is responsible for the item, its description, its
 condition, and for handing it over at pickup or shipping it.
 
+To complete your purchase, Advantage.Bid gives the seller your name and email address and, if you choose shipping, your
+shipping address, so the seller can fulfill your order and contact you about it.
+
 ### 3. Your order and payment
 
 - The total shown on the review screen before you pay is the item price, any shipping charge and any sales tax. There is
   no buyer's premium on fixed-price purchases.
+- Checkout always takes place on Advantage.Bid, including when you start from the seller's own website, and Advantage.Bid
+  charges your card.
 - You pay by debit or credit card. Prepaid cards are not accepted.
 - While you check out, the item is reserved for you for up to 30 minutes.
 - Your purchase is complete when your payment succeeds and you see the order confirmation with an order number. If the
