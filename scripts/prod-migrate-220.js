@@ -7,7 +7,10 @@
    password hash) cannot replace an existing payout destination until this migration is applied (the code cannot be sent).
    That fails closed; it never lets the change through unverified.
 
-   --check    READ-ONLY: 219 applied, 220 not recorded, the new table absent.
+   --check    READ-ONLY: production is at the baseline (226 applied), the users table it references exists, 220 not
+              recorded, the new table absent. 220 does NOT depend on 218 or 219 (auction shipping, PR #86): its only
+              reference is users(id). Those two are reported for information and are never required (corrected 2026-11-09;
+              the runner first required 219, a leftover from PR #86's ordering, and refused the storefront release).
    --dry-run  applies it inside a transaction, runs every verification, then ROLLS BACK (nothing is kept).
    (none)     applies it in one transaction, then verifies; any failure rolls it back.
    Usage: railway run node scripts/prod-migrate-220.js [--check | --dry-run]
@@ -30,12 +33,16 @@ const DRY = process.argv.includes('--dry-run');
     const colCount = async (table, cols) => Number((await one(`SELECT count(*)::int n FROM information_schema.columns
       WHERE table_name = $1 AND column_name = ANY($2::text[])`, [table, cols])).n);
     const pre = {
-      migration_219_applied: await has(`SELECT 1 AS x FROM schema_migrations WHERE filename = '219_shipment_fulfillment_and_delivery.sql'`),
+      baseline_226_applied: await has(`SELECT 1 AS x FROM schema_migrations WHERE filename = '226_remove_obsolete_pricing_config.sql'`),
+      users_table_present: await has(`SELECT 1 AS x FROM information_schema.tables WHERE table_name = 'users'`),
       already_recorded: await has('SELECT 1 AS x FROM schema_migrations WHERE filename = $1', [FILE]),
       table_present: await has(`SELECT 1 AS x FROM information_schema.tables WHERE table_name = 'account_verification_codes'`),
+      // information only: auction shipping is not part of this release and is never required
+      info_218_applied: await has(`SELECT 1 AS x FROM schema_migrations WHERE filename = '218_auction_shipping_phase1.sql'`),
+      info_219_applied: await has(`SELECT 1 AS x FROM schema_migrations WHERE filename = '219_shipment_fulfillment_and_delivery.sql'`),
     };
     console.log('Pre-check:', JSON.stringify(pre, null, 2));
-    const ok = pre.migration_219_applied && !pre.already_recorded && !pre.table_present;
+    const ok = pre.baseline_226_applied && pre.users_table_present && !pre.already_recorded && !pre.table_present;
     if (CHECK) { console.log('RESULT: ' + (ok ? 'PASS (safe to apply)' : 'FAIL (see above)')); return ok ? 0 : 1; }
     if (!ok) { console.error('REFUSE: pre-check failed.'); return 1; }
     const verify = async () => ({
