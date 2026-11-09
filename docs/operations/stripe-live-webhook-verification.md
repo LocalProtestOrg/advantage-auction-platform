@@ -30,6 +30,22 @@ Confirm it is **Enabled** and includes these events (add any that are missing):
 | `transfer.created`, `transfer.reversed` | Seller payout transfer status |
 | `account.updated` | Seller Connect status (see section 3) |
 
+Also handled (keep them if already selected; not needed for storefront sales): `payout.paid`, `payout.failed`,
+`checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.created`,
+`customer.subscription.updated`, `customer.subscription.deleted` (memberships and promotions). This is the complete list the
+app acts on (read from the webhook handler, 2026-11-09); an event outside it is acknowledged and ignored.
+
+**Owner checklist (live mode):**
+1. [ ] Endpoint `https://bid.advantage.bid/api/payments/webhook` is Enabled.
+2. [ ] Payment events selected: `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`.
+3. [ ] Refund event selected: `charge.refunded`.
+4. [ ] Dispute events selected: `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`.
+5. [ ] Transfer events selected: `transfer.created`, `transfer.reversed`.
+6. [ ] `account.updated` selected here or on a Connect endpoint (section 3).
+7. [ ] Recent deliveries show HTTP 200 (none since 2026-09-28 is normal: no live activity since).
+8. [ ] "Send test event" (`payment_intent.succeeded`) is delivered (the app answers 500 for a sample with no order: that
+       proves delivery and the signature; section 4).
+
 Then check **Recent deliveries**: the latest deliveries should show HTTP 200. Any 400 means the signing secret in Railway
 (`STRIPE_WEBHOOK_SECRET`) does not match this endpoint's secret.
 

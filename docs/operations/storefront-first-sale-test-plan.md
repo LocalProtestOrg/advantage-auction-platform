@@ -10,7 +10,8 @@ the owner buys with their own card, and Advantage.Bid absorbs the card fee that 
 |---|---|---|
 | P1 | Purchase-policy release (330ea1c) deployed; health OK | `/api/health` status ok; GitHub deployment = the release commit |
 | P2 | Buyer Terms Version 4 (Part B fixed-price) published with Sales Near You flag; Terms of Service section 3A posted | `/buyer-terms.html` shows Version 4 with Part B |
-| P3 | Texas sales tax decided and configured (checklist section D) | Stripe Dashboard Texas registration active; Admin > Tax Jurisdictions (`/admin/tax-jurisdictions.html`) has Texas |
+| P3 | Texas sales tax decided and configured from the CPA's written determination (docs/operations/storefront-tax-configuration-steps.md) | Admin > Tax Jurisdictions (`/admin/tax-jurisdictions.html`) has the Texas rule; if tax is collected at checkout, the Stripe Dashboard Texas registration is active. Without the rule, the safeguard refuses every order (live since d38a2da) |
+| P3a | Both administrator emails verified (the Admin/Finance sale notice goes only to verified addresses; both were unverified on 2026-11-09) | Sign in as each, `https://bid.advantage.bid/verify-email.html` > Resend Confirmation Email > click the link |
 | P4 | Live webhook endpoint carries the storefront events (docs/operations/stripe-live-webhook-verification.md) | Stripe Dashboard check by the owner |
 | P5 | Lewis & Maese signed Seller Agreement Version 4 | Their readiness list: "Seller agreement signed" done |
 | P6 | Lewis & Maese direct deposit ready (live connected account) | Readiness: "Payout account ready" done |
