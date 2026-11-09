@@ -93,6 +93,20 @@ async function assembleSettlementReview(auctionId) {
   const status = sp ? sp.settlement_status : 'pending_review';
   const isPaid = status === 'paid';
 
+  // Payout safeguards the pay paths enforce (payoutSafeguards), shown so the administrator sees them before paying.
+  const safeguards = await (async () => {
+    if (!sp || isPaid) return null;
+    const engine = require('./settlementEngine');
+    const f = await engine.payoutSafeguardFacts(sp, auctionId);
+    return {
+      seller_suspended: f.sellerActive === false,
+      recent_payout_change_at: f.recentChange ? (f.recentChange.at || null) : null,
+      recent_payout_change_unknown: !!(f.recentChange && f.recentChange.unknown),
+      open_disputes: await engine.countOpenDisputes(db, auctionId),
+      shipping_hold: f.shippingHold && f.shippingHold.blocked ? { message: f.shippingHold.message, release_at: f.shippingHold.release_at } : null,
+    };
+  })();
+
   return {
     settlements_enabled: sellerSettlementsEnabled(process.env),
     auction: {
@@ -152,6 +166,7 @@ async function assembleSettlementReview(auctionId) {
         is_direct_deposit: isDirectDeposit,
       };
     })(),
+    safeguards,
     timeline,
   };
 }

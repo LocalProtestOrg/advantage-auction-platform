@@ -33,9 +33,11 @@ router.put('/me', auth, role(['seller', 'admin']), async (req, res, next) => {
     if (req.user.role !== 'admin' && (req.body || {}).payout_method === 'check') {
       return res.status(409).json({ success: false, code: 'CHECK_NOT_OFFERED', message: 'Payouts are made by direct deposit (ACH).' });
     }
-    const pref = await upsertSellerPayoutPreference(req.user.id, req.body);
+    const pref = await upsertSellerPayoutPreference(req.user.id, req.body, { currentPassword: (req.body || {}).current_password, verificationCode: (req.body || {}).verification_code, actorId: req.user.id });
     return res.json({ success: true, data: pref });
   } catch (err) {
+    const { PayoutSafeguardError } = require('../services/payoutSafeguards');
+    if (err instanceof PayoutSafeguardError) return res.status(err.status).json({ success: false, code: err.code, verification: err.verification || null, message: err.message });
     if (err.message.startsWith('Invalid payout_method')) {
       return res.status(422).json({ success: false, message: err.message });
     }

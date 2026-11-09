@@ -1291,6 +1291,16 @@ async function setPayoutHold(orderId, adminId, { hold, reason } = {}) {
     const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
     if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
     const on = hold !== false;
+    // A hold is never released while a payment dispute on this order is open (owner-approved 2026-11-05, PR #86). Fails
+    // closed: if the dispute record cannot be read, the hold stays.
+    if (!on && o.stripe_payment_intent_id) {
+      let open = 1;
+      try {
+        open = Number((await client.query(`SELECT count(*)::int n FROM payment_disputes WHERE payment_intent_id = $1 AND closed_at IS NULL
+          AND status NOT IN ('won', 'lost', 'warning_closed')`, [o.stripe_payment_intent_id])).rows[0].n) || 0;
+      } catch (e) { if (e && e.code === '42P01') open = 0; else throw e; }
+      if (open > 0) throw err(409, 'DISPUTE_OPEN', 'A payment dispute is open for this order. The payout hold stays until the dispute is closed.');
+    }
     const upd = (await client.query(
       `UPDATE marketplace_orders SET payout_hold = $2, payout_hold_reason = $3, updated_at = now() WHERE id = $1 RETURNING *`,
       [o.id, on, on ? note : null])).rows[0];

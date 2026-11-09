@@ -78,7 +78,22 @@
     var typed = prompt('Type the payout amount to confirm (for example ' + (p.seller_payout_cents / 100).toFixed(2) + '):');
     if (typed == null) return;
     var cents = Math.round(Number(String(typed).replace(/[$,\s]/g, '')) * 100);
-    act(api('POST', '/api/admin/storefront-payouts/' + p.id + '/pay', { confirmed_completed: true, final_amount_cents: cents }), 'Payment sent to the seller.');
+    act(payWithReview(p.id, { confirmed_completed: true, final_amount_cents: cents }), 'Payment sent to the seller.');
+  }
+  // A refused payment can name a safeguard an administrator may override with a written reason (suspended seller, recent
+  // payout detail change). Each override is recorded with the reason.
+  function payWithReview(id, body) {
+    var reasons = {};
+    function attempt(n) {
+      return api('POST', '/api/admin/storefront-payouts/' + id + '/pay', Object.assign({}, body, { override_reasons: reasons })).then(function (r) {
+        if (r.success || !r.override || reasons[r.override] || n > 3) return r;
+        var why = prompt(r.message + ' ' + 'To continue, enter your reason (at least 10 characters). It is recorded in the audit history.');
+        if (!why || !why.trim()) return r;
+        reasons[r.override] = why.trim();
+        return attempt(n + 1);
+      });
+    }
+    return attempt(0);
   }
   function load() {
     var s = document.getElementById('status').value;

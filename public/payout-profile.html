@@ -74,6 +74,8 @@
         </div>
         <div id="ach-connect">
           <p id="ach-status-note" style="margin:0 0 .6rem">Set up secure direct deposit through Stripe. You'll be taken to Stripe to verify your identity and add your bank account.</p>
+          <div id="ach-pw-wrap" class="hide"><label class="f" for="ach-pw">Current Password</label><input class="t" id="ach-pw" type="password" autocomplete="current-password" /></div>
+          <div id="ach-code-wrap" class="hide"><label class="f" for="ach-code">Verification Code</label><input class="t" id="ach-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="max-width:180px" /> <button class="secondary" type="button" id="ach-code-send">Email Me a Code</button></div>
           <button id="ach-connect-btn">Set Up Direct Deposit</button>
           <div class="reassure">Your banking information is securely collected and stored by Stripe. Advantage.Bid never sees or stores your routing or account numbers.</div>
           <div class="msg" id="ach-msg"></div>
@@ -110,6 +112,24 @@
         .then(r => { if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html?next=' + encodeURIComponent('/payout-profile.html'); throw new Error('unauthorized'); } return r.json(); });
     }
     function setMsg(el, text, ok) { const e = $(el); e.className = 'msg' + (ok ? ' ok' : (text ? ' err' : '')); e.textContent = text || ''; }
+    // Changing an existing payout destination needs identity confirmation: the account password, or (for an account that
+    // signs in without a password) a code emailed to the account. Show the field the server asks for.
+    function needsPassword(d, prefix) {
+      if (!d) return false;
+      if (d.verification === 'email_code') { $(prefix + '-code-wrap').classList.remove('hide'); return true; }
+      if (d.code === 'PASSWORD_REQUIRED' || d.code === 'PASSWORD_INCORRECT') { $(prefix + '-pw-wrap').classList.remove('hide'); return true; }
+      return false;
+    }
+    function wireCodeSend(prefix, msgEl) {
+      $(prefix + '-code-send').addEventListener('click', async () => {
+        try {
+          const d = await api('POST', '/api/payout-profile/me/verification-code');
+          if (d.success) setMsg(msgEl, 'We emailed a code to ' + (d.data.sent_to || 'your account address') + '. Enter it, then save again.', true);
+          else setMsg(msgEl, d.message || 'Could not send a code.');
+        } catch (e) { if (e.message !== 'unauthorized') setMsg(msgEl, 'Could not send a code. Please try again.'); }
+      });
+    }
+    wireCodeSend('ach', 'ach-msg');
 
     function render(data) {
       const p = (data && data.profile) || { method: null };
@@ -168,8 +188,9 @@
     $('ach-connect-btn').addEventListener('click', async () => {
       const btn = $('ach-connect-btn'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Opening Stripe…'; setMsg('ach-msg', '');
       try {
-        const d = await api('POST', '/api/payout-profile/me/connect/onboard');
+        const d = await api('POST', '/api/payout-profile/me/connect/onboard', { current_password: $('ach-pw').value || null, verification_code: $('ach-code').value.trim() || null });
         if (d.success && d.data && d.data.url) { location.href = d.data.url; return; }
+        needsPassword(d, 'ach');
         setMsg('ach-msg', d.message || 'Direct Deposit setup is temporarily unavailable.');
         btn.disabled = false; btn.textContent = t;
       } catch (e) { if (e.message !== 'unauthorized') { setMsg('ach-msg', 'Could not start Direct Deposit setup. Please try again.'); btn.disabled = false; btn.textContent = t; } }

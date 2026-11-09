@@ -15,6 +15,11 @@ const review = require('../services/settlementReviewService');
 const engine = require('../services/settlementEngine');
 const adjustments = require('../services/settlementAdjustmentService');
 const { sellerSettlementsEnabled, stripeConnectEnabled } = require('../lib/launchGuards');
+const { overrideReasons } = require('../services/payoutSafeguards');
+
+// A refused payment names the safeguard (code) and, when an administrator may pay anyway with a written reason, the
+// override key to send back in override_reasons (payoutSafeguards).
+const refusal = (res, err) => res.status(422).json({ success: false, code: err.code || null, override: err.override || null, message: err.message });
 
 function requireSettlementsEnabled(req, res, next) {
   if (!sellerSettlementsEnabled(process.env)) {
@@ -76,10 +81,11 @@ router.post('/:auctionId/mark-paid', auth, role(['admin']), requireSettlementsEn
     const result = await engine.markSettlementPaid(req.params.auctionId, {
       paymentMethod: payment_method, paymentReference: payment_reference, paidAt: paid_at, paymentNote: payment_note,
       finalAmountCents: final_amount_cents, confirmedCompleted: confirmed_completed, actorId: req.user.id,
+      overrideReasons: overrideReasons(req.body),
     });
     res.json({ success: true, data: result });
   } catch (err) {
-    if (err instanceof engine.MarkPaidError) return res.status(422).json({ success: false, message: err.message });
+    if (err instanceof engine.MarkPaidError) return refusal(res, err);
     next(err);
   }
 });
@@ -92,12 +98,25 @@ router.post('/:auctionId/pay-seller', auth, role(['admin']), requireSettlementsE
     const { final_amount_cents, confirmed_completed } = req.body || {};
     const result = await engine.paySellerViaTransfer(req.params.auctionId, {
       finalAmountCents: final_amount_cents, confirmedCompleted: confirmed_completed, actorId: req.user.id,
+      overrideReasons: overrideReasons(req.body),
     });
     res.json({ success: true, data: result });
   } catch (err) {
-    if (err instanceof engine.PaySellerError) return res.status(422).json({ success: false, message: err.message });
+    if (err instanceof engine.PaySellerError) return refusal(res, err);
     next(err);
   }
 });
+
+// Place / release an administrator payout hold on the auction settlement (reason required for both; audited; idempotent).
+// A release is refused while a payment dispute on the auction is open. No money moves.
+for (const [path, hold] of [['hold', true], ['release', false]]) {
+  router.post('/:auctionId/' + path, auth, role(['admin']), requireSettlementsEnabled, async (req, res, next) => {
+    try { res.json({ success: true, data: await engine.setSettlementHold(req.params.auctionId, req.user.id, { hold, reason: (req.body || {}).reason }) }); }
+    catch (err) {
+      if (err instanceof engine.SettlementHoldError) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+      next(err);
+    }
+  });
+}
 
 module.exports = router;

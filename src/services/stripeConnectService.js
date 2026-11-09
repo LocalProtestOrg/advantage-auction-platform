@@ -102,7 +102,8 @@ const RETRIEVE_INCLUDE = ['configuration.recipient', 'requirements'];
 // same mode). An account from the OTHER mode (a TEST account after the switch to LIVE keys) is not reused:
 // a new one is created and the old id is kept in superseded_stripe_account_id for history.
 async function ensureConnectAccount(sellerUserId) {
-  const pref = await getPref(sellerUserId);                 // mode-masked
+  const raw = await getRawPref(sellerUserId);
+  const pref = maskPayoutPrefForMode(raw);                  // mode-masked
   if (pref && pref.stripe_account_id) return pref.stripe_account_id;
   const live = isLiveMode();
   const urow = (await db.query('SELECT email FROM users WHERE id = $1', [sellerUserId])).rows[0];
@@ -119,6 +120,14 @@ async function ensureConnectAccount(sellerUserId) {
     configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } } },
     metadata: { seller_user_id: String(sellerUserId), platform: 'advantage.bid' },
   });
+  // Audit BEFORE the switch is saved (payoutSafeguards): if the audit cannot be written the switch is not saved either,
+  // so a destination change can never skip the 7-day payout review. Masked values only.
+  const safeguards = require('./payoutSafeguards');
+  // Compared with the CURRENT-mode view: an account from the other payment mode was never payable here, so replacing it is
+  // a first setup, not a change of destination.
+  const after = { ...(pref || {}), payout_method: 'ach', stripe_account_id: acct.id, connect_status: 'onboarding', connect_details_submitted: false,
+    connect_transfers_active: false, connect_payouts_enabled: false, connect_disabled_reason: null, connect_bank_name: null, connect_bank_last4: null };
+  const diff = await safeguards.recordPayoutDetailsChange(db, { sellerUserId, actorId: sellerUserId, source: 'connect_account', before: pref, after });
   await db.query(
     `INSERT INTO seller_payout_preferences (seller_user_id, payout_method, stripe_account_id, stripe_account_livemode, connect_status, connect_updated_at, updated_at)
      VALUES ($1,'ach',$2,$3,'onboarding',now(),now())
@@ -134,6 +143,7 @@ async function ensureConnectAccount(sellerUserId) {
        connect_updated_at=now(), updated_at=now()`,
     [sellerUserId, acct.id, live]
   );
+  if (diff) safeguards.notifySellerPayoutDetailsChanged(sellerUserId, diff).catch(() => {});
   return acct.id;
 }
 
@@ -159,14 +169,30 @@ async function syncAccountById(accountId) {
   const stripe = getStripe();
   const acct = await stripe.v2.core.accounts.retrieve(accountId, { include: RETRIEVE_INCLUDE });
   const mapped = mapAccountToStatus(acct);
-  await db.query(
-    `UPDATE seller_payout_preferences SET
+  // The CTE reads the row as it was before this UPDATE, so a status change can be audited (status only; never bank data).
+  const r = await db.query(
+    `WITH prior AS (SELECT seller_user_id, connect_status, connect_details_submitted, connect_transfers_active, connect_payouts_enabled,
+                           connect_disabled_reason FROM seller_payout_preferences WHERE stripe_account_id=$1)
+     UPDATE seller_payout_preferences p SET
        connect_status=$2, connect_details_submitted=$3, connect_transfers_active=$4,
        connect_payouts_enabled=$5, connect_disabled_reason=$6, connect_updated_at=now(), updated_at=now()
-     WHERE stripe_account_id=$1`,
+     FROM prior WHERE p.seller_user_id = prior.seller_user_id
+     RETURNING p.seller_user_id, prior.connect_status AS prior_status, prior.connect_details_submitted AS prior_details_submitted,
+               prior.connect_transfers_active AS prior_transfers_active, prior.connect_payouts_enabled AS prior_payouts_enabled,
+               prior.connect_disabled_reason AS prior_disabled_reason`,
     [mapped.stripe_account_id, mapped.connect_status, mapped.connect_details_submitted,
      mapped.connect_transfers_active, mapped.connect_payouts_enabled, mapped.connect_disabled_reason]
   );
+  const row = r && r.rows && r.rows[0];
+  if (row && row.seller_user_id) {
+    const pick = (o) => ({ payout_method: 'ach', stripe_account_id: accountId, connect_status: o.s, connect_details_submitted: o.d,
+      connect_transfers_active: o.t, connect_payouts_enabled: o.p, connect_disabled_reason: o.r });
+    try {
+      await require('./payoutSafeguards').recordPayoutDetailsChange(db, { sellerUserId: row.seller_user_id, source: 'connect_status_sync',
+        before: pick({ s: row.prior_status, d: row.prior_details_submitted, t: row.prior_transfers_active, p: row.prior_payouts_enabled, r: row.prior_disabled_reason }),
+        after: pick({ s: mapped.connect_status, d: mapped.connect_details_submitted, t: mapped.connect_transfers_active, p: mapped.connect_payouts_enabled, r: mapped.connect_disabled_reason }) });
+    } catch (e) { console.error('[connect] status audit failed:', e.message); }   // a status change never changes where money goes
+  }
   return mapped;
 }
 

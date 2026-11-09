@@ -438,3 +438,67 @@ describe('commission corrections (Seller Agreement §6.9; migration 217)', () =>
       [r.marketplace_order_id, r.seller_profile_id, U.admin.id])).rejects.toThrow(/amount_matches/);
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Payout and fraud safeguards (owner-approved 2026-11-05; payoutSafeguards; migration 219 for the delivery columns).
+describe('payout safeguards on storefront payouts', () => {
+  const auditSvc = () => require('../src/services/auditService');
+  const cutAt = (days) => new Date(Date.now() + days * 864e5);
+  const pendingFor = async (owner) => (await payoutsOf(owner)).filter((x) => x.settlement_status === 'pending_review');
+  async function freshPayout(owner, days) {
+    for (const p of await pendingFor(owner)) await S().voidPayout(p.id, U.admin.id, { reason: 'test isolation' });
+    await sale(10000, { owner });
+    await S().prepareWeek({ cutoff: cutAt(days) });
+    return (await pendingFor(owner))[0];
+  }
+  const payIt = (p, extra = {}) => S().payPayout(p.id, { actorId: U.admin.id, confirmedCompleted: true, finalAmountCents: p.seller_payout_cents, ...extra });
+  beforeAll(async () => {
+    await global.__PG.exec(`CREATE TABLE IF NOT EXISTS audit_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_type text NOT NULL, entity_type text NOT NULL,
+      entity_id uuid NOT NULL, auction_id uuid, lot_id uuid, payment_id uuid, actor_id uuid, metadata jsonb, created_at timestamp NOT NULL DEFAULT now())`);
+  });
+
+  test('a suspended seller is not paid; no transfer is created', async () => {
+    const p = await freshPayout('gus', 30);
+    await setActive('gus', false);
+    try {
+      const before = mockStripe.transfers.length;
+      await expect(payIt(p)).rejects.toMatchObject({ code: 'SELLER_SUSPENDED', override: 'suspended_seller' });
+      await expect(payIt(p, { overrideReasons: { suspended_seller: 'short' } })).rejects.toMatchObject({ code: 'SELLER_SUSPENDED' });
+      expect(mockStripe.transfers.length).toBe(before);
+      expect((await one('SELECT settlement_status FROM storefront_payouts WHERE id = $1', [p.id])).settlement_status).toBe('pending_review');
+      // the administrator's written reason permits this one payment, and is audited with it
+      auditSvc().logEvent.mockClear();
+      const out = await payIt(p, { overrideReasons: { suspended_seller: 'Suspended for a listing issue; this sale was completed' } });
+      expect(out.paid).toBe(true);
+      expect(mockStripe.transfers.length).toBe(before + 1);
+      expect(auditSvc().logEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ eventType: 'settlement.suspended_seller_override',
+        entityType: 'storefront_payout', entityId: p.id, actorId: U.admin.id,
+        metadata: expect.objectContaining({ reason: 'Suspended for a listing issue; this sale was completed', path: 'storefront_payout' }) }));
+    } finally { await setActive('gus', true); }
+  });
+
+  test('a payout within 7 days of a payout-destination change waits for an administrator review reason', async () => {
+    const p = await freshPayout('gus', 31);
+    await q(`INSERT INTO audit_log (event_type, entity_type, entity_id, metadata) VALUES ('seller.payout_details_changed', 'user', $1, '{"destination_changed": true}')`, [U.gus.id]);
+    await expect(payIt(p)).rejects.toMatchObject({ code: 'RECENT_PAYOUT_CHANGE', override: 'recent_payout_change' });
+    // a first-time setup record never holds a payout
+    await q(`UPDATE audit_log SET metadata = '{"destination_changed": false}' WHERE entity_id = $1`, [U.gus.id]);
+    const out = await payIt(p);
+    expect(out.paid).toBe(true);
+  });
+
+  test('an order payout hold is not released while a payment dispute on that order is open', async () => {
+    const id = await sale(10000, { owner: 'sue' });
+    await orders.setPayoutHold(id, U.admin.id, { hold: true, reason: 'Buyer called about the item' });
+    const o = await one('SELECT stripe_payment_intent_id FROM marketplace_orders WHERE id = $1', [id]);
+    await q(`INSERT INTO payment_disputes (stripe_dispute_id, payment_intent_id, status) VALUES ('dp_sf_1', $1, 'needs_response')`, [o.stripe_payment_intent_id]);
+    await expect(orders.setPayoutHold(id, U.admin.id, { hold: false, reason: 'Release attempt early' })).rejects.toMatchObject({ code: 'DISPUTE_OPEN' });
+    expect((await one('SELECT payout_hold FROM marketplace_orders WHERE id = $1', [id])).payout_hold).toBe(true);
+    await q(`UPDATE payment_disputes SET status = 'won', closed_at = now() WHERE stripe_dispute_id = 'dp_sf_1'`);
+    await orders.setPayoutHold(id, U.admin.id, { hold: false, reason: 'Dispute won by us' });
+    expect((await one('SELECT payout_hold FROM marketplace_orders WHERE id = $1', [id])).payout_hold).toBe(false);
+  });
+});
+
+// (Shipped-order payout delay after confirmed delivery: part of auction shipping, PR #86, not in this release.)
+

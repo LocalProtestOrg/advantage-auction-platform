@@ -223,7 +223,7 @@ class PayError extends Error {}
  * included order (still paid, unrefunded, undisputed, not held); the confirmed amount must equal the record. If the transfer
  * fails nothing is marked paid (retry-safe; the idempotency key returns the same transfer).
  */
-async function payPayout(id, { actorId = null, confirmedCompleted = false, finalAmountCents } = {}) {
+async function payPayout(id, { actorId = null, confirmedCompleted = false, finalAmountCents, overrideReasons = {} } = {}) {
   if (!actorId) throw err(403, 'ADMIN_REQUIRED', 'Administrator only.');
   if (!UUID_RE.test(String(id || ''))) throw err(404, 'NOT_FOUND', 'Payout not found.');
   const engine = require('./settlementEngine');
@@ -250,6 +250,19 @@ async function payPayout(id, { actorId = null, confirmedCompleted = false, final
     if (sum <= 0) fail('Nothing to pay.');
     const pref = await require('./payoutPreferenceService').getSellerPayoutPreference(p.seller_user_id);
     if (!pref || pref.payout_method !== 'ach' || !engine.connectPayoutReady(pref)) fail('Seller Direct Deposit is not ready (onboarding incomplete or payouts disabled).');
+    // Fraud safeguards shared with auction settlements (payoutSafeguards): a suspended seller is not paid, and a payout soon
+    // after a payout-destination change waits for an administrator's written review reason. Both fail closed.
+    const safeguards = require('./payoutSafeguards');
+    let overridesUsed;
+    try {
+      overridesUsed = safeguards.assertPayoutSafeguards({
+        sellerActive: await safeguards.sellerAccountActive(p.seller_user_id, client, true),
+        recentChange: await safeguards.recentPayoutDestinationChange(p.seller_user_id, client, true),
+      }, overrideReasons || {});
+    } catch (e) {
+      if (e instanceof safeguards.PayoutSafeguardError) throw Object.assign(new PayError(e.message), { status: 409, code: e.code, override: e.override });
+      throw e;
+    }
 
     let transfer;
     try {
@@ -268,6 +281,8 @@ async function payPayout(id, { actorId = null, confirmedCompleted = false, final
     await client.query(`UPDATE marketplace_orders SET settled_at = now() WHERE storefront_payout_id = $1`, [id]);
     await auditService.logEvent(client, { eventType: 'storefront_settlement.paid', entityType: 'storefront_payout', entityId: id, actorId,
       metadata: { amount_cents: sum, stripe_transfer_id: transfer.id, orders: Number(p.order_count) } });
+    await safeguards.auditOverrides(client, overridesUsed, { entityType: 'storefront_payout', entityId: id, actorId,
+      extra: { seller_user_id: p.seller_user_id, path: 'storefront_payout', stripe_transfer_id: transfer.id } });
     await client.query('COMMIT');
     return { paid: true, amount_cents: sum, stripe_transfer_id: transfer.id, payout_status: 'processing' };
   } catch (e) {
