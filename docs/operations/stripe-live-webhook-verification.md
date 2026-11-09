@@ -4,6 +4,15 @@ The app cannot read the live keys, so the owner checks these in the Stripe Dashb
 unless a step says "add". Production has received webhooks before (last on 2026-09-28, auction payments), so an endpoint
 exists; the check is that it carries every event storefront orders need.
 
+## What production already proves (read-only check, 2026-11-09)
+
+The live secret key and webhook signing secret are sealed in Railway (not readable outside the running app), so the
+endpoint list itself cannot be read from here. The app's own ledger of verified events (`stripe_webhook_events`, recorded
+only after the signature check passes) shows **live-mode** deliveries of `payment_intent.succeeded` (48),
+`charge.refunded` (13) and `account.updated` (1), the latest on 2026-09-28 (auction payments). So the endpoint delivered and
+the signing secret matched as of that date. Never received in live mode: `charge.dispute.*`, `transfer.created`,
+`transfer.reversed`, `payment_intent.canceled`. Those subscriptions can only be confirmed in the Dashboard (section 1).
+
 ## 1. Platform endpoint
 
 Stripe Dashboard (Live) > Developers > Webhooks (Event destinations). Open the endpoint whose URL is
