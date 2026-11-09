@@ -1060,8 +1060,12 @@ setInterval(runCombinedChargeReconcile, COMBINED_RECONCILE_INTERVAL_MS);
 const STOREFRONT_HOLD_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 async function runStorefrontHoldSweep() {
   try {
-    const out = await require('../services/marketplaceOrderService').sweepExpiredHolds();
+    const mos = require('../services/marketplaceOrderService');
+    const out = await mos.sweepExpiredHolds();
     if (out.enabled && out.scanned) console.log('[storefront-hold-sweep]', JSON.stringify(out));
+    // The card fee Stripe attaches a few seconds after a payment (Advantage.Bid's cost record; never affects the seller).
+    const fees = await mos.backfillProcessingFees();
+    if (fees.enabled && fees.filled) console.log('[storefront-fee-backfill]', JSON.stringify(fees));
   } catch (err) {
     console.error(`[storefront-hold-sweep] failed: ${err.message}`);
     if (process.env.SENTRY_DSN) Sentry.captureException(err);

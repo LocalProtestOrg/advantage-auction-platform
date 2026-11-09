@@ -735,15 +735,54 @@ function intentMismatch(o, intent) {
   return null;
 }
 
+// The card processing fee the processor actually charged (Advantage.Bid's cost, paid out of the commission; never charged
+// to the seller; migration 215). Recorded once. Stripe attaches the charge's balance transaction a few seconds AFTER the
+// payment succeeds (verified in test mode 2026-11-09: empty at confirmation, present 5 s later), so the immediate attempt
+// usually finds nothing; a later payment event for the already-paid order and backfillProcessingFees fill it in. Webhook
+// payloads use the account's default API version, which may not carry latest_charge, so the charge is then read from
+// the PaymentIntent with this app's pinned version. Best-effort: never throws.
+async function recordProcessingFee(orderId, chargeId, intentId = null) {
+  if (!orderId || (!chargeId && !intentId)) return false;
+  try {
+    const stripe = getStripe();
+    if (!stripe.charges || typeof stripe.charges.retrieve !== 'function') return false;
+    if (!chargeId && stripe.paymentIntents && typeof stripe.paymentIntents.retrieve === 'function') {
+      const pi = await stripe.paymentIntents.retrieve(String(intentId));
+      chargeId = pi && pi.latest_charge ? (pi.latest_charge.id || pi.latest_charge) : null;
+    }
+    if (!chargeId) return false;
+    const ch = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
+    const fee = ch && ch.balance_transaction && typeof ch.balance_transaction === 'object' ? Number(ch.balance_transaction.fee) : NaN;
+    if (!(Number.isFinite(fee) && fee >= 0)) return false;
+    const r = await db.query('UPDATE marketplace_orders SET processing_fee_cents = $2 WHERE id = $1 AND processing_fee_cents IS NULL', [orderId, Math.round(fee)]);
+    return r.rowCount > 0;
+  } catch (e) { console.error('[marketplace] processing fee not recorded', orderId, e.message); return false; }
+}
+
+// Fill in the card fee for paid orders that still have none (see recordProcessingFee). Run with the expired-hold sweep;
+// a few orders per run, newest first, only the last 30 days. Read-only toward Stripe; never charges or refunds anything.
+async function backfillProcessingFees({ limit = 25 } = {}) {
+  if (!process.env.STRIPE_SECRET_KEY) return { enabled: false, filled: 0 };
+  const rows = (await db.query(
+    `SELECT id, stripe_payment_intent_id FROM marketplace_orders
+      WHERE payment_status = 'paid' AND processing_fee_cents IS NULL AND stripe_payment_intent_id IS NOT NULL
+        AND COALESCE(is_demo, false) = false AND paid_at > now() - interval '30 days'
+      ORDER BY paid_at DESC LIMIT $1`, [Math.max(1, Math.min(100, Number(limit) || 25))])).rows;
+  let filled = 0;
+  for (const r of rows) if (await recordProcessingFee(r.id, null, r.stripe_payment_intent_id)) filled++;
+  return { enabled: true, scanned: rows.length, filled };
+}
+
 async function markOrderPaid(intent) {
   const chargeId = (intent.latest_charge && (intent.latest_charge.id || intent.latest_charge)) || null;
   let paidOrder = null;
   let conflict = null;
+  let alreadyPaid = null;
   await withTransaction(async (client) => {
     const o = (await client.query(
       'SELECT * FROM marketplace_orders WHERE stripe_payment_intent_id = $1 FOR UPDATE', [intent.id])).rows[0];
     if (!o) throw new Error('No marketplace order for intent ' + intent.id); // orphan → event marked failed, operator reconciles
-    if (o.payment_status === 'paid') return;                                 // idempotent
+    if (o.payment_status === 'paid') { alreadyPaid = o; return; }            // idempotent
     if (o.payment_status === 'refunded' || o.refund_status === 'refunded') return; // money already returned
     // The payment must be for exactly this order: same order and seller in its metadata, same currency, the full total.
     // A mismatch is never "corrected" by marking the order paid — it is held for a person to review.
@@ -803,7 +842,10 @@ async function markOrderPaid(intent) {
     paidOrder = o;
   });
   if (conflict) return refundConflict(conflict.order, intent, chargeId, conflict.reason);
-  if (!paidOrder) return; // was already paid
+  if (!paidOrder) {   // was already paid: only fill in the card fee if it is still missing
+    if (alreadyPaid && alreadyPaid.processing_fee_cents == null) await recordProcessingFee(alreadyPaid.id, chargeId, intent.id);
+    return;
+  }
   // Record the authoritative Stripe Tax transaction (no-op when tax flag off / exempt / $0).
   try {
     const txId = await taxService.recordTransaction({ calculationId: paidOrder.stripe_tax_calculation_id, reference: 'marketplace-order:' + paidOrder.order_number });
@@ -811,14 +853,7 @@ async function markOrderPaid(intent) {
   } catch (e) { console.error('[marketplace] tax transaction record failed', paidOrder.id, e.message); }
   // The card processing fee the processor actually charged (Advantage.Bid's cost, paid out of the commission; never
   // charged to the seller). Best-effort, recorded once (migration 215).
-  try {
-    const stripe = getStripe();
-    if (chargeId && stripe.charges && typeof stripe.charges.retrieve === 'function') {
-      const ch = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
-      const fee = ch && ch.balance_transaction && typeof ch.balance_transaction === 'object' ? Number(ch.balance_transaction.fee) : NaN;
-      if (Number.isFinite(fee) && fee >= 0) await db.query('UPDATE marketplace_orders SET processing_fee_cents = $2 WHERE id = $1 AND processing_fee_cents IS NULL', [paidOrder.id, Math.round(fee)]);
-    }
-  } catch (e) { console.error('[marketplace] processing fee not recorded', paidOrder.id, e.message); }
+  await recordProcessingFee(paidOrder.id, chargeId, intent.id);
   // Buyer receipt + seller "item sold" notice (best-effort; never breaks the webhook ack).
   try { await require('./marketplaceOrderNotifier').sendPaid(paidOrder.id); }
   catch (e) { console.error('[marketplace] paid notification failed', paidOrder.id, e.message); }
@@ -1364,7 +1399,7 @@ async function listForAdmin({ status, limit } = {}) {
     pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
 
-module.exports = { taxResponsibility,
+module.exports = { taxResponsibility, recordProcessingFee, backfillProcessingFees,
   STOREFRONT_FEE_WEBSITE_BPS, STOREFRONT_FEE_MARKETPLACE_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,

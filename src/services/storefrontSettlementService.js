@@ -248,7 +248,7 @@ async function payPayout(id, { actorId = null, confirmedCompleted = false, final
     if (sum !== Number(p.seller_payout_cents) || recSum !== (Number(p.recovery_cents) || 0) || adjSum !== (Number(p.adjustment_cents) || 0)) fail('The payout total no longer matches its orders. Void it and prepare it again.');
     if (Math.trunc(Number(finalAmountCents)) !== sum) fail('Final amount (' + finalAmountCents + ') does not match the payout (' + sum + ').');
     if (sum <= 0) fail('Nothing to pay.');
-    const pref = await require('./payoutPreferenceService').getSellerPayoutPreference(p.seller_user_id);
+    const pref = await require('./payoutPreferenceService').getSellerPayoutPreference(p.seller_user_id, client);   // on the transaction's own connection
     if (!pref || pref.payout_method !== 'ach' || !engine.connectPayoutReady(pref)) fail('Seller Direct Deposit is not ready (onboarding incomplete or payouts disabled).');
     // Fraud safeguards shared with auction settlements (payoutSafeguards): a suspended seller is not paid, and a payout soon
     // after a payout-destination change waits for an administrator's written review reason. Both fail closed.
