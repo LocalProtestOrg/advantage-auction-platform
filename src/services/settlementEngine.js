@@ -398,8 +398,8 @@ async function countOpenDisputes(runner, auctionId) {
 }
 
 // Fraud safeguards shared with the storefront pay path (payoutSafeguards; owner-approved 2026-11-05): the seller's account
-// is active (fails closed), no recent payout-destination change awaiting review (fails closed), and, only while
-// AUCTION_SHIPPING_ENABLED is on, no shipped lot still inside its delivery + 3 business day hold. Inside the pay
+// is active (fails closed) and no recent payout-destination change awaits review (fails closed). (The shipped-lot
+// delivery hold belongs to auction shipping, PR #86, which is not part of this release.) Inside the pay
 // transaction (client given) each read runs under a savepoint, so a failed read never aborts that transaction.
 async function payoutSafeguardFacts(sp, auctionId, client = null) {
   const safeguards = require('./payoutSafeguards');

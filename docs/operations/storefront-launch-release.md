@@ -11,6 +11,10 @@ Branch `feat/storefront-launch` = production baseline `3b3ac8a` plus:
 | Opt-in Stripe test-mode certification test | Real PaymentIntents, refunds, dispute, Connect transfer (9/9 pass) |
 
 Not included: auction shipping and the shipped-order delivery delay (PR #86, migrations 218-219), Buyer Terms v4.
+Verified 2026-11-09: the only migration is 220; no auction-shipping file, route, migration or switch is in the diff.
+
+Related documents: docs/legal/storefront-purchase-terms-addendum-draft.md, docs/operations/storefront-sales-tax-decision-checklist.md,
+docs/operations/stripe-live-webhook-verification.md.
 
 ## What already exists in production (from Release 1, PR #84 and the baseline)
 
@@ -38,11 +42,22 @@ Tax ON, **checkout OFF**.
      `account.updated` (or the same endpoint with Connect events).
 2. **Tax rules:** for every state where tax will be charged, an administrator enters who remits it (Admin > Storefront
    Tax Rules, with the professional advice as the legal basis). A taxed order in a state without a rule is refused.
-3. **First seller ready** (the owner's own shop, per docs/operations/first-live-transaction-runbook.md): Professional
-   Seller account, business verification approved, Seller Agreement v4 signed, live Stripe Connect onboarding complete
-   (transfers and payouts active), storefront published, a low-priced test item.
-4. **Pilot:** set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS=<that seller company id>` and
-   `MARKETPLACE_CHECKOUT_PILOT_USER_IDS=<the owner's buyer account id>`. Only that buyer can buy from that seller.
+3. **First seller ready: Lewis & Maese** (seller company `118458af-6b07-4806-86a4-b927d2b0cbed`, slug lewis-and-maese;
+   read-only check 2026-11-09: active, verified, storefront published, 9 live Texas items $180 to $2,400, signed agreement
+   v3 only, no payout account, Store Terms only in draft):
+   1. **Seller Agreement v4.** Lewis & Maese sign in and open `https://bid.advantage.bid/sign-agreement.html?current=1`
+      (the current version is issued in the app, no email), read and sign. Alternative: Admin > Agreements, send v4 (this
+      emails them the signing link; a deliberate one-off send, the owner's choice). Their v3 signature stays on record.
+   2. **Direct deposit (Stripe Connect, live).** Signed in, Payout Profile (`/payout-profile.html`), Set Up Direct Deposit:
+      Stripe's own pages collect the business details, identity and bank account. When they return, the page shows
+      "Direct Deposit Ready" once Stripe activates transfers and payouts. First-time setup needs no password; any later
+      change of bank needs their password (payout safeguards).
+   3. **Store Terms.** Publish their Store Terms (their return and refund rules; Seller Storefront > Policies). Their
+      Shipping & Pickup Policy is already published. Buyers must acknowledge both at checkout.
+   4. **A test item** for the controlled purchase (their cheapest live item is $180): ideally a low-priced real item.
+      Stripe keeps its card fee when a payment is refunded (about 2.9% + 30 cents), which Advantage.Bid absorbs.
+4. **Pilot:** set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS=118458af-6b07-4806-86a4-b927d2b0cbed` (Lewis & Maese) and
+   `MARKETPLACE_CHECKOUT_PILOT_USER_IDS=<the owner's own buyer account id>`. Only that buyer can buy, and only from Lewis & Maese.
 5. **Controlled live purchase:** buy the test item (a real card), check the order, the seller notice, the 9% (or 5% from the
    seller's own website) commission, the recorded card fee (within minutes), the seller order page; refund it in full
    from Admin; check the Stripe refund and the order.
