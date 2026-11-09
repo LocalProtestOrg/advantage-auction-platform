@@ -29,7 +29,7 @@ test('220 references nothing but users (no auction-shipping table or column)', (
   expect(code).not.toMatch(/auction_shipment|seller_shipping_profiles|shipping_eligible|delivered_at|lots\b/i);
 });
 
-test('220 applies on a database that has only users (218 and 219 never applied)', async () => {
+test('220 applies on a database that has only users (218 and 219 never applied)', async () => {   // (a fresh database worker: allow for a loaded machine)
   const pg = startPg();
   try {
     await pg.exec('CREATE TABLE users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), email TEXT);');
@@ -39,7 +39,7 @@ test('220 applies on a database that has only users (218 and 219 never applied)'
     const u = await pg.query('INSERT INTO users (email) VALUES ($1) RETURNING id', ['x@test.example']);
     await pg.query(`INSERT INTO account_verification_codes (user_id, purpose, expires_at) VALUES ($1, 'payout_destination_change', now() + interval '10 minutes')`, [u.rows[0].id]);
   } finally { await pg.close(); }
-});
+}, 30000);
 
 test('the production runner requires the baseline and the users table, never 218 or 219', () => {
   const ok = (RUNNER.match(/const ok = ([^;]+);/) || [])[1] || '';

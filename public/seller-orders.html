@@ -75,16 +75,20 @@
         if(o.fulfillment_status==='unfulfilled'||o.fulfillment_status==='ready_for_pickup')a+='<button class="btn" data-act="picked_up" data-id="'+o.id+'">Pickup Complete</button>';
       } else {
         if(o.fulfillment_status==='unfulfilled')a+='<input placeholder="Carrier" id="c_'+o.id+'"><input placeholder="Tracking #" id="t_'+o.id+'"><button class="btn" data-act="shipped" data-id="'+o.id+'">Mark Shipped</button>';
-        if(o.fulfillment_status==='shipped')a+='<button class="btn" data-act="complete" data-id="'+o.id+'">Mark Complete</button>';
+        // Delivery starts the buyer's 7-day reporting period: mark it only when the carrier shows the item delivered.
+        if(o.fulfillment_status==='shipped')a+='<button class="btn" data-act="complete" data-id="'+o.id+'" title="Only after the carrier shows the item delivered">Mark Delivered</button>';
       }
       return a;
     }
 
     function card(o){
       var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':(o.refund_status==='partially_refunded'?'<span class="pill pill-refunded">Partially refunded</span>':'<span class="pill pill-paid">Paid</span>');
-      var ful='<span class="pill pill-ful">'+esc((o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
+      var ful='<span class="pill pill-ful">'+esc(o.fulfillment_status==='completed'?'delivered':(o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
       var elig=o.payout_eligible?'<span class="pill pill-elig">Payout eligible</span>':'';
       var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
+      // The buyer's reporting period (48 hours after pickup, 7 days after delivery): the sale is included in a weekly payout after it ends.
+      var w=o.reporting_period;
+      if(w&&w.ends_at&&o.refund_status!=='refunded')track+='<div class="meta">Buyer reporting period ends '+esc(new Date(w.ends_at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}))+'; the sale is included in the next weekly payout after that.</div>';
       return '<div class="order"><div class="top"><div>'+
         '<div class="t">'+esc(o.item_title||'Item')+(o.quantity>1?' &times; '+o.quantity:'')+(o.inventory_number?' <span class="meta">#'+esc(o.inventory_number)+'</span>':'')+'</div>'+
         '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+

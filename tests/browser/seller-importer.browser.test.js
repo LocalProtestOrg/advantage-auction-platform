@@ -150,6 +150,7 @@ describe('inventory management and dual distribution', () => {
     await page.waitForSelector('#readyList li');
     const ready = await page.$eval('#readyList', (e) => e.innerText);
     expect(ready).toMatch(/Seller agreement signed/); expect(ready).toMatch(/Online checkout open on Advantage\.Bid/);
+    expect(ready).toMatch(/Store Terms and Shipping & Pickup Policy published/);   // required before buyers can purchase (2026-11-09)
     await page.waitForSelector('#shareCard', { state: 'visible' });
     expect(await page.$eval('#shareCode', (e) => e.value)).toMatch(/<iframe src="[^"]*\/embed\/storefront\.html\?seller=/);
     expect(serious(await health.inspect(page, probe, { expectText: ['Before buyers can purchase your items'] }))).toEqual([]);

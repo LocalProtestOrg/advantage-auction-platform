@@ -88,16 +88,25 @@
         }).catch(function(){ev.target.disabled=false;document.getElementById('e_'+send).textContent='Network error.';});
     });
 
+    // Reporting expectations (48 hours after pickup, 7 days after delivery), from the recorded pickup or delivery time.
+    // Information only: a report is accepted at any time and reviewed on its merits.
+    function reportNote(o){
+      var w=o.reporting_period; if(!w||o.refund_status==='refunded')return '';
+      if(!w.starts_at)return '<div class="meta">Please report any problem with the item&#39;s condition or description within '+(w.basis==='delivery'?'7 days after delivery':'48 hours after pickup')+'.</div>';
+      var end=new Date(w.ends_at), when=end.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+      return '<div class="meta">'+(w.basis==='delivery'?'Delivered ':'Picked up ')+esc(new Date(w.starts_at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}))+
+        '. Please report any problem with the item&#39;s condition or description by '+esc(when)+'. If you find a problem later, you can still report it.</div>';
+    }
     function card(o){
       var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':(o.refund_status==='partially_refunded'?'<span class="pill pill-refunded">Partially refunded</span>':'<span class="pill pill-paid">Paid</span>');
-      var ful='<span class="pill pill-ful">'+esc((o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
+      var ful='<span class="pill pill-ful">'+esc(o.fulfillment_status==='completed'?'delivered':(o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
       var seller=o.storefront_slug?('<a href="/pro/'+esc(o.storefront_slug)+'">'+esc(o.seller_name||'Seller')+'</a>'):esc(o.seller_name||'Seller');
       var img=o.thumbnail_url?'<img src="'+esc(o.thumbnail_url)+'" alt="'+esc(o.item_title)+'">':'<div style="width:76px;height:76px;border-radius:10px;background:#eef2f7"></div>';
       var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
       return '<div class="order">'+img+'<div style="flex:1"><div class="t">'+esc(o.item_title||'Item')+(o.quantity>1?' &times; '+o.quantity:'')+'</div>'+
         '<div class="meta">Sold by '+seller+'</div>'+
         '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
-        track+
+        track+reportNote(o)+
         '<div style="margin-top:6px">'+pay+ful+'</div>'+issuesBlock(o)+'</div>'+
         '<div style="text-align:right"><div class="money">'+money(o.total_charge_cents)+'</div></div></div>';
     }

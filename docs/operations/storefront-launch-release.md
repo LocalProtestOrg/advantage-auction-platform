@@ -52,18 +52,25 @@ Tax ON, **checkout OFF**.
       Stripe's own pages collect the business details, identity and bank account. When they return, the page shows
       "Direct Deposit Ready" once Stripe activates transfers and payouts. First-time setup needs no password; any later
       change of bank needs their password (payout safeguards).
-   3. **Store Terms.** Publish their Store Terms (their return and refund rules; Seller Storefront > Policies). Their
-      Shipping & Pickup Policy is already published. Buyers must acknowledge both at checkout.
+   3. **Store policies (required: checkout refuses a seller without both, 2026-11-09).** Publish their Store Terms (their
+      return and refund rules; Seller Storefront > Policies; their draft does not cover returns yet). Their published
+      Shipping & Pickup Policy (v1) is written for auction winners ("if you are the winning bidder") and has no pickup
+      location, hours or arrangement, only "Any Item(s) left after 30 days will be forfeited": they should publish a
+      storefront version stating where, when and how buyers collect, the pickup deadline and what happens to uncollected
+      items (the forfeiture wording is flagged for attorney review). Buyers acknowledge both at checkout.
    4. **A test item** for the controlled purchase (their cheapest live item is $180): ideally a low-priced real item.
       Stripe keeps its card fee when a payment is refunded (about 2.9% + 30 cents), which Advantage.Bid absorbs.
-4. **Pilot:** set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS=118458af-6b07-4806-86a4-b927d2b0cbed` (Lewis & Maese) and
+4. **Purchase terms:** publish the approved Fixed-Price Purchase Terms (docs/legal/storefront-purchase-terms-addendum-draft.md,
+   after counsel review and the owner's choice of how to publish them) before any real buyer pays. Confirm the checkout's
+   short "Before you pay" summary (public/item.html, #purchaseRules) matches the published wording.
+5. **Pilot:** set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS=118458af-6b07-4806-86a4-b927d2b0cbed` (Lewis & Maese) and
    `MARKETPLACE_CHECKOUT_PILOT_USER_IDS=<the owner's own buyer account id>`. Only that buyer can buy, and only from Lewis & Maese.
-5. **Controlled live purchase:** buy the test item (a real card), check the order, the seller notice, the 9% (or 5% from the
+6. **Controlled live purchase:** buy the test item (a real card), check the order, the seller notice, the 9% (or 5% from the
    seller's own website) commission, the recorded card fee (within minutes), the seller order page; refund it in full
    from Admin; check the Stripe refund and the order.
-6. **Payout dry run:** after a second real purchase that is picked up, prepare the week and pay the seller from Admin
+7. **Payout dry run:** after a second real purchase that is picked up and whose 48-hour reporting period has ended, prepare the week and pay the seller from Admin
    (a real Connect transfer); confirm it in Stripe.
-7. **Open:** set `MARKETPLACE_CHECKOUT_ENABLED=true` (all verified sellers, all signed-in buyers). Remove the pilot lists.
+8. **Open:** set `MARKETPLACE_CHECKOUT_ENABLED=true` (all verified sellers, all signed-in buyers). Remove the pilot lists.
 
 ## Rollback
 

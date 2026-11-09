@@ -15,6 +15,10 @@
  * ONLY when the seller remits it (tax_remitter 'seller', migration 214). Tax Advantage.Bid remits is never paid to the seller,
  * and sales tax is never platform revenue or part of the fee base.
  * A partially refunded order is under review (review_required) and is not included until an administrator clears it.
+ * Reporting period (purchase policy 4, owner 2026-11-09; Seller Agreement 7.3 "eligibility rules the platform actually
+ * enforces"): an order is included only once its buyer's reporting period ended by the cutoff, 48 hours after the recorded
+ * pickup or 7 days after the recorded delivery (src/lib/storefrontPurchasePolicy.js), so a problem reported in that time
+ * holds the payout before any money moves. Nothing becomes payable because time passes without pickup or delivery.
  * Commission corrections (Seller Agreement §6.9; migration 217; storefrontCommissionAdjustmentService) recorded since the
  * last payout are applied to the next one and listed on its statement: a correction in the seller's favour always (a
  * seller owed a correction gets a payout record even in a week without new sales), one the seller owes when the payout
@@ -24,6 +28,7 @@
 const db = require('../db');
 const { withTransaction } = require('../utils/withTransaction');
 const auditService = require('./auditService');
+const purchasePolicy = require('../lib/storefrontPurchasePolicy');
 
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; return e; }
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -70,7 +75,7 @@ const ELIGIBLE_SQL = `
 async function prepareWeek({ cutoff = cutoffFor(), actorId = null } = {}) {
   const sellers = (await db.query(
     `SELECT DISTINCT o.seller_id FROM marketplace_orders o
-      WHERE ${ELIGIBLE_SQL} AND o.payout_eligible_at <= $1
+      WHERE ${ELIGIBLE_SQL} AND o.payout_eligible_at <= $1 AND ${purchasePolicy.reportingPeriodEndedSql('o', '$1')}
         AND NOT EXISTS (SELECT 1 FROM storefront_payout_lines l WHERE l.marketplace_order_id = o.id AND l.active)
      UNION
      SELECT a.seller_profile_id FROM storefront_commission_adjustments a
@@ -83,7 +88,7 @@ async function prepareWeek({ cutoff = cutoffFor(), actorId = null } = {}) {
       const orders = (await client.query(
         `SELECT o.id, o.order_number, o.item_price_cents, o.shipping_cents, o.platform_fee_cents, o.seller_proceeds_cents, o.tax_cents, o.tax_remitter
            FROM marketplace_orders o
-          WHERE o.seller_id = $1 AND ${ELIGIBLE_SQL} AND o.payout_eligible_at <= $2
+          WHERE o.seller_id = $1 AND ${ELIGIBLE_SQL} AND o.payout_eligible_at <= $2 AND ${purchasePolicy.reportingPeriodEndedSql('o', '$2')}
             AND NOT EXISTS (SELECT 1 FROM storefront_payout_lines l WHERE l.marketplace_order_id = o.id AND l.active)
           ORDER BY o.paid_at FOR UPDATE OF o`, [sellerId, cutoff])).rows;
       const openAdj = (await client.query(

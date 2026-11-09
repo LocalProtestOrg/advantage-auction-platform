@@ -13,6 +13,9 @@
  *   seller — reads and answers only issues on their own orders;
  *   admin  — reads all and resolves; every step is kept in the order's permanent history.
  * Opening an issue never moves money and never establishes that the seller is at fault: it creates an issue for review.
+ * A report is accepted at any time: the reporting expectations (48 hours after pickup, 7 days after delivery; purchase
+ * policy 4, src/lib/storefrontPurchasePolicy.js) are shown to buyers and reviewers but never refuse or close a report.
+ * A "not as described" report is reviewed whatever the seller's own return policy says (purchase policy 3).
  * When the problem concerns whether the buyer received what they paid for (not received, not as described, damaged, refund
  * request), the order's payout is placed ON HOLD while it is reviewed (a flag; nothing is transferred or taken back). Only an
  * administrator releases that hold, when resolving the issue. Staff are alerted (no customer details in the text) and the
@@ -21,6 +24,7 @@
 
 const db = require('../db');
 const sellerActor = require('../lib/sellerActor');
+const purchasePolicy = require('../lib/storefrontPurchasePolicy');
 const { withTransaction } = require('../utils/withTransaction');
 
 const CATEGORIES = ['not_received', 'not_as_described', 'damaged', 'pickup_problem', 'refund_request', 'other'];
@@ -59,7 +63,9 @@ async function openIssue(orderId, buyerUserId, body = {}) {
   if (message.length < 5) throw err(422, 'MESSAGE_REQUIRED', 'Describe the problem in a sentence or two.');
   return withTransaction(async (client) => {
     const o = (await client.query(
-      'SELECT id, seller_id, buyer_user_id, payment_status, refund_status, payout_hold, order_number FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2 FOR UPDATE',
+      `SELECT o.id, o.seller_id, o.buyer_user_id, o.payment_status, o.refund_status, o.payout_hold, o.order_number, o.fulfillment_method,
+              ${purchasePolicy.fulfilledAtSql('o')} AS fulfilled_at
+         FROM marketplace_orders o WHERE o.id = $1 AND o.buyer_user_id = $2 FOR UPDATE OF o`,
       [orderId, buyerUserId])).rows[0];
     if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');           // someone else's order looks exactly like a missing one
     if (!['paid', 'refunded'].includes(o.payment_status)) throw err(409, 'ORDER_NOT_PURCHASED', 'An issue can be opened once the order is paid.');
@@ -69,7 +75,10 @@ async function openIssue(orderId, buyerUserId, body = {}) {
     const row = (await client.query(
       `INSERT INTO marketplace_order_issues (order_id, seller_id, buyer_user_id, category, message)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`, [o.id, o.seller_id, o.buyer_user_id, category, message])).rows[0];
-    await event(client, o.id, 'issue_opened', buyerUserId, 'buyer', { issue_id: row.id, category });
+    // When the report came relative to the reporting period (48 hours after pickup, 7 days after delivery). Recorded for the
+    // reviewer only: a report is never refused, closed or decided because of its timing (purchase policy 4).
+    const reporting = purchasePolicy.reportTiming(purchasePolicy.reportingWindow(o.fulfillment_method, o.fulfilled_at), row.created_at);
+    await event(client, o.id, 'issue_opened', buyerUserId, 'buyer', { issue_id: row.id, category, reporting });
     let held = false;
     if (HOLD_CATEGORIES.includes(category) && o.payment_status === 'paid' && o.refund_status !== 'refunded' && !o.payout_hold) {
       await client.query(`UPDATE marketplace_orders SET payout_hold = true, payout_hold_reason = $2, review_required = true, review_note = $2,
@@ -181,6 +190,9 @@ async function resolve(issueId, adminUserId, body = {}) {
       if (o && o.payout_hold && o.payout_hold_reason === HOLD_REASON) {
         if (openIssues.n > 0 || openDispute.n > 0) throw err(409, 'HOLD_STILL_NEEDED', 'Another open issue or a chargeback still holds this order.');
         await client.query('UPDATE marketplace_orders SET payout_hold = false, payout_hold_reason = NULL, updated_at = now() WHERE id = $1', [o.id]);
+        // Put back what the hold took (its review flag and payout eligibility), or the seller is never paid for a sale resolved
+        // in their favour. The weekly payout still waits for the reporting period.
+        await require('./marketplaceOrderService').restorePayoutAfterHold(client, o);
         await event(client, o.id, 'payout_hold_released', adminUserId, 'admin', { reason: note, issue_id: i.id });
         holdReleased = true;
       }
@@ -194,10 +206,16 @@ async function listForAdmin({ status } = {}) {
   let where = '';
   if (['open', 'seller_responded', 'resolved', 'closed'].includes(status)) { params.push(status); where = 'WHERE i.status = $1'; }
   const { rows } = await db.query(
-    `SELECT i.*, o.order_number, COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
+    `SELECT i.*, o.order_number, o.fulfillment_method, ${purchasePolicy.fulfilledAtSql('o')} AS fulfilled_at,
+            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
        FROM marketplace_order_issues i JOIN marketplace_orders o ON o.id = i.order_id JOIN seller_profiles sp ON sp.id = i.seller_id
        ${where} ORDER BY i.created_at DESC LIMIT 500`, params);
-  return rows.map((r) => ({ ...view(r), seller_id: r.seller_id, buyer_user_id: r.buyer_user_id }));
+  // The reporting period and when the report came, for the reviewer (information only; never a reason to refuse a report).
+  return rows.map((r) => {
+    const w = purchasePolicy.reportingWindow(r.fulfillment_method, r.fulfilled_at);
+    return { ...view(r), seller_id: r.seller_id, buyer_user_id: r.buyer_user_id, fulfillment_method: r.fulfillment_method,
+      reporting_basis: w.basis, fulfilled_at: w.starts_at, reporting_period_ends_at: w.ends_at, reported: purchasePolicy.reportTiming(w, r.created_at) };
+  });
 }
 
 module.exports = { CATEGORIES, HOLD_CATEGORIES, HOLD_REASON, openIssue, listForBuyer, listForSeller, respond, resolve, listForAdmin };

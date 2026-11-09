@@ -8,6 +8,7 @@
  *   - business verification           verificationService.publicationGate (the one publication gate)
  *   - the storefront pickup location  seller_profiles.default_pickup_confirmed_at
  *   - the public storefront           seller_profiles.storefront_published + slug (the website widget shows it)
+ *   - store policies                  published Store Terms + Shipping & Pickup Policy (checkout requires both)
  *   - payouts                         settlementEngine.connectPayoutReady (the seller's payout account)
  *   - online checkout                 Advantage.Bid's own switch (launchGuards); off until Advantage.Bid opens it
  * plus, per item: missing Sale Price, nothing in stock, no photo, category still being assigned.
@@ -34,6 +35,12 @@ async function forSeller(actor) {
   const pref = (await db.query('SELECT stripe_account_id, connect_transfers_active, connect_payouts_enabled FROM seller_payout_preferences WHERE seller_user_id = $1', [sp.user_id])).rows[0] || null;
   const payoutsReady = require('./settlementEngine').connectPayoutReady ? require('./settlementEngine').connectPayoutReady(pref)
     : !!(pref && pref.stripe_account_id && pref.connect_transfers_active && pref.connect_payouts_enabled);
+  // Purchase policies (owner 2026-11-09): online purchase needs the published Store Terms AND Shipping & Pickup Policy (the
+  // same rule checkout enforces: marketplaceOrderService.assertPurchasePolicies).
+  const pol = (await db.query(`SELECT array_agg(kind) AS kinds FROM seller_policy_versions WHERE seller_id = $1 AND status = 'published'`, [sp.id])
+    .catch(() => ({ rows: [{ kinds: [] }] }))).rows[0] || {};
+  const kinds = Array.isArray(pol.kinds) ? pol.kinds : [];
+  const policiesDone = kinds.includes('store_terms') && kinds.includes('shipping_pickup');
   let checkoutOpen = false;
   try { checkoutOpen = !!require('../lib/launchGuards').marketplaceCheckoutEnabled(); } catch (_) { checkoutOpen = false; }
 
@@ -62,6 +69,9 @@ async function forSeller(actor) {
     step('storefront', 'Storefront page published', !!(sp.storefront_published && sp.storefront_slug),
       sp.storefront_published && sp.storefront_slug ? null : 'Publish your storefront page so your website widget and storefront link show your items.',
       sp.storefront_published && sp.storefront_slug ? null : { label: 'Storefront settings', href: '/seller-storefront.html?tab=store' }),
+    step('policies', 'Store Terms and Shipping & Pickup Policy published', policiesDone,
+      policiesDone ? null : 'Publish your Store Terms (your return rules) and your Shipping & Pickup Policy (pickup times, deadlines and what happens to items that are not collected). Buyers see both before they pay.',
+      policiesDone ? null : { label: 'Store policies', href: '/seller-storefront.html?tab=store' }),
     step('payouts', 'Payout account ready', payoutsReady,
       payoutsReady ? null : 'Set up the account that receives your sale proceeds.', payoutsReady ? null : { label: 'Set up payouts', href: '/payout-profile.html' }),
     step('checkout', 'Online checkout open on Advantage.Bid', checkoutOpen,

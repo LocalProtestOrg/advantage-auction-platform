@@ -1024,7 +1024,7 @@ describe('simple marketplace importer: categories, duplicates and isolation', ()
     const r = await call('ann', 'GET', '/api/seller-storefront/readiness');
     expect(r.status).toBe(200);
     const keys = r.body.data.company.map((s) => s.key);
-    expect(keys).toEqual(['agreement', 'verification', 'pickup_location', 'storefront', 'payouts', 'checkout']);
+    expect(keys).toEqual(['agreement', 'verification', 'pickup_location', 'storefront', 'policies', 'payouts', 'checkout']);   // policies: required for purchase (2026-11-09)
     expect(r.body.data.company.find((s) => s.key === 'checkout').done).toBe(false);   // online checkout stays off
     expect(r.body.data.purchasable).toBe(false);
     expect(r.body.data.items.map((n) => n.key)).toEqual(expect.arrayContaining(['missing_price']));

@@ -232,6 +232,13 @@ maybe('storefront checkout on Stripe TEST mode (certification)', () => {
     expect(g.status).toBe(200);
     // the weekly cutoff is in the past for orders made now: date the eligibility before the last cutoff (time simulation only)
     await stack.query(`UPDATE marketplace_orders SET payout_eligible_at = now() - interval '9 days' WHERE id = ANY($1::uuid[])`, [[T.bowlOrder, T.mugOrder]]);
+    // ... and the recorded pickup, so the buyer's 48-hour reporting period has ended by that cutoff (purchase policy 4). The
+    // order history is append-only, so its guard is lifted for this one simulated change on the isolated test database only.
+    await stack.query('ALTER TABLE marketplace_order_events DISABLE TRIGGER trg_marketplace_order_events_guard');
+    try {
+      await stack.query(`UPDATE marketplace_order_events SET created_at = now() - interval '9 days'
+                          WHERE order_id = ANY($1::uuid[]) AND event_type = 'fulfillment'`, [[T.bowlOrder, T.mugOrder]]);
+    } finally { await stack.query('ALTER TABLE marketplace_order_events ENABLE TRIGGER trg_marketplace_order_events_guard'); }
     step('prepare');
     const prep = await api(T.admin.token, 'POST', '/api/admin/storefront-payouts/prepare', {});
     expect(prep.status).toBe(200);

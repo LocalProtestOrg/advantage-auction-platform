@@ -130,6 +130,13 @@ describe('a purchase that starts on the seller\'s own website', () => {
     await checkout.waitForSelector('#payBtn');
     expect(await checkout.textContent('.lines')).toMatch(/Item \(2 × \$25(\.00)?\)/);
     expect(await checkout.textContent('#payBtn')).toMatch(/\$50/);
+    // The purchase rules in plain words before payment (owner decisions 2026-11-09), and both seller policies linked.
+    const rules = await checkout.textContent('#purchaseRules');
+    expect(rules).toMatch(/sales are final once payment succeeds/); expect(rules).toMatch(/materially different from its listing/);
+    expect(rules).toMatch(/48 hours after pickup or 7 days after delivery/); expect(rules).toMatch(/never carries an extra fee/);
+    expect(rules).not.toMatch(/—|\bAI\b|Stripe/);
+    const ackLinks = await checkout.$$eval('label:has(#ackPol) a', (as) => as.map((a) => a.getAttribute('href')));
+    expect(ackLinks).toEqual(expect.arrayContaining(['/pro/riverbend-pottery/terms', '/pro/riverbend-pottery/shipping-pickup', '/buyer-terms.html']));
     await checkout.check('#ackPol');
     await checkout.click('#payBtn');
     await checkout.waitForSelector('h3.ok', { timeout: 30000 });
@@ -150,6 +157,24 @@ describe('a purchase that starts on the seller\'s own website', () => {
     expect(errors).toEqual([]);
     await ctx.close();
   });
+});
+
+test('a seller without both published store policies: the item page offers no Buy Now and the server refuses an order', async () => {
+  const other = await sj.publishedStorefront(stack, { email: 'nopolicy-owner@fullstack.test', slug: 'no-policy-goods', name: 'No Policy Goods' });
+  await makeReady(other.sellerProfileId, other.userId, 'https://no-policy-goods.example');
+  await stack.query(`UPDATE seller_policy_versions SET status = 'withdrawn', withdrawn_by = $2, withdrawn_at = now(), withdrawn_reason = 'Test: no shipping and pickup policy'
+                      WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [other.sellerProfileId, other.userId]);
+  const id = await sj.publishedItem(stack, { sellerProfileId: other.sellerProfileId, title: 'Unpoliced Clock', priceCents: 4000, inventoryNumber: 'NP-1' });
+  const r = await order(buyers[6], id, 1);
+  expect([r.status, r.j.code]).toEqual([409, 'SELLER_POLICIES_REQUIRED']);
+  expect(await stock(id)).toMatchObject({ quantity: 1 });
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await seed.browserLogin(page, stack, buyers[6].email);
+  await page.goto(stack.baseUrl + '/item.html?id=' + id, { waitUntil: 'networkidle' });
+  expect(await page.$('#buyNow')).toBeNull();
+  expect(await page.textContent('body')).toMatch(/Contact No Policy Goods|Ask .* a question|Contact Seller/);
+  await ctx.close();
 });
 
 test('a seller who cannot be paid (payout account not ready) gets no orders: the buyer sees a neutral message, nothing is charged', async () => {

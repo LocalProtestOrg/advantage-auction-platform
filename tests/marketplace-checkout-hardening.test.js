@@ -380,6 +380,10 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
       [/INSERT INTO marketplace_orders/, (p) => ({ rows: [ORDER({ fulfillment_method: 'shipping', ship_to: JSON.parse(p[10]) })] })],
       [/UPDATE marketplace_items SET quantity = quantity - \$2/, { rows: [{ quantity: 0 }] }],
       [/FROM marketplace_tax_jurisdictions WHERE state = \$1/, (p) => ({ rows: p[0] === 'TX' ? [{ remitter: 'seller' }] : [] })],   // migration 214 rule
+      // the seller's published Store Terms and Shipping & Pickup Policy (required for a purchase, owner 2026-11-09)
+      [/FROM seller_policy_versions WHERE seller_id = \$1 AND status = 'published'/, { rows: [
+        { id: 'pol-st', kind: 'store_terms', version: 1, content_hash: 'h1', published_at: new Date() },
+        { id: 'pol-sp', kind: 'shipping_pickup', version: 1, content_hash: 'h2', published_at: new Date() }] }],
       [/UPDATE marketplace_orders SET stripe_payment_intent_id/, (p) => ({ rows: [ORDER({ tax_cents: p[3], total_charge_cents: p[4], tax_remitter: p[5], tax_jurisdiction: p[6] })] })],
     ]);
     await svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: ship,

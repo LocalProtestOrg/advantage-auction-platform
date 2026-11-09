@@ -195,7 +195,8 @@ async function sale(price = 10000, { when = new Date(Date.now() - 3 * 864e5), ow
   return id;
 }
 const payoutsOf = (owner = 'sue') => q(`SELECT * FROM storefront_payouts WHERE seller_profile_id = $1 ORDER BY created_at`, [SP[owner]]);
-const future = new Date(Date.now() + 864e5);   // a cutoff after every sale in these tests
+// A cutoff after every sale AND after its buyer reporting period (48 hours after pickup; purchase policy 4).
+const future = new Date(Date.now() + 3 * 864e5);
 
 describe('the weekly cutoff (Wednesday 11:59 PM Eastern)', () => {
   test.each([
@@ -212,7 +213,7 @@ describe('preparing payouts', () => {
   test('only paid, fulfilled, unrefunded, undisputed, unheld orders completed before the cutoff; the amount is the seller proceeds', async () => {
     const good = await sale(10000);
     const notFulfilled = await (async () => { const it = await listQ(1); const o = await buy(it.id, 'bea'); await pay(o.body.data.order.id, 'bea'); return o.body.data.order.id; })();
-    const late = await sale(5000, { when: new Date(Date.now() + 2 * 864e5) });
+    const late = await sale(5000, { when: new Date(Date.now() + 4 * 864e5) });   // eligible after the cutoff (`future`, 3 days)
     const held = await sale(7000); await q('UPDATE marketplace_orders SET payout_hold = true WHERE id = $1', [held]);
     const disputed = await sale(8000);
     const dpi = (await one('SELECT stripe_payment_intent_id FROM marketplace_orders WHERE id = $1', [disputed])).stripe_payment_intent_id;
@@ -348,7 +349,7 @@ describe('owner and Admin/Finance notice when a storefront order is paid (roadma
 describe('commission corrections (Seller Agreement §6.9; migration 217)', () => {
   const A = () => require('../src/services/storefrontCommissionAdjustmentService');
   const today = () => new Date().toISOString().slice(0, 10);
-  const cut = (days) => new Date(Date.now() + days * 864e5);   // distinct cutoffs: one live record per seller per cutoff
+  const cut = (days) => new Date(Date.now() + (days + 2) * 864e5);   // past the 48-hour reporting period; distinct cutoffs: one live record per seller per cutoff
   const open = async (owner) => (await payoutsOf(owner)).find((x) => x.settlement_status === 'pending_review');
   const payOpen = async (owner) => { const p = await open(owner); await S().payPayout(p.id, { actorId: U.admin.id, confirmedCompleted: true, finalAmountCents: p.seller_payout_cents }); return p; };
   beforeAll(async () => {   // start gus clean: earlier tests leave an unpaid record
@@ -443,7 +444,7 @@ describe('commission corrections (Seller Agreement §6.9; migration 217)', () =>
 // Payout and fraud safeguards (owner-approved 2026-11-05; payoutSafeguards; migration 219 for the delivery columns).
 describe('payout safeguards on storefront payouts', () => {
   const auditSvc = () => require('../src/services/auditService');
-  const cutAt = (days) => new Date(Date.now() + days * 864e5);
+  const cutAt = (days) => new Date(Date.now() + (days + 2) * 864e5);   // past the 48-hour reporting period
   const pendingFor = async (owner) => (await payoutsOf(owner)).filter((x) => x.settlement_status === 'pending_review');
   async function freshPayout(owner, days) {
     for (const p of await pendingFor(owner)) await S().voidPayout(p.id, U.admin.id, { reason: 'test isolation' });

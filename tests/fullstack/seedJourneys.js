@@ -41,6 +41,7 @@ async function publishedStorefront(stack, { email = 'shop-owner@fullstack.test',
     default_pickup_confirmed_at: new Date(),
   } });
   await seed.signedStorefrontAgreement(stack, sellerProfileId);   // storefront publishing needs the current agreement version
+  await seed.publishedStorePolicies(stack, sellerProfileId, userId);   // an online purchase needs both store policies (2026-11-09)
   return { userId, sellerProfileId, slug, email };
 }
 

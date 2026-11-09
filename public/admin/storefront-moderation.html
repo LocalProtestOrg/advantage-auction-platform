@@ -135,7 +135,12 @@
             '<label class="small"><input type="checkbox" id="rel-'+esc(i.id)+'"> Release the payout hold this issue placed</label><br>' +
             '<button class="btn btn-ok" data-act="resolve" data-id="'+esc(i.id)+'">Resolve</button><button class="btn btn-mut" data-act="close" data-id="'+esc(i.id)+'">Close</button>'
           : '<div class="small">'+esc(i.resolution_note||'')+'</div><div class="small">'+esc(fmtDate(i.resolved_at))+'</div>';
-        return '<tr><td><b>'+esc(i.order_number)+'</b><div class="small">'+esc(fmtDate(i.created_at))+'</div></td>'+
+        // When the report came relative to the buyer's reporting period (48 hours after pickup, 7 days after delivery).
+        // Information for the decision only: a late report is still reviewed on its merits (purchase policy 4).
+        const REP = { within: 'Reported within the reporting period', after: 'Reported after the reporting period (still reviewed on its merits)',
+          before_fulfillment: (i.reporting_basis === 'delivery' ? 'Delivery' : 'Pickup') + ' not recorded when reported', unknown: 'Reporting time unknown' };
+        const rep = i.reported ? '<div class="small">'+esc(REP[i.reported] || '')+(i.fulfilled_at ? '; '+(i.reporting_basis === 'delivery' ? 'delivered ' : 'picked up ')+esc(fmtDate(i.fulfilled_at)) : '')+'</div>' : '';
+        return '<tr><td><b>'+esc(i.order_number)+'</b><div class="small">'+esc(fmtDate(i.created_at))+'</div>'+rep+'</td>'+
           '<td>'+esc(i.seller_name||'')+'</td>'+
           '<td><span class="badge warn">'+label(i.category)+'</span><div class="quote">'+esc(i.message)+'</div></td>'+
           '<td>'+(i.seller_response ? '<div class="quote">'+esc(i.seller_response)+'</div>' : '<span class="small">No response yet</span>')+'</td>'+

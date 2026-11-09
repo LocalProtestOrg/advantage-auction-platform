@@ -269,7 +269,12 @@
         var text=(p.draft&&p.draft.body)||(p.published&&p.published.body)||'';
         var state=p.published?('Published version '+p.published.version+' · '+new Date(p.published.published_at).toLocaleDateString()):'Not published yet';
         if(p.draft)state+=' · unpublished changes saved';
+        // What each policy should cover (purchase policies 2026-11-09). Both must be published before buyers can purchase online.
+        var guide=k==='store_terms'
+          ?'Required for online purchases. Cover your return and refund rules (or that sales are final), and how condition is described. Whatever you write, buyers can always report an item that is materially different from its listing, and Advantage.Bid reviews those reports.'
+          :'Required for online purchases. Cover where and when buyers collect items, how to arrange pickup, the pickup deadline, and what happens to items that are not collected (any storage charge or forfeiture must be stated here before the buyer pays). If you ship, cover how and when.';
         box.innerHTML='<label for="pt-'+k+'"><b>'+esc(p.label)+'</b> <span class="hint">('+esc(state)+')</span></label>'
+          +'<p class="hint" style="margin:.2rem 0 .4rem;color:#475569">'+esc(guide)+'</p>'
           +'<textarea id="pt-'+k+'" rows="8" maxlength="20000" style="width:100%">'+esc(text)+'</textarea>'
           +'<div style="margin-top:.4rem;display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn b-ghost" type="button" onclick="savePolicy(\''+k+'\',this)">Save draft</button>'
           +'<button class="btn b-ghost" type="button" onclick="previewPolicy(\''+k+'\')">Preview</button>'

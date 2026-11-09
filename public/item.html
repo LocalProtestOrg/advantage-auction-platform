@@ -115,7 +115,7 @@
         buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
       } else if(status==='pending_purchase'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill">Sale in progress</span><p class="meta" style="margin:10px 0 0">This item is temporarily unavailable while another buyer completes checkout. Check back shortly.</p></div>';
-      } else if(CFG.checkout_enabled){
+      } else if(CFG.checkout_enabled&&it.purchase_policies_ready!==false){   // the seller's Store Terms and Shipping & Pickup Policy are required (server-enforced)
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Buy this item</div>'+
           '<p class="meta" style="margin:0 0 12px">Secure checkout through Advantage.Bid. '+(it.shippable?'Shipping or local pickup.':'Local pickup.')+'</p>'+
           '<button class="btn btn-primary" id="buyNow">Buy Now · '+money(it.price_cents)+'</button> '+ask+'</div>';
@@ -256,6 +256,12 @@
         '<tr class="tot"><td>Total</td><td align="right">'+money(b.total_charge_cents)+'</td></tr></table>';
       openModal('<h3>Review your order</h3><div class="meta">'+esc(ITEM.title)+' · '+(method==='shipping'?'Shipping':'Local pickup')+'</div>'+
         lines+
+        // The purchase rules in plain words (owner decisions 2026-11-09); the binding text is in the terms linked below.
+        '<div class="meta" id="purchaseRules" style="margin-top:12px;font-size:13px;line-height:1.45"><b>Before you pay:</b> '+
+          'sales are final once payment succeeds, so an order cannot be cancelled because you changed your mind. '+
+          'Returns follow the seller&#39;s Store Terms, and pickup times and items that are not collected follow the seller&#39;s Shipping &amp; Pickup Policy. '+
+          'If the item is materially different from its listing, or never arrives, tell us under Report a problem in My Purchases. '+
+          'Please report a problem within 48 hours after pickup or 7 days after delivery. A refund never carries an extra fee.</div>'+
         '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:12px"><input type="checkbox" id="ackPol" style="width:auto;margin-top:3px"> <span>I have read and agree to '+
           (ITEM.policies&&(ITEM.policies.store_terms||ITEM.policies.shipping_pickup)&&ITEM.storefront_slug?(esc(ITEM.seller_name||'the seller')+'&#39;s '+
             [ITEM.policies.store_terms?'<a href="/pro/'+encodeURIComponent(ITEM.storefront_slug)+'/terms" target="_blank" rel="noopener">Store Terms</a>':'',

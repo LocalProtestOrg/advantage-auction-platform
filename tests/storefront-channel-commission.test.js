@@ -327,7 +327,7 @@ describe('payment, payouts and refunds use the order\'s own rate', () => {
     const { pass } = await widgetPage(SP.sue, FRAMED);
     const web = await paidAndPickedUp((await listQ(1, 20000)).id, 'bea', { channel_passes: [pass] });
     const mkt = await paidAndPickedUp((await listQ(1, 20000)).id, 'ben');
-    await S.prepareWeek({ cutoff: new Date(Date.now() + 864e5) });
+    await S.prepareWeek({ cutoff: new Date(Date.now() + 3 * 864e5) });
     const lines = await q(`SELECT l.marketplace_order_id AS id, l.platform_fee_cents, l.amount_cents FROM storefront_payout_lines l WHERE l.marketplace_order_id = ANY($1::uuid[])`, [[web, mkt]]);
     const by = Object.fromEntries(lines.map((l) => [l.id, l]));
     expect(by[web]).toMatchObject({ platform_fee_cents: 1000, amount_cents: 19000 });
@@ -342,7 +342,7 @@ describe('payment, payouts and refunds use the order\'s own rate', () => {
     await q(`ALTER TABLE seller_payouts ADD COLUMN IF NOT EXISTS stripe_transfer_id text, ADD COLUMN IF NOT EXISTS payout_status text, ADD COLUMN IF NOT EXISTS transfer_failure_message text`);
     const { pass } = await widgetPage(SP.sue, FRAMED);
     const id = await paidAndPickedUp((await listQ(1)).id, 'bea', { channel_passes: [pass] });
-    await S.prepareWeek({ cutoff: new Date(Date.now() + 2 * 864e5) });
+    await S.prepareWeek({ cutoff: new Date(Date.now() + 4 * 864e5) });
     const p = await one(`SELECT p.* FROM storefront_payouts p JOIN storefront_payout_lines l ON l.storefront_payout_id = p.id WHERE l.marketplace_order_id = $1`, [id]);
     await S.payPayout(p.id, { actorId: U.admin.id, confirmedCompleted: true, finalAmountCents: p.seller_payout_cents });
     await orders.refundOrder(id, { adminId: U.admin.id, reason: 'Returned' });
@@ -388,7 +388,7 @@ describe('seller-caused refunds: recorded and reviewable; the card cost is recov
     expect(await one(`SELECT count(*)::int n FROM storefront_payout_recoveries WHERE marketplace_order_id = $1`, [buyer])).toEqual({ n: 0 });
     // applied by the next prepared payout like any other recovery
     const next = await paidAndPickedUp((await listQ(1, 20000)).id, 'bea');
-    await S().prepareWeek({ cutoff: new Date(Date.now() + 3 * 864e5) });
+    await S().prepareWeek({ cutoff: new Date(Date.now() + 5 * 864e5) });
     const p = await one(`SELECT p.* FROM storefront_payouts p JOIN storefront_payout_lines l ON l.storefront_payout_id = p.id WHERE l.marketplace_order_id = $1`, [next]);
     expect(Number(p.recovery_cents)).toBeGreaterThanOrEqual(320);
   });

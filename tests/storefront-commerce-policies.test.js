@@ -193,7 +193,7 @@ const SHIP_TO = { line1: '5 Oak St', city: 'Austin', state: 'TX', postal_code: '
 const shipItem = (qty, rule, extra = {}) => listQ(qty, 2000, 'sue', { shippable: true, shipping_method: 'parcel', shipping_destinations: 'us_all',
   shipping_price_mode: 'flat', shipping_cost_cents: 800, ...(rule ? { shipping_quantity_rule: rule } : {}), ...extra });
 const stock = (id) => one('SELECT status, quantity FROM marketplace_items WHERE id = $1', [id]);
-const future = new Date(Date.now() + 864e5);
+const future = new Date(Date.now() + 3 * 864e5);   // past the 48-hour buyer reporting period (purchase policy 4)
 async function paidAndPickedUp(price, owner = 'sue') {
   const it = await listQ(1, price, owner); const o = await buy(it.id, 'bea'); await pay(o.body.data.order.id, 'bea');
   await orders.updateFulfillment(o.body.data.order.id, U[owner].id, 'picked_up');
@@ -373,7 +373,7 @@ describe('a refund after the seller was paid is recovered from the next payout',
     expect((await one('SELECT count(*)::int n FROM storefront_payout_recoveries WHERE marketplace_order_id = $1', [first])).n).toBe(1);
     // next week: a new sale of 200 -> payout 18200 - 9100 recovered
     const second = await paidAndPickedUp(20000);
-    await S().prepareWeek({ cutoff: new Date(Date.now() + 2 * 864e5) });
+    await S().prepareWeek({ cutoff: new Date(Date.now() + 4 * 864e5) });
     const p2 = await one(`SELECT p.* FROM storefront_payouts p JOIN storefront_payout_lines l ON l.storefront_payout_id = p.id WHERE l.marketplace_order_id = $1`, [second]);
     expect(p2).toMatchObject({ recovery_cents: 9100 });
     expect(p2.seller_payout_cents).toBe(Number((await one(`SELECT sum(amount_cents)::int a FROM storefront_payout_lines WHERE storefront_payout_id = $1 AND active`, [p2.id])).a) - 9100);

@@ -5,7 +5,8 @@
  * users/seller_profiles tables). A storefront order needs a seller whose agreement is in place and whose payout account
  * can be paid (sellerSaleEligibility, 2026-11-02). Here every test seller starts READY: a signed Seller Agreement on a
  * version with the current storefront terms (migration 216; a waiver alone no longer counts, owner decision 2026-11-03)
- * and a connected (test-mode) payout account are created with the seller. A test that needs a not-ready seller removes
+ * and a connected (test-mode) payout account are created with the seller, and (when the harness has the policy table)
+ * the seller's Store Terms and Shipping & Pickup Policy are published. A test that needs a not-ready seller removes
  * either explicitly (DELETE FROM agreements WHERE seller_profile_id = ... / UPDATE seller_payout_preferences ...).
  * Applied after the harness creates seller_profiles. Test data only.
  */
@@ -64,6 +65,25 @@ BEGIN
 END $$;
 DROP TRIGGER IF EXISTS test_sale_ready_agreement ON seller_profiles;
 CREATE TRIGGER test_sale_ready_agreement AFTER INSERT ON seller_profiles FOR EACH ROW EXECUTE FUNCTION test_sale_ready_agreement();
+-- Purchase policies (owner 2026-11-09): an online purchase needs the seller's published Store Terms AND Shipping & Pickup
+-- Policy. Every new test seller publishes version 1 of each (through the real draft -> published path of migration 203).
+-- Skipped when the harness has no policy table. A test that needs a seller without policies withdraws or never has them.
+CREATE OR REPLACE FUNCTION test_sale_ready_policies() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE k TEXT; vid UUID;
+BEGIN
+  IF to_regclass('seller_policy_versions') IS NULL OR NEW.user_id IS NULL THEN RETURN NEW; END IF;
+  FOREACH k IN ARRAY ARRAY['store_terms', 'shipping_pickup'] LOOP
+    BEGIN
+      INSERT INTO seller_policy_versions (seller_id, kind, version, body, content_hash, created_by)
+        VALUES (NEW.id, k, 1, 'Test ' || k || ' policy for this seller (test data only).', md5(k || NEW.id::text), NEW.user_id) RETURNING id INTO vid;
+      UPDATE seller_policy_versions SET status = 'published', published_at = now(), published_by = NEW.user_id WHERE id = vid;
+    EXCEPTION WHEN others THEN NULL;
+    END;
+  END LOOP;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS test_sale_ready_policies ON seller_profiles;
+CREATE TRIGGER test_sale_ready_policies AFTER INSERT ON seller_profiles FOR EACH ROW EXECUTE FUNCTION test_sale_ready_policies();
 `;
 
 module.exports = { SALE_READY_SQL };

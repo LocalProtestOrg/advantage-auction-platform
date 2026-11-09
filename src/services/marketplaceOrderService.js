@@ -27,6 +27,7 @@ const db = require('../db');
 const sellerActor = require('../lib/sellerActor');
 const shipping = require('../lib/storefrontShipping');
 const sellerPolicies = require('./sellerPolicyService');
+const purchasePolicy = require('../lib/storefrontPurchasePolicy');
 const { brandingVisible } = require('../lib/sellerBranding');
 const Stripe = require('stripe');
 const { withTransaction } = require('../utils/withTransaction');
@@ -205,6 +206,16 @@ async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runne
   return { item: row, method, shippingCents, feeBps: feeBpsForSeller(row) };
 }
 
+// Purchase policies (owner decisions 2026-11-09, src/lib/storefrontPurchasePolicy.js): ordinary returns follow the seller's
+// Store Terms and pickup (including uncollected items) follows its Shipping & Pickup Policy, so both must be published and
+// shown to the buyer before anyone pays. Hidden seller branding hides the policies too, so such a sale is refused rather than
+// made without them. Checked at the quote and again inside the order transaction (the versions recorded on the order).
+function assertPurchasePolicies(snap) {
+  if (!snap || !snap.seller_policies_shown || !snap.store_terms || !snap.shipping_pickup) {
+    throw err(409, 'SELLER_POLICIES_REQUIRED', "This seller hasn't finished setting up online purchasing yet. You can contact the seller about this item.");
+  }
+}
+
 // The fixed record of what was bought and from whom, captured from the locked item at purchase (migration 197 rejects an
 // order whose snapshot names a different item or seller, and never lets it change afterwards).
 function purchaseSnapshot(item, method = 'pickup', shippingCents = 0, units = 1) {
@@ -247,6 +258,7 @@ async function quote(itemId, buyerUserId, opts = {}) {
     qShip ? { shipToState: qShip.state || '', shipToCountry: qShip.country, units } : { units });
   if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
   if (Number(item.quantity == null ? 1 : item.quantity) < units) throw err(409, 'NOT_ENOUGH_AVAILABLE', availabilityMessage(item.quantity));
+  assertPurchasePolicies(await sellerPolicies.snapshotFor(item.seller_id, db, { shown: brandingVisible(item.seller_type, item.show_branding_to_buyers) }));
   const goods = Number(item.price_cents) * units;
   // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
   const loc = await resolveTaxLocation({ method, item, shipTo: opts.ship_to || opts.address });
@@ -369,6 +381,7 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     // read here are still the published ones when the order is inserted.
     await client.query('SELECT id FROM seller_profiles WHERE id = $1 FOR SHARE', [item.seller_id]);
     const policySnap = await sellerPolicies.snapshotFor(item.seller_id, client, { shown: brandingVisible(item.seller_type, item.show_branding_to_buyers) });
+    assertPurchasePolicies(policySnap);
     if (opts.expectedPolicyVersions && typeof opts.expectedPolicyVersions === 'object') {
       for (const k of ['store_terms', 'shipping_pickup']) {
         const want = opts.expectedPolicyVersions[k] == null ? null : Number(opts.expectedPolicyVersions[k]);
@@ -1216,6 +1229,9 @@ function publicOrder(o) {
     // The sales channel that set this order's commission (migration 215): seller_website (5%) or marketplace (9%).
     sales_channel: o.sales_channel || null,
     created_at: o.created_at, paid_at: o.paid_at,
+    // Purchase policy 4: report problems within 48 hours after pickup or 7 days after delivery, counted from the recorded
+    // pickup or delivery (never the payment date). Information for buyer and seller; a later report is still accepted.
+    ...(o.fulfilled_at !== undefined ? { reporting_period: purchasePolicy.reportingWindow(o.fulfillment_method, o.fulfilled_at) } : {}),
   };
 }
 
@@ -1232,7 +1248,7 @@ const isUuid = (v) => UUID_RE.test(String(v || ''));
 
 async function listForBuyer(buyerUserId) {
   const { rows } = await db.query(
-    `SELECT o.*, mi.title AS item_title, mi.thumbnail_url,
+    `SELECT o.*, mi.title AS item_title, mi.thumbnail_url, ${purchasePolicy.fulfilledAtSql('o')} AS fulfilled_at,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             sp.storefront_slug
        FROM marketplace_orders o
@@ -1262,7 +1278,7 @@ async function listForSeller(sellerActorRef) {
   const seller = await sellerActor.sellerRow(sellerActorRef);
   if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
   const { rows } = await db.query(
-    `SELECT o.*, mi.title AS item_title, mi.thumbnail_url,
+    `SELECT o.*, mi.title AS item_title, mi.thumbnail_url, ${purchasePolicy.fulfilledAtSql('o')} AS fulfilled_at,
             bu.email AS buyer_email, bu.full_name AS buyer_full_name
        FROM marketplace_orders o
        JOIN marketplace_items mi ON mi.id = o.marketplace_item_id
@@ -1278,7 +1294,8 @@ async function listForSeller(sellerActorRef) {
 // Single-order fetch, ownership-scoped (used by the buyer confirmation poll + seller/admin detail).
 async function getForBuyer(orderId, buyerUserId) {
   if (!isUuid(orderId)) return null;
-  const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
+  const o = (await db.query(`SELECT o.*, ${purchasePolicy.fulfilledAtSql('o')} AS fulfilled_at FROM marketplace_orders o
+    WHERE o.id = $1 AND o.buyer_user_id = $2`, [orderId, buyerUserId])).rows[0];
   if (o && !marketplaceCheckoutAllowed({ sellerId: o.seller_id, userId: buyerUserId })) throw checkoutOff();
   return o ? buyerOrder(o) : null;
 }
@@ -1287,7 +1304,7 @@ async function getForSeller(orderId, sellerActorRef) {
   const seller = await sellerActor.sellerRow(sellerActorRef);
   if (!seller) return null;
   const o = (await db.query(
-    `SELECT o.*, bu.email AS buyer_email, bu.full_name AS buyer_full_name
+    `SELECT o.*, ${purchasePolicy.fulfilledAtSql('o')} AS fulfilled_at, bu.email AS buyer_email, bu.full_name AS buyer_full_name
        FROM marketplace_orders o JOIN users bu ON bu.id = o.buyer_user_id
       WHERE o.id = $1 AND o.seller_id = $2`, [orderId, seller.id])).rows[0];
   return o ? sellerOrderView(o, sellerActorRef) : null;
@@ -1316,6 +1333,27 @@ async function orderHistory(orderId, { buyerUserId, sellerUserId, seller: seller
   });
 }
 
+// After a payout hold is released (the hold flag already cleared, inside the caller's transaction). A hold suspends payout
+// eligibility (migration 197 trigger) and, when a buyer report or chargeback placed it, marks the order for review with the
+// same note. Releasing must put back exactly what the hold took, or the seller is never paid for a sale that was resolved in
+// their favour:
+//   - the review flag the hold set (review note = the released hold's reason) is cleared; any OTHER review reason
+//     (a payment mismatch, a refund that could not be recorded) is left for an administrator;
+//   - payout eligibility is restored when the order is paid, not refunded, and pickup or delivery is recorded. Its
+//     eligibility time is never earlier than the release, and the weekly payout still waits for the reporting period.
+// `before` is the order row as read before the release. Returns the updated row, or null when nothing changed.
+async function restorePayoutAfterHold(client, before) {
+  return (await client.query(
+    `UPDATE marketplace_orders
+        SET review_required = CASE WHEN review_required AND review_note IS NOT DISTINCT FROM $2 THEN false ELSE review_required END,
+            payout_eligible = CASE WHEN payment_status = 'paid' AND refund_status = 'none' AND NOT payout_hold
+                                    AND fulfillment_status IN ('picked_up', 'completed') THEN true ELSE payout_eligible END,
+            payout_eligible_at = CASE WHEN payment_status = 'paid' AND refund_status = 'none' AND NOT payout_hold
+                                       AND fulfillment_status IN ('picked_up', 'completed') THEN now() ELSE payout_eligible_at END,
+            updated_at = now()
+      WHERE id = $1 AND NOT payout_hold RETURNING *`, [before.id, before.payout_hold_reason || null])).rows[0] || null;
+}
+
 // Admin: place or release a payout hold on an order (a flag; no money moves). Reason required; kept in the order history.
 async function setPayoutHold(orderId, adminId, { hold, reason } = {}) {
   if (!adminId) throw err(403, 'ADMIN_REQUIRED', 'Only an administrator can change a payout hold.');
@@ -1336,9 +1374,18 @@ async function setPayoutHold(orderId, adminId, { hold, reason } = {}) {
       } catch (e) { if (e && e.code === '42P01') open = 0; else throw e; }
       if (open > 0) throw err(409, 'DISPUTE_OPEN', 'A payment dispute is open for this order. The payout hold stays until the dispute is closed.');
     }
-    const upd = (await client.query(
+    // Nor while a buyer's report that holds the payout (not received, not as described, damaged, refund request) is still
+    // open: resolve the report first (purchase policy 3, owner 2026-11-09).
+    if (!on) {
+      const issues = require('./marketplaceOrderIssueService');
+      const openIssues = Number((await client.query(`SELECT count(*)::int n FROM marketplace_order_issues WHERE order_id = $1
+        AND status IN ('open', 'seller_responded') AND category = ANY($2::text[])`, [o.id, issues.HOLD_CATEGORIES])).rows[0].n) || 0;
+      if (openIssues > 0) throw err(409, 'ISSUE_OPEN', "A buyer's problem report on this order is still open. Resolve it first; the payout hold stays until then.");
+    }
+    let upd = (await client.query(
       `UPDATE marketplace_orders SET payout_hold = $2, payout_hold_reason = $3, updated_at = now() WHERE id = $1 RETURNING *`,
       [o.id, on, on ? note : null])).rows[0];
+    if (!on && o.payout_hold) upd = await restorePayoutAfterHold(client, o) || upd;
     await recordEvent(client, o.id, on ? 'payout_hold' : 'payout_hold_released', { actorUserId: adminId, actorRole: 'admin', data: { reason: note } });
     await auditService.logEvent(client, { eventType: on ? 'marketplace_order.payout_hold' : 'marketplace_order.payout_hold_released',
       entityType: 'marketplace_order', entityId: o.id, actorId: adminId, metadata: { reason: note } });
@@ -1405,6 +1452,6 @@ module.exports = { taxResponsibility, recordProcessingFee, backfillProcessingFee
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
   relistItem, updateFulfillment, releaseOrder, listForBuyer, listForSeller,
   getForBuyer, getForSeller, publicOrder, buyerOrder, listForAdmin, orderHistory, setPayoutHold, holdForDispute, purchaseSnapshot,
-  intentMismatch, recordEvent,
+  intentMismatch, recordEvent, restorePayoutAfterHold, assertPurchasePolicies,
   payOrder, sweepExpiredHolds, releaseExpiredHold, resolveTaxLocation, recordRefund, refundConflict,
 };

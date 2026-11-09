@@ -701,6 +701,9 @@ function publicItem(row) {
   out.policies = { store_terms: kinds.includes('store_terms'), shipping_pickup: kinds.includes('shipping_pickup') };
   const vers = branded && row.published_policy_versions && typeof row.published_policy_versions === 'object' ? row.published_policy_versions : {};
   out.policy_versions = { store_terms: vers.store_terms || null, shipping_pickup: vers.shipping_pickup || null };
+  // Online purchase needs both seller policies shown to the buyer (purchase policies 2026-11-09; the server enforces it in
+  // marketplaceOrderService.assertPurchasePolicies). The item page offers Contact Seller instead when this is false.
+  out.purchase_policies_ready = !!(out.policies.store_terms && out.policies.shipping_pickup);
   // Sold-item price privacy (owner decision 2026-10-26, roadmap §12.3): once an item has SOLD, no public output carries
   // its price or shipping charge — a fixed-price item sells at its listed price, so showing it would disclose the sale
   // price. Every public surface (JSON API, server-rendered page, structured data) is built from this shape. The seller's

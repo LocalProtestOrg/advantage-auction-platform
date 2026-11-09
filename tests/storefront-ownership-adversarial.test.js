@@ -123,7 +123,7 @@ beforeAll(async () => {
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
   await global.__PG.exec(mig('198_storefront_moderation_reports.sql'));
 
-  for (const [name, role, staff] of [['nora', 'seller'], ['sue', 'seller'], ['bea', 'buyer'], ['ben', 'buyer'], ['admin', 'admin'], ['finance', 'buyer', 'finance']]) {
+  for (const [name, role, staff] of [['nora', 'seller'], ['sue', 'seller'], ['nell', 'seller'], ['sal', 'seller'], ['bea', 'buyer'], ['ben', 'buyer'], ['admin', 'admin'], ['finance', 'buyer', 'finance']]) {
     U[name] = await one(`INSERT INTO users (email, full_name, role, staff_role) VALUES ($1, $2, $3, $4) RETURNING *`, [name + '@test.example', name.toUpperCase(), role, staff || null]);
   }
   global.__USERS = U;
@@ -133,6 +133,15 @@ beforeAll(async () => {
       VALUES ($1, $2, $3, $4, 'Houston', 'TX', '77001', 'US', now(), true, $5) RETURNING id`,
       [U[name].id, type, name === 'nora' ? 'Nora Estate Sales' : 'Sue Auctions', name === 'nora' ? '1 Nora St' : '9 Sue Ave', name])).id;
   }
+  // Nell and Sal start WITHOUT published store policies (the policy editor tests build their history from nothing).
+  await global.__PG.exec('ALTER TABLE seller_profiles DISABLE TRIGGER test_sale_ready_policies');
+  for (const [name, type] of [['nell', 'estate_sale_company'], ['sal', 'auction_house']]) {
+    SP[name] = (await one(`INSERT INTO seller_profiles (user_id, seller_type, display_name, default_pickup_address_line1, default_pickup_city,
+      default_pickup_state, default_pickup_postal_code, default_pickup_country, default_pickup_confirmed_at, storefront_published, storefront_slug)
+      VALUES ($1, $2, $3, $4, 'Houston', 'TX', '77001', 'US', now(), true, $5) RETURNING id`,
+      [U[name].id, type, name === 'nell' ? 'Nell Estate Sales' : 'Sal Auctions', name === 'nell' ? '2 Nell St' : '8 Sal Ave', name])).id;
+  }
+  await global.__PG.exec('ALTER TABLE seller_profiles ENABLE TRIGGER test_sale_ready_policies');
 
   orders = require('../src/services/marketplaceOrderService');
   items = require('../src/services/marketplaceItemService');
@@ -930,93 +939,98 @@ describe('shipping: review fixes (US only, quoted price confirmed, consistent pu
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════
 // Seller Store Terms & Conditions and Shipping & Pickup Policy (migration 203; roadmap §7.2–7.4)
+// Nell's listing (a company that publishes its own store policies in these tests).
+async function nellItem(extra = {}) {
+  return items.createDirectListing(U.nell.id, { title: 'Walnut sideboard', price_cents: 10000, ...extra });
+}
+
 describe('seller policies: each company writes and publishes its own', () => {
-  const NORA_TERMS = 'Nora Estate Sales store terms. All items are sold as described. Inspection welcome by appointment.';
+  const NELL_TERMS = 'Nell Estate Sales store terms. All items are sold as described. Inspection welcome by appointment.';
   test('the owner saves a draft (not public), publishes it, and a seller id in the request is ignored', async () => {
-    const d = await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: NORA_TERMS, seller_id: SP.sue });
+    const d = await call('nell', 'PUT', '/api/seller-storefront/policies/store_terms', { body: NELL_TERMS, seller_id: SP.sal });
     expect(d.status).toBe(200); expect(d.body.data).toMatchObject({ version: 1, status: 'draft' });
-    expect((await one(`SELECT seller_id FROM seller_policy_versions WHERE id = $1`, [d.body.data.id])).seller_id).toBe(SP.nora);
-    const pub0 = await call('bea', 'GET', '/api/public/storefront/nora/policies');
+    expect((await one(`SELECT seller_id FROM seller_policy_versions WHERE id = $1`, [d.body.data.id])).seller_id).toBe(SP.nell);
+    const pub0 = await call('bea', 'GET', '/api/public/storefront/nell/policies');
     expect(pub0.body.data.store_terms).toBeNull();                       // a draft is never public
-    const p = await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish');
+    const p = await call('nell', 'POST', '/api/seller-storefront/policies/store_terms/publish');
     expect(p.status).toBe(200); expect(p.body.data).toMatchObject({ version: 1, status: 'published' });
-    const pub = await call('bea', 'GET', '/api/public/storefront/nora/policies');
-    expect(pub.body.data.store_terms).toMatchObject({ version: 1, body: NORA_TERMS, path: 'terms' });
+    const pub = await call('bea', 'GET', '/api/public/storefront/nell/policies');
+    expect(pub.body.data.store_terms).toMatchObject({ version: 1, body: NELL_TERMS, path: 'terms' });
     expect(pub.body.data.shipping_pickup).toBeNull();
   });
-  test("Sue cannot read or change Nora's policies; buyers cannot use the editor", async () => {
-    await call('sue', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Sue draft terms that are long enough to publish.', seller_id: SP.nora });
-    const sueView = await call('sue', 'GET', '/api/seller-storefront/policies');
-    expect(JSON.stringify(sueView.body.data)).not.toContain('Nora Estate Sales store terms');
-    expect((await call('sue', 'POST', '/api/seller-storefront/policies/store_terms/publish')).status).toBe(200);
+  test("Sal cannot read or change Nell's policies; buyers cannot use the editor", async () => {
+    await call('sal', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Sal draft terms that are long enough to publish.', seller_id: SP.nell });
+    const sueView = await call('sal', 'GET', '/api/seller-storefront/policies');
+    expect(JSON.stringify(sueView.body.data)).not.toContain('Nell Estate Sales store terms');
+    expect((await call('sal', 'POST', '/api/seller-storefront/policies/store_terms/publish')).status).toBe(200);
     expect((await call('bea', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'hijack hijack hijack hijack' })).status).toBe(403);
     expect((await call('bea', 'GET', '/api/seller-storefront/policies')).status).toBe(403);
-    expect((await call('nora', 'PUT', '/api/seller-storefront/policies/refunds', { body: 'x'.repeat(30) })).status).toBe(404);
-    expect((await call('bea', 'GET', '/api/public/storefront/nora/policies')).body.data.store_terms.body).toBe(NORA_TERMS);
+    expect((await call('nell', 'PUT', '/api/seller-storefront/policies/refunds', { body: 'x'.repeat(30) })).status).toBe(404);
+    expect((await call('bea', 'GET', '/api/public/storefront/nell/policies')).body.data.store_terms.body).toBe(NELL_TERMS);
   });
   test('published words can never change, versions are never deleted, and a new version supersedes the old', async () => {
-    const v1 = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'store_terms' AND status = 'published'`, [SP.nora]);
+    const v1 = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'store_terms' AND status = 'published'`, [SP.nell]);
     for (const sql of [`UPDATE seller_policy_versions SET body = 'rewritten' WHERE id = $1`, `DELETE FROM seller_policy_versions WHERE id = $1`,
-      `UPDATE seller_policy_versions SET status = 'draft' WHERE id = $1`, `UPDATE seller_policy_versions SET seller_id = '${SP.sue}' WHERE id = $1`]) {
+      `UPDATE seller_policy_versions SET status = 'draft' WHERE id = $1`, `UPDATE seller_policy_versions SET seller_id = '${SP.sal}' WHERE id = $1`]) {
       const e = await rejects(sql, [v1.id]);
       expect(e.message).toMatch(/never be rewritten|kept permanently|cannot become|keeps its seller/);
     }
-    const ins = await rejects(`INSERT INTO seller_policy_versions (seller_id, kind, version, status, body, content_hash, created_by) VALUES ($1,'store_terms',99,'published','x','h',$2)`, [SP.nora, U.nora.id]);
+    const ins = await rejects(`INSERT INTO seller_policy_versions (seller_id, kind, version, status, body, content_hash, created_by) VALUES ($1,'store_terms',99,'published','x','h',$2)`, [SP.nell, U.nell.id]);
     expect(ins.message).toMatch(/starts as a draft/);
-    expect((await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish')).body.code).toBe('NO_DRAFT');
-    await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nora store terms, version two. Returns within 3 days.' });
-    expect((await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish')).body.data.version).toBe(2);
+    expect((await call('nell', 'POST', '/api/seller-storefront/policies/store_terms/publish')).body.code).toBe('NO_DRAFT');
+    await call('nell', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nell store terms, version two. Returns within 3 days.' });
+    expect((await call('nell', 'POST', '/api/seller-storefront/policies/store_terms/publish')).body.data.version).toBe(2);
     expect(await one(`SELECT status FROM seller_policy_versions WHERE id = $1`, [v1.id])).toEqual({ status: 'superseded' });
-    const owner = (await call('nora', 'GET', '/api/seller-storefront/policies')).body.data.store_terms;
+    const owner = (await call('nell', 'GET', '/api/seller-storefront/policies')).body.data.store_terms;
     expect(owner.history.map((h) => [h.version, h.status])).toEqual([[2, 'published'], [1, 'superseded']]);
   });
   test('the public policy pages show the right seller, escape seller text, and 404 when nothing is published', async () => {
-    await call('nora', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Pickup within 7 days.\n\n<script>alert(1)</script> We ship freight.' });
-    await call('nora', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
+    await call('nell', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Pickup within 7 days.\n\n<script>alert(1)</script> We ship freight.' });
+    await call('nell', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
     const pages = require('../src/services/policyPageService');
-    const r = await pages.render('nora', 'shipping-pickup', 'https://bid.advantage.bid');
+    const r = await pages.render('nell', 'shipping-pickup', 'https://bid.advantage.bid');
     expect(r.status).toBe(200);
     expect(r.html).toContain('<h1>Shipping &amp; Pickup Policy</h1>');
-    expect(r.html).toContain('Nora Estate Sales');
+    expect(r.html).toContain('Nell Estate Sales');
     expect(r.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(r.html).not.toContain('<script>alert(1)</script>');
-    expect(r.html).toContain('<link rel="canonical" href="https://bid.advantage.bid/pro/nora/shipping-pickup">');
+    expect(r.html).toContain('<link rel="canonical" href="https://bid.advantage.bid/pro/nell/shipping-pickup">');
     expect(r.html).toContain('Buyer Terms');
-    expect(r.html).not.toMatch(/Sue Auctions|Sue draft terms/);
-    expect((await pages.render('sue', 'shipping-pickup', 'https://bid.advantage.bid')).status).toBe(404);
-    expect((await pages.render('nora', 'refunds', 'https://bid.advantage.bid')).status).toBe(404);
+    expect(r.html).not.toMatch(/Sal Auctions|Sal draft terms/);
+    expect((await pages.render('sal', 'shipping-pickup', 'https://bid.advantage.bid')).status).toBe(404);
+    expect((await pages.render('nell', 'refunds', 'https://bid.advantage.bid')).status).toBe(404);
     const sm = await require('../src/services/productPageService').sitemapEntries();
-    expect(sm.policies.map((p) => p.path)).toEqual(expect.arrayContaining(['/pro/nora/terms', '/pro/nora/shipping-pickup', '/pro/sue/terms']));
+    expect(sm.policies.map((p) => p.path)).toEqual(expect.arrayContaining(['/pro/nell/terms', '/pro/nell/shipping-pickup', '/pro/sal/terms']));
   });
   test("every item links to its own seller's policies, never another seller's", async () => {
-    const it = await noraItem({ title: 'Policy-linked chest' });
+    const it = await nellItem({ title: 'Policy-linked chest' });
     const pub = await items.getPublicItem(it.id);
     expect(pub.policies).toEqual({ store_terms: true, shipping_pickup: true });
     const pd = require('../src/lib/productData');
     const html = (await require('../src/services/productPageService').render(it.id, pd.slugify(it.title), 'https://bid.advantage.bid')).html;
-    expect(html).toContain('href="/pro/nora/terms"'); expect(html).toContain('href="/pro/nora/shipping-pickup"');
-    expect(html).not.toContain('/pro/sue/');
-    const sueItem = await items.createDirectListing(U.sue.id, { title: 'Sue vase', price_cents: 2000 });
-    expect((await items.getPublicItem(sueItem.id)).policies).toEqual({ store_terms: true, shipping_pickup: false });
+    expect(html).toContain('href="/pro/nell/terms"'); expect(html).toContain('href="/pro/nell/shipping-pickup"');
+    expect(html).not.toContain('/pro/sal/');
+    const salItem = await items.createDirectListing(U.sal.id, { title: 'Sal vase', price_cents: 2000 });
+    expect((await items.getPublicItem(salItem.id)).policies).toEqual({ store_terms: true, shipping_pickup: false });
   });
 });
 
 describe('seller policies at checkout: acknowledged and recorded permanently', () => {
   test('an order needs the acknowledgment and records the exact policy versions; later edits never change it', async () => {
-    const it = await noraItem({ title: 'Acknowledged sideboard' });
+    const it = await nellItem({ title: 'Acknowledged sideboard' });
     const noAck = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'pickup' });
     expect(noAck.status).toBe(422); expect(noAck.body.code).toBe('POLICIES_ACK_REQUIRED');
     expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
     const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'pickup', policies_acknowledged: true });
     expect(r.status).toBe(200);
     const o = await one('SELECT policy_snapshot, policies_acknowledged_at FROM marketplace_orders WHERE id = $1', [r.body.data.order.id]);
-    const terms = await one(`SELECT id, version, content_hash FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'store_terms' AND status = 'published'`, [SP.nora]);
+    const terms = await one(`SELECT id, version, content_hash FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'store_terms' AND status = 'published'`, [SP.nell]);
     expect(o.policy_snapshot.store_terms).toMatchObject({ version_id: terms.id, version: terms.version, content_hash: terms.content_hash });
     expect(o.policy_snapshot.shipping_pickup).toBeTruthy();
     expect(o.policies_acknowledged_at).toBeTruthy();
-    // Nora publishes a new version: the order still records the one that applied
-    await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nora store terms, version three, published after the order.' });
-    await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish');
+    // Nell publishes a new version: the order still records the one that applied
+    await call('nell', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nell store terms, version three, published after the order.' });
+    await call('nell', 'POST', '/api/seller-storefront/policies/store_terms/publish');
     const again = await one('SELECT policy_snapshot FROM marketplace_orders WHERE id = $1', [r.body.data.order.id]);
     expect(again.policy_snapshot.store_terms.version_id).toBe(terms.id);
     const e = await rejects(`UPDATE marketplace_orders SET policy_snapshot = '{}'::jsonb WHERE id = $1`, [r.body.data.order.id]);
@@ -1024,77 +1038,93 @@ describe('seller policies at checkout: acknowledged and recorded permanently', (
     const e2 = await rejects(`UPDATE marketplace_orders SET policies_acknowledged_at = now() - interval '1 day' WHERE id = $1`, [r.body.data.order.id]);
     expect(e2.message).toMatch(/can never change/);
   });
-  test('a seller without published policies still requires the platform terms acknowledgment and records nulls', async () => {
+  test('purchase policies (owner 2026-11-09): a seller without BOTH published policies cannot take an online order; nothing is reserved', async () => {
     const pat = await one(`INSERT INTO users (email, full_name, role) VALUES ('pat2@test.example', 'PAT2', 'seller') RETURNING *`);
     U.pat2 = pat;
+    await global.__PG.exec('ALTER TABLE seller_profiles DISABLE TRIGGER test_sale_ready_policies');
     const sp = (await one(`INSERT INTO seller_profiles (user_id, seller_type, display_name, default_pickup_address_line1, default_pickup_city, default_pickup_state,
       default_pickup_postal_code, default_pickup_country, default_pickup_confirmed_at) VALUES ($1,'auction_house','Pat Co','3 Pat Rd','Houston','TX','77001','US', now()) RETURNING id`, [pat.id])).id;
+    await global.__PG.exec('ALTER TABLE seller_profiles ENABLE TRIGGER test_sale_ready_policies');
     const it = await items.createDirectListing(pat.id, { title: 'No-policy item', price_cents: 1500 });
+    expect((await items.getPublicItem(it.id)).purchase_policies_ready).toBe(false);
+    await expect(orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true })).rejects.toMatchObject({ code: 'SELLER_POLICIES_REQUIRED', status: 409 });
+    // only the Store Terms published: still refused (the Shipping & Pickup Policy governs pickup and uncollected items)
+    await call('pat2', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Pat Co store terms: all sales final, items sold as described.' });
+    expect((await call('pat2', 'POST', '/api/seller-storefront/policies/store_terms/publish')).status).toBe(200);
+    await expect(orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true })).rejects.toMatchObject({ code: 'SELLER_POLICIES_REQUIRED' });
+    expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
+    expect(await one('SELECT quantity FROM marketplace_items WHERE id = $1', [it.id])).toEqual({ quantity: 1 });
+    // both published: the order records both versions
+    await call('pat2', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Pickup within 7 days by appointment; uncollected items are handled as stated here.' });
+    expect((await call('pat2', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
+    expect((await items.getPublicItem(it.id)).purchase_policies_ready).toBe(true);
     const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true });
     const o = await one('SELECT seller_id, policy_snapshot FROM marketplace_orders WHERE id = $1', [c.order.id]);
     expect(o.seller_id).toBe(sp);
-    expect(o.policy_snapshot).toMatchObject({ store_terms: null, shipping_pickup: null });
+    expect(o.policy_snapshot.store_terms).toMatchObject({ version: 1 }); expect(o.policy_snapshot.shipping_pickup).toMatchObject({ version: 1 });
   });
 });
 
 describe('seller policies: review fixes (changed after review, hidden branding, admin withdrawal)', () => {
   test('if the seller publishes a new version after the buyer reviewed the policies, the order is refused', async () => {
-    const it = await noraItem({ title: 'Changed policy item' });
+    const it = await nellItem({ title: 'Changed policy item' });
     const seen = (await items.getPublicItem(it.id)).policy_versions;
     expect(seen.store_terms).toBeGreaterThan(0);
-    await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nora store terms, a newer version published mid-checkout.' });
-    await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish');
+    await call('nell', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nell store terms, a newer version published mid-checkout.' });
+    await call('nell', 'POST', '/api/seller-storefront/policies/store_terms/publish');
     const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, policies_acknowledged: true, expected_policy_versions: seen });
     expect(r.status).toBe(409); expect(r.body.code).toBe('POLICIES_CHANGED');
     expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
     const fresh = (await items.getPublicItem(it.id)).policy_versions;
     expect((await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, policies_acknowledged: true, expected_policy_versions: fresh })).status).toBe(200);
   });
-  test('a seller whose branding is hidden: its policies are not shown, not required and not recorded (no seller leak)', async () => {
+  test('a seller whose branding is hidden: its policies cannot be shown without revealing it, so no online order is taken (no seller leak)', async () => {
+    // Sue has both policies published (test fixture) but hides her branding: the buyer could not see them before paying.
     await q('UPDATE seller_profiles SET show_branding_to_buyers = false WHERE id = $1', [SP.sue]);
     try {
       const it = await items.createDirectListing(U.sue.id, { title: 'Hidden-brand lamp', price_cents: 3000 });
       const pub = await items.getPublicItem(it.id);
       expect(pub.policies).toEqual({ store_terms: false, shipping_pickup: false });
       expect(pub.policy_versions).toEqual({ store_terms: null, shipping_pickup: null });
+      expect(pub.purchase_policies_ready).toBe(false);
       expect(JSON.stringify(pub)).not.toMatch(/\/pro\/sue|Sue Auctions/);
-      const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, expectedPolicyVersions: pub.policy_versions });
-      const o = await one('SELECT policy_snapshot FROM marketplace_orders WHERE id = $1', [c.order.id]);
-      expect(o.policy_snapshot).toMatchObject({ store_terms: null, shipping_pickup: null, seller_policies_shown: false });
+      await expect(orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, expectedPolicyVersions: pub.policy_versions }))
+        .rejects.toMatchObject({ code: 'SELLER_POLICIES_REQUIRED' });
+      expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
     } finally { await q('UPDATE seller_profiles SET show_branding_to_buyers = true WHERE id = $1', [SP.sue]); }
   });
   test('Advantage.Bid can withdraw a published policy with a reason; the text stays on record; sellers and buyers cannot', async () => {
-    const v = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [SP.nora]);
-    for (const who of ['nora', 'sue', 'bea']) expect((await call(who, 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'Misleading terms' })).status).toBe(403);
+    const v = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [SP.nell]);
+    for (const who of ['nell', 'sal', 'bea']) expect((await call(who, 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'Misleading terms' })).status).toBe(403);
     expect((await call('admin', 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'x' })).body.code).toBe('REASON_REQUIRED');
     const w = await call('admin', 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'Contradicts the Buyer Terms on refunds' });
     expect(w.status).toBe(200); expect(w.body.data.status).toBe('withdrawn');
-    expect((await call('bea', 'GET', '/api/public/storefront/nora/policies')).body.data.shipping_pickup).toBeNull();
-    expect((await require('../src/services/policyPageService').render('nora', 'shipping-pickup', 'https://bid.advantage.bid')).status).toBe(404);
+    expect((await call('bea', 'GET', '/api/public/storefront/nell/policies')).body.data.shipping_pickup).toBeNull();
+    expect((await require('../src/services/policyPageService').render('nell', 'shipping-pickup', 'https://bid.advantage.bid')).status).toBe(404);
     const kept = await one('SELECT body, withdrawn_reason FROM seller_policy_versions WHERE id = $1', [v.id]);
     expect(kept.body).toMatch(/Pickup within 7 days/); expect(kept.withdrawn_reason).toMatch(/Buyer Terms/);
     const e = await rejects(`UPDATE seller_policy_versions SET status = 'published' WHERE id = $1`, [v.id]);
     expect(e.message).toMatch(/cannot become/);
     // the seller can publish a corrected version
-    await call('nora', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Corrected shipping and pickup policy for our store.' });
-    expect((await call('nora', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
+    await call('nell', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Corrected shipping and pickup policy for our store.' });
+    expect((await call('nell', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
   });
 });
 
 describe('seller policies: re-review fixes', () => {
   test('text Advantage.Bid withdrew cannot be republished unchanged; a withdrawal record never changes', async () => {
-    await call('sue', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sue shipping policy that will be withdrawn by staff.' });
-    const pub = await call('sue', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
+    await call('sal', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sal shipping policy that will be withdrawn by staff.' });
+    const pub = await call('sal', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
     const w = await call('admin', 'POST', `/api/admin/storefront/policies/${pub.body.data.id}/withdraw`, { reason: 'Misleading shipping promise' });
     expect(w.status).toBe(200);
-    await call('sue', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sue shipping policy that will be withdrawn by staff.' });
-    const again = await call('sue', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
+    await call('sal', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sal shipping policy that will be withdrawn by staff.' });
+    const again = await call('sal', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
     expect(again.status).toBe(409); expect(again.body.code).toBe('WITHDRAWN_TEXT');
-    await call('sue', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sue shipping policy, revised: we ship within 5 business days.' });
-    expect((await call('sue', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
+    await call('sal', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Sal shipping policy, revised: we ship within 5 business days.' });
+    expect((await call('sal', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
     const e = await rejects(`UPDATE seller_policy_versions SET withdrawn_reason = 'edited reason' WHERE id = $1`, [pub.body.data.id]);
     expect(e.message).toMatch(/withdrawal record can never be changed/);
-    const live = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [SP.sue]);
+    const live = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [SP.sal]);
     const e2 = await rejects(`UPDATE seller_policy_versions SET withdrawn_reason = 'sneaky' WHERE id = $1`, [live.id]);
     expect(e2.message).toMatch(/withdrawal record can never be changed/);
   });

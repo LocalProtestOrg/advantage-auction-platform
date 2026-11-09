@@ -73,6 +73,23 @@ async function signedStorefrontAgreement(stack, sellerProfileId) {
     [v.id, sellerProfileId])).rows[0].id;
 }
 
+/**
+ * The seller's published Store Terms and Shipping & Pickup Policy (purchase policies, owner 2026-11-09: an online purchase
+ * needs both). Published through the real draft -> published path (migration 203). Test text only. Idempotent per seller.
+ */
+async function publishedStorePolicies(stack, sellerProfileId, userId) {
+  const text = { store_terms: 'Test store terms: returns accepted within 7 days for items not as described.',
+    shipping_pickup: 'Test shipping and pickup policy: pickup by appointment within 7 days; uncollected items are handled as stated here.' };
+  for (const kind of ['store_terms', 'shipping_pickup']) {
+    const has = (await stack.query(`SELECT 1 FROM seller_policy_versions WHERE seller_id = $1 AND kind = $2 AND status = 'published'`, [sellerProfileId, kind])).rows[0];
+    if (has) continue;
+    const next = Number((await stack.query(`SELECT COALESCE(max(version), 0) + 1 AS v FROM seller_policy_versions WHERE seller_id = $1 AND kind = $2`, [sellerProfileId, kind])).rows[0].v);
+    const v = (await stack.query(`INSERT INTO seller_policy_versions (seller_id, kind, version, body, content_hash, created_by)
+      VALUES ($1, $2, $3, $4, md5($4), $5) RETURNING id`, [sellerProfileId, kind, next, text[kind], userId])).rows[0];
+    await stack.query(`UPDATE seller_policy_versions SET status = 'published', published_at = now(), published_by = $2 WHERE id = $1`, [v.id, userId]);
+  }
+}
+
 /** Log in through the API; returns the session token (Bearer). */
 async function apiLogin(stack, email, password = TEST_PASSWORD) {
   const r = await fetch(stack.baseUrl + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
@@ -89,4 +106,4 @@ async function browserLogin(page, stack, email, password = TEST_PASSWORD, next =
   await Promise.all([page.waitForURL((u) => !/\/login\.html/.test(String(u)), { timeout: 20000 }), page.click('#login-btn')]);
 }
 
-module.exports = { TEST_PASSWORD, SELLER_AGREEMENT_TEMPLATE, sellerAgreementBody, sellerAgreementTemplate, signedStorefrontAgreement, user, sellerProfile, apiLogin, browserLogin };
+module.exports = { TEST_PASSWORD, SELLER_AGREEMENT_TEMPLATE, sellerAgreementBody, sellerAgreementTemplate, signedStorefrontAgreement, publishedStorePolicies, user, sellerProfile, apiLogin, browserLogin };
