@@ -119,7 +119,7 @@ describe('storefront config sanitization + slug + SEO', () => {
     expect(c.section_visibility.team).toBe(false); expect(c.section_visibility.auctions).toBe(true);
   });
   test('slugify produces a clean url slug', () => {
-    expect(storefront.slugify('Heritage & Home Estate Services!')).toBe('heritage-home-estate-services');
+    expect(storefront.slugify('Heritage & Home Estate Services!')).toBe('heritage-and-home-estate-services');   // new links read & as 'and' (2026-11-10); existing links never change
   });
   test('ssrMeta returns noindex for a demo storefront and index for a real one', async () => {
     db.query.mockResolvedValueOnce({ rows: [{ id: 's1', storefront_slug: 'demo-co', storefront_published: true, is_demo: true, seller_type: 'estate_sale_company', display_name: 'Demo Co', storefront: { tagline: 'x' }, metadata: {} }] });

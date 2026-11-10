@@ -29,7 +29,10 @@ function cleanMultiline(v, max = 4000) {
   return s ? s.slice(0, max) : null;
 }
 function url(v) { const s = clean(v, 300); return s && /^https?:\/\//i.test(s) ? s : null; }
-function slugify(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || null; }
+// The storefront address is automatic (src/lib/storefrontLink.js, owner 2026-11-10): made from the business name once,
+// then never changed by the seller or by a name change.
+const storefrontLink = require('../lib/storefrontLink');
+const slugify = storefrontLink.slugify;
 
 // Sanitize the full storefront config object (whitelisted keys only).
 function sanitizeConfig(input = {}) {
@@ -69,6 +72,8 @@ function sanitizeConfig(input = {}) {
 }
 
 function sellerName(sp) { return sp.display_name || (sp.metadata && (sp.metadata.display_name || sp.metadata.business_name)) || 'Professional Seller'; }
+// The seller's own business name for its link (never the generic 'Professional Seller' label; no name gives seller-xxxxxxxx).
+function ownName(sp) { return sp.display_name || (sp.metadata && (sp.metadata.display_name || sp.metadata.business_name)) || null; }
 function sellerMetaVal(sp, key) { return sp.metadata && sp.metadata[key] ? sp.metadata[key] : null; }
 
 // ── Owner (seller) config: get + update ─────────────────────────────────────────────────────────────
@@ -84,6 +89,11 @@ const BUSINESS_NAME_MIN = 2; const BUSINESS_NAME_MAX = 80;
 async function getOwnerConfig(userId) {
   const sp = (await db.query('SELECT * FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
   if (!sp) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
+  // A Professional Seller always has its storefront link (assigned once, here if enrollment did not; never published by this).
+  if (isProfessional(sp.seller_type) && !sp.storefront_slug) {
+    try { sp.storefront_slug = await storefrontLink.ensureStorefrontSlug(db, sp.id, ownName(sp)); }
+    catch (e) { console.error('[storefront] could not assign the storefront link:', e.message); }
+  }
   return { eligible: isProfessional(sp.seller_type), seller_id: sp.id,
     slug: sp.storefront_slug, published: sp.storefront_published, is_demo: sp.is_demo,
     name: sellerName(sp), business_name_editable: await businessNameEditable(sp.id), logo_url: sp.logo_url, location_label: sp.location_label,
@@ -174,25 +184,16 @@ async function updateConfig(userId, body = {}) {
     }
   }
 
-  if (body.slug !== undefined) {
-    const desired = slugify(body.slug) || slugify(renamed ? renamed.to : sellerName(sp));
-    if (desired) {
-      const taken = (await db.query('SELECT 1 FROM seller_profiles WHERE lower(storefront_slug) = lower($1) AND id <> $2', [desired, sp.id])).rows[0];
-      if (taken) throw err(409, 'SLUG_TAKEN', 'That storefront address is already taken.');
-      add('storefront_slug', desired);
-    }
-  } else if (!sp.storefront_slug) {
-    let base = slugify(renamed ? renamed.to : sellerName(sp)) || ('seller-' + sp.id.slice(0, 8)); let candidate = base; let n = 1;
-    while ((await db.query('SELECT 1 FROM seller_profiles WHERE lower(storefront_slug)=lower($1) AND id<>$2', [candidate, sp.id])).rows[0]) { candidate = `${base}-${++n}`; }
-    add('storefront_slug', candidate);
-  }
+  // The storefront address is not editable (owner 2026-11-10): a submitted `slug` is ignored, so an existing link can
+  // never be changed from here. A storefront without one gets it automatically below, from the (possibly new) name.
   if (body.published !== undefined) add('storefront_published', !!body.published);
   if (body.config !== undefined || body.tagline !== undefined || body.about !== undefined) {
     const merged = Object.assign({}, sp.storefront || {}, body.config || body);
     add('storefront', JSON.stringify(sanitizeConfig(merged)));
   }
+  if (sets.length) await db.query(`UPDATE seller_profiles SET ${sets.join(', ')} WHERE id = $1`, vals);
+  if (!sp.storefront_slug) await storefrontLink.ensureStorefrontSlug(db, sp.id, renamed ? renamed.to : ownName(sp));
   if (!sets.length) return getOwnerConfig(userId);
-  await db.query(`UPDATE seller_profiles SET ${sets.join(', ')} WHERE id = $1`, vals);
   if (renamed) {
     await require('../lib/auditLog').writeAuditLog({ event_type: 'seller_business_name_changed', entity_type: 'seller_profile', entity_id: sp.id,
       actor_id: userId, metadata: renamed }).catch(() => {});

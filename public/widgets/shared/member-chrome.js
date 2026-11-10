@@ -93,11 +93,18 @@
     '.adv-mode-switch{display:flex;gap:4px;padding:4px;margin:4px 0 10px;border-radius:999px;background:rgba(15,23,42,.06)}' +
     '.adv-mode-opt{flex:1;border:0;background:transparent;border-radius:999px;padding:7px 10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:inherit;text-align:center}' +
     '.adv-mode-opt.on{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.18)}' +
+    '.adv-rail .adv-mode-opt{color:#cbd5e1}.adv-rail .adv-mode-opt.on{color:#0f172a}' +
+    '.adv-moresheet .adv-nav-item{color:#334155}.adv-moresheet .adv-nav-item[aria-current="page"]{color:#2563eb}' +
     '.adv-mode-opt:focus-visible{outline:2px solid #2563eb;outline-offset:2px}' +
     '.adv-header .adv-mode-mini{display:none;margin-left:8px}' +
     '.adv-header .adv-mode-mini .adv-mode-opt{flex:0 0 auto;padding:5px 10px;border:1px solid rgba(15,23,42,.15);background:#fff}' +
     '.adv-header .adv-mode-mini .adv-mode-opt.on{display:none}' +
     '@media (max-width:860px){.adv-header .adv-mode-mini{display:flex}}' +
+    '.adv-moresheet .adv-nav-section{color:#64748b;border-top-color:rgba(15,23,42,.08)}' +
+    '.adv-moresheet-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 6px}' +
+    '.adv-moresheet-head strong{font-size:14px}' +
+    '.adv-moresheet-close{border:1px solid rgba(15,23,42,.15);background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}' +
+    '.adv-moresheet .adv-nav-item[aria-current="page"],.adv-moresheet-close:focus-visible,#adv-more-btn:focus-visible{outline:2px solid #2563eb;outline-offset:1px}' +
     '</style>';
 
   function rail(ctx) {
@@ -129,12 +136,18 @@
     if (ctx.mode === 'selling' && all.length > 5) {
       var primary = all.filter(function (i) { return i.primaryMobile; }).slice(0, 4);
       if (primary.length < 4) primary = primary.concat(all.filter(function (i) { return primary.indexOf(i) === -1; }).slice(0, 4 - primary.length));
-      var overflow = all.filter(function (i) { return primary.indexOf(i) === -1; });
       itemsHtml = primary.map(function (i) { return navItem(i, ctx); }).join('');
-      itemsHtml += '<button class="adv-nav-item" id="adv-more-btn" type="button" aria-expanded="false" aria-controls="adv-more">' +
-        '<span class="adv-nav-emoji" aria-hidden="true">⋯</span><span>More</span></button>';
-      sheetHtml = '<div class="adv-moresheet" id="adv-more" hidden><nav class="adv-nav" aria-label="More">' +
-        overflow.map(function (i) { return navItem(i, ctx); }).join('') + '</nav></div>';
+      itemsHtml += '<button class="adv-nav-item" id="adv-more-btn" type="button" aria-expanded="false" aria-controls="adv-more" aria-haspopup="true">' +
+        '<span class="adv-nav-emoji" aria-hidden="true">☰</span><span>Menu</span></button>';
+      // The complete seller menu (owner 2026-11-10: on a phone the seller can always reach every section and Dashboard
+      // Home), the same sections as the desktop rail, with the current page marked.
+      var sections = Nav.visibleSectionsFor(nctx).map(function (s) {
+        var head = s.heading ? '<div class="adv-nav-section" role="presentation">' + esc(s.heading) + '</div>' : '';
+        return head + s.items.map(function (i) { return navItem(i, ctx); }).join('');
+      }).join('');
+      sheetHtml = '<div class="adv-moresheet" id="adv-more" role="dialog" aria-modal="false" aria-label="Seller menu" hidden>' +
+        '<div class="adv-moresheet-head"><strong>Seller menu</strong><button type="button" class="adv-moresheet-close" id="adv-more-close">Close</button></div>' +
+        '<nav class="adv-nav" aria-label="Seller menu">' + sections + '</nav></div>';
     } else {
       itemsHtml = Nav.primaryMobileNav(nctx).map(function (i) { return navItem(i, ctx); }).join('');
     }
@@ -142,13 +155,34 @@
   }
 
   // Toggle the mobile "More" sheet. Shared by the SPA and standalone pages.
+  // The page underneath is never reloaded or re-rendered, so anything typed on it stays as it was.
   function wireMore() {
     var btn = document.getElementById('adv-more-btn'), sheet = document.getElementById('adv-more');
     if (!btn || !sheet) return;
-    btn.addEventListener('click', function () {
-      var willOpen = sheet.hidden;
-      sheet.hidden = !willOpen;
-      btn.setAttribute('aria-expanded', String(willOpen));
+    function setOpen(open, returnFocus) {
+      sheet.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      if (open) {
+        var first = sheet.querySelector('[aria-current="page"]') || sheet.querySelector('a,button.adv-nav-item');
+        if (first && first.focus) first.focus();
+      } else if (returnFocus && btn.focus) btn.focus();
+    }
+    btn.addEventListener('click', function () { setOpen(sheet.hidden, false); });
+    var close = document.getElementById('adv-more-close');
+    if (close) close.addEventListener('click', function () { setOpen(false, true); });
+    document.addEventListener('keydown', function (e) { if (!sheet.hidden && (e.key === 'Escape' || e.key === 'Esc')) setOpen(false, true); });
+    document.addEventListener('click', function (e) {
+      if (sheet.hidden) return;
+      if (sheet.contains(e.target) || btn.contains(e.target)) return;
+      setOpen(false, false);
+    });
+  }
+
+  // Mark the current page in every menu (rail, bottom bar, menu sheet). Used by pages with tabs (My Storefront).
+  function setActiveHref(href) {
+    if (!haveDom()) return;
+    document.querySelectorAll('.adv-rail a.adv-nav-item, .adv-bottomnav a.adv-nav-item, .adv-moresheet a.adv-nav-item').forEach(function (a) {
+      if (a.getAttribute('href') === href) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
   }
 
@@ -263,6 +297,6 @@
   return {
     MODE_META: MODE_META, esc: esc, initials: initials,
     navItem: navItem, modeSwitch: modeSwitch, rail: rail, bottomNav: bottomNav, header: header, frame: frame,
-    buildContext: buildContext, wireStandalone: wireStandalone, wireMore: wireMore, mountStandalone: mountStandalone,
+    buildContext: buildContext, wireStandalone: wireStandalone, wireMore: wireMore, mountStandalone: mountStandalone, setActiveHref: setActiveHref,
   };
 });

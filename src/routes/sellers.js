@@ -326,6 +326,10 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       onboarding = await agreementService.getOnboardingStatus(req.user.id);
     } catch (_) { /* best-effort */ }
 
+    // The storefront link, made from the business name (owner 2026-11-10). Assigned once; an existing link is kept.
+    try { await require('../lib/storefrontLink').ensureStorefrontSlug(db, sellerProfileId, companyName); }
+    catch (e) { console.error('[apply-professional] storefront link not assigned yet:', e.message); }
+
     sellerWelcomeEmails.deliverSoon(welcomeId, res);   // one attempt once the response is sent; the sender retries a temporary failure
 
     if (!existing) attributionStitch(req);

@@ -73,7 +73,9 @@
             <p class="hint" style="margin:.2rem 0 0;color:#475569">This describes your business. It does not limit what you can do: every Professional Seller can sell fixed-price items, run auctions and promote estate sales.</p>
           </fieldset>
           <label class="toggle"><input type="checkbox" id="s-pub" style="width:auto"> Publish my storefront (make it public)</label>
-          <div class="row2"><div><label>Storefront address (slug)</label><input id="s-slug" placeholder="my-company"></div><div style="display:flex;align-items:end"><a class="btn b-ghost" id="viewBtn" target="_blank" style="width:100%;text-align:center">View public page ↗</a></div></div>
+          <p class="hint" id="s-pub-state" role="status" style="margin:.2rem 0 .4rem;color:#475569"></p>
+          <div class="row2"><div><label>Your Storefront Link</label><div id="s-link" style="padding:.5rem .6rem;border:1px solid #e6eaef;border-radius:8px;background:#f8fafc;font-size:.9rem;word-break:break-all">Creating your link…</div>
+            <p class="hint" style="margin:.25rem 0 0;color:#475569">Made from your business name. It never changes, so links you share keep working.</p></div><div style="display:flex;align-items:start;gap:.4rem;padding-top:1.45rem"><a class="btn b-ghost" id="viewBtn" target="_blank" rel="noopener" style="flex:1;text-align:center">View ↗</a><button type="button" class="btn b-ghost" id="copyLinkBtn" onclick="copyLink()" style="flex:1">Copy Link</button></div></div>
           <label>Tagline</label><input id="s-tagline" maxlength="140" placeholder="Full-service estate sales & online auctions">
           <h3 style="margin:1rem 0 .3rem">Storefront Branding</h3>
           <p class="hint" style="margin:0 0 .6rem;color:#475569">Your logo and banner photo appear at the top of your storefront and in your website widget. Use a photo from your computer, tablet or phone (JPEG, PNG, GIF, WebP or HEIC, up to 10 MB). Changes save as soon as the upload finishes.</p>
@@ -328,7 +330,11 @@
       }
       var c=d.config||{};
       document.getElementById('s-pub').checked=!!d.published;
-      document.getElementById('s-slug').value=d.slug||'';
+      document.getElementById('s-pub').onchange=function(){var on=this.checked,e=document.getElementById('s-pub-state');
+        if(on===!!(CFG&&CFG.published)){pubState(on);return;}
+        e.textContent=on?'Save to make your storefront page public.':'Save to take your storefront page off public view. Your published items stay listed.';};
+      document.getElementById('s-link').textContent=d.public_url||'Your link is created when you save your storefront.';
+      LINK=d.public_url||null; pubState(!!d.published);
       // Business name: editable while the business awaits Advantage.Bid's verification; afterwards it is set (owner 2026-11-10).
       var nm=document.getElementById('s-name'); nm.value=d.name||''; nm.disabled=!d.business_name_editable;
       document.getElementById('s-name-hint').textContent=d.business_name_editable
@@ -348,7 +354,11 @@
       document.getElementById('s-hours').value=c.hours||'';
       document.getElementById('s-fb').value=(c.socials||{}).facebook||'';
       document.getElementById('s-ig').value=(c.socials||{}).instagram||'';
-      if(d.public_url){document.getElementById('pubUrl').innerHTML='<a href="'+esc(d.public_url)+'" target="_blank">'+esc(d.public_url)+'</a>';document.getElementById('viewBtn').href=d.public_url;
+      // View opens the public page only once it is public (an unpublished page shows "not found" to everyone).
+      var vb=document.getElementById('viewBtn');
+      if(d.public_url&&d.published){vb.href=d.public_url;vb.removeAttribute('aria-disabled');vb.style.opacity='';vb.style.pointerEvents='';vb.textContent='View ↗';}
+      else{vb.removeAttribute('href');vb.setAttribute('aria-disabled','true');vb.style.opacity='.55';vb.style.pointerEvents='none';vb.textContent='View (after publishing)';}
+      if(d.public_url){document.getElementById('pubUrl').innerHTML='<a href="'+esc(d.public_url)+'" target="_blank">'+esc(d.public_url)+'</a>';
         var hv=document.getElementById('headerView'); if(hv){hv.href=d.public_url; hv.style.display=d.published?'':'none';}}
       renderDefaultLoc();
       // Deep-link straight to a tab (e.g. the "Add Item" nav → ?tab=market) so listing an item is one click.
@@ -383,10 +393,19 @@
       if(!sel.length){msg('Please select at least one type of business you operate.');return false;}
       var r=await api('PUT','/api/sellers/me/business-categories',{business_categories:sel});
       if(!r.success){msg(r.message||'Your business types were not saved.');return false;}CATS=r.data.business_categories;return true;}
+    // Whether the public storefront page is visible (items are published separately, one by one).
+    var LINK=null;
+    function pubState(on){var e=document.getElementById('s-pub-state');if(!e)return;
+      e.textContent=on?'Your storefront page is public. Anyone with the link can see it.'
+        :'Your storefront page is not public yet. Check the box and save to publish it. Items you publish are listed separately, whether or not this page is public.';}
+    function copyLink(){var b=document.getElementById('copyLinkBtn');if(!LINK)return;
+      var done=function(){b.textContent='Link copied';setTimeout(function(){b.textContent='Copy Link';},2000);};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(LINK).then(done,function(){selectLink();});}else selectLink();}
+    function selectLink(){var el=document.getElementById('s-link');var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}
     async function saveStore(){
       var g=function(id){return document.getElementById(id).value.trim();};
       if(!(await saveCats()))return;
-      var body={published:document.getElementById('s-pub').checked,slug:g('s-slug')||undefined,
+      var body={published:document.getElementById('s-pub').checked,
         business_name:document.getElementById('s-name').disabled?undefined:(g('s-name')||undefined),config:{
         tagline:g('s-tagline'),hero_image:g('s-hero'),about:g('s-about'),
         services:g('s-services').split(',').map(function(x){return x.trim();}).filter(Boolean),
@@ -621,5 +640,9 @@
     }
     init();
   </script>
+<!-- Seller dashboard frame (owner 2026-11-10): the shared sidebar / phone menu around this page. -->
+<script src="/widgets/shared/member-nav-config.js"></script>
+<script src="/widgets/shared/member-chrome.js"></script>
+<script src="/widgets/shared/seller-page-chrome.js"></script>
 </body>
 </html>
