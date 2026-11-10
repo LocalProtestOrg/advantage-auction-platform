@@ -18,7 +18,6 @@
  */
 
 const db = require('../db');
-const { sellerVerifiedForPublicSql } = require('../lib/marketplaceVisibility');   // public items: seller verified when required (2026-11-10)
 const sellerActor = require('../lib/sellerActor');
 const productData = require('../lib/productData');
 const shipping = require('../lib/storefrontShipping');
@@ -631,7 +630,6 @@ async function listPublicForSeller(sellerId, limit = 200, runner = db, { exclude
             mi.shipping_method, mi.shipping_price_mode, mi.shipping_cost_cents, mi.shipping_destinations, mi.shipping_states
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.seller_id = $1 AND mi.status = 'active' AND sp.seller_type = ANY($3::text[])${excludeDemoItems ? ' AND mi.is_demo IS NOT TRUE' : ''}
-        AND ${sellerVerifiedForPublicSql('mi.seller_id')}
       ORDER BY mi.created_at DESC LIMIT $2`,
     [sellerId, limit, PROFESSIONAL_SELLER_TYPES]);
   // "Ships" only when shipping can actually be bought (complete terms); the shipping terms themselves stay on the item page.
@@ -652,13 +650,20 @@ async function getPublicItem(id, runner = db, { viewerUserId = null } = {}) {
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds,
             (SELECT json_object_agg(v.kind, v.version) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_versions
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])
-        AND ${sellerVerifiedForPublicSql('mi.seller_id')}`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only, verified when required
+      WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
   if (!rows[0]) return null;
   const out = publicItem(rows[0]);
   // Whether "Ask the seller a question" is offered on this item to this viewer (general switch, or the controlled pilot).
   out.questions_enabled = ['active', 'pending_purchase'].includes(out.status)
     && require('../lib/launchGuards').storefrontMessagingAllowed({ sellerId: rows[0].seller_id, userId: viewerUserId, side: 'buyer' });
+  // Whether this seller can take an online order right now (owner 2026-11-10: items are public before business verification,
+  // buying is not). The same check the server makes for every quote and order, with the same single answer for every
+  // reason, so the page never reveals a seller's account status. The item page offers Buy Now only when this is true.
+  out.accepting_orders = false;
+  if (out.status === 'active') {
+    try { out.accepting_orders = await require('./sellerSaleEligibility').assertSellerCanSell(rows[0].seller_id, runner); }
+    catch (e) { if (!e || e.code !== 'SELLER_NOT_ACCEPTING_ORDERS') console.warn('[items] accepting_orders check failed closed:', e && e.message); }   // fail closed: no Buy Now
+  }
   if (out.status === 'sold' && viewerUserId && rows[0].show_realized_price_to_members === true) {
     const realized = await realizedSalePrice(rows[0].id, runner);
     if (realized != null) { out.realized_price_cents = realized; out.realized_price_label = 'Fixed-price sale'; }

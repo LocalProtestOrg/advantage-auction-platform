@@ -118,7 +118,7 @@
           </div>
         </div>
         <div class="card"><h3 style="margin-bottom:.5rem">Add an Item</h3>
-          <p class="hint" style="margin:-.2rem 0 .7rem">List one of your items for sale at a fixed price. Add photos, a price and a description, then publish it to your shop. Buyers see your items once Advantage.Bid has verified your business. <span id="addedCount"></span></p>
+          <p class="hint" style="margin:-.2rem 0 .7rem">List one of your items for sale at a fixed price. Add photos, a price and a description, then publish it to your shop. Published items are visible to buyers right away. <span id="addedCount"></span></p>
           <p class="hint" style="margin:-.4rem 0 .8rem;color:#334155"><b>Commission, including credit card processing: 5% for sales through your own website (your embedded storefront), 9% for sales through the Advantage.Bid marketplace.</b> Charged only when an item sells, on the item price (not shipping or tax). No monthly or listing fees.</p>
           <label>Photos</label>
           <div id="m-photos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem"></div>
@@ -558,7 +558,7 @@
       try{var r=await api('POST','/api/seller-storefront/items',body);
         if(r.success){
           ADDED++; document.getElementById('addedCount').textContent='· '+ADDED+' added this session';
-          msg(draft?'Saved as a draft. It is not live yet: publish it from Your items when it is ready.':(CFG&&CFG.business_name_editable?'✓ Item added and published. Buyers will see it once Advantage.Bid verifies your business. Add another below.':'✓ Item added. It is live in your shop. Add another below.'),true);
+          msg(draft?'Saved as a draft. It is not live yet: publish it from Your items when it is ready.':'✓ Item added. It is live in your shop. Add another below.',true);
           // Clear item-specific fields; KEEP the shipping choice. The next item uses the storefront location again.
           if(ITEM_LOC_OPEN)toggleItemLoc();
           ['m-title','m-inv','m-price','m-cat','m-cond','m-desc','m-ctype','m-era','m-brand','m-maker','m-material','m-mpn','m-gtin'].forEach(function(i){document.getElementById(i).value='';});

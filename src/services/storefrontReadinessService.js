@@ -61,7 +61,7 @@ async function forSeller(actor) {
         : 'Review and sign your seller agreement.'),
       agreement.access ? null : { label: 'Review and sign', href: '/sign-agreement.html?onboarding=1' }),
     step('verification', 'Business verified by Advantage.Bid', !gate.blocked,
-      gate.blocked ? 'Your items become visible to buyers once Advantage.Bid verifies your business. Until then you can add items, upload photos and set up your storefront.' : null,
+      gate.blocked ? 'Your published items are already visible to buyers. Advantage.Bid verifies your business before buyers can purchase online.' : null,
       gate.blocked ? { label: 'Business verification', href: '/verify-documents.html' } : null),
     step('pickup_location', 'Storefront pickup location confirmed', !!sp.default_pickup_confirmed_at,
       sp.default_pickup_confirmed_at ? null : 'Confirm where buyers collect items. Every item uses it unless you choose another location.',

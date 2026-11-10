@@ -36,20 +36,11 @@ function eventKindSql(alias = 'e') {
   return `(CASE WHEN ${alias}.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)`;
 }
 
-// A Professional Seller whose business is awaiting Advantage.Bid's verification may prepare its storefront and publish
-// items, but none of its items is public until the business is verified (owner 2026-11-10). The SQL twin of
-// verificationService.publicationGate: blocked when verification is required and no request is approved.
-// `sellerIdExpr` is the SQL expression for the item's seller id (e.g. 'mi.seller_id').
-function sellerVerifiedForPublicSql(sellerIdExpr) {
-  return `NOT EXISTS (SELECT 1 FROM seller_profiles vsp WHERE vsp.id = ${sellerIdExpr}`
-    + ` AND vsp.verification_required_before_publication IS TRUE`
-    + ` AND NOT EXISTS (SELECT 1 FROM verification_requests vr WHERE vr.seller_profile_id = vsp.id AND vr.status = 'approved'))`;
-}
-
-// A fixed-price Marketplace item is publicly listable when it is active, not a demo record, and its seller is not
-// awaiting business verification.
+// A fixed-price Marketplace item is publicly listable when it is active and not a demo record. Business verification
+// does NOT affect listing visibility (owner 2026-11-10): a new Professional Seller markets its merchandise at once, while
+// buying stays blocked until the seller can sell (sellerSaleEligibility: verification, agreement, payout account).
 function activeMarketplaceItemSql(alias = 'm') {
-  return `${alias}.status = 'active' AND ${alias}.is_demo IS NOT TRUE AND ${sellerVerifiedForPublicSql(alias + '.seller_id')}`;
+  return `${alias}.status = 'active' AND ${alias}.is_demo IS NOT TRUE`;
 }
 
 // The admin-granted professional-type capabilities (professionalProfileSchema.PROFESSIONAL_TYPES). A
@@ -177,4 +168,4 @@ async function canonicalCounts(db) {
   };
 }
 
-module.exports = { activeEventSql, activeNativeAuctionSql, activeMarketplaceItemSql, sellerVerifiedForPublicSql, activeMarketplaceCompanySql, eventKindSql, canonicalCounts };
+module.exports = { activeEventSql, activeNativeAuctionSql, activeMarketplaceItemSql, activeMarketplaceCompanySql, eventKindSql, canonicalCounts };

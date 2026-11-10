@@ -19,7 +19,6 @@ const db = require('../db');
 const productData = require('../lib/productData');
 const { publicItem } = require('./marketplaceItemService');
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
-const { sellerVerifiedForPublicSql } = require('../lib/marketplaceVisibility');   // public items: seller verified when required (2026-11-10)
 
 const PUBLIC_STATUSES = ['active', 'pending_purchase', 'sold'];
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -40,8 +39,7 @@ async function loadItem(id, runner = db) {
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.id = $1 AND mi.status = ANY($2::text[]) AND mi.moderation_status = 'none' AND sp.seller_type = ANY($3::text[])
-        AND ${sellerVerifiedForPublicSql('mi.seller_id')}`,
+      WHERE mi.id = $1 AND mi.status = ANY($2::text[]) AND mi.moderation_status = 'none' AND sp.seller_type = ANY($3::text[])`,
     [id, PUBLIC_STATUSES, PROFESSIONAL_SELLER_TYPES])).rows[0];
   if (!row) return null;
   return { item: publicItem(row), sellerId: row.seller_id, demo: !!(row.is_demo || row.seller_is_demo) };
@@ -50,7 +48,7 @@ async function loadItem(id, runner = db) {
 async function moreFromSeller(sellerId, excludeId, limit = 6, runner = db) {
   const { rows } = await runner.query(
     `SELECT mi.id, mi.title, mi.price_cents, mi.thumbnail_url, mi.images, mi.image_alt
-       FROM marketplace_items mi WHERE mi.seller_id = $1 AND mi.status = 'active' AND mi.id <> $2 AND ${sellerVerifiedForPublicSql('mi.seller_id')}
+       FROM marketplace_items mi WHERE mi.seller_id = $1 AND mi.status = 'active' AND mi.id <> $2
       ORDER BY mi.updated_at DESC LIMIT $3`, [sellerId, excludeId, limit]);
   return rows;
 }
@@ -182,7 +180,6 @@ async function sitemapEntries(runner = db) {
          FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
         WHERE mi.status IN ('active','pending_purchase') AND mi.moderation_status = 'none'
           AND mi.is_demo = false AND COALESCE(sp.is_demo, false) = false AND sp.seller_type = ANY($1::text[])
-          AND ${sellerVerifiedForPublicSql('mi.seller_id')}
         ORDER BY COALESCE(mi.updated_at, mi.created_at) DESC LIMIT 5000`, [PROFESSIONAL_SELLER_TYPES])).rows
       .map((r) => ({ path: productData.canonicalPath(r), lastmod: r.lastmod }));
   } catch (e) { /* leave empty */ }

@@ -115,7 +115,7 @@
         buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
       } else if(status==='pending_purchase'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill">Sale in progress</span><p class="meta" style="margin:10px 0 0">This item is temporarily unavailable while another buyer completes checkout. Check back shortly.</p></div>';
-      } else if(CFG.checkout_enabled&&it.purchase_policies_ready!==false){   // the seller's Store Terms and Shipping & Pickup Policy are required (server-enforced)
+      } else if(CFG.checkout_enabled&&it.purchase_policies_ready!==false&&it.accepting_orders===true){   // accepting_orders: the seller can take an order now (verified, agreement, payout account)   // the seller's Store Terms and Shipping & Pickup Policy are required (server-enforced)
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Buy this item</div>'+
           '<p class="meta" style="margin:0 0 12px">Secure checkout through Advantage.Bid. '+(it.shippable?'Shipping or local pickup.':'Local pickup.')+'</p>'+
           '<button class="btn btn-primary" id="buyNow">Buy Now · '+money(it.price_cents)+'</button> '+ask+'</div>';

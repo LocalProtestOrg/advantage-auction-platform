@@ -1009,6 +1009,9 @@ server.listen(PORT, () => {
     // Daily BD -> marketplace sync (00:00 America/New_York). Self-gates on env; the
     // scheduler no-ops unless enabled (prod + BD_API_KEY, and not MARKETPLACE_SYNC_DISABLED).
     spawnWorker(path.join(__dirname, 'src/workers/directorySyncWorker.js'));
+    // Daily owner review digest (9:00 AM America/New_York): every task waiting for a person, by email and by text to the
+    // owner's verified phone. One run per day (database-backed), retried per recipient; read-only toward every workflow.
+    spawnWorker(path.join(__dirname, 'src/workers/ownerDigestWorker.js'));
     // Scheduled Event Import worker (weekly, draft-only, review-queue gated). Self-gates on env;
     // stays idle unless EVENT_IMPORT_WORKER_ENABLED=true, so it is inert until the owner activates it.
     spawnWorker(path.join(__dirname, 'src/workers/eventImportWorker.js'));

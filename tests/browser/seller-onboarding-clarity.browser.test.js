@@ -9,7 +9,8 @@
  *     registering again: the company name becomes the business name, the signed agreement is kept, the role stays seller;
  *   - in Selling: Add Item, Manage Inventory, My Storefront, Orders, Seller Settings;
  *   - storefront setup, a draft item with a photo, and a published item, all without an administrator;
- *   - the item is not public until Advantage.Bid verifies the business; after approval it is;
+ *   - the published item is public at once, before business verification (owner 2026-11-10), but it cannot be bought:
+ *     the seller is not accepting orders until verified, agreement in place and payout account connected;
  *   - the business name is editable before verification and locked after it.
  * Checkout stays off in this environment.
  */
@@ -55,7 +56,7 @@ test('Become a Seller offers two clear paths, and neither onboarding page uses a
   await page.waitForSelector('#sell-paths', { state: 'visible' });
   expect(await page.textContent('h1')).toBe('How do you want to sell?');
   expect(await page.textContent('#path-auction')).toMatch(/Sell at auction/);
-  expect(await page.textContent('#path-storefront')).toMatch(/Open a Professional Storefront[\s\S]*verifies your business before your first sale/);
+  expect(await page.textContent('#path-storefront')).toMatch(/Open a Professional Storefront[\s\S]*Your items are visible as soon as you publish them/);
   expect(await page.getAttribute('#go-pro-link', 'href')).toBe('/become-professional-seller.html');
   expect(await page.textContent('#seller-type')).toMatch(/Business selling at auction/);
   expect(await page.textContent('body')).not.toMatch(/[—–]/);
@@ -118,7 +119,7 @@ test('normal seller permissions: the seller cannot use administrator tools', asy
   expect((await api(T.token, 'GET', '/api/admin/tax-jurisdictions')).status).toBe(403);
 });
 
-test('storefront setup, a draft item with a photo, publishing: all without an administrator; the item stays hidden until verified', async () => {
+test('storefront setup, a draft item with a photo, publishing: all without an administrator; the item is public before verification but not purchasable', async () => {
   // storefront settings: the business name is editable while verification is pending; first save sets the address from it
   const cfg = await api(T.token, 'GET', '/api/seller-storefront/config');
   expect(cfg.j.data).toMatchObject({ name: 'Timeless Treasures', business_name_editable: true });
@@ -144,25 +145,28 @@ test('storefront setup, a draft item with a photo, publishing: all without an ad
   // the seller sees it in their own inventory
   const mine = await api(T.token, 'GET', '/api/seller-storefront/items');
   expect(JSON.stringify(mine.j)).toContain(T.itemId);
-  // ...but nobody else does until Advantage.Bid verifies the business
-  expect((await (await fetch(stack.baseUrl + '/api/public/shop/items')).json()).data.some((i) => i.id === T.itemId)).toBe(false);
-  expect((await fetch(stack.baseUrl + '/api/public/storefront/item/' + T.itemId)).status).toBe(404);
-  expect((await fetch(stack.baseUrl + '/shop/item/' + T.itemId, { redirect: 'manual' })).status).toBe(404);
-  expect(((await (await fetch(stack.baseUrl + '/api/public/storefront/' + T.slug)).json()).data.marketplace || []).length).toBe(0);
-  expect(await (await fetch(stack.baseUrl + '/sitemap.xml')).text()).not.toContain(T.itemId);
+  // ...and so does everyone else, at once, before Advantage.Bid verifies the business (owner 2026-11-10)
+  expect((await (await fetch(stack.baseUrl + '/api/public/shop/items')).json()).data.some((i) => i.id === T.itemId)).toBe(true);
+  const pubItem = await fetch(stack.baseUrl + '/api/public/storefront/item/' + T.itemId);
+  expect(pubItem.status).toBe(200);
+  // listed, but not purchasable: the seller is not accepting orders yet (the server's own sale-eligibility check)
+  expect((await pubItem.json()).data).toMatchObject({ title: 'Brass Candlestick Pair', accepting_orders: false });
+  expect([200, 301]).toContain((await fetch(stack.baseUrl + '/shop/item/' + T.itemId, { redirect: 'manual' })).status);   // public (301 = to its canonical address)
+  expect(((await (await fetch(stack.baseUrl + '/api/public/storefront/' + T.slug)).json()).data.marketplace || []).map((i) => i.id)).toContain(T.itemId);
+  expect(await (await fetch(stack.baseUrl + '/sitemap.xml')).text()).toContain(T.itemId);
   const ready = await api(T.token, 'GET', '/api/seller-storefront/readiness');
   const step = ready.j.data.company.find((s) => s.key === 'verification');
   expect(step).toMatchObject({ done: false });
-  expect(step.detail).toMatch(/become visible to buyers once Advantage\.Bid verifies your business/);
+  expect(step.detail).toMatch(/already visible to buyers\. Advantage\.Bid verifies your business before buyers can purchase online/);
 });
 
-test('after Advantage.Bid approves the business (the compliance step), the item is public and the name is locked', async () => {
+test('after Advantage.Bid approves the business (the compliance step), the item stays public, is still not purchasable without a payout account, and the name is locked', async () => {
   const reqId = (await one(`INSERT INTO verification_requests (seller_profile_id, status) VALUES ($1, 'submitted') RETURNING id`, [T.profileId])).id;
   const rv = await api(T.adminToken, 'POST', `/api/admin/verification/requests/${reqId}/review`, { status: 'approved' });
   expect(rv.status).toBe(200);
   expect((await (await fetch(stack.baseUrl + '/api/public/shop/items')).json()).data.some((i) => i.id === T.itemId)).toBe(true);
   const item = await (await fetch(stack.baseUrl + '/api/public/storefront/item/' + T.itemId)).json();
-  expect(item.data).toMatchObject({ title: 'Brass Candlestick Pair', seller_name: 'Timeless Treasures' });
+  expect(item.data).toMatchObject({ title: 'Brass Candlestick Pair', seller_name: 'Timeless Treasures', accepting_orders: false });
   expect(((await (await fetch(stack.baseUrl + '/api/public/storefront/' + T.slug)).json()).data.marketplace || []).map((i) => i.id)).toContain(T.itemId);
   // the verified business name is now set; the settings field is read-only
   const cfg = await api(T.token, 'GET', '/api/seller-storefront/config');
