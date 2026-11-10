@@ -19,27 +19,41 @@
     <div id="form-wrap" style="display:none">
       <div class="ob-hero" style="padding:24px 0 6px">
         <div class="ob-kick">Start selling</div>
-        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Become a Seller</h1>
-        <p class="ob-lede">Turn your account into a seller account in minutes — no application, no approval queue, no waiting.</p>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">How do you want to sell?</h1>
+        <p class="ob-lede">Choose the way that fits you. You can buy on Advantage.Bid with the same account either way.</p>
       </div>
 
-      <!-- The first screen answers the three questions before the visitor scrolls. -->
-      <div class="ob-answers">
-        <div class="ob-ans"><p class="ob-ans-q">What am I doing?</p><p class="ob-ans-a">Enabling your seller dashboard so you can create auctions and events.</p></div>
-        <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Complete your profile, accept the seller agreement, and your dashboard is enabled right away.</p></div>
-        <div class="ob-ans"><p class="ob-ans-q">Will my info be public?</p><p class="ob-ans-a">No — your personal profile stays private. Only the auctions and events you publish are shown.</p></div>
-        <div class="ob-ans"><p class="ob-ans-q">How big does an auction need to be?</p><p class="ob-ans-a">Online auctions need at least 30 lots before you submit them for review. Build and save at your own pace, and group smaller pieces into one lot.</p></div>
+      <!-- Two paths, chosen before anything else (owner 2026-11-10): auctions for individuals, storefronts for professionals. -->
+      <div class="ob-answers" id="sell-paths">
+        <div class="ob-ans" id="path-auction">
+          <p class="ob-ans-q">Sell at auction</p>
+          <p class="ob-ans-a">For individuals and businesses selling household items, a collection or an estate through an online auction. Set up takes a few minutes.</p>
+          <a class="ob-cta" href="#auction-form" style="margin-top:10px;display:inline-block">Sell at auction</a>
+        </div>
+        <div class="ob-ans" id="path-storefront">
+          <p class="ob-ans-q">Open a Professional Storefront</p>
+          <p class="ob-ans-a">For auction houses, estate sale companies, liquidators and retail shops, galleries or studios. Sell fixed-price items from your own storefront on Advantage.Bid and on your website, and run auctions too. Advantage.Bid verifies your business before your first sale goes live.</p>
+          <a class="ob-cta" id="go-pro-link" href="/become-professional-seller.html" style="margin-top:10px;display:inline-block">Open a Professional Storefront</a>
+        </div>
       </div>
 
-      <div class="ob-panel ob-form" style="margin-top:16px">
+      <div class="ob-panel ob-form" id="auction-form" style="margin-top:16px">
+        <h2 style="margin:0 0 4px;font-size:20px">Sell at auction</h2>
+        <div class="ob-answers" style="margin:8px 0 12px">
+          <div class="ob-ans"><p class="ob-ans-q">What am I doing?</p><p class="ob-ans-a">Setting up your seller dashboard so you can create online auctions.</p></div>
+          <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Complete your profile and accept the seller agreement. Your dashboard is ready right away.</p></div>
+          <div class="ob-ans"><p class="ob-ans-q">Will my info be public?</p><p class="ob-ans-a">No. Your personal profile stays private. Only the auctions you publish are shown.</p></div>
+          <div class="ob-ans"><p class="ob-ans-q">How big does an auction need to be?</p><p class="ob-ans-a">Online auctions need at least 30 lots before you submit them for review. Build and save at your own pace, and group smaller pieces into one lot.</p></div>
+        </div>
         <div class="ob-steps" style="justify-content:flex-start;margin:0 0 6px"><span><b>1.</b> Complete profile</span><span><b>2.</b> Accept agreement</span><span><b>3.</b> Start building</span></div>
 
         <label for="seller-type">What best describes you?</label>
         <select id="seller-type">
           <option value="private">Private individual</option>
-          <option value="business">Business</option>
+          <option value="business">Business selling at auction</option>
           <option value="other">Other</option>
         </select>
+        <p class="ob-hint">Selling fixed-price items from a shop or gallery? <a href="/become-professional-seller.html">Open a Professional Storefront</a> instead.</p>
 
         <label for="legal-name">Your full legal name <span class="req">*</span></label>
         <input type="text" id="legal-name" placeholder="e.g. Jane Q. Seller" />
@@ -53,7 +67,7 @@
         <div class="ob-err" id="form-err"></div>
 
         <div class="ob-callout ob-privacy" style="margin-top:16px">
-          <strong>Your profile stays private.</strong> Your personal information is never published as a searchable profile — only the auctions and events you choose to publish are visible. No identity verification is required to start; we may request it later only if risk indicators appear.
+          <strong>Your profile stays private.</strong> Your personal information is never published as a searchable profile. Only the auctions and events you choose to publish are visible. No identity verification is required to start; we may request it later only if risk indicators appear.
         </div>
         <p class="ob-hint" style="margin-top:14px;text-align:center">Prefer to talk it through first? Call Advantage.Bid at <a data-adv-tel style="font-weight:700"></a></p>
       </div>
@@ -63,7 +77,7 @@
       <div class="ob-hero" style="padding:24px 0 6px">
         <div class="ob-kick">Start selling</div>
         <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Sign in to continue</h1>
-        <p class="ob-lede">You need an account before you can enable selling. Sign in or create a free account — it only takes a moment.</p>
+        <p class="ob-lede">You need an account before you can start selling. Sign in or create a free account. It only takes a moment.</p>
       </div>
       <div class="ob-panel" style="text-align:center">
         <a id="login-link" href="/login.html" class="ob-cta">Sign in / Create account</a>
@@ -96,6 +110,7 @@
     // Preserve the whole path+query (incl. seller_type) across a login round-trip.
     function selfNext() { return encodeURIComponent(location.pathname + location.search); }
 
+    var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator', 'retail_gallery_studio'];
     async function init() {
       preselectSellerType();
       if (!authToken) {
@@ -108,8 +123,19 @@
       try {
         var st = await (await fetch('/api/agreements/onboarding-status', { headers: { Authorization: 'Bearer ' + authToken } })).json();
         if (st && st.success && st.data && st.data.is_seller) {
-          if (st.data.dashboard_access) { location.href = '/app.html'; return; }
-          location.href = '/sign-agreement.html?onboarding=1'; return;
+          if (!st.data.dashboard_access) { location.href = '/sign-agreement.html?onboarding=1'; return; }
+          // A Professional Seller goes straight to the dashboard. An Individual Seller sees both paths (owner 2026-11-10):
+          // the auction dashboard is already set up, and a Professional Storefront is one step away.
+          var me0 = await (await fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + authToken } })).json();
+          var t0 = me0 && (me0.data || me0) && ((me0.data || me0).seller_type || null);
+          if (PRO_TYPES.indexOf(t0) !== -1) { location.href = '/app.html'; return; }
+          document.getElementById('auction-form').hidden = true;
+          var ac = document.querySelector('#path-auction a.ob-cta');
+          if (ac) { ac.href = '/app.html'; ac.textContent = 'Go to your seller dashboard'; }
+          var aa = document.querySelector('#path-auction .ob-ans-a');
+          if (aa) aa.textContent = 'Your auction seller dashboard is already set up.';
+          show('form-wrap');
+          return;
         }
       } catch (e) { /* fall through to the form */ }
 

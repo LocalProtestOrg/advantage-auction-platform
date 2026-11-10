@@ -14,7 +14,7 @@ const Chrome = require('../../public/widgets/shared/member-chrome.js');
 
 const PRO_STANDALONE = {
   user: { role: 'buyer', full_name: 'Lewis & Maese Antiques & Auctions' },
-  isSeller: false, mode: 'buying', isBdMember: true,
+  isSeller: false, mode: 'selling', isBdMember: true,
   businessAdminUrl: 'https://www.advantage.bid/business-administration',
   isEventOrganizer: true, inShell: false, activeHref: '/org/events.html',
 };
@@ -30,12 +30,16 @@ describe('shared chrome renders the unified sidebar for professionals', () => {
     expect(rail).toContain('Business Administration');
     expect(rail).toContain('https://www.advantage.bid/business-administration');
   });
-  test('buying navigation remains visible (one account — never removed for professionals)', () => {
-    for (const label of ['Dashboard Home', 'Watchlist', 'My Bids', 'Purchases', 'Account']) expect(rail).toContain(label);
+  test('buying is one switch away (one account): the Buying / Selling switch is in the rail and the header', () => {
+    expect(rail).toContain('Dashboard Home');
+    expect(rail).toMatch(/data-mode="buying"[^>]*>Buying</);
+    expect(Chrome.header(PRO_STANDALONE)).toMatch(/data-mode="buying"[^>]*>Switch to Buying</);
+    const buying = Chrome.rail(Object.assign({}, PRO_STANDALONE, { mode: 'buying' }));
+    for (const label of ['Watchlist', 'My Bids', 'Purchases', 'Account']) expect(buying).toContain(label);
   });
   test('on a standalone page, in-shell sections link back to the SPA (/app.html#…)', () => {
     expect(rail).toContain('href="/app.html#home"');
-    expect(rail).toContain('href="/app.html#watchlist"');
+    expect(rail).toContain('href="/app.html#messages"');
     // …while professional workspace items keep their own routes (not rewritten)
     expect(rail).toContain('href="/org/events.html"');
   });
@@ -117,90 +121,69 @@ describe('Phase 4E — entitlement-aware Marketplace CTA (three states)', () => 
     expect(cta).toContain('/become-seller.html');
     expect(cta).not.toContain('Complete Marketplace Seller Setup');
   });
-  test('STATE 2 — professional without complete setup sees "Complete Marketplace Seller Setup"', () => {
-    const cta = Chrome.modeSwitch(Object.assign({ isEventOrganizer: true, sellerReady: false }, base));
-    expect(cta).toContain('Complete Marketplace Seller Setup');
-    expect(cta).toContain('/become-seller.html');
-    expect(cta).not.toContain('Start selling');
+  test('an event organizer without seller setup gets the switch, plus one "Complete Marketplace Seller Setup" link', () => {
+    const rail = Chrome.rail(Object.assign({}, base, { isEventOrganizer: true, sellerReady: false }));
+    expect(rail).toContain('adv-mode-switch');
+    expect(rail).toContain('Complete Marketplace Seller Setup');
+    expect(rail).toContain('/become-seller.html');
+    expect(rail).not.toContain('Start selling');
   });
-  test('STATE 3 — Marketplace-ready seller has no onboarding CTA (Create Online Auction is in the nav)', () => {
-    const cta = Chrome.modeSwitch(Object.assign({ isEventOrganizer: true, sellerReady: true }, base));
-    expect(cta).toBe('');
+  test('every seller (including a Marketplace-ready one) gets the Buying / Selling switch; no onboarding link', () => {
+    for (const extra of [{ isSeller: true, sellerReady: true, user: { role: 'seller' } }, { isEventOrganizer: true, sellerReady: true }]) {
+      const ctx = Object.assign({}, base, extra);
+      const sw = Chrome.modeSwitch(ctx);
+      expect(sw).toContain('adv-mode-switch');
+      expect(sw).toMatch(/data-mode="selling"[^>]*>Selling</);
+      expect(sw).toMatch(/adv-mode-opt on" aria-current="true">Buying</);
+      expect(Chrome.rail(ctx)).not.toContain('Complete Marketplace Seller Setup');
+    }
   });
 });
 
-describe('Phase 4E — professional-first navigation ordering', () => {
+describe('the Buying / Selling switch decides the menu (owner 2026-11-10)', () => {
   const Nav = require('../../public/widgets/shared/member-nav-config.js');
-  test('Business Administration is pinned to the TOP (first nav item); professional tools still precede buying', () => {
-    const v = Nav.visibleNavFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'x' });
-    const order = v.map((i) => i.id);
-    expect(order[0]).toBe('bizadmin');                                          // gateway back to BD — the very first item
-    expect(order.indexOf('bizadmin')).toBeLessThan(order.indexOf('home'));      // above Dashboard Home
-    expect(order.indexOf('events')).toBeLessThan(order.indexOf('watchlist'));   // My Events before Buying
-    expect(order.indexOf('createEvent')).toBeLessThan(order.indexOf('watchlist'));
-    for (const b of ['watchlist', 'auctions', 'purchases', 'account']) expect(order).toContain(b); // buying preserved
-  });
-  test('nav is grouped into labelled sections; Business Administration is its own TOP section', () => {
-    const secs = Nav.visibleSectionsFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'x' });
-    expect(secs[0].items.map((i) => i.id)).toEqual(['bizadmin']);  // Business Administration first, no heading
-    expect(secs[0].heading).toBeNull();
-    expect(secs[1].items.map((i) => i.id)).toEqual(['home']);      // Dashboard Home next
-    const pro = secs.find((s) => s.heading === 'Professional Marketplace');
-    const buying = secs.find((s) => s.heading === 'Buying');
-    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'importEvents']); // bizadmin no longer inside the pro group; Import My Events (2026-10-29)
-    expect(buying.items.map((i) => i.id)).toEqual(['watchlist', 'auctions', 'purchases']);
-  });
-  test('the rail renders the "Professional Marketplace" section heading', () => {
-    const rail = Chrome.rail({ user: { role: 'buyer' }, isSeller: false, mode: 'buying', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'https://www.advantage.bid/account' });
-    expect(rail).toContain('adv-nav-section');
-    expect(rail).toContain('Professional Marketplace');
-    expect(rail).toContain('Buying');
-  });
-  test('a future seller tool inserts into the pro section via the registry (no restructuring needed)', () => {
-    // The registry drives professionalMarketplaceItems; adding a row appears in this list. Business
-    // Administration is no longer here — it is pinned to the top section (see visibleSectionsFor).
-    const ready = Nav.visibleSectionsFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: true, storefrontEligible: true, isBdMember: true, businessAdminUrl: 'x' });
-    const pro = ready.find((s) => s.heading === 'Professional Marketplace');
-    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'importEvents', 'storefront', 'addItem', 'mpOrders', 'websiteWidgets', 'createAuction', 'sell', 'howto']);
-  });
-  test('Business Administration is the FIRST item across experiences (buyer, professional, admin)', () => {
+  const ids = (ctx) => Nav.visibleNavFor(ctx).map((i) => i.id);
+  test('Business Administration is pinned to the TOP in every experience', () => {
     const first = (ctx) => (Nav.visibleNavFor(ctx)[0] || {}).id;
-    // non-professional BD buyer
     expect(first({ role: 'buyer', mode: 'buying', isBdMember: true, businessAdminUrl: 'x' })).toBe('bizadmin');
-    // professional (event organizer) BD member
-    expect(first({ role: 'buyer', mode: 'buying', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'x' })).toBe('bizadmin');
-    // admin who is a BD member
+    expect(first({ role: 'buyer', mode: 'selling', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'x' })).toBe('bizadmin');
     expect(first({ role: 'admin', mode: 'admin', isBdMember: true, businessAdminUrl: 'x' })).toBe('bizadmin');
-    // destination unchanged (server-authoritative href)
     expect(Nav.visibleNavFor({ role: 'buyer', mode: 'buying', isBdMember: true, businessAdminUrl: 'https://www.advantage.bid/account' })[0].href)
       .toBe('https://www.advantage.bid/account');
-    // no BD context → no bizadmin item at all
-    expect(Nav.visibleNavFor({ role: 'buyer', mode: 'buying' }).some((i) => i.id === 'bizadmin')).toBe(false);
+    expect(ids({ role: 'buyer', mode: 'buying' })).not.toContain('bizadmin');
   });
-  test('Create/Manage Online Auction appear ONLY when seller_ready (State 3) and stay distinct from events', () => {
-    const notReady = Nav.visibleNavFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: false });
-    expect(notReady.map((i) => i.id)).not.toContain('createAuction');
-    const ready = Nav.visibleNavFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: true });
-    const ca = ready.find((i) => i.id === 'createAuction');
-    const ma = ready.find((i) => i.id === 'sell');
-    expect(ca.label).toBe('Create Online Auction');
-    expect(ca.href).toBe('/seller-create.html');
-    expect(ma.label).toBe('Manage Online Auctions');
-    // Event vs Auction stay separate workflows
-    expect(ready.find((i) => i.id === 'createEvent').label).toBe('Create Event');
-    expect(ca.href).not.toBe(ready.find((i) => i.id === 'createEvent').href);
+  test('Buying is the buyer list for everyone, professionals included (no seller tools)', () => {
+    const pro = ids({ role: 'seller', mode: 'buying', isSeller: true, sellerReady: true, storefrontEligible: true, isEventOrganizer: true });
+    expect(pro).toEqual(['home', 'watchlist', 'auctions', 'purchases', 'messages', 'account']);
   });
-  test('a native seller who completed setup also gets the professional-first nav (capability-aware)', () => {
-    const v = Nav.visibleNavFor({ role: 'seller', mode: 'buying', isSeller: true, sellerReady: true });
-    const order = v.map((i) => i.id);
-    expect(order).toContain('createAuction');
-    expect(order).toContain('sell');
-    expect(order).toContain('watchlist'); // buying preserved
+  test('Selling for a Professional Seller: Storefront first, then Online Auctions, then the general items', () => {
+    const secs = Nav.visibleSectionsFor({ role: 'seller', mode: 'selling', isSeller: true, sellerReady: true, storefrontEligible: true });
+    expect(secs.map((s) => s.heading)).toEqual([null, 'Storefront', 'Online Auctions', null]);
+    expect(secs[1].items.map((i) => i.label)).toEqual(['Add Item', 'Manage Inventory', 'My Storefront', 'Orders', 'Website Widgets', 'Payouts']);
+    expect(secs[2].items.map((i) => i.label)).toEqual(['Create Online Auction', 'Manage Online Auctions', 'Sale Stats', 'Auction Payments']);
+    expect(secs[3].items.map((i) => i.label)).toEqual(['Seller How To Center', 'Messages', 'Seller Settings']);
+    expect(Nav.byId('addItem', { role: 'seller', mode: 'selling', isSeller: true, sellerReady: true, storefrontEligible: true }).href).toBe('/seller-storefront.html?tab=market');
+  });
+  test('Selling for an Individual Seller: auctions and a way to open a Professional Storefront; no storefront tools', () => {
+    const v = ids({ role: 'seller', mode: 'selling', isSeller: true, sellerReady: true, storefrontEligible: false });
+    expect(v).toEqual(['home', 'createAuction', 'sell', 'analytics', 'payments', 'goPro', 'messages', 'account']);
+    expect(Nav.byId('goPro', { role: 'seller', mode: 'selling', isSeller: true }).href).toBe('/become-professional-seller.html');
+  });
+  test('Selling for an event organizer: My Events, Create Event and Import My Events, distinct from auctions', () => {
+    const secs = Nav.visibleSectionsFor({ role: 'buyer', mode: 'selling', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'x' });
+    expect(secs[0].items.map((i) => i.id)).toEqual(['bizadmin']);
+    expect(secs.find((s) => s.heading === 'Events').items.map((i) => i.id)).toEqual(['events', 'createEvent', 'importEvents']);
+    expect(ids({ role: 'buyer', mode: 'selling', isEventOrganizer: true })).not.toContain('createAuction');
+    expect(Nav.availableModes({ role: 'buyer', isEventOrganizer: true })).toEqual(['buying', 'selling']);
+  });
+  test('a pure buyer has one experience and never sees seller tools', () => {
+    expect(Nav.availableModes({ role: 'buyer' })).toEqual(['buying']);
+    expect(ids({ role: 'buyer', mode: 'selling' })).toEqual(['home', 'watchlist', 'auctions', 'purchases', 'messages', 'account']);
   });
 });
 
 describe('Phase 4E — mobile "More" menu keeps everything reachable for professionals', () => {
-  const PRO = { user: { role: 'buyer' }, isSeller: false, mode: 'buying', isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'https://www.advantage.bid/account' };
+  const PRO = { user: { role: 'seller' }, isSeller: true, mode: 'selling', storefrontEligible: true, isEventOrganizer: true, isBdMember: true, businessAdminUrl: 'https://www.advantage.bid/account' };
   test('professional bottom nav shows a compact More button + a sheet with the overflow (incl. Business Administration)', () => {
     const mobile = Chrome.bottomNav(PRO);
     expect(mobile).toContain('id="adv-more-btn"');

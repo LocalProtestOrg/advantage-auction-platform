@@ -72,12 +72,21 @@ function sellerName(sp) { return sp.display_name || (sp.metadata && (sp.metadata
 function sellerMetaVal(sp, key) { return sp.metadata && sp.metadata[key] ? sp.metadata[key] : null; }
 
 // ── Owner (seller) config: get + update ─────────────────────────────────────────────────────────────
+// The business name buyers see (seller_profiles.display_name). The seller may change it only while its business is
+// awaiting Advantage.Bid's verification (owner 2026-11-10), so a verified identity is never swapped without review.
+// Established sellers that never needed verification, and verified sellers, change it through Advantage.Bid. Fails closed.
+async function businessNameEditable(sellerProfileId, runner = db) {
+  try { return !!(await require('./verificationService').publicationGate(sellerProfileId, runner)).blocked; }
+  catch (e) { return false; }
+}
+const BUSINESS_NAME_MIN = 2; const BUSINESS_NAME_MAX = 80;
+
 async function getOwnerConfig(userId) {
   const sp = (await db.query('SELECT * FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
   if (!sp) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
   return { eligible: isProfessional(sp.seller_type), seller_id: sp.id,
     slug: sp.storefront_slug, published: sp.storefront_published, is_demo: sp.is_demo,
-    name: sellerName(sp), logo_url: sp.logo_url, location_label: sp.location_label,
+    name: sellerName(sp), business_name_editable: await businessNameEditable(sp.id), logo_url: sp.logo_url, location_label: sp.location_label,
     config: sp.storefront || {}, public_url: sp.storefront_slug ? `${APP_BASE}/pro/${sp.storefront_slug}` : null,
     pickup_location: await ownerPickupLocation(sp), shipping_defaults: sp.shipping_defaults || { enabled: false } };
 }
@@ -152,15 +161,28 @@ async function updateConfig(userId, body = {}) {
   if (!isProfessional(sp.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Storefronts are for Professional Sellers.');
   const sets = []; const vals = [sp.id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
 
+  let renamed = null;
+  if (body.business_name !== undefined) {
+    const name = clean(body.business_name, BUSINESS_NAME_MAX);
+    if (!name || name.length < BUSINESS_NAME_MIN) throw err(422, 'BUSINESS_NAME_REQUIRED', 'Enter your business name.');
+    if (name !== sellerName(sp)) {
+      if (!(await businessNameEditable(sp.id))) {
+        throw err(409, 'BUSINESS_NAME_LOCKED', 'Your business name is set. To change it, please contact Advantage.Bid.');
+      }
+      add('display_name', name);
+      renamed = { from: sp.display_name || null, to: name };
+    }
+  }
+
   if (body.slug !== undefined) {
-    const desired = slugify(body.slug) || slugify(sellerName(sp));
+    const desired = slugify(body.slug) || slugify(renamed ? renamed.to : sellerName(sp));
     if (desired) {
       const taken = (await db.query('SELECT 1 FROM seller_profiles WHERE lower(storefront_slug) = lower($1) AND id <> $2', [desired, sp.id])).rows[0];
       if (taken) throw err(409, 'SLUG_TAKEN', 'That storefront address is already taken.');
       add('storefront_slug', desired);
     }
   } else if (!sp.storefront_slug) {
-    let base = slugify(sellerName(sp)) || ('seller-' + sp.id.slice(0, 8)); let candidate = base; let n = 1;
+    let base = slugify(renamed ? renamed.to : sellerName(sp)) || ('seller-' + sp.id.slice(0, 8)); let candidate = base; let n = 1;
     while ((await db.query('SELECT 1 FROM seller_profiles WHERE lower(storefront_slug)=lower($1) AND id<>$2', [candidate, sp.id])).rows[0]) { candidate = `${base}-${++n}`; }
     add('storefront_slug', candidate);
   }
@@ -171,6 +193,10 @@ async function updateConfig(userId, body = {}) {
   }
   if (!sets.length) return getOwnerConfig(userId);
   await db.query(`UPDATE seller_profiles SET ${sets.join(', ')} WHERE id = $1`, vals);
+  if (renamed) {
+    await require('../lib/auditLog').writeAuditLog({ event_type: 'seller_business_name_changed', entity_type: 'seller_profile', entity_id: sp.id,
+      actor_id: userId, metadata: renamed }).catch(() => {});
+  }
   return getOwnerConfig(userId);
 }
 

@@ -15,7 +15,7 @@ const STOREFRONT_IDS = ['storefront', 'addItem', 'mpOrders', 'websiteWidgets'];
 const ids = (ctx) => Nav.visibleNavFor(ctx).map((i) => i.id);
 
 describe('member nav — Storefront items for Professional Sellers only', () => {
-  const base = { role: 'seller', mode: 'buying', isSeller: true, sellerReady: true };
+  const base = { role: 'seller', mode: 'selling', isSeller: true, sellerReady: true };   // seller tools live in Selling (2026-11-10)
 
   test('Individual Seller (storefront_eligible false) sees auction tools but NO Storefront items', () => {
     const v = ids(Object.assign({ storefrontEligible: false }, base));
@@ -35,7 +35,7 @@ describe('member nav — Storefront items for Professional Sellers only', () => 
   });
 
   test('eligibility alone never shows seller tools before Marketplace setup is complete', () => {
-    const v = ids({ role: 'seller', mode: 'buying', isSeller: true, sellerReady: false, storefrontEligible: true });
+    const v = ids({ role: 'seller', mode: 'selling', isSeller: true, sellerReady: false, storefrontEligible: true });
     STOREFRONT_IDS.concat(['createAuction']).forEach((id) => expect(v).not.toContain(id));
   });
 

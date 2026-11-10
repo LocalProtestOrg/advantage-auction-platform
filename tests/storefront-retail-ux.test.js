@@ -51,7 +51,7 @@ describe('seller storefront editor — add an item (antique dealer)', () => {
 describe('seller navigation — retail entry points', () => {
   test('"Add Item" nav item deep-links to the item tab; "Store Orders" not "Marketplace Orders"', () => {
     expect(nav).toMatch(/id: 'addItem'[^}]*\/seller-storefront\.html\?tab=market/);
-    expect(nav).toContain("label: 'Store Orders'");
+    expect(nav).toMatch(/id: 'mpOrders',\s*label: 'Orders'/);   // owner 2026-11-10: "Orders" in the Storefront section
   });
 });
 

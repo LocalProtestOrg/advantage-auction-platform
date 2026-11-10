@@ -46,7 +46,7 @@
 <body>
   <div class="wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap"><h1>My Storefront</h1><a id="headerView" class="btn b-ghost" target="_blank" style="display:none">View My Storefront ↗</a></div>
-    <div class="sub">Your professional business home on Advantage.Bid — <span id="pubUrl"></span></div>
+    <div class="sub">Your professional business home on Advantage.Bid: <span id="pubUrl"></span></div>
     <div id="denied" class="denied">A public storefront is available to <b>Professional Sellers</b>. Contact Advantage.Bid to upgrade your account.</div>
     <div id="content" style="display:none">
       <div class="tabs">
@@ -60,6 +60,8 @@
 
       <div id="pane-store">
         <div class="card">
+          <label for="s-name">Business name</label><input id="s-name" maxlength="80" placeholder="e.g. Timeless Treasures">
+          <p class="hint" id="s-name-hint" style="margin:.2rem 0 .6rem;color:#475569">The name buyers see on your storefront and listings.</p>
           <label class="toggle"><input type="checkbox" id="s-pub" style="width:auto"> Publish my storefront (make it public)</label>
           <div class="row2"><div><label>Storefront address (slug)</label><input id="s-slug" placeholder="my-company"></div><div style="display:flex;align-items:end"><a class="btn b-ghost" id="viewBtn" target="_blank" style="width:100%;text-align:center">View public page ↗</a></div></div>
           <label>Tagline</label><input id="s-tagline" maxlength="140" placeholder="Full-service estate sales & online auctions">
@@ -89,7 +91,7 @@
           <div style="margin-top:1rem;display:flex;gap:.5rem"><button class="btn b-blue" onclick="saveStore()">Save Storefront</button></div>
         </div>
         <div class="card" id="pol-card"><h3 style="margin-bottom:.3rem">Store policies</h3>
-          <p class="hint" style="margin:0 0 .6rem;color:#475569">Your own Store Terms &amp; Conditions and Shipping &amp; Pickup Policy, shown on your storefront and linked from every item. Write them in your own words — Advantage.Bid does not write or legally review them, and its Buyer Terms also apply to every purchase and take priority. Save a draft, preview it, then publish. Published versions are kept; publishing again creates a new version.</p>
+          <p class="hint" style="margin:0 0 .6rem;color:#475569">Your own Store Terms &amp; Conditions and Shipping &amp; Pickup Policy, shown on your storefront and linked from every item. Write them in your own words. Advantage.Bid does not write or legally review them, and its Buyer Terms also apply to every purchase and take priority. Save a draft, preview it, then publish. Published versions are kept; publishing again creates a new version.</p>
           <div id="pol-store_terms"></div><div id="pol-shipping_pickup" style="margin-top:1rem"></div>
         </div>
         <div class="card"><h3 style="margin-bottom:.3rem">Shipping default for new items</h3>
@@ -103,7 +105,7 @@
       <div id="pane-market" style="display:none">
         <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap"><div><b>Many items to list?</b><div class="hint" style="color:#475569">Import a spreadsheet, add photos in bulk by SKU, and publish or pause items in batches.</div></div><a class="btn b-blue" href="/seller-inventory.html">Inventory &amp; Import</a></div>
         <div class="card" id="loc-card"><h3 style="margin-bottom:.3rem">Storefront pickup location</h3>
-          <p class="hint" style="margin:0 0 .6rem;color:#475569">Where buyers collect your items. Set it once — every item you add uses it automatically, unless you change the location for a particular item. Buyers see only the city and state until they've paid. It's also where sales tax is figured.</p>
+          <p class="hint" style="margin:0 0 .6rem;color:#475569">Where buyers collect your items. Set it once. Every item you add uses it automatically, unless you change the location for a particular item. Buyers see only the city and state until they've paid. It's also where sales tax is figured.</p>
           <div id="loc-view" hidden><p id="loc-line" style="font-weight:600;margin:0 0 .5rem"></p><button class="btn b-ghost" type="button" onclick="editDefaultLoc()">Change</button></div>
           <div id="loc-edit" hidden>
             <p class="hint" id="loc-suggest" style="margin:0 0 .4rem;color:#92400e" hidden>We filled this in from your business details. Please confirm it's where your items are kept, or change it.</p>
@@ -116,7 +118,7 @@
           </div>
         </div>
         <div class="card"><h3 style="margin-bottom:.5rem">Add an Item</h3>
-          <p class="hint" style="margin:-.2rem 0 .7rem">List one of your items for sale at a fixed price. Add photos, a price, and a description — then it goes live in your shop. <span id="addedCount"></span></p>
+          <p class="hint" style="margin:-.2rem 0 .7rem">List one of your items for sale at a fixed price. Add photos, a price and a description, then publish it to your shop. Buyers see your items once Advantage.Bid has verified your business. <span id="addedCount"></span></p>
           <p class="hint" style="margin:-.4rem 0 .8rem;color:#334155"><b>Commission, including credit card processing: 5% for sales through your own website (your embedded storefront), 9% for sales through the Advantage.Bid marketplace.</b> Charged only when an item sells, on the item price (not shipping or tax). No monthly or listing fees.</p>
           <label>Photos</label>
           <div id="m-photos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem"></div>
@@ -132,9 +134,9 @@
           <label for="m-inv">Your inventory number / SKU (optional)</label><input id="m-inv" maxlength="64" placeholder="e.g. HH-1042">
           <div class="row2"><div><label for="m-price">Sale Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label for="m-cat">Category</label><select id="m-cat" class="cat-select"><option value="">Choose automatically</option></select></div></div>
           <label>Condition</label><input id="m-cond" placeholder="Excellent, Very Good, Good…">
-          <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
-          <details style="margin:.6rem 0"><summary style="cursor:pointer;font-weight:600">Product details (optional) — helps shoppers find this item</summary>
-            <p class="hint" style="margin:.4rem 0;color:#475569">Fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number — leave those blank.</p>
+          <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece: era, maker, dimensions, condition notes…"></textarea>
+          <details style="margin:.6rem 0"><summary style="cursor:pointer;font-weight:600">Product details (optional): helps shoppers find this item</summary>
+            <p class="hint" style="margin:.4rem 0;color:#475569">Fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number: leave those blank.</p>
             <div class="row2"><div><label for="m-ctype">New or used</label><select id="m-ctype"><option value="">Not specified</option><option value="used">Used / pre-owned / vintage</option><option value="new">New</option><option value="refurbished">Refurbished</option></select></div>
               <div><label for="m-era">Era or period</label><input id="m-era" placeholder="e.g. Mid-century, 1920s, Victorian"></div></div>
             <div class="row2"><div><label for="m-brand">Brand</label><input id="m-brand" placeholder="e.g. Herman Miller"></div><div><label for="m-maker">Maker or manufacturer</label><input id="m-maker"></div></div>
@@ -317,6 +319,11 @@
       var c=d.config||{};
       document.getElementById('s-pub').checked=!!d.published;
       document.getElementById('s-slug').value=d.slug||'';
+      // Business name: editable while the business awaits Advantage.Bid's verification; afterwards it is set (owner 2026-11-10).
+      var nm=document.getElementById('s-name'); nm.value=d.name||''; nm.disabled=!d.business_name_editable;
+      document.getElementById('s-name-hint').textContent=d.business_name_editable
+        ?'The name buyers see on your storefront and listings. You can change it until Advantage.Bid verifies your business.'
+        :'The name buyers see on your storefront and listings. To change it, contact Advantage.Bid.';
       document.getElementById('s-tagline').value=c.tagline||'';
       document.getElementById('s-hero').value=c.hero_image||'';
       showBrand('hero',c.hero_image||'');showBrand('logo',d.logo_url||'');
@@ -357,7 +364,8 @@
       if(r.success){showBrand(kind,'');if(kind==='hero')document.getElementById('s-hero').value='';brandMsg(kind,'Removed.',true);}else brandMsg(kind,r.message||'Could not remove.');}
     async function saveStore(){
       var g=function(id){return document.getElementById(id).value.trim();};
-      var body={published:document.getElementById('s-pub').checked,slug:g('s-slug')||undefined,config:{
+      var body={published:document.getElementById('s-pub').checked,slug:g('s-slug')||undefined,
+        business_name:document.getElementById('s-name').disabled?undefined:(g('s-name')||undefined),config:{
         tagline:g('s-tagline'),hero_image:g('s-hero'),about:g('s-about'),
         services:g('s-services').split(',').map(function(x){return x.trim();}).filter(Boolean),
         public_phone:g('s-phone'),public_email:g('s-email'),website:g('s-website'),service_area:g('s-area'),
@@ -374,7 +382,7 @@
       else{var sg=pl.suggestion; document.getElementById('loc-suggest').hidden=!sg;
         if(sg){setLocFields('d-',sg);}}
       document.getElementById('m-loc-line').innerHTML=DEFLOC?('Uses your storefront location: <b>'+place(DEFLOC)+'</b>')
-        :'<span style="color:#92400e">Confirm your storefront pickup location above first — or set a location for this item.</span>';
+        :'<span style="color:#92400e">Confirm your storefront pickup location above first, or set a location for this item.</span>';
     }
     function setLocFields(p,a){document.getElementById(p+'pk1').value=a.line1||'';document.getElementById(p+'pk2').value=a.line2||'';
       document.getElementById(p+'city').value=a.city||'';document.getElementById(p+'state').value=a.state||'';document.getElementById(p+'zip').value=a.postal_code||'';}
@@ -425,7 +433,7 @@
         +'<div class="row2"><div>'+f('price','Sale Price (USD)',m.price_cents!=null?(m.price_cents/100):'',' type="number" min="0" step="0.01"')+'</div><div><label for="e-cat-'+id+'">Category</label><select id="e-cat-'+id+'"><option value="">'+(m.category&&!m.category_key?esc(m.category):'Not set')+'</option>'+CATS.map(function(c){return '<option value="'+esc(c.key)+'"'+(m.category_key===c.key?' selected':'')+'>'+esc(c.label)+'</option>';}).join('')+'</select></div></div>'
         +f('cond','Condition details',m.condition)
         +'<label for="e-desc-'+id+'">Description</label><textarea id="e-desc-'+id+'" rows="3">'+esc(m.description||'')+'</textarea>'
-        +'<p class="hint" style="margin:.6rem 0 .2rem;color:#475569"><b>Product details (optional)</b> — fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number.</p>'
+        +'<p class="hint" style="margin:.6rem 0 .2rem;color:#475569"><b>Product details (optional):</b> fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number.</p>'
         +'<div class="row2"><div><label for="e-ctype-'+id+'">New or used</label><select id="e-ctype-'+id+'">'+CTYPE_OPTS.map(function(o){return '<option value="'+o[0]+'"'+((m.condition_type||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'
         +'<div>'+f('era','Era or period',m.era_or_period)+'</div></div>'
         +'<div class="row2"><div>'+f('brand','Brand',m.brand)+'</div><div>'+f('maker','Maker or manufacturer',m.manufacturer)+'</div></div>'
@@ -550,7 +558,7 @@
       try{var r=await api('POST','/api/seller-storefront/items',body);
         if(r.success){
           ADDED++; document.getElementById('addedCount').textContent='· '+ADDED+' added this session';
-          msg(draft?'Saved as a draft. It is not live yet: publish it from Your items when it is ready.':'✓ Item added — it’s live in your shop. Add another below.',true);
+          msg(draft?'Saved as a draft. It is not live yet: publish it from Your items when it is ready.':(CFG&&CFG.business_name_editable?'✓ Item added and published. Buyers will see it once Advantage.Bid verifies your business. Add another below.':'✓ Item added. It is live in your shop. Add another below.'),true);
           // Clear item-specific fields; KEEP the shipping choice. The next item uses the storefront location again.
           if(ITEM_LOC_OPEN)toggleItemLoc();
           ['m-title','m-inv','m-price','m-cat','m-cond','m-desc','m-ctype','m-era','m-brand','m-maker','m-material','m-mpn','m-gtin'].forEach(function(i){document.getElementById(i).value='';});

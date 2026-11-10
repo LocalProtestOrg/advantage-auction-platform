@@ -58,66 +58,83 @@
     return '<a class="adv-nav-item" href="/app.html' + item.href + '">' + inner + '</a>';
   }
 
-  // Entitlement-aware Marketplace CTA (server-authoritative flags — the client only renders):
-  //   State 1  buyer                              → "Start selling"
-  //   State 2  professional, setup incomplete     → "Complete Marketplace Seller Setup"
-  //   State 3  professional, Marketplace-ready     → no onboarding CTA (Create Online Auction lives in
-  //                                                  the nav); multi-mode buyers keep the Buying/Selling toggle.
-  function modeSwitch(ctx) {
-    var professional = !!(ctx.isEventOrganizer || ctx.sellerReady);
-    if (professional) {
-      if (ctx.sellerReady) return ''; // State 3 — nothing to onboard; Create/Manage Online Auction is in the nav
-      return '<a class="adv-nav-item" href="/become-seller.html">' + // State 2
-        '<span class="adv-nav-emoji" aria-hidden="true">🧾</span><span>Complete Marketplace Seller Setup</span></a>';
-    }
+  // The Buying / Selling switch (owner 2026-11-10: always available to sellers, like a travel marketplace's host switch).
+  // A pure buyer has one experience and sees "Start selling" instead. Admins also get "view as" buttons.
+  function modeButtons(ctx, compact) {
     var modes = Nav.availableModes(navContext(ctx));
-    if (modes.length <= 1) {
-      return '<a class="adv-nav-item" href="/become-seller.html">' + // State 1
-        '<span class="adv-nav-emoji" aria-hidden="true">📈</span><span>Start selling</span></a>';
-    }
-    return modes.filter(function (m) { return m !== ctx.mode; }).map(function (m) {
+    if (modes.length <= 1) return '';
+    return modes.map(function (m) {
+      var meta = MODE_META[m] || { label: m };
+      if (m === ctx.mode) {
+        return '<span class="adv-mode-opt on" aria-current="true">' + esc(meta.label) + '</span>';
+      }
       var attrs = ctx.inShell ? ' data-mode="' + m + '"' : ' data-mode="' + m + '" data-mode-href="/app.html"';
-      return '<button class="adv-btn ghost" style="width:100%;justify-content:flex-start;margin-top:6px"' + attrs + '>' +
-        '⇄ Switch to ' + esc(MODE_META[m].label) + '</button>';
+      return '<button type="button" class="adv-mode-opt"' + attrs + ' aria-label="Switch to ' + esc(meta.label) + '">' +
+        (compact ? 'Switch to ' : '') + esc(meta.label) + '</button>';
     }).join('');
   }
+  function modeSwitch(ctx) {
+    var modes = Nav.availableModes(navContext(ctx));
+    if (modes.length <= 1) {
+      return '<a class="adv-nav-item" href="/become-seller.html">' +
+        '<span class="adv-nav-emoji" aria-hidden="true">📈</span><span>Start selling</span></a>';
+    }
+    return '<div class="adv-mode-switch" role="group" aria-label="Buying or Selling">' + modeButtons(ctx, false) + '</div>';
+  }
+  // An event organizer who has not finished Marketplace seller setup gets one onboarding link under the menu.
+  function setupLink(ctx) {
+    if (ctx.isEventOrganizer && !ctx.sellerReady && !ctx.isSeller) {
+      return '<a class="adv-nav-item" href="/become-seller.html">' +
+        '<span class="adv-nav-emoji" aria-hidden="true">🧾</span><span>Complete Marketplace Seller Setup</span></a>';
+    }
+    return '';
+  }
+  var MODE_SWITCH_CSS = '<style id="adv-mode-switch-css">' +
+    '.adv-mode-switch{display:flex;gap:4px;padding:4px;margin:4px 0 10px;border-radius:999px;background:rgba(15,23,42,.06)}' +
+    '.adv-mode-opt{flex:1;border:0;background:transparent;border-radius:999px;padding:7px 10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:inherit;text-align:center}' +
+    '.adv-mode-opt.on{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.18)}' +
+    '.adv-mode-opt:focus-visible{outline:2px solid #2563eb;outline-offset:2px}' +
+    '.adv-header .adv-mode-mini{display:none;margin-left:8px}' +
+    '.adv-header .adv-mode-mini .adv-mode-opt{flex:0 0 auto;padding:5px 10px;border:1px solid rgba(15,23,42,.15);background:#fff}' +
+    '.adv-header .adv-mode-mini .adv-mode-opt.on{display:none}' +
+    '@media (max-width:860px){.adv-header .adv-mode-mini{display:flex}}' +
+    '</style>';
 
   function rail(ctx) {
-    // Grouped, labelled sections (Professional Marketplace / Buying / …) come from the shared nav model.
+    // Grouped, labelled sections (Storefront / Online Auctions / …) come from the shared nav model.
     var navHtml = Nav.visibleSectionsFor(navContext(ctx)).map(function (s) {
       var head = s.heading ? '<div class="adv-nav-section" role="presentation">' + esc(s.heading) + '</div>' : '';
       return head + s.items.map(function (i) { return navItem(i, ctx); }).join('');
     }).join('');
     var m = MODE_META[ctx.mode] || MODE_META.buying;
-    return '<aside class="adv-rail">' +
+    var modes = Nav.availableModes(navContext(ctx));
+    return MODE_SWITCH_CSS + '<aside class="adv-rail">' +
       '<a class="adv-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div>' +
         '<div><div class="adv-brand-name">Advantage</div><div class="adv-brand-sub">' + esc(m.sub) + '</div></div></a>' +
+      (modes.length > 1 ? '<div id="adv-mode-switch">' + modeSwitch(ctx) + '</div>' : '') +
       '<nav class="adv-nav" aria-label="Primary">' + navHtml + '</nav>' +
-      '<div class="adv-rail-foot" id="adv-mode-switch">' + modeSwitch(ctx) + '</div>' +
+      '<div class="adv-rail-foot">' + (modes.length > 1 ? '' : modeSwitch(ctx)) + setupLink(ctx) + '</div>' +
       '<div class="adv-rail-foot"><button class="adv-nav-item" id="adv-logout">' +
         '<span class="adv-nav-emoji" aria-hidden="true">↩︎</span><span>Log out</span></button></div>' +
     '</aside>';
   }
 
-  // Mobile bottom nav. Buyers keep the flat primary set. Professionals have more tools than fit a row,
-  // so we show a curated 4 + a compact "More" sheet (PO guidance: never cram equal-width items).
+  // Mobile bottom nav: up to 4 primary items, and a compact "More" sheet when the experience has more than 5 (never cram
+  // equal-width items).
   function bottomNav(ctx) {
     var nctx = navContext(ctx);
-    var professional = !!(ctx.isEventOrganizer || ctx.sellerReady);
+    var all = Nav.visibleNavFor(nctx);
     var itemsHtml, sheetHtml = '';
-    if (professional) {
-      var all = Nav.visibleNavFor(nctx);
-      var byId = {}; all.forEach(function (i) { byId[i.id] = i; });
-      var pref = ['home', 'events', 'createEvent', 'createAuction', 'sell', 'watchlist', 'account'];
-      var primary = pref.map(function (id) { return byId[id]; }).filter(Boolean).slice(0, 4);
+    // Buying and admin keep their flat primary set; Selling has more tools than fit a row, so it gets a More sheet.
+    if (ctx.mode === 'selling' && all.length > 5) {
+      var primary = all.filter(function (i) { return i.primaryMobile; }).slice(0, 4);
+      if (primary.length < 4) primary = primary.concat(all.filter(function (i) { return primary.indexOf(i) === -1; }).slice(0, 4 - primary.length));
       var overflow = all.filter(function (i) { return primary.indexOf(i) === -1; });
       itemsHtml = primary.map(function (i) { return navItem(i, ctx); }).join('');
-      if (overflow.length) {
-        itemsHtml += '<button class="adv-nav-item" id="adv-more-btn" type="button" aria-expanded="false" aria-controls="adv-more">' +
-          '<span class="adv-nav-emoji" aria-hidden="true">⋯</span><span>More</span></button>';
-        sheetHtml = '<div class="adv-moresheet" id="adv-more" hidden><nav class="adv-nav" aria-label="More">' +
-          overflow.map(function (i) { return navItem(i, ctx); }).join('') + '</nav></div>';
-      }
+      itemsHtml += '<button class="adv-nav-item" id="adv-more-btn" type="button" aria-expanded="false" aria-controls="adv-more">' +
+        '<span class="adv-nav-emoji" aria-hidden="true">⋯</span><span>More</span></button>';
+      sheetHtml = '<div class="adv-moresheet" id="adv-more" hidden><nav class="adv-nav" aria-label="More">' +
+        overflow.map(function (i) { return navItem(i, ctx); }).join('') + '</nav></div>';
     } else {
       itemsHtml = Nav.primaryMobileNav(nctx).map(function (i) { return navItem(i, ctx); }).join('');
     }
@@ -142,6 +159,7 @@
       '<a class="adv-mobile-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div><div class="adv-brand-name">Advantage</div></a>' +
       '<h1 id="adv-title">' + esc(titleText) + '</h1>' +
       '<span class="adv-chip info" id="adv-mode-chip" style="margin-left:8px">' + esc(m.label) + '</span>' +
+      (Nav.availableModes(navContext(ctx)).length > 1 ? '<div class="adv-mode-mini">' + modeButtons(ctx, true) + '</div>' : '') +
       '<div class="adv-header-spacer"></div>' +
       '<button class="adv-icon-btn" id="adv-bell" aria-label="Updates and notifications">🔔<span class="adv-dot"></span></button>' +
       '<div class="adv-user"><div class="adv-avatar" aria-hidden="true">' + esc(initials(u).toUpperCase()) + '</div>' +
@@ -181,7 +199,7 @@
       sellerType = (sp && (sp.seller_type || (sp.seller_profile && sp.seller_profile.seller_type))) || null;
     } catch (e) {}
     var stored = null; try { stored = localStorage.getItem('ab_active_mode'); } catch (e) {}
-    var mode = Nav.resolveMode({ role: d.role, isSeller: isSeller }, stored);
+    var mode = Nav.resolveMode({ role: d.role, isSeller: isSeller, isEventOrganizer: d.event_organizer === true }, stored);
     return {
       user: d, isSeller: isSeller, sellerType: sellerType, mode: mode,
       isBdMember: d.bd_member === true, businessAdminUrl: d.business_admin_url || null,
@@ -220,6 +238,13 @@
     if (!ctx) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return null; }
     ctx.inShell = false;
     ctx.activeHref = opts.activeHref || (location.pathname);
+    // A workspace page that belongs to Selling (My Events, Create Event…) opens in Selling, so its own menu item is shown
+    // even when the remembered mode is Buying.
+    var hasHref = function (c) { return Nav.visibleNavFor(navContext(c)).some(function (i) { return i.href === ctx.activeHref; }); };
+    if (!hasHref(ctx) && Nav.availableModes(navContext(ctx)).indexOf('selling') !== -1 && hasHref(Object.assign({}, ctx, { mode: 'selling' }))) {
+      ctx.mode = 'selling';
+      try { localStorage.setItem('ab_active_mode', 'selling'); } catch (e) {}
+    }
     ctx.title = opts.title || document.title.replace(/\s*[-|].*$/, '');
     // Optional entitlement guard (e.g. a native buyer should never see the org pages directly).
     if (opts.requireEventOrganizer && !ctx.isEventOrganizer) { location.replace('/app.html#home'); return null; }

@@ -70,77 +70,74 @@
     ];
   }
 
-  // ── Online-auction management (for sellers who completed Marketplace setup — ctx.sellerReady) ──
-  // A DIFFERENT workflow/product from events (Create Event ≠ Create Online Auction — kept separate).
-  // "Manage Online Auctions" reuses the in-shell seller workspace (#sell); "Create Online Auction"
-  // deep-links to the hosted-auction builder.
-  // Storefront items (My Storefront / Add Item / Store Orders) appear ONLY for Professional Sellers
-  // (ctx.storefrontEligible — server-computed from the canonical isProfessional rule); Individual
-  // Sellers never see Storefront actions they cannot use.
-  function auctionSellerItems(ctx) {
-    var storefront = (ctx && ctx.storefrontEligible) ? [
-      { id: 'storefront',    label: 'My Storefront',          emoji: '🏪', href: '/seller-storefront.html', external: true, primaryMobile: true },
-      { id: 'addItem',       label: 'Add Item',               emoji: '🏷️', href: '/seller-storefront.html?tab=market', external: true, primaryMobile: true },
-      { id: 'mpOrders',      label: 'Store Orders',           emoji: '📦', href: '/seller-orders.html', external: true },
-      // Both website widgets (auctions and storefront) in one place (owner request 2026-11-03).
-      { id: 'websiteWidgets', label: 'Website Widgets',       emoji: '🧩', href: '/seller-storefront.html?tab=widget', external: true }
-    ] : [];
-    return storefront.concat([
+  // ── Online auctions (any seller) ──
+  // A DIFFERENT workflow/product from events (Create Event is not Create Online Auction). "Manage Online Auctions" is the
+  // in-shell seller workspace (#sell); "Create Online Auction" deep-links to the hosted-auction builder.
+  function auctionItems() {
+    return [
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
       { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' },
-      // Guides and printable labels, worksheets and checklists (owner request 2026-11-05).
-      { id: 'howto',         label: 'Seller How To Center',   emoji: '📘', href: '/seller-how-to', external: true, proOnly: true }
-    ]);
+      { id: 'analytics',     label: 'Sale Stats',             emoji: '📈', href: '#analytics' },
+      { id: 'payments',      label: 'Auction Payments',       emoji: '💵', href: '/seller-settlements.html', external: true }
+    ];
   }
 
-  // A capability-aware account (an event organizer and/or a Marketplace-ready seller) gets a single
-  // professional-first list instead of the buyer-first mode nav.
+  // ── Professional Storefront (ctx.storefrontEligible: server-computed from the canonical isProfessional rule) ──
+  // The storefront workspace comes first in Selling (owner 2026-11-10): Add Item, Manage Inventory, My Storefront,
+  // Orders, then the widgets and payouts. Individual Sellers never see Storefront actions they cannot use.
+  function storefrontItems() {
+    return [
+      { id: 'addItem',        label: 'Add Item',         emoji: '🏷️', href: '/seller-storefront.html?tab=market', external: true, primaryMobile: true },
+      { id: 'inventory',      label: 'Manage Inventory', emoji: '🗂️', href: '/seller-inventory.html', external: true, primaryMobile: true },
+      { id: 'storefront',     label: 'My Storefront',    emoji: '🏪', href: '/seller-storefront.html?tab=store', external: true, primaryMobile: true },
+      { id: 'mpOrders',       label: 'Orders',           emoji: '📦', href: '/seller-orders.html', external: true, primaryMobile: true },
+      // Both website widgets (auctions and storefront) in one place (owner request 2026-11-03).
+      { id: 'websiteWidgets', label: 'Website Widgets',  emoji: '🧩', href: '/seller-storefront.html?tab=widget', external: true },
+      { id: 'payouts',        label: 'Payouts',          emoji: '🏦', href: '/payout-profile.html', external: true }
+    ];
+  }
+  var SELLER_SETTINGS = { id: 'account', label: 'Seller Settings', emoji: '⚙️', href: '#account', primaryMobile: true };
+  var HOW_TO = { id: 'howto', label: 'Seller How To Center', emoji: '📘', href: '/seller-how-to', external: true, proOnly: true };
+  // An Individual Seller's way to a storefront (self-service: /become-professional-seller.html).
+  var GO_PRO = { id: 'goPro', label: 'Open a Professional Storefront', emoji: '🏪', href: '/become-professional-seller.html', external: true };
+  // A seller who has not finished Marketplace setup (the seller agreement) sees this one step instead of tools it cannot use.
+  var FINISH_SETUP = { id: 'finishSetup', label: 'Finish seller setup', emoji: '📝', href: '/sign-agreement.html?onboarding=1', external: true, primaryMobile: true };
+
+  // Kept for callers that ask "does this account have professional tools?" (event organizer or Marketplace-ready seller).
   function isProfessionalExperience(ctx) { return !!(ctx && (ctx.isEventOrganizer || ctx.sellerReady)); }
 
-  // ── Professional Marketplace features — DATA-DRIVEN registry ──
-  // Every professional tool is one entry: an entitlement predicate + the item(s) it contributes, in
-  // display order. Future features (Seller Analytics, My Lots, Invoices, Settlements, …) are added by
-  // inserting a row here — the section, headings, and rendering need no restructuring.
-  var PROFESSIONAL_FEATURES = [
-    { key: 'events',   when: function (c) { return c.isEventOrganizer; },              items: function () { return eventOrganizerItems(); } }, // My Events, Create Event
-    { key: 'auctions', when: function (c) { return c.sellerReady; },                   items: function (c) { return auctionSellerItems(c); } }, // Create/Manage Online Auction
-    // ── future professional tools slot in here (capability-gated), e.g.:
-    // { key: 'analytics',   when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'analytics', label:'Seller Analytics', emoji:'📈', href:'#analytics' }]; } },
-    // { key: 'lots',        when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'lots', label:'My Lots', emoji:'📦', href:'/dashboard/lots.html', external:true }]; } },
-    // { key: 'invoices',    when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'sellerInvoices', label:'Invoices', emoji:'🧾', href:'/invoices.html', external:true }]; } },
-    // { key: 'settlements', when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'settlements', label:'Settlements', emoji:'💰', href:'/seller-settlements.html', external:true }]; } },
-    // (Business Administration is no longer here — it is pinned to the TOP of the nav; see visibleSectionsFor.)
-  ];
-  function professionalMarketplaceItems(ctx) {
-    var out = [];
-    PROFESSIONAL_FEATURES.forEach(function (f) { if (f.when(ctx)) out = out.concat(f.items(ctx)); });
+  function isSellerCtx(ctx) { return !!(ctx && (ctx.isSeller || normalizeRole(ctx.role) === 'seller')); }
+
+  // The SELLING experience, in labelled sections. The Buying/Selling switch always decides what is shown.
+  function sellingSections(ctx) {
+    var out = [{ id: 'home', heading: null, items: [SELLING[0]] }];
+    var ready = !!ctx.sellerReady;   // seller profile + satisfied agreement gate (server-computed)
+    if (isSellerCtx(ctx) && !ready) out.push({ id: 'setup', heading: null, items: [FINISH_SETUP] });
+    if (ctx.storefrontEligible && ready) out.push({ id: 'storefront', heading: 'Storefront', items: storefrontItems() });
+    if (isSellerCtx(ctx) && ready) out.push({ id: 'auctions', heading: 'Online Auctions', items: auctionItems() });
+    if (ctx.isEventOrganizer) out.push({ id: 'events', heading: 'Events', items: eventOrganizerItems() });
+    var general = [];
+    if (!ctx.storefrontEligible && isSellerCtx(ctx)) general.push(GO_PRO);
+    general.push(HOW_TO, SELLING[5], SELLER_SETTINGS);   // How To Center (Professional only), Messages, Seller Settings
+    out.push({ id: 'general', heading: null, items: general });
     return out;
   }
 
-  // Professional-first, grouped into labelled sections (Business Administration is pinned above these
-  // by visibleSectionsFor). Professional Marketplace tools, then Buying, are preserved below.
-  function professionalSections(ctx) {
-    var sections = [{ id: 'home', heading: null, items: [BUYING[0]] }]; // Dashboard Home (no heading)
-    var pro = professionalMarketplaceItems(ctx);
-    if (pro.length) sections.push({ id: 'professional', heading: 'Professional Marketplace', items: pro });
-    sections.push({ id: 'buying', heading: 'Buying', items: [BUYING[1], BUYING[2], BUYING[3]] }); // Watchlist, My Bids, Purchases
-    sections.push({ id: 'general', heading: null, items: [BUYING[4], BUYING[5]] });               // Messages, Account
-    return sections;
-  }
 
   function normalizeRole(role) {
     var r = String(role || '').toLowerCase();
     return (r === 'buyer' || r === 'seller' || r === 'admin') ? r : null;
   }
 
-  // Which experiences a user may switch between (progressive disclosure — no switch for a pure buyer).
+  // Which experiences a user may switch between (progressive disclosure: no switch for a pure buyer). Sellers and event
+  // organizers switch between Buying and Selling.
   function availableModes(ctx) {
     ctx = ctx || {};
     var role = normalizeRole(ctx.role);
     if (!role) return [];
     if (role === 'admin') return ['admin', 'selling', 'buying']; // admin default + "view as" for testing
-    if (role === 'seller' || ctx.isSeller) return ['buying', 'selling']; // buyer-first, can switch to selling
-    return ['buying']; // pure buyer — never sees a switch
+    if (role === 'seller' || ctx.isSeller || ctx.isEventOrganizer) return ['buying', 'selling'];
+    return ['buying']; // pure buyer: never sees a switch
   }
 
   // The experience a user lands in by default: buyer-first for everyone except admins.
@@ -162,27 +159,25 @@
    * No/invalid role (logged-out) → []. An unavailable/absent mode resolves to the user's default.
    */
   /**
-   * visibleSectionsFor(ctx) → ordered [{ id, heading|null, items:[...] }]. The single source of nav
-   * structure. Professionals get grouped sections (Dashboard Home / Professional Marketplace / Buying /
-   * general); everyone else gets one unlabelled section (the mode nav). Rail rendering reads sections
-   * (headings); flat consumers read visibleNavFor (below).
+   * visibleSectionsFor(ctx) → ordered [{ id, heading|null, items:[...] }]: the single source of nav structure. The active
+   * mode (Buying / Selling / admin) always decides what is shown.
    */
   function visibleSectionsFor(ctx) {
     ctx = ctx || {};
     var mode = resolveMode(ctx, ctx.mode);
     if (!mode) return [];
-    // Business Administration is the gateway BACK to the BD admin area. Pin it to the very TOP for any
-    // member who came from BD, so if they land in the Railway app it is the first thing they see. Its
-    // own section (no heading) → the existing inter-section spacing separates it from the app nav below.
+    // Business Administration is the gateway BACK to the BD admin area: pinned on top in every experience.
     var sections = [];
     if (ctx.isBdMember && ctx.businessAdminUrl) {
       sections.push({ id: 'bizadmin', heading: null, items: [businessAdminItem(ctx.businessAdminUrl)] });
     }
-    if (mode !== 'admin' && isProfessionalExperience(ctx)) sections = sections.concat(professionalSections(ctx));
+    // buying = the buyer list (professionals included); selling = Storefront / Online Auctions / Events / general.
+    if (mode === 'selling') sections = sections.concat(sellingSections(ctx));
     else sections = sections.concat([{ id: mode, heading: null, items: MODES[mode].slice() }]);
     // proOnly items (the Seller How To Center) only for Professional Sellers and admins; the server enforces it too.
     var pro = !!ctx.storefrontEligible || normalizeRole(ctx.role) === 'admin';
-    return sections.map(function (sec) { return pro ? sec : { id: sec.id, heading: sec.heading, items: sec.items.filter(function (i) { return !i.proOnly; }) }; });
+    return sections.map(function (sec) { return pro ? sec : { id: sec.id, heading: sec.heading, items: sec.items.filter(function (i) { return !i.proOnly; }) }; })
+      .filter(function (sec) { return sec.items.length; });
   }
 
   // Flat ordered items (backward-compatible) — the concatenation of every section's items.

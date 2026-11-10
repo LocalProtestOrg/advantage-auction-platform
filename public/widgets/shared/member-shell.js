@@ -162,11 +162,11 @@
 
     var attn = '';
     unpaid.slice(0, 3).forEach(function (i) {
-      attn += attnRow('💳', 'warn', 'Payment due — ' + (i.auction_title || 'Auction'),
+      attn += attnRow('💳', 'warn', 'Payment due: ' + (i.auction_title || 'Auction'),
         money(i.total_cents) + ' · Invoice ' + (i.invoice_number || ''),
         '<a class="adv-btn primary" style="flex:none" href="/invoices.html">Pay now</a>'); });
     outbid.slice(0, 3).forEach(function (l) {
-      attn += attnRow('🔁', 'bad', "You've been outbid — " + (l.title || 'Lot'),
+      attn += attnRow('🔁', 'bad', "You've been outbid: " + (l.title || 'Lot'),
         'Current bid ' + money(l.current_bid_cents) + ' · ends ' + timeLeft(l.closes_at),
         '<a class="adv-btn ghost" style="flex:none" href="/lot.html?id=' + encodeURIComponent(l.id) + '">Re-bid</a>'); });
     var attnCard = attn
@@ -247,7 +247,7 @@
       'Sign your Advantage seller agreement to open your workspace.', '<a class="adv-btn primary" href="/sign-agreement.html?onboarding=1">Review &amp; sign</a>'); return; }
     var auctions = (r.ok && r.body && r.body.data && r.body.data.auctions) || [];
     if (!auctions.length) { host.innerHTML = emptyCard('🚀', 'Ready for your first auction?',
-      "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create auction</a>'); return; }
+      "List your first auction and start receiving bids. We'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create auction</a>'); return; }
     var g = { needs: [], live: [], upcoming: [], review: [], draft: [], closed: [] };
     auctions.forEach(function (a) {
       if (a.state === 'rejected' || (a.state === 'draft' && a.revision_note)) g.needs.push(a);
@@ -297,7 +297,7 @@
           '<div class="adv-muted" style="font-size:11.5px">' + esc(stateLabel(a.state)) + '</div></div>' +
           '<div class="adv-row" style="gap:8px;flex:none"><span class="adv-chip info">👀 ' + w + '</span><span class="adv-chip accent">🙋 ' + bd + '</span>' +
           (conv != null ? ('<span class="adv-chip good">' + conv + '%</span>') : '') + '</div></div>'; }).join('') + '</div>') : '';
-    host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">How your auctions are performing — real numbers only.</div>' + cards + perfCard;
+    host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">How your auctions are performing, in real numbers.</div>' + cards + perfCard;
   }
 
   // Seller Resources (owner request 2026-11-05): the How To Center's guides and printables, from the seller home.
@@ -309,6 +309,16 @@
       '<a class="adv-btn ghost" href="/seller-how-to#printables">🏷️ Lot Labels &amp; Inventory Worksheets</a>' +
       '<a class="adv-btn ghost" href="/seller-how-to#photos">📷 Photography Tips</a>' +
       '<a class="adv-btn ghost" href="/seller-how-to#pickup-checklist">✅ Pickup Day Checklist</a></div>';
+  }
+
+  // Storefront quick actions (owner 2026-11-10): what a Professional Seller does most, first on the Selling home.
+  function storefrontActions() {
+    if (!state.storefrontEligible) return '';
+    return '<div class="adv-section-title">Your storefront</div><div class="adv-row adv-wrap" id="adv-storefront-actions">' +
+      '<a class="adv-btn primary" href="/seller-storefront.html?tab=market">🏷️ Add Item</a>' +
+      '<a class="adv-btn ghost" href="/seller-inventory.html">🗂️ Manage Inventory</a>' +
+      '<a class="adv-btn ghost" href="/seller-storefront.html?tab=store">🏪 My Storefront</a>' +
+      '<a class="adv-btn ghost" href="/seller-orders.html">📦 Orders</a></div>';
   }
 
   async function loadSellerHome() {
@@ -330,8 +340,13 @@
     var auctions = d.auctions || [], sum = d.summary || {};
     var fin = (r[1].ok && r[1].body && r[1].body.data) || null;
     if (!auctions.length) {
+      if (state.storefrontEligible) {
+        host.innerHTML = storefrontActions() + emptyCard('🔨', 'Online auctions',
+          'You can also run online auctions. Create one when you are ready.', '<a class="adv-btn ghost" href="/seller-create.html">Create Online Auction</a>') + sellerResources();
+        setStatus('Add your first item to your storefront.'); return;
+      }
       host.innerHTML = emptyCard('🚀', 'Welcome to your Seller Command Center',
-        "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create your first auction</a>') + sellerResources();
+        "List your first auction and start receiving bids. We'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create your first auction</a>') + sellerResources();
       setStatus("Let's get your first auction live."); return;
     }
 
@@ -342,10 +357,10 @@
     var ending = live.filter(function (a) { var ms = a.end_time ? new Date(a.end_time) - Date.now() : null; return ms != null && ms > 0 && ms < 48 * 3600 * 1000; });
 
     var attn = '';
-    rejected.slice(0, 3).forEach(function (a) { attn += attnRow('⚠️', 'bad', 'Needs changes — ' + (a.title || 'Auction'), a.rejection_reason || 'Advantage requested changes', sEdit(a.id, 'Revise')); });
-    revision.slice(0, 3).forEach(function (a) { attn += attnRow('✏️', 'warn', 'Revision requested — ' + (a.title || 'Auction'), a.revision_note || 'Please update and resubmit', sEdit(a.id, 'Edit')); });
-    drafts.slice(0, 3).forEach(function (a) { attn += attnRow('📝', 'info', 'Finish your draft — ' + (a.title || 'Untitled auction'), 'Complete and submit for review', sEdit(a.id, 'Continue')); });
-    ending.slice(0, 3).forEach(function (a) { attn += attnRow('⏳', 'warn', 'Ending soon — ' + (a.title || 'Auction'), 'Ends ' + timeLeft(a.end_time), sView(a.id, 'View')); });
+    rejected.slice(0, 3).forEach(function (a) { attn += attnRow('⚠️', 'bad', 'Needs changes: ' + (a.title || 'Auction'), a.rejection_reason || 'Advantage requested changes', sEdit(a.id, 'Revise')); });
+    revision.slice(0, 3).forEach(function (a) { attn += attnRow('✏️', 'warn', 'Revision requested: ' + (a.title || 'Auction'), a.revision_note || 'Please update and resubmit', sEdit(a.id, 'Edit')); });
+    drafts.slice(0, 3).forEach(function (a) { attn += attnRow('📝', 'info', 'Finish your draft: ' + (a.title || 'Untitled auction'), 'Complete and submit for review', sEdit(a.id, 'Continue')); });
+    ending.slice(0, 3).forEach(function (a) { attn += attnRow('⏳', 'warn', 'Ending soon: ' + (a.title || 'Auction'), 'Ends ' + timeLeft(a.end_time), sView(a.id, 'View')); });
     var attnCard = attn
       ? '<div class="adv-card"><div style="font-weight:800;font-size:14px">Needs your attention</div>' + attn + '</div>'
       : '<div class="adv-card"><div class="adv-empty" style="padding:22px"><span class="emoji">✅</span><h3>Everything\'s running smoothly</h3><p>No auctions need action right now.</p></div></div>';
@@ -391,7 +406,7 @@
         '<div style="font-size:12.5px;color:var(--accent-ink)">' + [dueN ? (dueN + ' payment' + (dueN > 1 ? 's' : '') + ' due') : '', outbidN ? (outbidN + ' outbid') : ''].filter(Boolean).join(' · ') + ' ›</div></div></div></a>'
       : '';
 
-    host.innerHTML = buyBanner + attnCard + biz + actions + sellerResources() + activityCard;
+    host.innerHTML = storefrontActions() + buyBanner + attnCard + biz + actions + sellerResources() + activityCard;
   }
 
   // ================= ADMIN HOME (Phase 6) — operational, attention-first =================
@@ -413,7 +428,7 @@
     var ending = live.filter(function (a) { var ms = a.end_time ? new Date(a.end_time) - Date.now() : null; return ms != null && ms > 0 && ms < 48 * 3600 * 1000; });
 
     var attn = awaiting.slice(0, 6).map(function (a) {
-      return attnRow('📋', 'warn', 'Awaiting review — ' + (a.title || 'Auction'), 'Submitted ' + (relTime(a.updated_at || a.created_at) || 'recently'),
+      return attnRow('📋', 'warn', 'Awaiting review: ' + (a.title || 'Auction'), 'Submitted ' + (relTime(a.updated_at || a.created_at) || 'recently'),
         '<a class="adv-btn primary" style="flex:none" href="/admin/moderation.html">Review</a>'); }).join('');
     var attnCard = attn
       ? '<div class="adv-card"><div style="font-weight:800;font-size:14px">Needs your attention</div>' + attn + '</div>'
@@ -482,7 +497,7 @@
   function renderWatchlist() {
     var host = document.getElementById('adv-sec-live'); if (!host) return;
     if (!wlData.length) { host.innerHTML = emptyCard('❤️', 'Your watchlist is empty',
-      'Tap the heart on any lot to track it here — with live status and countdowns.', '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
+      'Tap the heart on any lot to track it here, with live status and countdowns.', '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
     var open = wlData.filter(function (l) { return l.state === 'open'; });
     var ended = wlData.filter(function (l) { return l.state !== 'open'; });
     var sorted = open.slice();
@@ -559,7 +574,7 @@
       list.push({ id: a.id, title: a.title, state: a.state, _label: 'Your auction · ' + stateLabel(a.state) }); });
 
     if (!list.length) { host.innerHTML = emptyCard('🔨', 'Your auctions live here',
-      "Bid on a lot and the auction shows up here — with your winning, outbid, won, and pickup status.", '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
+      "Bid on a lot and the auction shows up here, with your winning, outbid, won, and pickup status.", '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
 
     var sellerSec = state.isSeller ? '<div style="margin-bottom:14px"><a class="adv-btn primary" href="#sell">📈 Go to my Seller Workspace</a></div>' : '';
     host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">Auctions you\'re bidding in, have won, or ' + (state.isSeller ? 'are running.' : 'have participated in.') + '</div>' +
@@ -777,9 +792,9 @@
       case 'analytics': return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
       case 'messages':  return '<div class="adv-card"><div class="adv-row" style="justify-content:space-between;margin-bottom:6px">' +
                           '<div style="font-weight:800">Updates &amp; Notifications</div>' +
-                          '<span class="adv-chip accent">Conversations — coming later</span></div>' +
+                          '<span class="adv-chip accent">Conversations: coming later</span></div>' +
                           '<div class="adv-empty"><span class="emoji">💬</span><h3>Your updates inbox</h3>' +
-                          '<p>Outbid alerts, payment reminders, pickup notices, new auctions from sellers you follow, and account updates — all in one place. This is an updates &amp; notifications inbox, not two-way messaging (that comes later). Wires to your notifications in Phase 5.</p></div></div>';
+                          '<p>Outbid alerts, payment reminders, pickup notices, new auctions from sellers you follow, and account updates, all in one place. This is an updates &amp; notifications inbox, not two-way messaging (that comes later). Wires to your notifications in Phase 5.</p></div></div>';
       case 'account':   return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
       default:          return homeBody();
     }
@@ -871,7 +886,7 @@
       // Resolve the active experience: a remembered mode the user is still allowed, else their default
       // (buyer-first for everyone; admins default to Admin). Progressive disclosure — a pure buyer only
       // ever has 'buying', so they never see a switch.
-      state.mode = Nav.resolveMode({ role: state.user.role, isSeller: state.isSeller }, readMode());
+      state.mode = Nav.resolveMode({ role: state.user.role, isSeller: state.isSeller, isEventOrganizer: state.isEventOrganizer }, readMode());
       renderApp();
     } catch (e) { renderError(); }
   }

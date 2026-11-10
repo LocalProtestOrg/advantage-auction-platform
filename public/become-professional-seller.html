@@ -21,7 +21,7 @@
       <div class="ob-hero" style="padding:24px 0 6px">
         <div class="ob-kick">Professional selling</div>
         <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Become a Professional Seller</h1>
-        <p class="ob-lede">Enroll your auction house, estate sale company, or liquidation business. You can start now and finish each onboarding step when you're ready.</p>
+        <p class="ob-lede">Enroll your auction house, estate sale company, liquidation business, or retail shop, gallery or studio. Already selling at auction with this account? This upgrades the same account. You can start now and finish each step when you're ready.</p>
       </div>
 
       <div class="ob-answers">
@@ -44,7 +44,7 @@
 
         <label for="company-name">Company / business name <span class="req">*</span></label>
         <input type="text" id="company-name" placeholder="e.g. Heritage &amp; Home Estate Services" />
-        <p class="ob-hint">This is your business name for your Professional Seller account and agreement.</p>
+        <p class="ob-hint">The name buyers see on your storefront and listings. You can change it in your storefront settings until Advantage.Bid verifies your business.</p>
 
         <label for="legal-name">Your full legal name <span class="req">*</span></label>
         <input type="text" id="legal-name" placeholder="e.g. Jane Q. Owner" />
@@ -65,7 +65,7 @@
         <div class="ob-err" id="form-err"></div>
 
         <div class="ob-callout" style="margin-top:16px">
-          <strong>Publishing unlocks after verification.</strong> You can build your catalog right away — your first sale goes live once Advantage.Bid has verified your business. Direct-deposit payouts are set up during onboarding.
+          <strong>Publishing unlocks after verification.</strong> You can set up your storefront and add items right away. Your items become visible to buyers once Advantage.Bid has verified your business. Direct-deposit payouts are set up during onboarding.
         </div>
         <p class="ob-hint" style="margin-top:14px;text-align:center">Questions? Call Advantage.Bid at <a data-adv-tel style="font-weight:700"></a></p>
       </div>
@@ -86,7 +86,7 @@
       <div class="ob-hero" style="padding:24px 0 6px">
         <div class="ob-kick">Professional selling</div>
         <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Sign in to continue</h1>
-        <p class="ob-lede">You need an account before enrolling as a Professional Seller. Sign in or create a free account — it only takes a moment.</p>
+        <p class="ob-lede">You need an account before enrolling as a Professional Seller. Sign in or create a free account. It only takes a moment.</p>
       </div>
       <div class="ob-panel" style="text-align:center"><a id="login-link" href="/login.html" class="ob-cta">Sign in / Create account</a></div>
     </div>
@@ -151,6 +151,8 @@
         }
         if(json.token) localStorage.setItem('token', json.token);
         var ob = json.data && json.data.onboarding;
+        // Land in Selling, where Add Item and the storefront tools are (owner 2026-11-10).
+        try { localStorage.setItem('ab_active_mode', 'selling'); } catch(_){}
         if(ob && ob.dashboard_access){ location.href='/app.html'; return; }
         location.href='/sign-agreement.html?onboarding=1';
       } catch(e){

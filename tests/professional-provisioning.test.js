@@ -85,7 +85,8 @@ describe('backfill script — dry-run by default, explicit target, reversible', 
 });
 
 describe('dashboard nav — provisioned professionals get My Events / Create Event', () => {
-  const PRO = { role: 'buyer', mode: 'buying', isEventOrganizer: true };
+  // Event management lives in Selling (owner 2026-11-10: the Buying / Selling switch decides the menu).
+  const PRO = { role: 'buyer', mode: 'selling', isEventOrganizer: true };
 
   test('My Events + Create Event appear for event organizers, with the org-workspace hrefs', () => {
     const v = Nav.visibleNavFor(PRO);
@@ -98,10 +99,11 @@ describe('dashboard nav — provisioned professionals get My Events / Create Eve
     expect(create.href).toBe('/org/event-new.html');
     expect(my.external).toBe(true);
   });
-  test('buying capability is preserved alongside event management (one account)', () => {
-    const v = ids(Nav.visibleNavFor(PRO));
-    for (const buyer of ['home', 'watchlist', 'auctions', 'purchases', 'account']) expect(v).toContain(buyer);
-    expect(v).toContain('events'); // plus event management
+  test('buying capability is preserved alongside event management (one account, one switch)', () => {
+    expect(Nav.availableModes(PRO)).toEqual(['buying', 'selling']);
+    const buying = ids(Nav.visibleNavFor(Object.assign({}, PRO, { mode: 'buying' })));
+    for (const buyer of ['home', 'watchlist', 'auctions', 'purchases', 'account']) expect(buying).toContain(buyer);
+    expect(ids(Nav.visibleNavFor(PRO))).toContain('events'); // event management in Selling
   });
   test('non-organizers never see event items', () => {
     expect(ids(Nav.visibleNavFor({ role: 'buyer', mode: 'buying' }))).not.toContain('events');

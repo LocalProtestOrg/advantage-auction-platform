@@ -26,14 +26,18 @@ describe('one account, three experiences — mode-aware navigation', () => {
   });
 
   test('SELLING experience — an operational workspace with plain-language labels', () => {
-    const v = Nav.visibleNavFor({ role: 'seller', mode: 'selling' });
-    expect(ids(v)).toEqual(['home', 'sell', 'create', 'analytics', 'payments', 'messages', 'account']);
-    // the Seller How To Center link: Professional Sellers (and admins) only
-    expect(ids(Nav.visibleNavFor({ role: 'seller', mode: 'selling', storefrontEligible: true }))).toEqual(['home', 'sell', 'create', 'analytics', 'payments', 'messages', 'howto', 'account']);
-    expect(v.find((i) => i.id === 'sell').label).toBe('My Auctions');       // not "Workspace"
+    const v = Nav.visibleNavFor({ role: 'seller', mode: 'selling', sellerReady: true });
+    expect(ids(v)).toEqual(['home', 'createAuction', 'sell', 'analytics', 'payments', 'goPro', 'messages', 'account']);
+    // Professional Sellers: the storefront workspace first; the Seller How To Center (Professional Sellers and admins only)
+    expect(ids(Nav.visibleNavFor({ role: 'seller', mode: 'selling', sellerReady: true, storefrontEligible: true })))
+      .toEqual(['home', 'addItem', 'inventory', 'storefront', 'mpOrders', 'websiteWidgets', 'payouts', 'createAuction', 'sell', 'analytics', 'payments', 'howto', 'messages', 'account']);
+    // before the seller agreement: one setup step instead of tools
+    expect(ids(Nav.visibleNavFor({ role: 'seller', mode: 'selling', sellerReady: false, storefrontEligible: true }))).toEqual(['home', 'finishSetup', 'howto', 'messages', 'account']);
+    expect(v.find((i) => i.id === 'sell').label).toBe('Manage Online Auctions');
     expect(v.find((i) => i.id === 'analytics').label).toBe('Sale Stats');   // not "Analytics"
-    expect(v.find((i) => i.id === 'payments').label).toBe('Payments');      // not "Settlement"
-    expect(v.find((i) => i.id === 'create').external).toBe(true);
+    expect(v.find((i) => i.id === 'payments').label).toBe('Auction Payments');
+    expect(v.find((i) => i.id === 'account').label).toBe('Seller Settings');
+    expect(v.find((i) => i.id === 'createAuction').external).toBe(true);
   });
 
   test('ADMIN experience — a dedicated operational nav (not buyer/seller-shaped)', () => {
@@ -197,7 +201,7 @@ describe('member shell guarantees', () => {
   });
   test('Messages is framed as Updates & Notifications, not two-way messaging', () => {
     expect(src).toContain('Updates &amp; Notifications');
-    expect(src.toLowerCase()).toContain('conversations — coming later');
+    expect(src.toLowerCase()).toContain('conversations: coming later');   // no long dashes in dashboard copy (2026-11-10)
     expect(src.toLowerCase()).toContain('not two-way messaging');
   });
   test('does not touch or depend on the existing buyer-nav component', () => {

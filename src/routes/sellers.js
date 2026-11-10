@@ -241,12 +241,15 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     let sellerProfileId;
     if (existing) {
       sellerProfileId = existing.id;
-      // Upgrade an existing (e.g. individual) profile to the professional type; fill display_name if empty.
+      // Upgrade an existing (e.g. individual) profile to the professional type. An Individual Seller becoming
+      // Professional takes the company name entered here as the business name buyers see (owner 2026-11-10: the
+      // individual enrollment had stored the person's own name); an existing Professional resubmitting keeps its name.
       // (seller_profiles has no updated_at column: writing it failed every upgrade with a 500 until 2026-11-05.)
+      const upgrading = !PROFESSIONAL_SELLER_TYPES.includes(existing.seller_type);
       await client.query(
         `UPDATE seller_profiles SET seller_type = $2,
-                display_name = COALESCE(NULLIF(display_name, ''), $3)
-          WHERE id = $1`, [sellerProfileId, sellerType, companyName]);
+                display_name = CASE WHEN $4::boolean THEN $3 ELSE COALESCE(NULLIF(display_name, ''), $3) END
+          WHERE id = $1`, [sellerProfileId, sellerType, companyName, upgrading]);
     } else {
       sellerProfileId = (await client.query(
         `INSERT INTO seller_profiles (user_id, seller_type, display_name) VALUES ($1, $2, $3) RETURNING id`,
