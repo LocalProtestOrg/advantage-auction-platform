@@ -1,95 +1,63 @@
-# Lewis & Maese: launch actions (first Professional Storefront seller)
+# Pilot seller: the owner's personal Professional Seller account
 
-Prepared 2026-11-09 from read-only production checks. Seller company `118458af-6b07-4806-86a4-b927d2b0cbed`
-(storefront `lewis-and-maese`, professional liquidator, Houston). Nothing here publishes terms, enters tax rules or
-turns on purchasing; those stay with the owner's explicit approval.
+Owner decision 2026-11-10: the first controlled storefront pilot uses a **new personal Professional Seller account that
+the owner registers through the normal seller signup**, with a **separate buyer account** for the purchases. The pilot
+proves that a brand-new professional seller can register, launch a storefront, sell and be paid, before Advantage.Bid
+opens to more sellers.
 
-## Where they stand (production, 2026-11-09)
+**Lewis & Maese are not part of the pilot.** Their account, inventory, auctions, agreements, policies and financial
+records are left exactly as they are: no pilot setting, purchase, refund or payout involves them. (Their readiness and
+policy findings from 2026-11-09 stay on record in docs/legal/storefront-terms-review-packet.md for when they launch.)
 
-| Requirement | Status |
-|---|---|
-| Business verification | Not required (done) |
-| Storefront published, pickup location confirmed (Houston), branding shown | Done |
-| 9 live items ($180 to $2,400, all pickup, none restricted) | Done |
-| Account sign-in | Password account; last signed in 2026-11-02 |
-| **Email verified** | **No** |
-| **Seller Agreement Version 4** (the version with the storefront terms) | **Not signed** (they signed Version 3; checkout requires Version 4) |
-| **Direct deposit (payout account)** | **None** |
-| **Store Terms** | **Draft only, not published; does not cover returns** |
-| **Shipping & Pickup Policy** | Version 1 published but written for auction winners (no pickup address, hours or method; "Any Item(s) left after 30 days will be forfeited"); an identical Version 2 draft is saved |
-| Website on their storefront profile | Yes (needed only for the 5% Website Sale test) |
+Nothing here creates an account or changes a production record. The owner registers both accounts.
 
-Every item on this list is something only Lewis & Maese can do from their own account: the agreement is theirs to sign,
-the bank and identity details are theirs to give the payment processor, and the policies are their own terms.
+## Accounts the owner creates
 
-## Owner actions
-
-1. **Verify your own administrator emails** (found 2026-11-09: both administrator accounts are unverified, so the
-   Admin/Finance sale notice would reach no one). Sign in as each administrator, open
-   `https://bid.advantage.bid/verify-email.html` (sign-in required), choose "Resend Confirmation Email", and click the link in the email.
-2. **Send Lewis & Maese the message below** (email or phone). Their steps need no action from Advantage.Bid staff.
-3. **Check their progress** on their readiness list or ask for a read-only check (the agreement, payout account and
-   both policies show as done on their Storefront readiness list once complete).
-4. **Review their two published policies** before the pilot (Admin > Storefront Moderation lists published policies;
-   Advantage.Bid can withdraw one with a written reason). Flag any forfeiture, storage or disposal wording for the
-   attorney (open question 2 in docs/legal/storefront-terms-review-packet.md).
-
-## Message to send Lewis & Maese (ready to use)
-
-> Subject: Getting your Advantage.Bid storefront ready for online purchases
->
-> Hi [name],
->
-> We're getting ready to switch on online checkout for your Advantage.Bid storefront, and you'll be our first seller.
-> There are five short steps. Please sign in at https://bid.advantage.bid with your usual account first.
->
-> **1. Confirm your email address.** Open https://bid.advantage.bid/verify-email.html, choose "Resend Confirmation Email",
-> and click the link in the email we send you (check your spam folder).
->
-> **2. Review and sign the current Seller Agreement.** Open https://bid.advantage.bid/sign-agreement.html?current=1,
-> read it and sign. This version adds the storefront terms (5% for sales that start on your own website, 9% for sales
-> on the Advantage.Bid marketplace, card processing included). Your earlier signed agreement stays on record, and your
-> auctions are not affected.
->
-> **3. Set up direct deposit.** Open https://bid.advantage.bid/payout-profile.html and choose Set Up Direct Deposit. Our
-> payment processor's secure pages will ask for your business details, the owner's identity and your bank account.
-> Advantage.Bid never sees your full bank account number. When you return, the page shows "Direct Deposit Ready" once
-> the account is active (sometimes a few minutes, occasionally longer if they need a document).
->
-> **4. Publish your Store Terms.** Open https://bid.advantage.bid/seller-storefront.html?tab=store and scroll to Store
-> policies. Your Store Terms are saved as a draft but not published yet. Please add your return and refund rules (for
-> example, whether sales are final, and what happens if an item is out of stock), then choose Publish.
->
-> **5. Update your Shipping & Pickup Policy for online purchases.** In the same place, please make sure your Shipping &
-> Pickup Policy tells an online buyer:
-> - where to pick up (address) and your pickup days and hours;
-> - how to arrange pickup (call, email or appointment) and what to bring;
-> - the pickup deadline after purchase; and
-> - what happens to items not collected by then (for example, any storage charge or forfeiture), stated clearly so the
->   buyer sees it before paying.
-> Your current policy was written for auction winners, so a short storefront version is best. Then choose Publish.
->
-> Optional: to receive the lower 5% rate on sales that start on your own website, add the storefront widget to your
-> website. The embed code is at https://bid.advantage.bid/seller-storefront.html?tab=widget.
->
-> Buyers will see both policies before they pay, and the policies are your own terms: please write them in your own
-> words. Online checkout stays off until everything is ready, and we'll do one test purchase with you before it opens
-> to the public. Thank you!
-
-## What happens when each step is done (for the owner)
-
-| Step | How to confirm | Notes |
+| Account | How | Must not be |
 |---|---|---|
-| Email | Their account shows verified (read-only check) | Lets them receive account emails reliably; not a checkout requirement |
-| Agreement | Readiness: "Seller agreement signed" done | Issued in the app without an email; signing records the signature permanently |
-| Direct deposit | Readiness: "Payout account ready" done | First-time setup asks for no password; any later bank change needs their password |
-| Store Terms + Shipping & Pickup | Readiness: "Store Terms and Shipping & Pickup Policy published" done; item pages show both links | Checkout refuses orders until both are published |
+| **Pilot seller** | Normal signup, then Become a Professional Seller | Either administrator account (admin@advantage.bid, tylerwitt2015@gmail.com); a business-only "Individual" seller |
+| **Pilot buyer** | Normal signup (buyer) | The pilot seller (the database refuses a seller buying its own item) or an administrator account |
 
-## Still with the owner after these steps (unchanged)
+Each needs its own email address (one account per address). Record both account ids after signup: they go into the
+pilot switch.
 
-- Texas sales tax: CPA answers, then the Texas registration in Stripe and the Texas rule in Admin > Tax Jurisdictions.
-  Until a Texas rule exists, every Lewis & Maese order is refused (sales tax safeguard, live since 2026-11-09).
-- Buyer Terms Version 4 and the Terms of Service section 3A (attorney review, then publication).
-- Live webhook events check in the Stripe Dashboard.
-- A fresh backup, the pilot switch (owner's buyer account + Lewis & Maese only) and the first-sale test plan
-  (docs/operations/storefront-first-sale-test-plan.md).
+## The self-service path (verified in the code, 2026-11-10)
+
+Everything below is done by the seller alone, except **one compliance approval** (business verification).
+
+| # | Step | Where | Who |
+|---|---|---|---|
+| 1 | Create the account (accepts the Terms of Service and Buyer Terms) | `https://bid.advantage.bid/login.html`, "Create Account" tab | Seller |
+| 2 | Confirm the email | link in the welcome email, or `https://bid.advantage.bid/verify-email.html` > Resend Confirmation Email | Seller |
+| 3 | Become a Professional Seller: choose a professional type (**Retail Shop, Gallery or Studio** fits a personal shop; Estate Sale Company, Auction House and Professional Liquidator also work), company name, phone | `https://bid.advantage.bid/become-professional-seller.html` | Seller |
+| 4 | Sign the Seller Agreement (Version 4, with the storefront terms; issued automatically at step 3) | `https://bid.advantage.bid/sign-agreement.html?current=1` | Seller |
+| 5 | Submit business verification | `https://bid.advantage.bid/verify-documents.html` | Seller |
+| 6 | **Approve the business verification** | `https://bid.advantage.bid/admin/verification.html` | **Administrator (compliance approval)** |
+| 7 | Storefront: slug, branding (logo, banner), tagline, about, publish the storefront page | `https://bid.advantage.bid/seller-storefront.html?tab=store` | Seller |
+| 8 | Confirm the storefront pickup location (its state decides the sales tax rule that applies) | same page | Seller |
+| 9 | Publish Store Terms and a Shipping & Pickup Policy (both required before anyone can buy) | same page, Store policies | Seller |
+| 10 | Set up direct deposit (business details, identity, bank account on the payment processor's secure pages; no password needed the first time) | `https://bid.advantage.bid/payout-profile.html` | Seller |
+| 11 | Add items: single items and at least one multi-quantity item; publish | `https://bid.advantage.bid/seller-storefront.html?tab=market` (or the inventory page) | Seller |
+| 12 | Website widget: copy the embed code into a page on a website that is not advantage.bid | `https://bid.advantage.bid/seller-storefront.html?tab=widget` | Seller |
+| 13 | Check the readiness list: every step done except "Online checkout open" | the Storefront readiness list | Seller |
+
+Facts behind the table: professional signup sets the professional type and the business-verification requirement
+(`POST /api/sellers/apply-professional`) and issues the agreement in the app; the first sale is blocked until an
+administrator approves verification (`verificationService.publicationGate`). Checkout also requires the signed Version 4
+agreement, an active payout account and both published policies; each is self-service.
+
+## Isolation (no effect on other sellers)
+
+- The pilot switch admits ONLY the listed seller AND the listed buyer: both lists must match for checkout to open
+  (`launchGuards.marketplaceCheckoutAllowed`). Every other seller and buyer still sees checkout closed.
+- Orders, payouts, refunds, problem reports and notifications are tied to the order's own seller (database-enforced).
+- **Platform-wide settings to be careful with:** a sales tax rule (Admin > Tax Jurisdictions) applies to every seller in
+  that state once checkout is open, and a **Stripe Tax registration applies to auction invoices too** (Stripe Tax is on
+  for auctions; today it calculates $0 everywhere because there are no registrations). Adding a registration for a state
+  starts tax on that state's auction invoices. The CPA's determination must cover auctions as well as storefront sales.
+
+## What the pilot will test (docs/operations/storefront-first-sale-test-plan.md)
+
+Inventory creation, multi-quantity stock, storefront customization, the website widget, buyer checkout, the 9%
+marketplace and 5% website commissions, sales tax per the CPA's determination, refunds, notifications (seller, buyer,
+administrator, owner text) and the payout.

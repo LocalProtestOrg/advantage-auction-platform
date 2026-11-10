@@ -34,43 +34,26 @@ Tax ON, **checkout OFF**.
 
 ## Activation sequence (after the owner's decisions; each step needs the owner's go-ahead)
 
-1. **Owner checks in the live Stripe Dashboard** (the app cannot read the live keys):
-   - Tax: the states where the account is registered to collect sales tax (Stripe Tax only taxes where registered).
-   - Webhook endpoint `https://bid.advantage.bid/api/payments/webhook` receives `payment_intent.succeeded`,
-     `payment_intent.payment_failed`, `payment_intent.canceled`, `charge.refunded`, `charge.dispute.created`,
-     `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_withdrawn`; the Connect endpoint receives
-     `account.updated` (or the same endpoint with Connect events).
-2. **Tax rules:** for every state where tax will be charged, an administrator enters who remits it (Admin > Storefront
-   Tax Rules, with the professional advice as the legal basis). A taxed order in a state without a rule is refused.
-3. **First seller ready: Lewis & Maese** (seller company `118458af-6b07-4806-86a4-b927d2b0cbed`, slug lewis-and-maese;
-   read-only check 2026-11-09: active, verified, storefront published, 9 live Texas items $180 to $2,400, signed agreement
-   v3 only, no payout account, Store Terms only in draft):
-   1. **Seller Agreement v4.** Lewis & Maese sign in and open `https://bid.advantage.bid/sign-agreement.html?current=1`
-      (the current version is issued in the app, no email), read and sign. Alternative: Admin > Agreements, send v4 (this
-      emails them the signing link; a deliberate one-off send, the owner's choice). Their v3 signature stays on record.
-   2. **Direct deposit (Stripe Connect, live).** Signed in, Payout Profile (`/payout-profile.html`), Set Up Direct Deposit:
-      Stripe's own pages collect the business details, identity and bank account. When they return, the page shows
-      "Direct Deposit Ready" once Stripe activates transfers and payouts. First-time setup needs no password; any later
-      change of bank needs their password (payout safeguards).
-   3. **Store policies (required: checkout refuses a seller without both, 2026-11-09).** Publish their Store Terms (their
-      return and refund rules; Seller Storefront > Policies; their draft does not cover returns yet). Their published
-      Shipping & Pickup Policy (v1) is written for auction winners ("if you are the winning bidder") and has no pickup
-      location, hours or arrangement, only "Any Item(s) left after 30 days will be forfeited": they should publish a
-      storefront version stating where, when and how buyers collect, the pickup deadline and what happens to uncollected
-      items (the forfeiture wording is flagged for attorney review). Buyers acknowledge both at checkout.
-   4. **A test item** for the controlled purchase (their cheapest live item is $180): ideally a low-priced real item.
-      Stripe keeps its card fee when a payment is refunded (about 2.9% + 30 cents), which Advantage.Bid absorbs.
-4. **Purchase terms:** publish the approved Fixed-Price Purchase Terms (docs/legal/storefront-purchase-terms-addendum-draft.md,
-   after counsel review and the owner's choice of how to publish them) before any real buyer pays. Confirm the checkout's
-   short "Before you pay" summary (public/item.html, #purchaseRules) matches the published wording.
-5. **Pilot:** set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS=118458af-6b07-4806-86a4-b927d2b0cbed` (Lewis & Maese) and
-   `MARKETPLACE_CHECKOUT_PILOT_USER_IDS=<the owner's own buyer account id>`. Only that buyer can buy, and only from Lewis & Maese.
-6. **Controlled live purchase:** buy the test item (a real card), check the order, the seller notice, the 9% (or 5% from the
-   seller's own website) commission, the recorded card fee (within minutes), the seller order page; refund it in full
-   from Admin; check the Stripe refund and the order.
-7. **Payout dry run:** after a second real purchase that is picked up and whose 48-hour reporting period has ended, prepare the week and pay the seller from Admin
-   (a real Connect transfer); confirm it in Stripe.
-8. **Open:** set `MARKETPLACE_CHECKOUT_ENABLED=true` (all verified sellers, all signed-in buyers). Remove the pilot lists.
+**Pilot seller (owner decision 2026-11-10):** the owner's new personal Professional Seller account, registered through
+the normal signup, with a separate pilot buyer account (docs/operations/pilot-seller-onboarding.md). Lewis & Maese are
+not used for any live test and none of their records are changed.
+
+1. **Owner checks in the live Stripe Dashboard** (the live keys are sealed; the app cannot list them): the webhook
+   endpoint carries the payment, refund, dispute and transfer events (docs/operations/stripe-live-webhook-verification.md).
+2. **Sales tax** (docs/operations/storefront-tax-configuration-steps.md): from the CPA's written determination, which must
+   cover the pilot seller's pickup state and the effect on auction invoices (a Stripe Tax registration applies to
+   auctions too), add any registration and enter the state's rule in Admin > Tax Jurisdictions. Without a rule, the
+   sales tax safeguard (d38a2da) refuses every order in that state.
+3. **Legal** (docs/legal/storefront-terms-review-packet.md, section 7): after attorney review and the owner's approval,
+   post Terms of Service section 3A, the Schedule A note and the Privacy Policy amendment, then publish Buyer Terms
+   Version 4 (with the Sales Near You flag). Confirm the checkout's "Before you pay" summary matches.
+4. **Pilot seller ready:** onboarding steps 1 to 13 of the pilot guide, including the administrator's business
+   verification approval (the only administrator step). Both administrator emails verified.
+5. **Pilot switch:** `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS=<pilot seller company id>` and
+   `MARKETPLACE_CHECKOUT_PILOT_USER_IDS=<pilot buyer account id>`. Only that buyer can buy, and only from that seller.
+6. **Controlled live tests:** docs/operations/storefront-first-sale-test-plan.md (9% sale and full refund, multi-quantity
+   5% website sale, pickup and reporting period, payout, optional shipping).
+7. **Open:** `MARKETPLACE_CHECKOUT_ENABLED=true` and remove the pilot lists, only on the owner's explicit approval.
 
 ## Rollback
 

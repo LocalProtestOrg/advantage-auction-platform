@@ -28,7 +28,8 @@ migration 227) refuses every storefront order in every state.
 1. **Record the determination.** Keep the CPA's letter with the date. For each state it covers, note: who collects
    (Advantage.Bid, the seller through checkout, or the seller outside checkout), the permit or registration needed, and
    the effective date.
-2. **Registrations first (only for "collected at checkout").** If Advantage.Bid collects in a state (either collected
+2. **Registrations first (only for "collected at checkout").** A registration is platform-wide: it also starts tax on
+   that state's auction invoices (Stripe Tax is on for auctions), so the CPA's determination must cover auctions too. If Advantage.Bid collects in a state (either collected
    rule), it needs that state's permit (Texas: Comptroller sales and use tax permit, issued to Advantage.Bid) and then:
    Stripe Dashboard (live) > Tax > Registrations > Add registration > United States > the state > the permit's start
    date. Check Tax > Settings: head office (origin) address and default product tax code (general tangible goods);
@@ -38,12 +39,12 @@ migration 227) refuses every storefront order in every state.
    (the registration's start date) > Save. Every change is recorded in the audit log.
 4. **Seller notice (if Advantage.Bid collects as marketplace provider).** Texas requires the marketplace provider to
    certify to its sellers that it collects on their behalf; it can be part of an agreement or a written notice
-   (Comptroller page in the tax checklist). Send it to Lewis & Maese before the first sale.
-5. **Verify before the pilot.** With the pilot on for the owner's buyer account only, review an order for a Lewis &
-   Maese item (do not pay): the review screen must show the Texas tax line at the Houston rate (if collected) or no tax
+   (Comptroller page in the tax checklist). Send it to the pilot seller before the first sale (and to each later seller in that state).
+5. **Verify before the pilot.** With the pilot on for the pilot buyer account only, review an order for a pilot
+   seller item (do not pay): the review screen must show the Texas tax line at the Houston rate (if collected) or no tax
    (if "not collected at checkout"). A refusal message means the registration or rule does not match: stop and check
    steps 2 and 3.
-6. **Interstate shipping.** Lewis & Maese's items are pickup only today. Before any seller ships to another state, enter
+6. **Interstate shipping.** The pilot inventory is pickup only, except an optional shipping test. Before any seller ships to another state, enter
    that destination state's rule (and registration) the same way. Until then, orders shipped there are refused
    automatically, which is safe.
 

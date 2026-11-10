@@ -96,7 +96,7 @@ Legend: **Resolved by** = how the proposal handles it.
 |---|---|---|
 | Information Shared with Sellers | Lists name, email, telephone, pickup and transaction information "to facilitate auction transactions". Storefront orders also share the shipping address (when the buyer chooses shipping), for fixed-price purchases | Proposed amendment (section 3 below) |
 
-### Seller policies (Lewis & Maese, production, read 2026-11-09)
+### Seller policies (Lewis & Maese, production, read 2026-11-09; NOT the pilot seller since 2026-11-10, kept as an example of wording to review when they launch)
 
 | Policy | Finding |
 |---|---|
@@ -128,8 +128,8 @@ Privacy Policy, "Information Shared with Sellers" (proposed replacement of the l
 
 ## 4. Seller Agreement: options (owner decision; no seller signs anything until decided)
 
-- **Option 1 (recommended for the pilot): no change.** Rely on 3.2, 3.3, 7.3 and 7.5. Lewis & Maese sign Version 4 as it
-  stands (they have only Version 3, and checkout requires Version 4 for storefront sales).
+- **Option 1 (recommended for the pilot): no change.** Rely on 3.2, 3.3, 7.3 and 7.5. The pilot seller (the owner's new personal Professional Seller account) signs Version 4 as it
+  stands (issued automatically at professional signup; checkout requires Version 4 for storefront sales).
 - **Option 2: a short storefront clause in a future version** (for example 6.10), applied when the agreement is next
   revised:
 
@@ -157,7 +157,8 @@ Privacy Policy, "Information Shared with Sellers" (proposed replacement of the l
    Version 3 before Version 4 existed? (No storefront order exists yet: production has 0 storefront orders.)
 8. Buyer contact details: is the Privacy Policy amendment plus the Part B section 2 disclosure enough, and should the
    Seller Agreement add the express seller data-use duty (Option 2) before the pilot rather than later?
-9. Seller policy wording to review before the pilot (Lewis & Maese, as published or drafted on 2026-11-09):
+9. Seller policy wording: the pilot seller's Store Terms and Shipping & Pickup Policy before the pilot; and, for when they
+   launch (not the pilot), Lewis & Maese's wording as published or drafted on 2026-11-09:
    "*Any Item(s) left after 30 days will be forfeited*" (no notice, no refund statement, no storage terms);
    "Shipping for any item(s) is the Buyer's responsibility" (their storefront items are pickup only; fine if stated so);
    firearm shipping via an FFL holder (no storefront item is a firearm; Advantage.Bid's prohibited-items rules apply);
@@ -190,4 +191,4 @@ header are set at publication.
        script (check, dry run, apply; to be prepared on approval). Effect: every buyer accepts Version 4 at their next
        auction registration or storefront purchase.
 6. [ ] Confirm the checkout "Before you pay" summary (public/item.html) matches the published wording.
-7. [ ] Lewis & Maese's published Store Terms and Shipping & Pickup Policy reviewed (question 9).
+7. [ ] The pilot seller's published Store Terms and Shipping & Pickup Policy reviewed (question 9).
