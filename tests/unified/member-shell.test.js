@@ -33,7 +33,7 @@ describe('one account, three experiences — mode-aware navigation', () => {
       .toEqual(['home', 'addItem', 'inventory', 'storefront', 'mpOrders', 'websiteWidgets', 'payouts', 'createAuction', 'sell', 'analytics', 'payments', 'howto', 'messages', 'account']);
     // before the seller agreement: one setup step instead of tools
     expect(ids(Nav.visibleNavFor({ role: 'seller', mode: 'selling', sellerReady: false, storefrontEligible: true }))).toEqual(['home', 'finishSetup', 'howto', 'messages', 'account']);
-    expect(v.find((i) => i.id === 'sell').label).toBe('Manage Online Auctions');
+    expect(v.find((i) => i.id === 'sell').label).toBe('Manage Auctions');
     expect(v.find((i) => i.id === 'analytics').label).toBe('Sale Stats');   // not "Analytics"
     expect(v.find((i) => i.id === 'payments').label).toBe('Auction Payments');
     expect(v.find((i) => i.id === 'account').label).toBe('Seller Settings');

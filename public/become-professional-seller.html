@@ -21,12 +21,12 @@
       <div class="ob-hero" style="padding:24px 0 6px">
         <div class="ob-kick">Professional selling</div>
         <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Become a Professional Seller</h1>
-        <p class="ob-lede">Enroll your auction house, estate sale company, liquidation business, or retail shop, gallery or studio. Already selling at auction with this account? This upgrades the same account. You can start now and finish each step when you're ready.</p>
+        <p class="ob-lede">One Professional Seller account for your business: sell fixed-price items from your own storefront and website, run online auctions and promote estate sales, all from one Selling dashboard. Already selling with this account? This upgrades the same account. You can start now and finish each step when you're ready.</p>
       </div>
 
       <div class="ob-answers">
         <div class="ob-ans"><p class="ob-ans-q">What am I doing?</p><p class="ob-ans-a">Enrolling your business as a Professional Seller and enabling your seller dashboard.</p></div>
-        <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Accept your Professional Seller agreement; Advantage.Bid verifies your business before your first sale goes live.</p></div>
+        <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Accept your Professional Seller agreement and start selling. Your published items are visible right away; Advantage.Bid verifies your business before buyers can purchase online.</p></div>
         <div class="ob-ans"><p class="ob-ans-q">Do I need a paid membership?</p><p class="ob-ans-a">No. Becoming a Professional Seller never requires a directory membership.</p></div>
         <div class="ob-ans"><p class="ob-ans-q">How big does an auction need to be?</p><p class="ob-ans-a">At least 30 lots, the same minimum as every seller. Once your business is verified, you can publish qualifying auctions yourself.</p></div>
       </div>
@@ -34,13 +34,16 @@
       <div class="ob-panel ob-form" style="margin-top:16px">
         <div class="ob-steps" style="justify-content:flex-start;margin:0 0 6px"><span><b>1.</b> Enroll business</span><span><b>2.</b> Accept agreement</span><span><b>3.</b> Verify + payouts</span></div>
 
-        <label for="seller-type">What kind of professional business are you?</label>
-        <select id="seller-type">
-          <option value="estate_sale_company">Estate Sale Company</option>
-          <option value="auction_house">Auction House</option>
-          <option value="professional_liquidator">Professional Liquidator</option>
-          <option value="retail_gallery_studio">Retail Shop, Gallery or Studio</option>
-        </select>
+        <fieldset id="biz-cats" style="border:0;padding:0;margin:0">
+          <legend style="font-weight:700;margin:0 0 6px">What type of business do you operate? Select all that apply. <span class="req">*</span></legend>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="biz-cat" value="auction_house" /> Auction House</label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="biz-cat" value="estate_sale_company" /> Estate Sale Company</label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="biz-cat" value="professional_liquidator" /> Professional Liquidator</label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="biz-cat" value="retail_resale" /> Retail Shop or Resale Business</label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="biz-cat" value="gallery_studio" /> Gallery or Studio</label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="biz-cat" value="other_professional" /> Other Professional Selling Business</label>
+          <p class="ob-hint">This describes your business; it does not limit what you can do. Every Professional Seller can sell fixed-price items, run auctions and promote estate sales. You can change this later in your storefront settings.</p>
+        </fieldset>
 
         <label for="company-name">Company / business name <span class="req">*</span></label>
         <input type="text" id="company-name" placeholder="e.g. Heritage &amp; Home Estate Services" />
@@ -96,12 +99,16 @@
     var authToken = localStorage.getItem('token');
     function show(id){ document.getElementById(id).style.display=''; document.getElementById('loading').style.display='none'; }
 
-    var PRO_TYPES = ['estate_sale_company','auction_house','professional_liquidator','retail_gallery_studio'];
+    // ?seller_type= (links from the Professional Sellers pages) preselects the matching business category.
+    var TYPE_TO_CAT = { auction_house:'auction_house', estate_sale_company:'estate_sale_company', professional_liquidator:'professional_liquidator', retail_gallery_studio:'retail_resale' };
     function requestedType(){
       try { var v = (new URLSearchParams(location.search).get('seller_type')||'').trim().toLowerCase();
-        return PRO_TYPES.indexOf(v)!==-1 ? v : null; } catch(e){ return null; }
+        return TYPE_TO_CAT[v] || null; } catch(e){ return null; }
     }
-    function preselect(){ var t=requestedType(); if(!t) return; var sel=document.getElementById('seller-type'); if(sel) sel.value=t; }
+    function catBoxes(){ return Array.prototype.slice.call(document.querySelectorAll('input[name="biz-cat"]')); }
+    function preselect(){ var t=requestedType(); if(!t) return; catBoxes().forEach(function(b){ if(b.value===t) b.checked=true; }); }
+    // A sign-in that has ended (signed out elsewhere, or the account no longer exists): sign in or create an account again.
+    function signInAgain(){ try{ localStorage.removeItem('token'); }catch(_){} document.getElementById('login-link').href='/login.html?next='+selfNext(); show('need-login'); }
     function selfNext(){ return encodeURIComponent(location.pathname + location.search); }
 
     async function init(){
@@ -110,7 +117,9 @@
       // Resume: if already a professional seller with dashboard access, send to dashboard; if a seller still
       // owes the agreement, route there; otherwise show the enrollment form.
       try {
-        var st = await (await fetch('/api/agreements/onboarding-status',{headers:{Authorization:'Bearer '+authToken}})).json();
+        var stRes = await fetch('/api/agreements/onboarding-status',{headers:{Authorization:'Bearer '+authToken}});
+        if(stRes.status===401){ signInAgain(); return; }
+        var st = await stRes.json();
         if(st && st.success && st.data && st.data.is_seller){
           if(!st.data.dashboard_access){ location.href='/sign-agreement.html?onboarding=1'; return; }
         }
@@ -128,11 +137,12 @@
 
     document.getElementById('submit-btn').onclick = async function(){
       var err=document.getElementById('form-err'); err.textContent='';
-      var sellerType=document.getElementById('seller-type').value;
+      var cats=catBoxes().filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
       var companyName=document.getElementById('company-name').value.trim();
       var legalName=document.getElementById('legal-name').value.trim();
       var phone=document.getElementById('phone').value.trim();
       var state=document.getElementById('state').value.trim();
+      if(!cats.length){ err.textContent='Please select at least one type of business you operate.'; return; }
       if(!companyName){ err.textContent='Please enter your company or business name.'; return; }
       if(!legalName){ err.textContent='Please enter your full legal name.'; return; }
       if(!phone || phone.replace(/\D/g,'').length<10){ err.textContent='Please enter a valid business phone number.'; return; }
@@ -141,12 +151,15 @@
         var res = await fetch('/api/sellers/apply-professional',{
           method:'POST',
           headers:{'Content-Type':'application/json',Authorization:'Bearer '+authToken},
-          body: JSON.stringify({ seller_type:sellerType, company_name:companyName, legal_name:legalName, phone:phone, state:state, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
+          body: JSON.stringify({ business_categories:cats, company_name:companyName, legal_name:legalName, phone:phone, state:state, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
         });
         if(res.status===401){ localStorage.removeItem('token'); location.href='/login.html?next='+selfNext(); return; }
         var json={}; try { json=await res.json(); } catch(_){}
         if(!res.ok || !json.success){
-          err.textContent = json.message || json.error || 'We could not complete enrollment. Please try again.';
+          // The server's own explanation when it gives one; never a raw code.
+          err.textContent = (res.status===503)
+            ? 'We could not confirm your sign-in just now, so nothing was saved. Please sign out, sign in again and retry. If it keeps happening, call Advantage.Bid.'
+            : (json.message || 'We could not finish enrolling your business, and nothing was changed. Please try again, or call Advantage.Bid.');
           btn.disabled=false; btn.textContent='Continue to Professional Seller agreement →'; return;
         }
         if(json.token) localStorage.setItem('token', json.token);

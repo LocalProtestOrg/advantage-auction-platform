@@ -23,6 +23,7 @@ const rbac = require('../lib/rbac');
 const { writeAuditLog } = require('../lib/auditLog');
 const { PROFESSIONAL_SELLER_TYPES, SELLER_TYPE_LABELS } = require('../constants/sellerTypes');
 const { isProfessional } = require('./sellerTypeRules');
+const businessCategories = require('../constants/businessCategories');
 
 function err(status, code, message, extra) { const e = new Error(message); e.status = status; e.code = code; if (extra) e.extra = extra; return e; }
 
@@ -67,7 +68,7 @@ async function getMemberAccount(userId) {
   const staffCtx = { role: u.role, staff_role: u.staff_role, staff_active: u.staff_active, overrides };
   const sp = (await db.query(
     `SELECT id, display_name, seller_type, storefront_slug, storefront_published, verification_required_before_publication,
-            risk_level, is_demo, created_at
+            risk_level, is_demo, created_at, business_categories
        FROM seller_profiles WHERE user_id = $1`, [u.id])).rows[0] || null;
 
   let seller = null;
@@ -86,6 +87,7 @@ async function getMemberAccount(userId) {
       id: sp.id, display_name: sp.display_name, seller_type: sp.seller_type,
       seller_type_label: SELLER_TYPE_LABELS[sp.seller_type] || sp.seller_type || 'Individual',
       classification: isProfessional(sp.seller_type) ? 'professional' : 'individual',
+      business_categories: isProfessional(sp.seller_type) ? businessCategories.categoriesFor(sp) : [],
       is_demo: !!sp.is_demo, risk_level: sp.risk_level, created_at: sp.created_at,
       verification: { required_before_publication: !!sp.verification_required_before_publication, gate,
         approved: requests.some((r) => r.status === 'approved'), requests },
@@ -208,7 +210,7 @@ async function updatePersonal(userId, actorId, body = {}) {
   const reason = reasonOf(body.reason, highImpact);
 
   const sets = [], params = [before.id];
-  for (const c of changes) { params.push(c.after); sets.push(`${c.field} = $${params.length}`); }
+  for (const c of changes) { params.push(c.after); sets.push(`${c.field} = $${params.length}${c.field === 'business_categories' ? '::text[]' : ''}`); }
   if (changes.some((c) => c.field === 'email')) sets.push('email_verified = false');
   try {
     await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $1`, params);
@@ -321,9 +323,18 @@ async function convertToProfessional(userId, actorId, body = {}) {
 // ── Seller: edit an existing profile ─────────────────────────────────────────────────────────────────────────────────
 async function updateSellerProfile(userId, actorId, body = {}) {
   const u = await loadUser(userId);
-  const sp = (await db.query('SELECT id, seller_type, display_name FROM seller_profiles WHERE user_id = $1', [u.id])).rows[0];
+  const sp = (await db.query('SELECT id, seller_type, display_name, business_categories FROM seller_profiles WHERE user_id = $1', [u.id])).rows[0];
   if (!sp) throw err(404, 'NO_SELLER_PROFILE', 'This account has no seller profile.');
   const changes = [];
+  if ('business_categories' in body) {
+    if (!isProfessional(sp.seller_type)) throw err(409, 'NOT_PROFESSIONAL', 'Business types are for Professional Sellers.');
+    const n = businessCategories.normalizeCategories(body.business_categories);
+    if (!n.ok) throw err(422, 'INVALID_BUSINESS_CATEGORIES', 'Select at least one business type from the list.');
+    const before = businessCategories.categoriesFor(sp);
+    if (n.categories.join(',') !== before.join(',') || !(sp.business_categories || []).length) {
+      changes.push({ field: 'business_categories', before, after: n.categories });
+    }
+  }
   if ('display_name' in body) {
     const name = text(body.display_name, 200);
     if (!name) throw err(422, 'COMPANY_REQUIRED', 'A business or display name is required.');
@@ -342,7 +353,7 @@ async function updateSellerProfile(userId, actorId, body = {}) {
   if (!changes.length) return { changed: false, changes: [] };
   const reason = reasonOf(body.reason, changes.some((c) => c.field === 'seller_type'));
   const sets = [], params = [sp.id];
-  for (const c of changes) { params.push(c.after); sets.push(`${c.field} = $${params.length}`); }
+  for (const c of changes) { params.push(c.after); sets.push(`${c.field} = $${params.length}${c.field === 'business_categories' ? '::text[]' : ''}`); }
   await db.query(`UPDATE seller_profiles SET ${sets.join(', ')} WHERE id = $1`, params);
   const typeChange = changes.find((c) => c.field === 'seller_type');
   if (typeChange) await require('./verificationService').requireVerificationForProfessional(sp.id, typeChange.after, actorId);

@@ -62,10 +62,12 @@
   // ── Marketplace event management (for provisioned professionals — ctx.isEventOrganizer) ──
   // My Events / Create Event live in the organization workspace; deep-link out of the shell so an
   // eligible professional reaches event creation/management straight from the Marketplace dashboard.
-  function eventOrganizerItems() {
+  // A Professional Seller sees the estate sale wording (owner 2026-11-10: one Selling dashboard with Create Estate Sale and
+  // Manage Events); the same pages and the same event rules, where an estate sale is the default sale type.
+  function eventOrganizerItems(pro) {
     return [
-      { id: 'events',      label: 'My Events',    emoji: '📅', href: '/org/events.html',   external: true, primaryMobile: true },
-      { id: 'createEvent', label: 'Create Event', emoji: '➕', href: '/org/event-new.html', external: true },
+      { id: 'events',      label: pro ? 'Manage Events' : 'My Events',         emoji: '📅', href: '/org/events.html',   external: true, primaryMobile: true },
+      { id: 'createEvent', label: pro ? 'Create Estate Sale' : 'Create Event', emoji: '➕', href: '/org/event-new.html', external: true },
       { id: 'importEvents', label: 'Import My Events', emoji: '🔄', href: '/org/event-promotion.html', external: true }
     ];
   }
@@ -75,8 +77,8 @@
   // in-shell seller workspace (#sell); "Create Online Auction" deep-links to the hosted-auction builder.
   function auctionItems() {
     return [
-      { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
-      { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' },
+      { id: 'createAuction', label: 'Create Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
+      { id: 'sell',          label: 'Manage Auctions', emoji: '📊', href: '#sell' },
       { id: 'analytics',     label: 'Sale Stats',             emoji: '📈', href: '#analytics' },
       { id: 'payments',      label: 'Auction Payments',       emoji: '💵', href: '/seller-settlements.html', external: true }
     ];
@@ -115,7 +117,7 @@
     if (isSellerCtx(ctx) && !ready) out.push({ id: 'setup', heading: null, items: [FINISH_SETUP] });
     if (ctx.storefrontEligible && ready) out.push({ id: 'storefront', heading: 'Storefront', items: storefrontItems() });
     if (isSellerCtx(ctx) && ready) out.push({ id: 'auctions', heading: 'Online Auctions', items: auctionItems() });
-    if (ctx.isEventOrganizer) out.push({ id: 'events', heading: 'Events', items: eventOrganizerItems() });
+    if (ctx.isEventOrganizer) out.push({ id: 'events', heading: ctx.storefrontEligible ? 'Estate Sales and Events' : 'Events', items: eventOrganizerItems(!!ctx.storefrontEligible) });
     var general = [];
     if (!ctx.storefrontEligible && isSellerCtx(ctx)) general.push(GO_PRO);
     general.push(HOW_TO, SELLING[5], SELLER_SETTINGS);   // How To Center (Professional only), Messages, Seller Settings

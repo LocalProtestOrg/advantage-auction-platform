@@ -10,6 +10,7 @@ const organizationsService = require('../services/organizationsService');
 const verificationService = require('../services/verificationService');
 const sellerWelcomeEmails = require('../services/sellerWelcomeEmailService');
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
+const businessCategories = require('../constants/businessCategories');
 const widgetService = require('../services/widgetService');
 const { isDemoUser } = require('../middleware/demoGuard');
 const { shippingAllowed } = require('../services/sellerTypeRules');
@@ -29,7 +30,7 @@ const SELF_SERVE_SELLER_TYPES = ['private', 'business', 'other'];
 router.get('/me', auth, async (req, res, next) => {
   try {
     const result = await db.query(
-      'SELECT id, user_id, seller_type, show_branding_to_buyers, capabilities FROM seller_profiles WHERE user_id = $1',
+      'SELECT id, user_id, seller_type, show_branding_to_buyers, capabilities, business_categories FROM seller_profiles WHERE user_id = $1',
       [req.user.id]
     );
     if (!result.rows[0]) {
@@ -39,6 +40,8 @@ router.get('/me', auth, async (req, res, next) => {
     // Whether the "Display company branding to buyers" preference is eligible for this seller.
     // Only professional/business types can ever brand to buyers; private/other/unknown never can.
     row.branding_eligible = isProfessional(row.seller_type);
+    // The categories describing a Professional Seller's business (stored, or from its type before migration 229).
+    row.business_categories = PROFESSIONAL_SELLER_TYPES.includes(row.seller_type) ? businessCategories.categoriesFor(row) : [];
     // Shipping (owner policy 2026-10-12): server-computed so the seller UI can hide the shipping
     // toggles. Professionals choose; Individuals only when an admin enabled it. The raw
     // capabilities map is not returned.
@@ -203,12 +206,26 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     }
 
     const body = req.body || {};
-    const sellerType = (body.seller_type || '').toString().trim().toLowerCase();
-    // Server-authoritative: only real professional types are accepted here. Anything else is rejected
-    // (never silently downgraded) so the caller knows the professional path needs a valid type.
+    // Business categories (owner 2026-11-10, migration 229): "Professional Seller" is the umbrella; the seller selects every
+    // category that describes the business. They describe it and never limit which professional tools it can use. A
+    // caller that still sends only the legacy seller_type is described by that type.
+    let categories;
+    if (body.business_categories !== undefined) {
+      const n = businessCategories.normalizeCategories(body.business_categories);
+      if (!n.ok) {
+        return res.status(400).json({ success: false, code: 'INVALID_BUSINESS_CATEGORIES',
+          message: n.invalid.length ? 'One of the business types selected is not recognised. Please choose from the list.'
+            : 'Please select at least one type of business you operate.' });
+      }
+      categories = n.categories;
+    } else {
+      categories = businessCategories.categoriesFor({ seller_type: (body.seller_type || '').toString().trim().toLowerCase() });
+    }
+    let sellerType = businessCategories.primarySellerTypeFor(categories);
+    // Server-authoritative: only real professional types are recorded here (never silently downgraded).
     if (!PROFESSIONAL_SELLER_TYPES.includes(sellerType)) {
-      return res.status(400).json({ success: false, code: 'INVALID_PROFESSIONAL_TYPE',
-        message: 'Please choose a valid professional seller type (auction house, estate sale company, professional liquidator, or retail shop, gallery or studio).' });
+      return res.status(400).json({ success: false, code: 'INVALID_BUSINESS_CATEGORIES',
+        message: 'Please select at least one type of business you operate.' });
     }
     const companyName = (body.company_name || body.display_name || '').toString().trim();
     const legalName   = (body.legal_name || body.full_name || '').toString().trim() || null;
@@ -245,15 +262,19 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       // Professional takes the company name entered here as the business name buyers see (owner 2026-11-10: the
       // individual enrollment had stored the person's own name); an existing Professional resubmitting keeps its name.
       // (seller_profiles has no updated_at column: writing it failed every upgrade with a 500 until 2026-11-05.)
+      // An existing Professional keeps its classification (seller_type): describing the business differently never
+      // reclassifies the account; only the categories change.
       const upgrading = !PROFESSIONAL_SELLER_TYPES.includes(existing.seller_type);
       await client.query(
-        `UPDATE seller_profiles SET seller_type = $2,
+        `UPDATE seller_profiles SET seller_type = CASE WHEN $4::boolean THEN $2 ELSE seller_type END,
+                business_categories = $5::text[],
                 display_name = CASE WHEN $4::boolean THEN $3 ELSE COALESCE(NULLIF(display_name, ''), $3) END
-          WHERE id = $1`, [sellerProfileId, sellerType, companyName, upgrading]);
+          WHERE id = $1`, [sellerProfileId, sellerType, companyName, upgrading, categories]);
+      if (!upgrading) sellerType = existing.seller_type;
     } else {
       sellerProfileId = (await client.query(
-        `INSERT INTO seller_profiles (user_id, seller_type, display_name) VALUES ($1, $2, $3) RETURNING id`,
-        [req.user.id, sellerType, companyName])).rows[0].id;
+        `INSERT INTO seller_profiles (user_id, seller_type, display_name, business_categories) VALUES ($1, $2, $3, $4::text[]) RETURNING id`,
+        [req.user.id, sellerType, companyName, categories])).rows[0].id;
     }
 
     // SAFETY GATE (non-negotiable): a professional's first sale cannot publish until an admin verifies the
@@ -318,6 +339,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       data: {
         seller_profile_id: sellerProfileId,
         seller_type: sellerType,
+        business_categories: categories,
         role: newRole,
         verification_required: true,           // publication gated until admin business verification
         organization_id: organizationId,
@@ -327,10 +349,37 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
-    next(err);
+    // Nothing was saved (the enrollment is one transaction). Say so, with a safe message, instead of a generic error.
+    console.error('[apply-professional] enrollment failed and was rolled back:', err && err.code, err && err.message);
+    const known = { '23514': 'Some of the business details could not be accepted. Please check them and try again.',
+      '23505': 'This business is already enrolled on another account. Please sign in with that account, or call Advantage.Bid.' };
+    return res.status(err && known[err.code] ? 409 : 500).json({ success: false, code: 'ENROLLMENT_NOT_SAVED',
+      message: (err && known[err.code]) || 'We could not finish enrolling your business, and nothing was changed. Please try again in a minute, or call Advantage.Bid and we will help you finish.' });
   } finally {
     client.release();
   }
+});
+
+// PUT /api/sellers/me/business-categories: a Professional Seller updates the categories describing its business. Never
+// changes the account's classification (seller_type) or which tools it can use.
+router.put('/me/business-categories', auth, async (req, res, next) => {
+  try {
+    const sp = (await db.query('SELECT id, seller_type, business_categories FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    if (!sp) return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    if (!PROFESSIONAL_SELLER_TYPES.includes(sp.seller_type)) {   // canonical Professional list (the branding helper also counts 'business')
+      return res.status(403).json({ success: false, code: 'NOT_PROFESSIONAL', message: 'Business types are for Professional Sellers.' });
+    }
+    const n = businessCategories.normalizeCategories((req.body || {}).business_categories);
+    if (!n.ok) {
+      return res.status(400).json({ success: false, code: 'INVALID_BUSINESS_CATEGORIES',
+        message: n.invalid.length ? 'One of the business types selected is not recognised. Please choose from the list.' : 'Please select at least one type of business you operate.' });
+    }
+    const before = businessCategories.categoriesFor(sp);
+    await db.query('UPDATE seller_profiles SET business_categories = $2::text[] WHERE id = $1', [sp.id, n.categories]);
+    require('../lib/auditLog').writeAuditLog({ event_type: 'seller_business_categories_changed', entity_type: 'seller_profile', entity_id: sp.id,
+      actor_id: req.user.id, metadata: { before, after: n.categories } }).catch(() => {});
+    return res.json({ success: true, data: { business_categories: n.categories, labels: businessCategories.labelsFor(n.categories) } });
+  } catch (err) { next(err); }
 });
 
 // ── Professional Seller white-label Website Auction Widget ─────────────────────

@@ -208,12 +208,16 @@ describe('account status cannot be determined — fail closed for state changes 
     expect(r.headers.get('x-refreshed-token')).toBeNull();
   });
 
-  test('missing user row for an authenticated id → 503 for state-changing, GET unaffected', async () => {
+  // 2026-11-10: a validly signed token for an account that no longer exists (a deleted account still signed in on a
+  // browser) is an ENDED session: 401 'sign in again' for every request. Before, it was 503 'try again shortly' for every
+  // save while pages still loaded as signed in, which is how a deleted test account's sign-in blocked a new enrollment.
+  test('missing user row for an authenticated id → the session has ended (401) for every request', async () => {
     const t = tokenFor('ghost', 'buyer');
-    await expectUnavailable(await call('POST', '/api/lots/lot-1/bids', t, { amount: 1 }));
-    await expectUnavailable(await call('DELETE', '/api/seller-storefront/items/s1', t));
+    const post = await call('POST', '/api/lots/lot-1/bids', t, { amount: 1 });
+    expect(post.status).toBe(401);
+    expect((await call('DELETE', '/api/seller-storefront/items/s1', t)).status).toBe(401);
     expect(bidService.createBid).not.toHaveBeenCalled();
-    expect((await call('GET', '/api/seller-storefront/items', t)).status).toBe(200);
+    expect((await call('GET', '/api/seller-storefront/items', t)).status).toBe(401);
   });
 
   test('a suspended account is still 403 ACCOUNT_SUSPENDED (not 503)', async () => {

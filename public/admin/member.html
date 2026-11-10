@@ -55,6 +55,7 @@
     if(!token) location.href='/login.html';
     const ID=new URLSearchParams(location.search).get('id')||'';
     const EID=encodeURIComponent(ID);
+    const BIZ_CATS=[['auction_house','Auction House'],['estate_sale_company','Estate Sale Company'],['professional_liquidator','Professional Liquidator'],['retail_resale','Retail Shop or Resale Business'],['gallery_studio','Gallery or Studio'],['other_professional','Other Professional Selling Business']];
     const PRO_TYPES=[['auction_house','Auction House'],['estate_sale_company','Estate Sale Company'],['professional_liquidator','Professional Liquidator'],['retail_gallery_studio','Retail Shop, Gallery or Studio']];
     function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
     function usd(c){return c==null?'-':'$'+(Number(c)/100).toFixed(2)}
@@ -119,12 +120,14 @@
         const ver=s.verification||{},gate=ver.gate||{},ag=s.agreement||{};
         h+='<div class="grid">'+ro('Classification',s.classification==='professional'?'<span class="pill role">Professional</span>':'<span class="pill">Individual</span>')+
           ro('Seller type',esc(s.seller_type_label))+
+          (s.classification==='professional'?ro('Business types',esc((s.business_categories||[]).map(c=>(BIZ_CATS.find(b=>b[0]===c)||[c,c])[1]).join(', ')||'Not set')):'')+
           ro('Verification',ver.approved?'<span class="pill on">Approved</span>':(gate.blocked?'<span class="pill warnp">Required before first sale</span>':(ver.required_before_publication?'Required':'Not required')))+
           ro('Seller Agreement',ag.dashboard_access?'<span class="pill on">'+esc(ag.reason==='signed'?'Signed':ag.reason)+'</span>':'<span class="pill warnp">Not signed yet</span>')+
           ro('Storefront',s.storefront.published?'<span class="pill on">Published</span>':'Not published')+
           ro('Storefront items',Object.keys(s.storefront.items_by_status||{}).length?Object.entries(s.storefront.items_by_status).map(e=>esc(e[0])+': '+e[1]).join(', '):'None')+'</div>'+
           '<h3>Edit seller profile</h3><div class="grid">'+field('s-name','Business / display name',s.display_name,{max:200})+
           (s.classification==='professional'?'<div class="f"><label for="s-type">Professional type</label><select id="s-type">'+PRO_TYPES.map(t=>'<option value="'+t[0]+'"'+(t[0]===s.seller_type?' selected':'')+'>'+t[1]+'</option>').join('')+'</select></div>':'')+'</div>'+
+          (s.classification==='professional'?'<div class="f"><label>Business types (describe the business; they never limit its tools)</label><div>'+BIZ_CATS.map(b=>'<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 6px 0;font-weight:400"><input type="checkbox" name="s-cat" value="'+b[0]+'"'+((s.business_categories||[]).indexOf(b[0])!==-1?' checked':'')+'> '+b[1]+'</label>').join('')+'</div></div>':'')+
           '<div class="actions"><button class="b-blue" id="s-save">Save Changes</button><span class="msg" id="s-msg"></span></div>'+
           (s.business?'<h3>Business information</h3><div class="stat">Legal name: '+esc(s.business.legal_business_name||'-')+' · DBA: '+esc(s.business.dba_name||'-')+' · '+esc([s.business.address_line1,s.business.city,s.business.state,s.business.postal_code].filter(Boolean).join(', ')||'No business address')+'</div>':'')+
           '<h3>Links</h3><div class="links">'+(s.storefront.public_url?'<a href="'+esc(s.storefront.public_url)+'" target="_blank" rel="noopener">Public storefront</a>':'')+
@@ -199,6 +202,8 @@
       const sSave=document.getElementById('s-save');
       if(sSave)sSave.onclick=async()=>{
         const body={display_name:v('s-name')};const t=v('s-type');
+        const catEls=[...document.querySelectorAll('input[name="s-cat"]')];
+        if(catEls.length){const cats=catEls.filter(b=>b.checked).map(b=>b.value);if(cats.join(',')!==(D.seller.business_categories||[]).join(','))body.business_categories=cats;}
         if(t!==undefined&&t!==D.seller.seller_type){const r=askReason('Change the Professional type.');if(r===null)return;body.seller_type=t;body.reason=r;}
         const d=await api('PATCH','/api/admin/users/'+EID+'/seller-profile',body);say('s-msg',d,d.data&&d.data.changed?'Saved.':'No changes.');if(d.ok&&d.data.changed)setTimeout(load,600);
       };

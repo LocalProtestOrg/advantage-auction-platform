@@ -71,7 +71,11 @@ describe('self-service Professional upgrade', () => {
   });
   test('without a submitted auction the upgrade proceeds past the check', async () => {
     const c = client(false); db.connect.mockResolvedValue(c);
-    await expect(call(router, 'post', '/apply-professional', { body, user: { id: 'u-1', role: 'seller' } })).rejects.toThrow(/stop here|UPDATE seller_profiles/);
+    // The stand-in database stops at the profile update; the enrollment rolls back and says nothing was saved (2026-11-10).
+    const r = await call(router, 'post', '/apply-professional', { body, user: { id: 'u-1', role: 'seller' } });
+    expect(c.query.mock.calls.some(([s]) => /UPDATE seller_profiles SET seller_type/.test(s))).toBe(true);
+    expect(c.query.mock.calls.some(([s]) => s === 'ROLLBACK')).toBe(true);
+    expect([r.status, r.body.code]).toEqual([500, 'ENROLLMENT_NOT_SAVED']);
   });
 });
 

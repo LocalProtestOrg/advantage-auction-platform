@@ -62,6 +62,16 @@
         <div class="card">
           <label for="s-name">Business name</label><input id="s-name" maxlength="80" placeholder="e.g. Timeless Treasures">
           <p class="hint" id="s-name-hint" style="margin:.2rem 0 .6rem;color:#475569">The name buyers see on your storefront and listings.</p>
+          <fieldset id="s-cats" style="border:0;padding:0;margin:0 0 .6rem">
+            <legend style="font-weight:600;margin:0 0 .3rem">What type of business do you operate? Select all that apply.</legend>
+            <label class="toggle"><input type="checkbox" name="s-cat" value="auction_house" style="width:auto"> Auction House</label>
+            <label class="toggle"><input type="checkbox" name="s-cat" value="estate_sale_company" style="width:auto"> Estate Sale Company</label>
+            <label class="toggle"><input type="checkbox" name="s-cat" value="professional_liquidator" style="width:auto"> Professional Liquidator</label>
+            <label class="toggle"><input type="checkbox" name="s-cat" value="retail_resale" style="width:auto"> Retail Shop or Resale Business</label>
+            <label class="toggle"><input type="checkbox" name="s-cat" value="gallery_studio" style="width:auto"> Gallery or Studio</label>
+            <label class="toggle"><input type="checkbox" name="s-cat" value="other_professional" style="width:auto"> Other Professional Selling Business</label>
+            <p class="hint" style="margin:.2rem 0 0;color:#475569">This describes your business. It does not limit what you can do: every Professional Seller can sell fixed-price items, run auctions and promote estate sales.</p>
+          </fieldset>
           <label class="toggle"><input type="checkbox" id="s-pub" style="width:auto"> Publish my storefront (make it public)</label>
           <div class="row2"><div><label>Storefront address (slug)</label><input id="s-slug" placeholder="my-company"></div><div style="display:flex;align-items:end"><a class="btn b-ghost" id="viewBtn" target="_blank" style="width:100%;text-align:center">View public page ↗</a></div></div>
           <label>Tagline</label><input id="s-tagline" maxlength="140" placeholder="Full-service estate sales & online auctions">
@@ -324,6 +334,7 @@
       document.getElementById('s-name-hint').textContent=d.business_name_editable
         ?'The name buyers see on your storefront and listings. You can change it until Advantage.Bid verifies your business.'
         :'The name buyers see on your storefront and listings. To change it, contact Advantage.Bid.';
+      loadCats();
       document.getElementById('s-tagline').value=c.tagline||'';
       document.getElementById('s-hero').value=c.hero_image||'';
       showBrand('hero',c.hero_image||'');showBrand('logo',d.logo_url||'');
@@ -362,8 +373,19 @@
     async function removeBrand(kind){if(!confirm(kind==='logo'?'Remove your storefront logo?':'Remove your banner photo?'))return;
       var r=await api('DELETE','/api/seller-storefront/branding/'+kind);
       if(r.success){showBrand(kind,'');if(kind==='hero')document.getElementById('s-hero').value='';brandMsg(kind,'Removed.',true);}else brandMsg(kind,r.message||'Could not remove.');}
+    // Business categories (owner 2026-11-10): describe the business; saved with the storefront settings when changed.
+    var CATS=null;
+    function catBoxes(){return Array.prototype.slice.call(document.querySelectorAll('input[name="s-cat"]'));}
+    async function loadCats(){try{var r=await api('GET','/api/sellers/me');CATS=(r&&r.data&&r.data.business_categories)||[];
+      catBoxes().forEach(function(b){b.checked=CATS.indexOf(b.value)!==-1;});}catch(e){CATS=null;}}
+    async function saveCats(){if(CATS===null)return true;var sel=catBoxes().filter(function(b){return b.checked;}).map(function(b){return b.value;});
+      if(sel.join(',')===CATS.join(','))return true;
+      if(!sel.length){msg('Please select at least one type of business you operate.');return false;}
+      var r=await api('PUT','/api/sellers/me/business-categories',{business_categories:sel});
+      if(!r.success){msg(r.message||'Your business types were not saved.');return false;}CATS=r.data.business_categories;return true;}
     async function saveStore(){
       var g=function(id){return document.getElementById(id).value.trim();};
+      if(!(await saveCats()))return;
       var body={published:document.getElementById('s-pub').checked,slug:g('s-slug')||undefined,
         business_name:document.getElementById('s-name').disabled?undefined:(g('s-name')||undefined),config:{
         tagline:g('s-tagline'),hero_image:g('s-hero'),about:g('s-about'),

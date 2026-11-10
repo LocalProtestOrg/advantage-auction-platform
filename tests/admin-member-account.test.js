@@ -101,6 +101,7 @@ beforeAll(async () => {
   await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   await global.__PG.exec(mig('013_create_audit_log.sql'));
   await global.__PG.exec(mig('071_verification_documents.sql'));
+  await global.__PG.exec(mig('229_seller_business_categories.sql'));   // Professional Seller business categories
   const mk = async (name, extra = {}) => {
     const row = { email: name + '@test.example', full_name: name.toUpperCase(), role: 'buyer', password_hash: '$2b$10$hash-' + name, ...extra };
     const cols = Object.keys(row);

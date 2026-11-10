@@ -77,7 +77,7 @@ describe('POST /api/sellers/apply-professional — safety properties', () => {
   });
   test('rejects non-professional/invalid types (never silently downgrades)', () => {
     expect(src).toMatch(/if \(!PROFESSIONAL_SELLER_TYPES\.includes\(sellerType\)\)/);
-    expect(src).toMatch(/INVALID_PROFESSIONAL_TYPE/);
+    expect(src).toMatch(/INVALID_BUSINESS_CATEGORIES/);   // business categories (owner 2026-11-10)
   });
   test('engages the publication verification gate for the professional type', () => {
     expect(src).toMatch(/requireVerificationForProfessional\(sellerProfileId, sellerType/);

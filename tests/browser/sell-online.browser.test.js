@@ -124,14 +124,15 @@ test('copy keeps to approved pricing and the public language rules', () => {
   expect(text).toMatch(/Retail Shop, Gallery or Studio/);
 });
 
-test('the registration it opens offers Retail Shop, Gallery or Studio, already chosen (the seller can change it)', async () => {
+test('the registration it opens has Retail Shop or Resale Business already selected (the seller can change it; owner 2026-11-10 categories)', async () => {
   const { ctx, page } = await open();
   await page.goto(stack.baseUrl + '/sell-online', { waitUntil: 'networkidle' });
   await page.click('a.so-btn[data-cta="hero-start"]');
   await page.waitForLoadState('networkidle');
   expect(page.url()).toContain('/become-professional-seller.html?seller_type=retail_gallery_studio');
-  expect(await page.$eval('#seller-type', (s) => s.value)).toBe('retail_gallery_studio');
-  expect(await page.$eval('#seller-type option[value="retail_gallery_studio"]', (o) => o.textContent.trim())).toBe('Retail Shop, Gallery or Studio');
+  expect(await page.isChecked('input[name="biz-cat"][value="retail_resale"]')).toBe(true);
+  expect(await page.isChecked('input[name="biz-cat"][value="auction_house"]')).toBe(false);
+  expect(await page.textContent('#biz-cats')).toMatch(/Retail Shop or Resale Business[\s\S]*Gallery or Studio/);
   // signing in first keeps the choice (the login link carries the address back)
   const login = await page.$eval('#login-link', (a) => a.getAttribute('href'));
   expect(decodeURIComponent(login)).toContain('seller_type=retail_gallery_studio');

@@ -77,7 +77,8 @@ async function lookup(userId, sid) {
           `SELECT u.is_active, u.role, u.session_version,
                   EXISTS (SELECT 1 FROM revoked_sessions s WHERE s.sid = $2) AS revoked
              FROM users u WHERE u.id = $1`, [userId, sid]), timeout]);
-        return r && Array.isArray(r.rows) ? r.rows[0] : undefined;
+        // null = the lookup worked and the account does not exist (deleted); undefined = could not tell
+        return r && Array.isArray(r.rows) ? (r.rows[0] || null) : undefined;
       } catch (e) {
         if (e && e.code === '42703' || e && e.code === '42P01') {
           schemaReady = false;
@@ -86,7 +87,7 @@ async function lookup(userId, sid) {
       }
     }
     const r = await Promise.race([db.query('SELECT is_active FROM users WHERE id = $1', [userId]), timeout]);
-    return r && Array.isArray(r.rows) ? r.rows[0] : undefined;
+    return r && Array.isArray(r.rows) ? (r.rows[0] || null) : undefined;
   } finally { if (timer) clearTimeout(timer); }
 }
 
@@ -106,6 +107,10 @@ async function checkSession(decoded, token) {
   if (!userId) return { ...base, state: 'revoked' };
   const hit = cached(userId, sid);
   const decide = (row) => {
+    // A validly signed token for an account that no longer exists (e.g. a deleted test account still signed in on a
+    // browser) is an ended session: sign in again. Before 2026-11-10 this was 'unknown', so every save failed with a
+    // generic 'try again shortly' (503) while pages still loaded as if signed in.
+    if (row === null) return { ...base, state: 'revoked' };
     if (!row || typeof row.is_active !== 'boolean') return { ...base, state: 'unknown' };
     const dbVersion = Number.isInteger(row.session_version) ? row.session_version : 0;
     if (row.revoked === true || dbVersion !== sv) return { ...base, state: 'revoked' };

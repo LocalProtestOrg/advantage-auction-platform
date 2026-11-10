@@ -53,7 +53,7 @@ beforeEach(() => {
     if (/SELECT 1 FROM lots l/.test(sql)) return { rows: [{ '?column?': 1 }] };
     if (/SELECT auction_id FROM lots WHERE id/.test(sql)) return { rows: [{ auction_id: AID }] };
     if (/SELECT a\.state, sp\.seller_type(?:, sp\.user_id AS owner_user_id)?\s+FROM auctions a/.test(sql)) return { rows: [{ state: 'draft', seller_type: seller.seller_type, owner_user_id: 'u1' }] };   // the seller under test owns it
-    if (/sp\.capabilities/.test(sql) || /capabilities FROM seller_profiles/.test(sql)) {
+    if (/sp\.capabilities/.test(sql) || /capabilities(, business_categories)? FROM seller_profiles/.test(sql)) {
       return { rows: [{ id: SPID, user_id: 'u1', seller_type: seller.seller_type, show_branding_to_buyers: false, capabilities: seller.capabilities }] };
     }
     if (/SELECT sp\.seller_type FROM/.test(sql) || /SELECT seller_type FROM seller_profiles/.test(sql)) return { rows: [{ seller_type: seller.seller_type }] };

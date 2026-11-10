@@ -305,7 +305,8 @@ describe('new professional type: Retail Shop, Gallery or Studio', () => {
     const token = await seed.apiLogin(stack, 'potter@fullstack.test');
     const page = await (await browser.newContext()).newPage();
     await page.goto(stack.baseUrl + '/become-professional-seller.html');
-    expect(await page.$$eval('#seller-type option', (o) => o.map((x) => x.textContent))).toContain('Retail Shop, Gallery or Studio');
+    // business categories (owner 2026-11-10); the legacy seller_type body below is still accepted
+    expect(await page.textContent('#biz-cats')).toMatch(/Retail Shop or Resale Business[\s\S]*Gallery or Studio/);
     const r = await fetch(stack.baseUrl + '/api/sellers/apply-professional', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({ seller_type: 'retail_gallery_studio', company_name: 'Riverbend Pottery', legal_name: 'Pat Potter', phone: '7135550123', state: 'TX' }) });
     expect(r.status).toBeLessThan(300);

@@ -160,7 +160,7 @@ describe('the Buying / Selling switch decides the menu (owner 2026-11-10)', () =
     const secs = Nav.visibleSectionsFor({ role: 'seller', mode: 'selling', isSeller: true, sellerReady: true, storefrontEligible: true });
     expect(secs.map((s) => s.heading)).toEqual([null, 'Storefront', 'Online Auctions', null]);
     expect(secs[1].items.map((i) => i.label)).toEqual(['Add Item', 'Manage Inventory', 'My Storefront', 'Orders', 'Website Widgets', 'Payouts']);
-    expect(secs[2].items.map((i) => i.label)).toEqual(['Create Online Auction', 'Manage Online Auctions', 'Sale Stats', 'Auction Payments']);
+    expect(secs[2].items.map((i) => i.label)).toEqual(['Create Auction', 'Manage Auctions', 'Sale Stats', 'Auction Payments']);
     expect(secs[3].items.map((i) => i.label)).toEqual(['Seller How To Center', 'Messages', 'Seller Settings']);
     expect(Nav.byId('addItem', { role: 'seller', mode: 'selling', isSeller: true, sellerReady: true, storefrontEligible: true }).href).toBe('/seller-storefront.html?tab=market');
   });

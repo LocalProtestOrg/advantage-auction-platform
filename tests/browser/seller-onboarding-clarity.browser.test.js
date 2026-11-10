@@ -63,7 +63,7 @@ test('Become a Seller offers two clear paths, and neither onboarding page uses a
   await page.goto(stack.baseUrl + '/become-professional-seller.html');
   await page.waitForSelector('#form-wrap', { state: 'visible' });
   expect(await page.textContent('body')).not.toMatch(/[—–]/);
-  expect(await page.textContent('#form-wrap .ob-lede')).toMatch(/retail shop, gallery or studio[\s\S]*upgrades the same account/);
+  expect(await page.textContent('#form-wrap .ob-lede')).toMatch(/One Professional Seller account[\s\S]*upgrades the same account/);
   await ctx.close();
 });
 
@@ -77,7 +77,7 @@ test('an existing Individual Seller switches to Selling and is offered a Profess
   await page.click('#adv-mode-switch button[data-mode="selling"]');
   await page.waitForFunction(() => (document.getElementById('adv-mode-chip') || {}).textContent === 'Selling');
   const labels = await railLabels(page);
-  expect(labels).toEqual(expect.arrayContaining(['Create Online Auction', 'Manage Online Auctions', 'Open a Professional Storefront', 'Seller Settings']));
+  expect(labels).toEqual(expect.arrayContaining(['Create Auction', 'Manage Auctions', 'Open a Professional Storefront', 'Seller Settings']));
   expect(labels).not.toContain('Add Item');
   expect(labels).not.toContain('Watchlist');   // Buying items are in Buying
   await ctx.close();
@@ -90,7 +90,8 @@ test('the upgrade to Professional Seller: company name becomes the business name
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await seed.browserLogin(page, stack, T.email, seed.TEST_PASSWORD, '/become-professional-seller.html');
   await page.waitForSelector('#form-wrap', { state: 'visible' });
-  await page.selectOption('#seller-type', 'retail_gallery_studio');
+  await page.check('input[name="biz-cat"][value="retail_resale"]');
+  await page.check('input[name="biz-cat"][value="gallery_studio"]');
   await page.fill('#company-name', 'Timeless Treasures');
   await page.fill('#legal-name', 'Pat Person');
   await page.fill('#phone', '2015550123');
@@ -98,13 +99,13 @@ test('the upgrade to Professional Seller: company name becomes the business name
   await Promise.all([page.waitForURL(/\/(app|sign-agreement)\.html/, { timeout: 30000 }), page.click('#submit-btn')]);
   expect(page.url()).toMatch(/\/app\.html/);   // agreement already signed: straight to the dashboard
   await page.waitForFunction(() => (document.getElementById('adv-mode-chip') || {}).textContent === 'Selling');
-  const sp = await one('SELECT seller_type, display_name, verification_required_before_publication FROM seller_profiles WHERE id = $1', [T.profileId]);
-  expect(sp).toEqual({ seller_type: 'retail_gallery_studio', display_name: 'Timeless Treasures', verification_required_before_publication: true });
+  const sp = await one('SELECT seller_type, business_categories, display_name, verification_required_before_publication FROM seller_profiles WHERE id = $1', [T.profileId]);
+  expect(sp).toEqual({ seller_type: 'retail_gallery_studio', business_categories: ['retail_resale', 'gallery_studio'], display_name: 'Timeless Treasures', verification_required_before_publication: true });
   expect((await stack.query('SELECT id, status FROM agreements WHERE seller_profile_id = $1 ORDER BY created_at', [T.profileId])).rows).toEqual(agreementsBefore);
   expect(await one('SELECT role, staff_role, is_platform_owner FROM users WHERE id = $1', [T.userId])).toEqual({ role: 'seller', staff_role: null, is_platform_owner: false });
   const labels = await railLabels(page);
-  for (const l of ['Add Item', 'Manage Inventory', 'My Storefront', 'Orders', 'Seller Settings', 'Payouts', 'Create Online Auction']) expect(labels).toContain(l);
-  expect(labels.indexOf('Add Item')).toBeLessThan(labels.indexOf('Create Online Auction'));
+  for (const l of ['Add Item', 'Manage Inventory', 'My Storefront', 'Orders', 'Seller Settings', 'Payouts', 'Create Auction']) expect(labels).toContain(l);
+  expect(labels.indexOf('Add Item')).toBeLessThan(labels.indexOf('Create Auction'));
   // the Selling home leads with the storefront actions
   await page.waitForSelector('#adv-storefront-actions');
   expect(await page.textContent('#adv-storefront-actions')).toMatch(/Add Item[\s\S]*Manage Inventory[\s\S]*My Storefront[\s\S]*Orders/);
