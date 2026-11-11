@@ -28,7 +28,13 @@ reviewed READY. Owner will address these separately.
 - [ ] Confirm the live Stripe webhook endpoint is enabled and points at production (last live webhook seen 2026-09-28).
 - [ ] Accept the $1 test economics (about -$0.24 net to Advantage after card cost; about -$0.33 more if refunded).
 - Known gap (not a blocker for the pilot): no seller-initiated order cancellation; refunds are admin-only.
-- Test plan: `docs/operations/storefront-first-sale-test-plan.md` (branch `docs/storefront-launch-prep`).
+- Test plan: `docs/operations/storefront-first-sale-test-plan.md`; live webhook check `docs/operations/stripe-live-webhook-verification.md`;
+  tax steps `docs/operations/storefront-tax-configuration-steps.md`; Buyer Terms v4 draft `docs/legal/buyer-terms-v4-fixed-price.md`.
+- **Read-only pre-flight** (checks every item above with the same server code checkout runs; changes nothing):
+  `railway run --service advantage-auction-platform --environment production node scripts/storefront-pilot-preflight.js [--buyer <email or user id>]`.
+  Result 2026-11-11: NOT READY (6 PASS, 8 NEEDS OWNER ACTION, 2 BLOCKED, 1 UNVERIFIED).
+- The 9:00 AM Human Review Report lists every seller awaiting required business verification (fixed 2026-11-11; Timeless
+  Treasures appears as "Awaiting Seller Action" until approved).
 
 ## 2. DMARC record — DECIDED: no change (owner decision 2026-11-11)
 

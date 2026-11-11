@@ -56,7 +56,10 @@ beforeAll(async () => {
       phone_verified_e164 text, phone_verified_at timestamptz);
     CREATE TABLE platform_config (key text PRIMARY KEY, value jsonb);
     CREATE TABLE cs_conversations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), customer_email text, handoff_state text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-    CREATE TABLE verification_requests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), status text, business_name text, ein_last4 text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
+    CREATE TABLE seller_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, seller_type text, display_name text,
+      verification_required_before_publication boolean DEFAULT false, is_demo boolean NOT NULL DEFAULT false, created_at timestamptz DEFAULT now());
+    CREATE TABLE verification_requests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_profile_id uuid, status text, business_name text, ein_last4 text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
+    CREATE TABLE verification_documents (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), request_id uuid, category text);
     CREATE TABLE payment_disputes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), status text, opened_at timestamptz, closed_at timestamptz, created_at timestamptz DEFAULT now());
     CREATE TABLE marketplace_order_issues (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), status text, buyer_message text, created_at timestamptz DEFAULT now());
   `);
@@ -65,7 +68,7 @@ beforeAll(async () => {
 afterAll(async () => { if (pg) await pg.close(); });
 
 beforeEach(async () => {
-  await pg.exec(`DELETE FROM owner_digest_deliveries; DELETE FROM owner_digest_runs; DELETE FROM cs_conversations; DELETE FROM verification_requests;
+  await pg.exec(`DELETE FROM owner_digest_deliveries; DELETE FROM owner_digest_runs; DELETE FROM cs_conversations; DELETE FROM verification_documents; DELETE FROM verification_requests; DELETE FROM seller_profiles;
     DELETE FROM payment_disputes; DELETE FROM marketplace_order_issues; DELETE FROM users; DELETE FROM platform_config;`);
   await runner.query(`INSERT INTO platform_config (key, value) VALUES ('owner.notify_emails', $1::jsonb)`, [JSON.stringify(['owner@example.test', 'inbox@example.test'])]);
   await runner.query(`INSERT INTO users (email, is_platform_owner, phone_verified_e164, phone_verified_at) VALUES ('owner@example.test', true, $1, now())`, [OWNER_PHONE]);
@@ -312,5 +315,109 @@ describe('destinations', () => {
     const dest = JSON.parse((await one(`SELECT destinations::text d FROM owner_digest_runs`)).d);
     expect(dest.email_problem).toMatch(/No owner notice email address is configured/);
     expect(dest.sms_problem).toMatch(/No owner alert phone number is configured/);
+  });
+});
+
+// ── Seller business verification (owner 2026-11-11: Timeless Treasures, a Professional Seller with no verification
+//    request, was missing from the report because only SUBMITTED requests were counted) ─────────────────────────────
+describe('sellers awaiting business verification', () => {
+  const REG = at('2026-11-10T19:25:30Z');
+  async function seller({ name = 'Timeless Treasures', type = 'auction_house', required = true, demo = false, active = true, registered = REG } = {}) {
+    const u = await one(`INSERT INTO users (email, is_active) VALUES ($1, $2) RETURNING id`, [`${Math.random().toString(36).slice(2)}@example.test`, active]);
+    return (await one(`INSERT INTO seller_profiles (user_id, seller_type, display_name, verification_required_before_publication, is_demo, created_at)
+      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, [u.id, type, name, required, demo, registered])).id;
+  }
+  const request = async (sp, status, { docs = 0, when = at('2026-11-11T12:00:00Z') } = {}) => {
+    const r = await one(`INSERT INTO verification_requests (seller_profile_id, status, created_at, updated_at) VALUES ($1,$2,$3,$3) RETURNING id`, [sp, status, when]);
+    for (let i = 0; i < docs; i += 1) await runner.query(`INSERT INTO verification_documents (request_id, category) VALUES ($1, $2)`, [r.id, 'doc' + i]);
+    return r.id;
+  };
+  const verificationCategory = async (now = NOV12_0900) => (await svc.collectTasks({ runner, now })).categories.find((c) => c.key === 'seller_verification');
+
+  test('a Professional Seller with NO verification request appears (the reported omission), with name, date, status, need and link', async () => {
+    const sp = await seller();
+    const t = transports();
+    expect(await tick(t, NOV12_0900)).toMatchObject({ ran: true, status: 'complete', total: 1 });   // no longer "nothing pending"
+    const m = t.sent.email[0];
+    expect(m.text).toMatch(/Sellers awaiting business verification: 1/);
+    expect(m.text).toContain('- Timeless Treasures: Awaiting Seller Action (Normal). Registered 2026-11-10; waiting 1 day.');
+    expect(m.text).toContain('Needed: Verification not started: no request and no documents yet.');
+    expect(m.text).toContain(`Open: https://bid.advantage.bid/admin/verification.html?seller=${sp}`);
+    expect(m.html).toContain('<b>Timeless Treasures</b>: Awaiting Seller Action');
+    expect(m.html).toContain(`href="https://bid.advantage.bid/admin/verification.html?seller=${sp}"`);
+    // The text message stays counts only: no business name.
+    expect(t.sent.sms[0].message).toMatch(/Sellers awaiting business verification 1/);
+    expect(t.sent.sms[0].message).not.toContain('Timeless');
+  });
+
+  test.each([
+    ['open, nothing uploaded', 'open', 0, 'Awaiting Seller Action', 'Documents requested; none uploaded yet'],
+    ['open, some uploaded', 'open', 2, 'Awaiting Seller Action', 'Documents requested; 2 uploaded so far, not yet submitted'],
+    ['more information requested', 'more_info', 1, 'Awaiting Seller Action', 'Additional information requested from the seller'],
+    ['submitted for review', 'submitted', 3, 'Awaiting Admin Review', 'Documents submitted (3); an administrator decision is needed'],
+    ['rejected', 'rejected', 1, 'Verification Blocked', 'Verification was rejected'],
+    ['cancelled', 'cancelled', 0, 'Verification Blocked', 'cancelled without approval'],
+  ])('%s', async (_n, status, docs, label, need) => {
+    const sp = await seller();
+    await request(sp, status, { docs });
+    const c = await verificationCategory();
+    expect(c.count).toBe(1);
+    expect(c.tasks[0].detail).toMatchObject({ name: 'Timeless Treasures', status: label, registered: '2026-11-10' });
+    expect(c.tasks[0].detail.missing).toContain(need);
+    expect(c.tasks[0].link).toBe(`https://bid.advantage.bid/admin/verification.html?seller=${sp}`);
+  });
+
+  test('a submitted request is listed once, under the seller (not again as a bare submission)', async () => {
+    await request(await seller(), 'submitted', { docs: 1 });
+    const r = await svc.collectTasks({ runner, now: NOV12_0900 });
+    expect(r.total).toBe(1);
+    expect(r.categories.map((c) => c.key)).toEqual(['seller_verification']);
+    expect(r.categories[0].tasks[0].urgency).toBe('high');   // an administrator decision is waiting
+  });
+
+  test('the most recent request decides: a later submission after a rejection is Awaiting Admin Review', async () => {
+    const sp = await seller();
+    await request(sp, 'rejected', { when: at('2026-11-10T20:00:00Z') });
+    await request(sp, 'submitted', { when: at('2026-11-11T20:00:00Z') });
+    expect((await verificationCategory()).tasks[0].detail.status).toBe('Awaiting Admin Review');
+  });
+
+  test('approved sellers, sellers not required to verify, demo accounts and closed accounts never appear', async () => {
+    const ok = await seller({ name: 'Approved Co' });
+    await request(ok, 'rejected', { when: at('2026-11-01T00:00:00Z') });
+    await request(ok, 'approved', { when: at('2026-11-05T00:00:00Z') });   // approved at any point = verified (same as the sale gate)
+    await seller({ name: 'Lewis & Maese', type: 'professional_liquidator', required: false });   // grandfathered
+    await seller({ name: 'Demo Estate', type: 'estate_sale_company', demo: true });
+    await seller({ name: 'Closed Co', active: false });
+    expect(await verificationCategory()).toBeUndefined();
+  });
+
+  test('a seller stays in the report every day until approved, then drops out', async () => {
+    const sp = await seller();
+    expect((await verificationCategory()).count).toBe(1);
+    const later = await verificationCategory(at('2026-11-15T14:00:00Z'));
+    expect(later.tasks[0]).toMatchObject({ age_days: 4, urgency: 'high' });   // waiting on the seller 3+ days rises to High
+    await request(sp, 'approved');
+    expect(await verificationCategory()).toBeUndefined();
+  });
+
+  test('a seller that is not a Professional Seller is described by type only, never by name', async () => {
+    await seller({ name: 'Jane Private', type: 'private' });
+    const c = await verificationCategory();
+    expect(c.tasks[0].detail.name).toBe('Seller (private)');
+    expect(JSON.stringify(c)).not.toContain('Jane');
+  });
+
+  test('state mapping is complete and an unknown status is flagged, never hidden', () => {
+    expect(svc.verificationState(null, 0).state).toBe('seller_action');
+    expect(svc.verificationState('submitted', 1).state).toBe('admin_review');
+    expect(svc.verificationState('something_new', 0)).toMatchObject({ state: 'blocked' });
+    expect(Object.values(svc.VERIFICATION_STATES).map((s) => s.label)).toEqual(['Awaiting Seller Action', 'Awaiting Admin Review', 'Verification Blocked']);
+  });
+
+  test('the report rule matches the sale gate (verificationService.publicationGate: required flag + an approved request)', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'verificationService.js'), 'utf8');
+    expect(src).toMatch(/SELECT verification_required_before_publication FROM seller_profiles/);
+    expect(src).toMatch(/status='approved'/);
   });
 });

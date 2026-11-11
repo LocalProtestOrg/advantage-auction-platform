@@ -17,7 +17,10 @@
  *   - nothing pending, nothing sent (the day is recorded as nothing_pending);
  *   - the stored message is what every retry sends, so a retry never sends different content;
  *   - no customer data: categories, counts, ages, urgency, a short internal reference and fixed admin links only. No
- *     names, email addresses, phone numbers, documents, taxpayer or bank details, buyer details or tokens;
+ *     names, email addresses, phone numbers, documents, taxpayer or bank details, buyer details or tokens. One exception
+ *     (owner 2026-11-11): a seller awaiting business verification is listed in the EMAIL with its Professional Seller
+ *     business name (already public on its storefront), registration date, verification status and what is missing; the
+ *     text message stays counts only;
  *   - links go only to Advantage.Bid admin pages, which require an administrator sign-in (htmlAuthGate);
  *   - read-only toward every workflow: it never changes a task, and existing immediate notifications are untouched.
  * Never throws out of runDigestTick.
@@ -53,6 +56,69 @@ function enabled(env = process.env) {
   return env.NODE_ENV === 'production' || String(env.OWNER_DIGEST_ENABLED || '').toLowerCase() === 'true';
 }
 
+// ── seller business verification (read-only) ─────────────────────────────────
+// One line per seller whose business verification is required (seller_profiles.verification_required_before_publication)
+// and not approved (no 'approved' verification_requests row: verificationService.hasApprovedVerification). Demo accounts
+// and closed accounts (owner is_active false) are left out; approved sellers never appear. The state comes from the
+// seller's most recent unapproved request:
+//   none / open / more_info  -> Awaiting Seller Action   (the seller must start, upload or answer)
+//   submitted                -> Awaiting Admin Review    (documents are in; an administrator decides)
+//   rejected / cancelled     -> Verification Blocked     (no path to approval without an investigation)
+// The business name is shown only for a Professional Seller (a public business identity, already on its storefront); any
+// other seller is described by type only. No personal contact details, documents or taxpayer data are read.
+const VERIFICATION_STATES = {
+  seller_action: { label: 'Awaiting Seller Action', urgency: 'normal' },
+  admin_review: { label: 'Awaiting Admin Review', urgency: 'high' },
+  blocked: { label: 'Verification Blocked', urgency: 'high' },
+};
+function verificationState(reqStatus, docs) {
+  const n = Number(docs) || 0;
+  switch (reqStatus || null) {
+    case null: return { state: 'seller_action', missing: 'Verification not started: no request and no documents yet' };
+    case 'open': return { state: 'seller_action', missing: n ? `Documents requested; ${n} uploaded so far, not yet submitted` : 'Documents requested; none uploaded yet' };
+    case 'more_info': return { state: 'seller_action', missing: 'Additional information requested from the seller' };
+    case 'submitted': return { state: 'admin_review', missing: `Documents submitted (${n}); an administrator decision is needed` };
+    case 'rejected': return { state: 'blocked', missing: 'Verification was rejected; the seller cannot sell until this is resolved' };
+    case 'cancelled': return { state: 'blocked', missing: 'The verification request was cancelled without approval' };
+    default: return { state: 'blocked', missing: `Unrecognized verification status "${String(reqStatus).slice(0, 30)}"; please check` };
+  }
+}
+async function collectSellerVerification(runner) {
+  const { isProfessional } = require('./sellerTypeRules');
+  const rows = (await runner.query(
+    `SELECT sp.id::text AS id, sp.seller_type, sp.display_name, sp.created_at AS registered_at,
+            vr.status AS req_status, vr.at AS req_at,
+            (SELECT count(*)::int FROM verification_documents d WHERE d.request_id = vr.id) AS docs
+       FROM seller_profiles sp
+       LEFT JOIN users u ON u.id = sp.user_id
+       LEFT JOIN LATERAL (SELECT v.id, v.status, COALESCE(v.updated_at, v.created_at) AS at FROM verification_requests v
+                           WHERE v.seller_profile_id = sp.id ORDER BY COALESCE(v.updated_at, v.created_at) DESC LIMIT 1) vr ON true
+      WHERE sp.verification_required_before_publication IS TRUE
+        AND sp.is_demo IS NOT TRUE
+        AND u.is_active IS NOT FALSE
+        AND NOT EXISTS (SELECT 1 FROM verification_requests a WHERE a.seller_profile_id = sp.id AND a.status = 'approved')
+      ORDER BY sp.created_at ASC LIMIT 500`)).rows;
+  return rows.map((r) => {
+    const v = verificationState(r.req_status, r.docs);
+    const pro = isProfessional(r.seller_type);
+    const typeLabel = String(r.seller_type || 'seller').replace(/_/g, ' ');
+    return {
+      id: r.id,
+      // Waiting since: the seller's registration while it is the seller's move; the request's last change otherwise.
+      since: v.state === 'seller_action' && !r.req_status ? r.registered_at : (r.req_at || r.registered_at),
+      base_urgency: VERIFICATION_STATES[v.state].urgency,
+      detail: {
+        name: pro && r.display_name ? String(r.display_name).slice(0, 120) : (pro ? 'Professional Seller (no business name yet)' : `Seller (${typeLabel})`),
+        type: typeLabel,
+        registered: r.registered_at ? new Date(r.registered_at).toISOString().slice(0, 10) : null,
+        status: VERIFICATION_STATES[v.state].label,
+        missing: v.missing,
+      },
+      path: '/admin/verification.html?seller=' + encodeURIComponent(r.id),
+    };
+  });
+}
+
 // ── the review workflows (read-only) ──────────────────────────────────────────
 // Each: the queue, where it is worked, its base urgency, and the SQL returning (id, waiting_since) for open tasks only.
 // Urgency rises with age: normal -> high after 3 days waiting, high -> urgent after 2 days.
@@ -69,8 +135,16 @@ const CATEGORIES = [
     sql: `SELECT id::text, created_at AS since FROM storefront_payouts WHERE settlement_status IN ('pending_review','on_hold')` },
   { key: 'auction_settlements', label: 'Auction seller settlements to complete', urgency: 'high', path: '/admin/settlement-review.html',
     sql: `SELECT id::text, created_at AS since FROM seller_payouts WHERE settlement_status IN ('pending_review','approved','ready_for_payment','on_hold')` },
+  // Every seller who must pass business verification before selling and has not (owner 2026-11-11: a Professional Seller
+  // with NO request was invisible here, because only submitted requests were counted). Built from the same flag and the
+  // same "approved request" test as verificationService.publicationGate, so the report and the sale gate cannot disagree.
+  { key: 'seller_verification', label: 'Sellers awaiting business verification', urgency: 'high', path: '/admin/verification.html',
+    collect: collectSellerVerification },
+  // A submitted request from a seller the rule above does not cover (an administrator-opened review): kept, never lost.
   { key: 'business_verification', label: 'Business verifications submitted', urgency: 'high', path: '/admin/verification.html',
-    sql: `SELECT id::text, COALESCE(updated_at, created_at) AS since FROM verification_requests WHERE status = 'submitted'` },
+    sql: `SELECT vr.id::text, COALESCE(vr.updated_at, vr.created_at) AS since FROM verification_requests vr
+            LEFT JOIN seller_profiles sp ON sp.id = vr.seller_profile_id
+           WHERE vr.status = 'submitted' AND (sp.id IS NULL OR sp.verification_required_before_publication IS NOT TRUE)` },
   { key: 'auction_review', label: 'Auctions submitted for review', urgency: 'high', path: '/admin/moderation.html',
     sql: `SELECT id::text, COALESCE(submitted_at, created_at) AS since FROM auctions WHERE state IN ('submitted','under_review')` },
   { key: 'webhook_quarantine', label: 'Payment callbacks held for verification', urgency: 'high', path: '/admin/compliance.html',
@@ -123,7 +197,7 @@ async function collectTasks({ runner = db, now = new Date() } = {}) {
     let rows;
     try {
       // savepoint-free and read-only: each query stands alone
-      rows = (await runner.query(cat.sql + ' ORDER BY 2 ASC NULLS LAST LIMIT 500')).rows;
+      rows = cat.collect ? await cat.collect(runner, now) : (await runner.query(cat.sql + ' ORDER BY 2 ASC NULLS LAST LIMIT 500')).rows;
     } catch (e) {
       unchecked.push({ key: cat.key, label: cat.label });
       console.warn(`[owner-digest] queue ${cat.key} could not be read: ${e.message}`);
@@ -132,7 +206,10 @@ async function collectTasks({ runner = db, now = new Date() } = {}) {
     if (!rows.length) continue;
     const tasks = rows.map((r) => {
       const days = ageDays(r.since, now);
-      return { ref: String(r.id).replace(/-/g, '').slice(0, 8).toUpperCase(), age_days: days, urgency: urgencyFor(cat.urgency, days) };
+      const t = { ref: String(r.id).replace(/-/g, '').slice(0, 8).toUpperCase(), age_days: days, urgency: urgencyFor(r.base_urgency || cat.urgency, days) };
+      if (r.detail) t.detail = r.detail;
+      if (r.path) t.link = adminLink(r.path);
+      return t;
     });
     const top = tasks.reduce((a, t) => (URGENCY_RANK[t.urgency] < URGENCY_RANK[a] ? t.urgency : a), 'normal');
     categories.push({ key: cat.key, label: cat.label, link: adminLink(cat.path), count: tasks.length,
@@ -194,7 +271,13 @@ function compose(result, dest, runDate) {
   const lines = [`Daily review for ${runDate} (9:00 AM New York time).`, `${total} ${total === 1 ? 'task is' : 'tasks are'} waiting for a person${urgent ? `, ${urgent} urgent` : ''}.`, ''];
   for (const c of categories) {
     lines.push(`${c.label}: ${c.count} (${URG_LABEL[c.urgency]}, oldest waiting ${ageText(c.oldest_days)})`);
-    for (const t of c.tasks.slice(0, MAX_LINES_PER_CATEGORY)) lines.push(`  - Ref ${t.ref}: waiting ${ageText(t.age_days)}, ${URG_LABEL[t.urgency]}`);
+    for (const t of c.tasks.slice(0, MAX_LINES_PER_CATEGORY)) {
+      if (t.detail) {
+        lines.push(`  - ${t.detail.name}: ${t.detail.status} (${URG_LABEL[t.urgency]}). Registered ${t.detail.registered || 'unknown'}; waiting ${ageText(t.age_days)}.`);
+        lines.push(`    Needed: ${t.detail.missing}.`);
+        if (t.link) lines.push(`    Open: ${t.link}`);
+      } else lines.push(`  - Ref ${t.ref}: waiting ${ageText(t.age_days)}, ${URG_LABEL[t.urgency]}`);
+    }
     if (c.tasks.length > MAX_LINES_PER_CATEGORY) lines.push(`  - and ${c.tasks.length - MAX_LINES_PER_CATEGORY} more`);
     lines.push(`  Open: ${c.link}`, '');
   }
@@ -211,7 +294,9 @@ function compose(result, dest, runDate) {
 ${categories.map((c) => `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin:0 0 12px">
 <div style="font-weight:700;font-size:15px">${esc(c.label)}: ${c.count}</div>
 <div style="font-size:13px;color:#475569;margin:2px 0 8px">${esc(URG_LABEL[c.urgency])} &middot; oldest waiting ${esc(ageText(c.oldest_days))}</div>
-<ul style="margin:0 0 8px;padding-left:18px;font-size:13px">${c.tasks.slice(0, MAX_LINES_PER_CATEGORY).map((t) => `<li>Ref ${esc(t.ref)}: waiting ${esc(ageText(t.age_days))}, ${esc(URG_LABEL[t.urgency])}</li>`).join('')}${c.tasks.length > MAX_LINES_PER_CATEGORY ? `<li>and ${c.tasks.length - MAX_LINES_PER_CATEGORY} more</li>` : ''}</ul>
+<ul style="margin:0 0 8px;padding-left:18px;font-size:13px">${c.tasks.slice(0, MAX_LINES_PER_CATEGORY).map((t) => (t.detail
+    ? `<li style="margin-bottom:6px"><b>${esc(t.detail.name)}</b>: ${esc(t.detail.status)} (${esc(URG_LABEL[t.urgency])})<br>Registered ${esc(t.detail.registered || 'unknown')}; waiting ${esc(ageText(t.age_days))}<br>Needed: ${esc(t.detail.missing)}${t.link ? `<br><a href="${esc(t.link)}">Open this seller in Admin</a>` : ''}</li>`
+    : `<li>Ref ${esc(t.ref)}: waiting ${esc(ageText(t.age_days))}, ${esc(URG_LABEL[t.urgency])}</li>`)).join('')}${c.tasks.length > MAX_LINES_PER_CATEGORY ? `<li>and ${c.tasks.length - MAX_LINES_PER_CATEGORY} more</li>` : ''}</ul>
 <a href="${esc(c.link)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:700;padding:8px 14px;border-radius:8px;font-size:13px">Open in Admin</a>
 </div>`).join('\n')}
 ${unchecked.length ? `<p style="font-size:13px;color:#b45309">Not checked today (could not be read): ${esc(unchecked.map((u) => u.label).join('; '))}.</p>` : ''}
@@ -325,4 +410,4 @@ async function runDigestTick(deps = {}) {
 }
 
 module.exports = { runDigestTick, collectTasks, resolveDestinations, publicDestinations, compose, nyDate, nyHour, isDue, enabled,
-  urgencyFor, CATEGORIES, MAX_ATTEMPTS, RETRY_AFTER_MS };
+  urgencyFor, CATEGORIES, MAX_ATTEMPTS, RETRY_AFTER_MS, verificationState, collectSellerVerification, VERIFICATION_STATES };
