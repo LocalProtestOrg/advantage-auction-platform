@@ -26,7 +26,14 @@ async function open(ctxOpts = {}) {
   return { ctx, page };
 }
 
-beforeAll(async () => { stack = await startStack({ env: { SELL_ONLINE_PAGE_ENABLED: 'true' } }); browser = await chromium.launch(); });
+beforeAll(async () => {
+  stack = await startStack({ env: { SELL_ONLINE_PAGE_ENABLED: 'true' } });
+  // The page's "View a Storefront Example" links to the published demo storefront that exists in production
+  // (scripts/seed-demo-storefront.js). Since unknown storefronts answer a real 404 (SEO 2026-11-11), this environment
+  // carries the same published storefront so the link check below tests what production serves.
+  await require('../fullstack/seedJourneys').publishedStorefront(stack, { email: 'heritage-demo@fullstack.test', slug: 'heritage-home-estate-services', name: 'Heritage & Home Estate Services' });
+  browser = await chromium.launch();
+});
 afterAll(async () => { if (browser) await browser.close(); if (stack) await stack.stop(); });
 
 test('served at the clean address; the .html address redirects to it; listed in the sitemap', async () => {
