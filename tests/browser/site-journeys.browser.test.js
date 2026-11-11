@@ -135,6 +135,33 @@ describe('auctions: pages, bidding and watchlist', () => {
     await ctx.close();
   });
 
+  test('SEO (2026-11-11): real pages 200; unknown auction, lot, event and storefront pages are real 404s; sitemap, robots and home links agree', async () => {
+    const raw = async (p) => { const r = await fetch(stack.baseUrl + p, { redirect: 'manual' }); return { status: r.status, text: await r.text() }; };
+    const ghost = '00000000-0000-4000-8000-00000000dead';
+    const real = await raw('/auction-view.html?auctionId=' + people.auctionId);
+    expect(real.status).toBe(200);
+    expect((await raw('/lot.html?lotId=' + people.lotId)).status).toBe(200);
+    for (const p of ['/auction-view.html?auctionId=' + ghost, '/lot.html?lotId=' + ghost, '/event.html?slug=no-such-sale-xyz', '/pro/no-such-shop-xyz']) {
+      const r = await raw(p);
+      expect([p, r.status, /noindex/.test(r.text)]).toEqual([p, 404, true]);
+    }
+    // A 404 still renders the page's own "not found" state in a browser, without errors.
+    const ctx = await browser.newContext(); const page = await open(ctx);
+    const nf = await visit(page, '/auction-view.html?auctionId=' + ghost);
+    expect([nf.res.status(), nf.critical]).toEqual([404, []]);
+    await ctx.close();
+    // The sitemap lists the auction exactly when its page is indexable.
+    const sm = await raw('/sitemap.xml');
+    const inSitemap = sm.text.includes('auction-view.html?auctionId=' + people.auctionId);
+    expect(inSitemap).toBe(!/name="robots" content="noindex/.test(real.text));
+    // Home: crawlable menu links to the shop and events, and the no-JavaScript block lists public inventory only.
+    const home = await raw('/');
+    expect(home.status).toBe(200);
+    expect(home.text).toContain('href="/shop"');
+    expect(home.text).toContain('href="/events.html"');
+    expect(home.text).not.toContain('<!-- SSR-DISCOVER -->');
+  });
+
   test('an eligible buyer bids and watches the lot; the bid and watchlist are recorded', async () => {
     await sj.buyerReadyToBid(stack, { userId: people.buyerId, auctionId: people.auctionId });
     const token = await seed.apiLogin(stack, 'bidder@fullstack.test');

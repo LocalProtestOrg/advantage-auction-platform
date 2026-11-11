@@ -105,6 +105,36 @@ function buildBlock(title, description, url, image) {
   ].join('\n  ');
 }
 
+// Social tags a page template may lack (event.html has none of them): added only when ABSENT, so a template's own
+// og:type / og:site_name / twitter:card are never duplicated or overridden. `hasRealImage` picks the large card only
+// when the entity has its own image (the generic social card gets the small one). All values pre-escaped.
+function socialExtras(head, title, hasRealImage) {
+  const out = [];
+  if (!/<meta\s+property=["']og:type["']/i.test(head)) out.push('<meta property="og:type" content="website" />');
+  if (!/<meta\s+property=["']og:site_name["']/i.test(head)) out.push('<meta property="og:site_name" content="Advantage.Bid" />');
+  if (!/<meta\s+name=["']twitter:card["']/i.test(head)) out.push(`<meta name="twitter:card" content="${hasRealImage ? 'summary_large_image' : 'summary'}" />`);
+  if (hasRealImage && !/<meta\s+property=["']og:image:alt["']/i.test(head)) out.push(`<meta property="og:image:alt" content="${title}" />`);
+  return out.length ? '\n  ' + out.join('\n  ') : '';
+}
+
+// Replace any robots meta in the head with the given value.
+function setRobots(head, value) {
+  return head.replace(/<meta\s+name=["']robots["'][^>]*>\s*/gi, '') + `  <meta name="robots" content="${value}" />\n`;
+}
+
+// A real 404 for an auction / lot / event that does not exist publicly: the same page (its script shows the visitor the
+// "not found" state, as before), but status 404, noindex, and no canonical pointing at the bare template URL.
+function sendNotFound(res, template) {
+  const cut = template.indexOf('</head>');
+  if (cut === -1) return false;
+  const head = setRobots(template.slice(0, cut).replace(/<link\s+rel=["']canonical["'][^>]*>\s*/i, ''), 'noindex,follow');
+  res.status(404);
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Cache-Control', 'no-store');
+  res.send(head + template.slice(cut));
+  return true;
+}
+
 // ── JSON-LD (Phase 3) ────────────────────────────────────────────────────────
 // Build a plain JS object per entity, then JSON.stringify + escape. We NEVER
 // hand-concatenate JSON. `<` is replaced with its unicode escape so a value
@@ -182,9 +212,14 @@ function buildEstateSaleEvent(meta, url, image) {
   });
 }
 
-// Build the schema.org Product object for a lot. Emits `offers` ONLY when a
-// positive cent price is present (meta.priceCents). `url`/`image` are absolute.
+// Build the schema.org Product object for a lot. A Product needs an offer to be valid structured data, so it is emitted
+// ONLY for a lot that is open for bidding with a positive price (meta.priceCents); the offer is valid until the lot
+// closes. A closed or withdrawn lot (or one with no price) gets no Product node at all: its page stays indexable as a
+// record of the merchandise and sale, described by its title, description, image and breadcrumb, never by a stale or
+// invented offer. Returns null when no Product applies. `url`/`image` are absolute.
 function buildLotProduct(meta, url, image) {
+  if (meta.lotState === 'closed' || meta.lotState === 'withdrawn') return null;
+  if (!(typeof meta.priceCents === 'number' && meta.priceCents > 0)) return null;
   const product = omitEmpty({
     '@type': 'Product',
     name: meta.title || null,
@@ -192,15 +227,14 @@ function buildLotProduct(meta, url, image) {
     image,
     url,
   });
-  if (typeof meta.priceCents === 'number' && meta.priceCents > 0) {
-    product.offers = {
-      '@type': 'Offer',
-      priceCurrency: 'USD',
-      price: (meta.priceCents / 100).toFixed(2),
-      availability: 'https://schema.org/InStock',
-      url,
-    };
-  }
+  product.offers = omitEmpty({
+    '@type': 'Offer',
+    priceCurrency: 'USD',
+    price: (meta.priceCents / 100).toFixed(2),
+    availability: 'https://schema.org/InStock',
+    priceValidUntil: isoOrNull(meta.closesAt) ? isoOrNull(meta.closesAt).slice(0, 10) : null,
+    url,
+  });
   return product;
 }
 
@@ -283,10 +317,12 @@ function buildJsonLd(kind, meta, url, image) {
     crumbs.push({ name: meta.title || 'Auction', url });
   } else if (kind === 'event') {
     graph.push(buildEstateSaleEvent(meta, url, image));
-    crumbs.push({ name: 'Estate Sales', url: b + '/estate-sales' });
+    // Same destination as the visible breadcrumb (/events.html); /estate-sales does not exist.
+    crumbs.push({ name: 'Events', url: b + '/events.html' });
     crumbs.push({ name: meta.title || 'Estate Sale', url });
   } else {
-    graph.push(buildLotProduct(meta, url, image));
+    const product = buildLotProduct(meta, url, image);
+    if (product) graph.push(product);
     if (meta.auctionId) {
       crumbs.push({
         name: meta.auctionTitle || 'Auction',
@@ -343,7 +379,13 @@ module.exports = async function shareMeta(req, res, next) {
     if (page.kind === 'auction')     meta = await shareMetaService.getAuctionMeta(id);
     else if (page.kind === 'event')  meta = await shareMetaService.getEventMeta(id);
     else                             meta = await shareMetaService.getLotMeta(id);
-    if (!meta) return next();
+    if (!meta) {
+      // 404 only when the lookup SUCCEEDED and nothing public matches; on any error (null) fail open as before.
+      let missing = null;
+      try { missing = await shareMetaService.isPublicNotFound(page.kind, id); } catch (e) { missing = null; }
+      if (missing === true && sendNotFound(res, template)) return undefined;
+      return next();
+    }
 
     // Split at the FIRST </head>; never touch anything from </head> onward.
     const idx = template.indexOf('</head>');
@@ -356,7 +398,8 @@ module.exports = async function shareMeta(req, res, next) {
     const url         = escapeHtml(meta.url);
     const image       = escapeHtml(absoluteImage(meta.image));
 
-    const cleanedHead = stripPhase1Tags(head);
+    // Viewable by link but not for search (demo, hidden, withdrawn): noindex, so the page agrees with the sitemap.
+    const cleanedHead = meta.indexable === false ? setRobots(stripPhase1Tags(head), 'noindex,follow') : stripPhase1Tags(head);
 
     // Phase 3 — entity JSON-LD. Built from RAW (unescaped) absolute values;
     // JSON.stringify handles escaping and jsonLdScript neutralizes </script>.
@@ -368,7 +411,7 @@ module.exports = async function shareMeta(req, res, next) {
       jsonLd = '';
     }
 
-    const block = '  ' + buildBlock(title, description, url, image) + jsonLd + '\n';
+    const block = '  ' + buildBlock(title, description, url, image) + socialExtras(cleanedHead, title, !!meta.image) + jsonLd + '\n';
 
     // For events, also server-render a privacy-safe summary into the #content
     // mount so the initial HTML carries meaningful, crawlable event content
@@ -401,5 +444,7 @@ module.exports.buildEventBody = buildEventBody;
 module.exports.injectEventBody = injectEventBody;
 module.exports.formatEventDate = formatEventDate;
 module.exports.buildLotProduct = buildLotProduct;
+module.exports.socialExtras = socialExtras;
+module.exports.setRobots = setRobots;
 module.exports.buildBreadcrumb = buildBreadcrumb;
 module.exports.jsonLdScript = jsonLdScript;

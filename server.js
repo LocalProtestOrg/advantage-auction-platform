@@ -301,6 +301,20 @@ app.get('/sitemap.xml', async (req, res) => {
   return res.send(xml);
 });
 
+// ── GET / — the home page (the map). Same file express.static served, plus crawlable links to live and upcoming
+// auctions, estate sales and items placed in its existing no-JavaScript block (homeDiscoveryService; shared visibility
+// rules only). Fail-open: any problem serves the unchanged file through express.static.
+let _homeTpl = null;
+app.get('/', async (req, res, next) => {
+  try {
+    if (_homeTpl == null) { try { _homeTpl = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8'); } catch (e) { _homeTpl = ''; } }
+    if (!_homeTpl || _homeTpl.indexOf('<!-- SSR-DISCOVER -->') === -1) return next();
+    const links = await require('./src/services/homeDiscoveryService').linksHtml();
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.send(_homeTpl.replace('<!-- SSR-DISCOVER -->', () => links));
+  } catch (e) { return next(); }
+});
+
 // ── GET /shop — the fixed-price marketplace: every Professional Seller's items for sale, crawlable (shopPageService) ──
 app.get('/shop', async (req, res) => {
   try {
@@ -549,8 +563,9 @@ app.get('/pro/:slug', async (req, res, next) => {
   try {
     const meta = await require('./src/services/storefrontService').ssrMeta(req.params.slug);
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    if (!meta) { // unknown/unpublished slug: serve the shell (client shows "not found"), noindex
-      return res.send(tpl.replace('<!-- SSR-META -->', '<meta name="robots" content="noindex">'));
+    if (!meta) { // unknown/unpublished slug: a real 404 (SEO 2026-11-11), same shell (client shows "not found"), noindex
+      res.set('Cache-Control', 'no-store');
+      return res.status(404).send(tpl.replace('<!-- SSR-META -->', '<meta name="robots" content="noindex">'));
     }
     const head = [
       `<title>${esc(meta.title)}</title>`,

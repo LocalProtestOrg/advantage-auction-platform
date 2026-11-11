@@ -31,6 +31,14 @@ function activeNativeAuctionSql(alias = 'a') {
     + ` AND ${alias}.marketplace_status = 'syndicated' AND ${alias}.is_demo IS NOT TRUE`;
 }
 
+// A native auction page may be INDEXED by search engines (sitemap, robots index, lot pages) when it passes every rule of
+// activeNativeAuctionSql except "still running": a completed (closed) auction keeps its useful historical page (owner
+// 2026-11-11: legitimate completed sales stay indexable; demo, test, hidden, private and unpublished content never is).
+function indexableNativeAuctionSql(alias = 'a') {
+  return `${alias}.state IN ('published','active','closed') AND ${alias}.is_archived IS NOT TRUE`
+    + ` AND ${alias}.marketplace_status = 'syndicated' AND ${alias}.is_demo IS NOT TRUE`;
+}
+
 // Canonical event type classification (mirrors the public feed): auction vs estate_sale.
 function eventKindSql(alias = 'e') {
   return `(CASE WHEN ${alias}.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)`;
@@ -168,4 +176,4 @@ async function canonicalCounts(db) {
   };
 }
 
-module.exports = { activeEventSql, activeNativeAuctionSql, activeMarketplaceItemSql, activeMarketplaceCompanySql, eventKindSql, canonicalCounts };
+module.exports = { activeEventSql, activeNativeAuctionSql, indexableNativeAuctionSql, activeMarketplaceItemSql, activeMarketplaceCompanySql, eventKindSql, canonicalCounts };

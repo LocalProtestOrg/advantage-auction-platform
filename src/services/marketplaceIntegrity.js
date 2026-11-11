@@ -17,7 +17,7 @@
  * gate never fails on a transient network blip, but a definitively-broken surface FAILS.
  */
 
-const { canonicalCounts, activeMarketplaceItemSql } = require('../lib/marketplaceVisibility');
+const { canonicalCounts, activeMarketplaceItemSql, activeNativeAuctionSql, indexableNativeAuctionSql } = require('../lib/marketplaceVisibility');
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 
 // One published, non-demo Professional storefront (the one with the most live items) and its canonical live-item count,
@@ -154,6 +154,31 @@ async function verify({ db, baseUrl, fetchImpl, live = true } = {}) {
       expected: '200 + <url> entries', actual: `HTTP ${sitemap.status}`,
       status: (sitemap.ok && /<url>|<loc>/.test(sitemap.text)) ? PASS : (sitemap.status === 0 ? WARN : FAIL),
       detail: sitemap.ok ? 'sitemap served with entries' : 'sitemap missing/empty' });
+
+    // ── Indexing parity (SEO 2026-11-11): the sitemap lists exactly the indexable auctions and lots (shared rule
+    //    indexableNativeAuctionSql; withdrawn lots excluded), and the home page links exactly the live public auctions
+    //    (activeNativeAuctionSql, at most 8). A demo, hidden or archived auction leaking into either makes a count too HIGH.
+    const dbCount = async (sql) => { try { const r = await db.query(sql); return r.rows[0] && r.rows[0].n != null ? Number(r.rows[0].n) : null; } catch (e) { return null; } };
+    // An unknown canonical count is a WARNING (never a silent zero that could pass).
+    const parity = (surface, expected, actual) => (expected == null
+      ? { surface, category: 'count', expected: null, actual, status: WARN, detail: 'canonical count unavailable' }
+      : countCheck(surface, expected, actual));
+    const nIdxAuctions = await dbCount(`SELECT count(*)::int n FROM auctions a WHERE ${indexableNativeAuctionSql('a')}`);
+    const nIdxLots = await dbCount(`SELECT count(*)::int n FROM lots l JOIN auctions a ON a.id = l.auction_id WHERE ${indexableNativeAuctionSql('a')} AND l.state IS DISTINCT FROM 'withdrawn'`);
+    const nLiveAuctions = await dbCount(`SELECT count(*)::int n FROM auctions a WHERE ${activeNativeAuctionSql('a')} AND a.title IS NOT NULL`);
+    if (sitemap.ok) {
+      const ids = (re) => new Set((sitemap.text.match(re) || []).map((u) => u.toLowerCase())).size;
+      checks.push(parity('seo:sitemap-auctions', nIdxAuctions == null ? null : Math.min(nIdxAuctions, 2000), ids(/auction-view\.html\?auctionId=[0-9a-f-]{36}/gi)));
+      checks.push(parity('seo:sitemap-lots', nIdxLots == null ? null : Math.min(nIdxLots, 3000), ids(/lot\.html\?lotId=[0-9a-f-]{36}/gi)));
+    }
+    const home = await safeFetch(`${base}/`, fetchImpl);
+    if (home.ok) {
+      const homeLinks = new Set((home.text.match(/href="\/auction-view\.html\?auctionId=[0-9a-f-]{36}"/gi) || []).map((u) => u.toLowerCase())).size;
+      checks.push(parity('home:auction-links', nLiveAuctions == null ? null : Math.min(nLiveAuctions, 8), homeLinks));
+    } else {
+      checks.push({ surface: 'home:auction-links', category: 'seo', expected: 'home page served', actual: `HTTP ${home.status}`,
+        status: home.status === 0 ? WARN : FAIL, detail: 'home page unavailable' });
+    }
 
     const oneEvent = await safeFetch(`${base}/api/public/events?limit=1`, fetchImpl);
     const slug = oneEvent.json && oneEvent.json.data && oneEvent.json.data[0] && oneEvent.json.data[0].slug;

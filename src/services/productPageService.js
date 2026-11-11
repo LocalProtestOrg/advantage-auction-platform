@@ -187,7 +187,7 @@ async function sitemapEntries(runner = db) {
         WHERE mi.status IN ('active','pending_purchase') AND mi.moderation_status = 'none'
           AND mi.is_demo = false AND COALESCE(sp.is_demo, false) = false AND sp.seller_type = ANY($1::text[])
         ORDER BY COALESCE(mi.updated_at, mi.created_at) DESC LIMIT 5000`, [PROFESSIONAL_SELLER_TYPES])).rows
-      .map((r) => ({ path: productData.canonicalPath(r), lastmod: r.lastmod }));
+      .map((r) => ({ path: productData.canonicalPath(r), lastmod: r.lastmod, title: r.title }));
   } catch (e) { /* leave empty */ }
   try {
     out.storefronts = (await runner.query(

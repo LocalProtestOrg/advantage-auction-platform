@@ -13,6 +13,7 @@ function fakeDb(eventRows, nativeN, profRows) {
   profRows = profRows || [{ cat: 'estate_sale_companies', n: 7 }];
   return { query: async (sql) => {
     if (/FROM events e/.test(sql)) return { rows: eventRows };
+    if (/FROM lots l/.test(sql)) return { rows: [{ n: 0 }] };   // indexable lots (sitemap parity)
     if (/FROM auctions a/.test(sql)) return { rows: [{ n: nativeN }] };
     if (/FROM organizations o/.test(sql)) return { rows: profRows };
     if (/FROM marketplace_items m/.test(sql)) return { rows: [{ n: 0 }] }; // no fixed-price items in these fixtures
@@ -65,6 +66,7 @@ const okFetch = () => fakeFetch({
   '/sitemap.xml': '<urlset><url><loc>https://bid.advantage.bid/event.html?slug=x</loc></url></urlset>',
   '/api/public/events?limit=1': { data: [{ slug: 'sample-event' }] },
   '/event.html?slug=sample-event': '<link rel="canonical" href="..."><script type="application/ld+json">{"@type":"Event"}</script>',
+  'https://x/': '<html><noscript><a href="/shop">Shop</a></noscript></html>',   // home page (last: matches any URL)
 });
 
 describe('verify — count parity + SEO (all green)', () => {

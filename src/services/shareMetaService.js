@@ -20,6 +20,12 @@ const db = require('../db');
 const { publicBaseUrl } = require('../lib/publicUrls');
 const { brandedColSql } = require('../lib/sellerBranding');
 const { isPublicOrganizer } = require('../lib/organizerPrivacy');
+const { indexableNativeAuctionSql } = require('../lib/marketplaceVisibility');
+
+// A page is publicly VIEWABLE (anyone with the link) under the long-standing rule below; it is INDEXABLE only when it
+// also passes the shared marketplace rule (not demo, not hidden, not archived). Lots are indexable only when not withdrawn.
+const VIEWABLE_AUCTION = `a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE`;
+const INDEXABLE_AUCTION = indexableNativeAuctionSql('a');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function validUuid(id) { return typeof id === 'string' && UUID_RE.test(id); }
@@ -57,14 +63,15 @@ async function getAuctionMeta(id) {
               a.end_time,
               a.cover_image_url,
               a.banner_image_url,
+              a.state,
+              (${INDEXABLE_AUCTION}) AS indexable,
               -- Buyer-privacy: NULL for private sellers (and pros who opted out), so a private
               -- seller's name can never reach the organizer field in OG/JSON-LD. Same rule as the feed.
               ${brandedColSql('sp.display_name')} AS seller_display_name
          FROM auctions a
          LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
         WHERE a.id = $1
-          AND a.state IN ('published', 'active', 'closed')
-          AND a.is_archived IS NOT TRUE
+          AND ${VIEWABLE_AUCTION}
         LIMIT 1`,
       [id]
     );
@@ -82,6 +89,8 @@ async function getAuctionMeta(id) {
       endDate:     r.end_time || null,
       siteName:    'Advantage.Bid',
       organizer:   r.seller_display_name || null,
+      state:       r.state || null,
+      indexable:   r.indexable === true,
     };
   } catch (e) {
     return null;
@@ -106,7 +115,9 @@ async function getLotMeta(id) {
               l.state AS lot_state,
               l.current_bid_cents,
               l.starting_bid_cents,
+              l.closes_at,
               a.title AS auction_title,
+              (${INDEXABLE_AUCTION} AND l.state IS DISTINCT FROM 'withdrawn') AS indexable,
               (SELECT image_url
                  FROM lot_images
                 WHERE lot_id = l.id
@@ -115,8 +126,7 @@ async function getLotMeta(id) {
          FROM lots l
          JOIN auctions a ON a.id = l.auction_id
         WHERE l.id = $1
-          AND a.state IN ('published', 'active', 'closed')
-          AND a.is_archived IS NOT TRUE
+          AND ${VIEWABLE_AUCTION}
         LIMIT 1`,
       [id]
     );
@@ -145,6 +155,9 @@ async function getLotMeta(id) {
       auctionTitle: auctionName,
       auctionId:    r.auction_id || null,
       priceCents,
+      lotState:     r.lot_state || null,
+      closesAt:     r.closes_at || null,
+      indexable:    r.indexable === true,
       siteName:     'Advantage.Bid',
     };
   } catch (e) {
@@ -271,7 +284,9 @@ async function getEventExpiryState(slug) {
  * @returns {Promise<{ auctions: Array<{id,lastmod}>, lots: Array<{id,lastmod}> }>}
  */
 async function getSitemapEntries() {
-  const VISIBLE = `a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE`;
+  // Indexable only (the shared marketplace rule plus completed sales): demo, hidden and archived auctions are left out,
+  // and withdrawn lots too, so the sitemap agrees with each page's robots tag.
+  const VISIBLE = INDEXABLE_AUCTION;
   const out = { auctions: [], lots: [], events: [] };
   try {
     const a = await db.query(
@@ -292,7 +307,7 @@ async function getSitemapEntries() {
               COALESCE(l.updated_at, l.created_at) AS lastmod
          FROM lots l
          JOIN auctions a ON a.id = l.auction_id
-        WHERE ${VISIBLE}
+        WHERE ${VISIBLE} AND l.state IS DISTINCT FROM 'withdrawn'
         ORDER BY COALESCE(l.updated_at, l.created_at) DESC
         LIMIT 3000`
     );
@@ -320,4 +335,19 @@ async function getSitemapEntries() {
   return out;
 }
 
-module.exports = { getAuctionMeta, getLotMeta, getEventMeta, getEventExpiryState, getSitemapEntries, validUuid, validSlug, clean };
+/**
+ * isPublicNotFound(kind, key) — true ONLY when the lookup succeeded and no publicly viewable auction / lot / event
+ * matches (unknown, draft, rejected or archived), so the page answers 404. false when it exists; null on any error, so a
+ * database problem never turns a real page into a 404 (the caller then fails open).
+ */
+async function isPublicNotFound(kind, key) {
+  if (kind === 'event') { if (!validSlug(key)) return true; }
+  else if (!validUuid(key)) return true;
+  const sql = kind === 'auction' ? `SELECT 1 FROM auctions a WHERE a.id = $1 AND ${VIEWABLE_AUCTION} LIMIT 1`
+    : kind === 'lot' ? `SELECT 1 FROM lots l JOIN auctions a ON a.id = l.auction_id WHERE l.id = $1 AND ${VIEWABLE_AUCTION} LIMIT 1`
+    : kind === 'event' ? `SELECT 1 FROM events e WHERE e.slug = $1 AND e.status = 'published' LIMIT 1` : null;
+  if (!sql) return null;
+  try { return (await db.query(sql, [key])).rows.length === 0; } catch (e) { return null; }
+}
+
+module.exports = { getAuctionMeta, isPublicNotFound, getLotMeta, getEventMeta, getEventExpiryState, getSitemapEntries, validUuid, validSlug, clean };

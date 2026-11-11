@@ -207,6 +207,8 @@ function run(req) {
     const res = {
       _headers: {},
       _body: null,
+      statusCode: 200,
+      status(c) { this.statusCode = c; return this; },
       set(k, v) { this._headers[k] = v; return this; },
       send(b) { this._body = b; resolve({ res, nextCalled: false }); },
     };
@@ -231,11 +233,20 @@ describe('shareMeta middleware', () => {
     expect(r.nextCalled).toBe(true);
   });
 
-  test('entity not found (null) → next(), static fallback serves', async () => {
+  test('malformed id → real 404 + noindex (SEO 2026-11-11; was a 200 "Loading" page)', async () => {
     jest.spyOn(svc, 'getAuctionMeta').mockResolvedValueOnce(null);
     const r = await run({ method: 'GET', path: '/auction-view.html', query: { auctionId: 'bad' } });
-    expect(r.nextCalled).toBe(true);
+    expect(r.nextCalled).toBe(false);
+    expect(r.res.statusCode).toBe(404);
+    expect(r.res._body).toContain('content="noindex,follow"');
     svc.getAuctionMeta.mockRestore();
+  });
+  test('meta unavailable because of a database error → next() (fail-open, never a false 404)', async () => {
+    jest.spyOn(svc, 'getAuctionMeta').mockResolvedValueOnce(null);
+    jest.spyOn(svc, 'isPublicNotFound').mockResolvedValueOnce(null);
+    const r = await run({ method: 'GET', path: '/auction-view.html', query: { auctionId: UUID } });
+    expect(r.nextCalled).toBe(true);
+    svc.getAuctionMeta.mockRestore(); svc.isPublicNotFound.mockRestore();
   });
 
   test('auction found → injected og:title, body untouched', async () => {
@@ -383,7 +394,7 @@ describe('buildEstateSaleEvent (estate sale / event)', () => {
     expect(mw.injectEventBody(noph, { title: 'X' })).toBe(noph); // fail-open, unchanged
   });
 
-  test('buildJsonLd(event) → @graph Event + Estate Sales breadcrumb', () => {
+  test('buildJsonLd(event) → @graph Event + Events breadcrumb to a real page (/events.html, not the missing /estate-sales)', () => {
     const script = mw.buildJsonLd('event',
       { title: 'Adrian Estate Sale', description: 'd', city: 'Adrian', state: 'MI',
         startDate: '2026-08-01T00:00:00Z', organizer: 'AAC' },
@@ -392,7 +403,8 @@ describe('buildEstateSaleEvent (estate sale / event)', () => {
     expect(json['@graph'][0]['@type']).toBe('Event');
     expect(json['@graph'][0].eventAttendanceMode).toBe('https://schema.org/OfflineEventAttendanceMode');
     const crumb = json['@graph'].find((n) => n['@type'] === 'BreadcrumbList');
-    expect(crumb.itemListElement.some((i) => i.name === 'Estate Sales')).toBe(true);
+    expect(crumb.itemListElement.some((i) => i.name === 'Events' && /\/events\.html$/.test(i.item))).toBe(true);
+    expect(JSON.stringify(crumb)).not.toContain('/estate-sales');
   });
 
   test('formatEventDate: single day + range', () => {
@@ -417,13 +429,13 @@ describe('buildLotProduct', () => {
     });
   });
 
-  test('no price → offers OMITTED (not fabricated)', () => {
+  test('no price → no Product at all (a Product without an offer is invalid; nothing is fabricated)', () => {
     const p = mw.buildLotProduct(
       { title: 'Brass Clock', description: 'Ticking', priceCents: null },
       'https://bid.advantage.bid/lot.html?lotId=' + UUID,
       'https://x/thumb.jpg'
     );
-    expect('offers' in p).toBe(false);
+    expect(p).toBeNull();
   });
 });
 
@@ -457,7 +469,7 @@ describe('buildJsonLd + injection', () => {
 
   test('</script> in a value is escaped and cannot break out', () => {
     const script = mw.buildJsonLd('lot',
-      { title: 'Evil</script><script>alert(1)</script>', description: 'x', priceCents: null,
+      { title: 'Evil</script><script>alert(1)</script>', description: 'x', priceCents: 500,
         auctionId: UUID, auctionTitle: 'A' },
       'https://bid.advantage.bid/lot.html?lotId=' + UUID, 'https://x/i.jpg');
     // No raw </script> before the trailing tag.

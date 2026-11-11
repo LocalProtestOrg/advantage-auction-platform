@@ -94,7 +94,20 @@ on both websites, and decide what is reused. Known starting points (2026-11-11, 
 status (connected / not connected / error); month-over-month figures match the source for a sampled month; no personal
 data in responses; refresh is rate-limited; disconnected sources never show zeros as if real.
 
-## 4. SEO improvements (pending owner review)
+## 4. SEO improvements
 
-A read-only SEO audit of both websites was run 2026-11-11; its findings and prioritised plan were presented to the
-owner. Implementation waits for owner approval.
+Audit and record: `docs/projects/seo-audit-2026-11-11.md`. The Brilliant Directories sitemap is at
+`https://www.advantage.bid/filedata/cache/xml-sitemaps/sitemap.xml` and is already submitted to Google Search Console
+(verified valid 2026-11-11; do not move or duplicate it).
+
+- [x] 2. Sitemap and page metadata use the shared visibility rules (demo, hidden, unpublished never indexed; completed sales kept).
+- [x] 3. Real 404s for unknown auctions, lots, events and storefronts.
+- [x] 5. Structured data and social metadata corrections.
+- [x] 6. Home page and internal links to the shop, estate sales and public inventory.
+- [ ] BD robots.txt allows all crawlers (owner, in BD; handled separately).
+- [ ] Search Console / Bing Webmaster Tools for bid.advantage.bid; submit its sitemap (owner).
+- [ ] Server-render auction lot lists and lot pages (platform).
+- [ ] Sitemap split by type, real lastmod, drop internal search; historical-lot decision (platform + owner).
+- [ ] Indexing decision for imported government-surplus events (owner).
+- [ ] `www.bid.advantage.bid` certificate or remove its DNS record (owner).
+- [ ] BD page text and canonical links; Merchant Center for `/shop` (later).
