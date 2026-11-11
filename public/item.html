@@ -103,13 +103,13 @@
       var alts=it.image_alt||[];
       function alt(i){return (alts[i]&&String(alts[i]).trim())||(i===0?it.title:(it.title+' - photo '+(i+1)));}
       var loc=[it.city,it.state].filter(Boolean).join(', ');
-      var sellerLink=it.storefront_slug?('<a href="/pro/'+esc(it.storefront_slug)+'">'+esc(it.seller_name)+'</a>'):esc(it.seller_name);
+      var sellerLink=it.storefront_public?('<a href="/pro/'+esc(it.storefront_slug)+'">'+esc(it.seller_name)+'</a>'):esc(it.seller_name||'Professional Seller');
       // Product structured data is rendered once, by the server, on the canonical page (one product record per item).
 
       var status=it.status||'active';
       // Item questions (on-platform, when enabled) replace the storefront contact form on item pages.
       var ask=(CFG.messaging_enabled||it.questions_enabled)?'<button class="btn btn-ghost" id="askBtn">Ask the seller a question</button>':
-        (it.storefront_slug?'<a class="btn btn-ghost" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'');
+        '<button type="button" class="btn btn-ghost" id="contactBtn">Contact Seller</button>';
       var buyBox;
       if(status==='sold'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
@@ -122,7 +122,7 @@
       } else if(CFG.messaging_enabled||it.questions_enabled){
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Ask '+esc(it.seller_name||'the seller')+' a question here on Advantage.Bid.</p><button class="btn btn-primary" id="askBtn">Ask the seller a question</button></div>';
       } else {
-        buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+(it.storefront_slug?'<a class="btn btn-primary" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>';
+        buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+'<button type="button" class="btn btn-primary" id="contactBtn">Contact Seller</button>'+'</div>';
       }
 
       document.getElementById('app').innerHTML=
@@ -143,6 +143,8 @@
       var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
       var rl=document.getElementById('reportLink'); if(rl)rl.addEventListener('click',function(e){e.preventDefault();openReport();});
       var ab=document.getElementById('askBtn'); if(ab)ab.addEventListener('click',openAsk);
+      var cb=document.getElementById('contactBtn'); if(cb)cb.addEventListener('click',openContact);
+      mountShare(it);
     }
 
     // Report a listing (signed-in). Our team reviews every report; a report is not a finding against the seller.
@@ -191,8 +193,72 @@
       });
     }
 
+    // Small DOM builder for the share box and the question form (no markup strings).
+    function el(tag,attrs,kids){var n=document.createElement(tag);attrs=attrs||{};
+      Object.keys(attrs).forEach(function(k){if(k==='text')n.textContent=attrs[k];else if(k==='on')Object.keys(attrs.on).forEach(function(e){n.addEventListener(e,attrs.on[e]);});else n.setAttribute(k,attrs[k]);});
+      (kids||[]).forEach(function(c){if(c)n.appendChild(c);});return n;}
+
+    // Share this item (owner 2026-11-10): the item's permanent page address, its title and main photo. Nothing about the
+    // seller beyond what the page already shows.
+    function itemUrl(){var c=document.querySelector('link[rel="canonical"]');return (c&&c.href)||(location.origin+location.pathname);}
+    function mountShare(it){
+      var col=document.querySelector('#app .grid > div:last-child'); if(!col||document.getElementById('shareBox'))return;
+      var url=itemUrl(), title=it.title||'Item on Advantage.Bid', img=(it.images&&it.images[0])||it.thumbnail_url||'';
+      var enc=encodeURIComponent, msg=el('span',{'class':'meta',id:'shareMsg',role:'status',style:'margin:0 0 0 4px'});
+      function link(id,label,href){return el('a',{'class':'btn btn-ghost',id:id,href:href,target:'_blank',rel:'noopener',style:'padding:9px 14px;font-size:14px'},[document.createTextNode(label)]);}
+      var row=el('div',{style:'display:flex;flex-wrap:wrap;gap:8px;align-items:center'});
+      if(navigator.share){row.appendChild(el('button',{type:'button','class':'btn btn-primary',id:'shareNative',style:'padding:9px 14px;font-size:14px',text:'Share…',
+        on:{click:function(){navigator.share({title:title,text:title,url:url}).catch(function(){});}}}));}
+      row.appendChild(link('shareFacebook','Facebook','https://www.facebook.com/sharer/sharer.php?u='+enc(url)));
+      row.appendChild(link('sharePinterest','Pinterest','https://www.pinterest.com/pin/create/button/?url='+enc(url)+(img?'&media='+enc(img):'')+'&description='+enc(title)));
+      var mail=el('a',{'class':'btn btn-ghost',id:'shareEmail',href:'mailto:?subject='+enc(title)+'&body='+enc(title+'\n\n'+url),style:'padding:9px 14px;font-size:14px',text:'Email'});
+      row.appendChild(mail);
+      row.appendChild(el('button',{type:'button','class':'btn btn-ghost',id:'shareCopy',style:'padding:9px 14px;font-size:14px',text:'Copy Link',on:{click:function(){
+        var done=function(){msg.textContent='Link copied.';};
+        if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(done,function(){prompt('Copy this link:',url);});
+        else prompt('Copy this link:',url);}}}));
+      row.appendChild(msg);
+      var box=el('div',{'class':'card',id:'shareBox',style:'margin:16px 0;padding:14px 16px'},[el('div',{style:'font-weight:700;margin-bottom:8px',text:'Share this item'}),row]);
+      var anchor=col.querySelector('.card'); if(anchor&&anchor.nextSibling)col.insertBefore(box,anchor.nextSibling); else col.appendChild(box);
+    }
+
+    // Contact Seller (owner 2026-11-10): a question about THIS item, always available (whether or not the seller's
+    // storefront page is published). It goes to the seller's Inquiries; the seller is told by email and replies directly.
+    function openContact(){
+      var sheet=document.getElementById('sheet'); sheet.textContent='';
+      var f=function(id,label,type,req){return [el('label',{'for':id,text:label+(req?' *':'')}),el(type==='textarea'?'textarea':'input',type==='textarea'?{id:id,rows:'5',maxlength:'2000',style:'width:100%;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit'}:{id:id,type:type,maxlength:type==='email'?'160':'120',autocomplete:type==='email'?'email':(type==='tel'?'tel':'name')})];};
+      var err=el('div',{'class':'err',id:'cErr',role:'alert'});
+      var send=el('button',{type:'button','class':'btn btn-primary',id:'cSend',text:'Send question'});
+      var cancel=el('button',{type:'button','class':'btn btn-ghost',id:'cCancel',text:'Cancel',on:{click:closeModal}});
+      var trap=el('input',{id:'cWebsite',type:'text',tabindex:'-1',autocomplete:'off','aria-hidden':'true',style:'position:absolute;left:-9999px;width:1px;height:1px'});
+      var nodes=[el('h3',{text:'Contact the seller'}),el('div',{'class':'meta',text:'About: '+(ITEM.title||'this item')+'. The seller replies to you directly.'})]
+        .concat(f('cName','Your name','text',true),f('cEmail','Email','email',false),f('cPhone','Phone','tel',false),f('cMsg','Your question','textarea',true))
+        .concat([el('p',{'class':'meta',style:'margin-top:8px',text:'Give an email or a phone number so the seller can reply.'}),trap,err,
+          el('div',{style:'margin-top:16px;display:flex;gap:8px'},[send,cancel])]);
+      nodes.forEach(function(n){sheet.appendChild(n);});
+      document.getElementById('modal').classList.add('on');
+      setTimeout(function(){var n=document.getElementById('cName');if(n)n.focus();},0);
+      send.addEventListener('click',function(){
+        var v=function(id){return (document.getElementById(id).value||'').trim();};
+        var body={name:v('cName'),email:v('cEmail'),phone:v('cPhone'),message:v('cMsg'),company_website:v('cWebsite')};
+        if(!body.name){err.textContent='Please enter your name.';return;}
+        if(!body.email&&!body.phone){err.textContent='Please give an email or a phone number so the seller can reply.';return;}
+        if(!body.message){err.textContent='Please write your question.';return;}
+        send.disabled=true; err.textContent='';
+        fetch('/api/public/storefront/item/'+encodeURIComponent(ID)+'/inquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+          .then(function(r){return r.json();}).then(function(res){
+            if(!res.success){send.disabled=false;err.textContent=res.message||'Your question could not be sent.';return;}
+            sheet.textContent='';
+            sheet.appendChild(el('h3',{text:'Question sent'}));
+            sheet.appendChild(el('p',{'class':'meta',id:'cDoneMsg',text:res.message}));
+            sheet.appendChild(el('div',{style:'margin-top:16px'},[el('button',{type:'button','class':'btn btn-primary',id:'cDone',text:'Done',on:{click:closeModal}})]));
+          }).catch(function(){send.disabled=false;err.textContent='Network error. Please try again.';});
+      });
+    }
+
     function openModal(html){document.getElementById('sheet').innerHTML=html;document.getElementById('modal').classList.add('on');}
     function closeModal(){document.getElementById('modal').classList.remove('on');}
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.getElementById('modal').classList.contains('on'))closeModal();});
 
     function startCheckout(){
       if(!token){location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search);return;}

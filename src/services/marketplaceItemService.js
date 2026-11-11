@@ -645,7 +645,7 @@ async function getPublicItem(id, runner = db, { viewerUserId = null } = {}) {
   // and 'sold' (shown as SOLD). 'draft'/'removed' remain non-public (404). The item page reads status
   // to decide Buy Now vs. SOLD vs. temporarily-unavailable.
   const { rows } = await runner.query(
-    `SELECT mi.*, sp.storefront_slug, sp.seller_type, sp.show_branding_to_buyers, sp.storefront->>'website' AS seller_website,
+    `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.storefront->>'website' AS seller_website,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds,
             (SELECT json_object_agg(v.kind, v.version) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_versions
@@ -701,6 +701,9 @@ function publicItem(row) {
   const branded = row.seller_type === undefined ? true : brandingVisible(row.seller_type, row.show_branding_to_buyers);
   out.seller_name = branded ? (row.seller_name || null) : null;
   if (!branded) out.storefront_slug = null;
+  // The storefront page can be linked only once the seller has published it (owner 2026-11-10: never a "not found"). The
+  // slug itself is still used for the seller's published policy pages, which do not depend on the storefront page.
+  out.storefront_public = !!(branded && out.storefront_slug && row.storefront_published === true);
   // The seller's own website (from their storefront settings): the way back after a purchase started in their shop widget.
   out.seller_website = branded && row.seller_website && /^https?:\/\//i.test(String(row.seller_website)) ? String(row.seller_website) : null;
   // Which of THIS item's seller's policies are published (links go to that seller's own policy pages, never another's).

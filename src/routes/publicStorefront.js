@@ -7,7 +7,6 @@
  */
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const db = require('../db');
 const storefront = require('../services/storefrontService');
 const items = require('../services/marketplaceItemService');
@@ -27,10 +26,6 @@ async function confirmedViewerId(req) {
 }
 
 const clean = (v, n) => storefront.clean(v, n);
-function ipHash(req) {
-  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
-  return crypto.createHash('sha256').update('sf:' + ip).digest('hex').slice(0, 32);
-}
 
 // Item detail (declared before /:slug so "item" is not captured as a slug).
 // Signed-in members may see a sold item's realized price when the seller allows it; a member's answer is never cached.
@@ -92,28 +87,38 @@ router.get('/:slug/policies', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Consultation / contact inquiry submit (rate-limited, sanitized).
+const inquiries = require('../services/sellerInquiryService');
+function inquiryRefused(res, e, next) {
+  if (e && e.status) return res.status(e.status).json({ success: false, message: e.message });
+  return next(e);
+}
+
+// A question about one item, from its page (owner 2026-11-10): works whether or not the seller's storefront page is
+// published. The seller and the item come from the item id only; the item must be public. Same limits and inbox as the
+// storefront form; the seller is emailed that a message is waiting.
+router.post('/item/:id/inquiry', express.json(), async (req, res, next) => {
+  try {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(req.params.id || ''))) return res.status(404).json({ success: false, message: 'Item not found.' });
+    const it = await items.getPublicItem(req.params.id);
+    if (!it) return res.status(404).json({ success: false, message: 'Item not found.' });
+    const sp = (await db.query('SELECT sp.* FROM seller_profiles sp JOIN marketplace_items mi ON mi.seller_id = sp.id WHERE mi.id = $1', [req.params.id])).rows[0];
+    if (!sp) return res.status(404).json({ success: false, message: 'Item not found.' });
+    const item = { id: it.id, title: it.title };
+    const r = await inquiries.record(req, { seller: sp, item, clean });
+    res.status(201).json({ success: true, message: 'Your question was sent. The seller will reply to you directly.' });
+    if (!r.dropped) inquiries.notifySeller({ seller: sp, item, name: r.name, message: r.message }).catch(() => {});
+  } catch (e) { inquiryRefused(res, e, next); }
+});
+
+// Consultation / contact inquiry submit from the storefront page (rate-limited, sanitized).
 router.post('/:slug/inquiry', express.json(), async (req, res, next) => {
   try {
     const sp = await storefront.resolveBySlug(req.params.slug);
     if (!storefront.isPublicStorefront(sp)) return res.status(404).json({ success: false, message: 'Storefront not found.' });
-    const b = req.body || {};
-    const name = clean(b.name, 120); const email = clean(b.email, 160); const phone = clean(b.phone, 40);
-    const message = clean(b.message, 2000);
-    if (!name || (!email && !phone)) return res.status(400).json({ success: false, message: 'Name and a phone or email are required.' });
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ success: false, message: 'Please enter a valid email.' });
-    const iph = ipHash(req);
-    // Rate limit: max 5 inquiries per IP-hash per hour, max 3 to the same seller per day.
-    const recent = (await db.query("SELECT count(*)::int n FROM seller_inquiries WHERE ip_hash = $1 AND created_at > now() - interval '1 hour'", [iph])).rows[0].n;
-    if (recent >= 5) return res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
-    const perSeller = (await db.query("SELECT count(*)::int n FROM seller_inquiries WHERE ip_hash = $1 AND seller_id = $2 AND created_at > now() - interval '1 day'", [iph, sp.id])).rows[0].n;
-    if (perSeller >= 3) return res.status(429).json({ success: false, message: 'You have already contacted this company recently.' });
-    await db.query(
-      `INSERT INTO seller_inquiries (seller_id, name, email, phone, city, service, preferred_contact, message, source_slug, ip_hash, is_demo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [sp.id, name, email, phone, clean(b.city, 120), clean(b.service, 120), clean(b.preferred_contact, 40), message, sp.storefront_slug, iph, !!sp.is_demo]);
-    return res.status(201).json({ success: true, message: 'Your request was sent. The company will contact you directly.' });
-  } catch (e) { next(e); }
+    const r = await inquiries.record(req, { seller: sp, item: null, clean });
+    res.status(201).json({ success: true, message: 'Your message was sent. The company will contact you directly.' });
+    if (!r.dropped) inquiries.notifySeller({ seller: sp, item: null, name: r.name, message: r.message }).catch(() => {});
+  } catch (e) { inquiryRefused(res, e, next); }
 });
 
 module.exports = router;
