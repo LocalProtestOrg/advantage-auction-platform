@@ -24,8 +24,31 @@ jobs:
       run: npm ci
     - name: No credentials in the repository
       run: node scripts/check-secrets.js --all
+    # The browser binary comes from Playwright's own download host and is cached between runs. Its system libraries come
+    # from the Ubuntu apt mirror, which has had DNS outages on the runners (2026-11-11: "Temporary failure resolving
+    # azure.archive.ubuntu.com" failed three runs before any test ran). The ubuntu-24.04 image already ships Chrome and
+    # its libraries, so a mirror outage alone must not stop the run: the libraries step retries and then continues. If a
+    # library were really missing, the real-browser tests below fail, so every test still gates this job.
+    - name: Playwright version
+      id: pw
+      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+    - name: Cache the test browser
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-ubuntu-24.04-${{ steps.pw.outputs.version }}-chromium
     - name: Install the test browser
-      run: npx playwright install --with-deps chromium
+      run: npx playwright install chromium
+    - name: Install the test browser's system libraries
+      continue-on-error: true
+      timeout-minutes: 10
+      run: |
+        for i in 1 2 3; do
+          npx playwright install-deps chromium && exit 0
+          echo "apt mirror unavailable (attempt $i); retrying in 20s"; sleep 20
+        done
+        echo "::warning::Browser system libraries could not be installed from the apt mirror; using the libraries already on the runner image."
+        exit 1
     - name: Run the test suite
       shell: bash
       run: |
