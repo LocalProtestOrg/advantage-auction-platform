@@ -151,6 +151,12 @@ describe('Sold by and Contact Seller', () => {
     const mine = await inbox(bTok);
     expect(mine.filter((q) => q.item_id === B.item).map((q) => q.item_title)).toEqual(['Blue Glass Vase', 'Blue Glass Vase']);
     expect((await inbox(aTok)).some((q) => q.item_id === B.item)).toBe(false);
+    // and the seller's Inquiries screen shows the item and the question
+    const ctx = await browser.newContext(); const page = await ctx.newPage();
+    await seed.browserLogin(page, stack, B.email, seed.TEST_PASSWORD, '/seller-storefront.html?tab=leads');
+    await page.waitForFunction(() => /Blue Glass Vase/.test((document.getElementById('leadsBody') || {}).textContent || ''));
+    expect(await page.textContent('#leadsBody')).toMatch(/About: Blue Glass Vase[\s\S]*Is the vase chipped anywhere\?/);
+    await ctx.close();
   });
   test('the server decides the seller and item; a submitted seller id is ignored; hidden-field bots are dropped quietly', async () => {
     const r = await post(`/api/public/storefront/item/${A.item}/inquiry`, { name: 'Sam', email: 'sam@buyer.test', message: 'Price firm?', seller_id: B.sellerProfileId, marketplace_item_id: B.item });
