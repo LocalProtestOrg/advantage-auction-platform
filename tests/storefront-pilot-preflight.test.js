@@ -8,17 +8,17 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'storefront-pi
 const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');   // comments removed
 
 describe('storefront pilot pre-flight: read-only and private', () => {
-  test('the session is made read-only and verified before anything else runs', () => {
-    const ro = code.indexOf("SET default_transaction_read_only = on");
-    const verify = code.indexOf('SHOW default_transaction_read_only');
-    const firstService = code.indexOf("svc('");
-    expect(ro).toBeGreaterThan(-1);
-    expect(verify).toBeGreaterThan(ro);
-    expect(firstService).toBeGreaterThan(verify);
+  test('reads only through scripts/lib/prodReadOnly: direct endpoint, one READ ONLY transaction, always rolled back (incident 2026-10-14)', () => {
+    expect(code).toContain("require('./lib/prodReadOnly')");
+    expect(code).toMatch(/withProdReadOnly\(async \(q\) =>/);
+    // never a session-level setting and never its own connection to the (pooled) production URL
+    expect(code).not.toMatch(/SET\s+(SESSION|default_transaction_read_only)|default_transaction_read_only\s*=/i);
+    expect(code).not.toMatch(/new Client\(|require\('pg'\)/);
   });
-  test('the application database module is replaced by the read-only connection before any service loads', () => {
+  test('the application database module is replaced by the guarded transaction before any service loads', () => {
     expect(code).toMatch(/require\.cache\[dbPath\] = \{[^}]*exports: runner/);
-    expect(code.indexOf('require.cache[dbPath]')).toBeLessThan(code.indexOf("svc('"));
+    expect(code.indexOf('require.cache[dbPath]')).toBeLessThan(code.indexOf('await runChecks(runner)'));
+    expect(code.indexOf('await runChecks(runner)')).toBeLessThan(code.indexOf('async function runChecks'));
   });
   test('no writes, no messages, no payment calls in its own code', () => {
     expect(code).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE|GRANT)\s/);   // SQL keywords (the script writes SQL in capitals)

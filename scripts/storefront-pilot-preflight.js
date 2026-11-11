@@ -17,9 +17,10 @@
    Statuses: PASS · BLOCKED (the server would refuse) · NEEDS OWNER ACTION (an owner step completes it) · UNVERIFIED (cannot be
    read from here, e.g. inside Stripe; confirm by hand).
 
-   SAFETY: read-only by construction. One database connection is opened and set to default_transaction_read_only, and the
-   application's database module is replaced by that connection BEFORE any service loads, so any write the code attempted
-   would be refused by the database. It sends no email or text, calls no payment provider, and changes nothing. Output holds
+   SAFETY: read-only by construction, through scripts/lib/prodReadOnly (incident 2026-10-14): the DIRECT database endpoint,
+   never the shared pooler; one BEGIN TRANSACTION READ ONLY transaction that always ends in ROLLBACK; every statement is
+   checked and any SET, transaction control or write is refused. The application's database module is replaced by that
+   guarded transaction BEFORE any service loads. It sends no email or text, calls no payment provider, and changes nothing. Output holds
    no credentials, bank or card details, account numbers, addresses beyond city/state, or buyer contact details.
    Exit code: 0 = every check PASS (UNVERIFIED items still listed for manual confirmation); 1 = not ready; 2 = could not run. */
 'use strict';
@@ -42,27 +43,33 @@ const add = (area, status, finding, action = null) => checks.push({ area, status
 
 async function main() {
   if (!process.env.DATABASE_URL) { console.error('REFUSE: DATABASE_URL is not set (run through railway run).'); return 2; }
-  const { Client } = require('pg');
-  const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await client.connect();
-  await client.query('SET default_transaction_read_only = on');
-  const ro = (await client.query('SHOW default_transaction_read_only')).rows[0];
-  if (!ro || ro.default_transaction_read_only !== 'on') { console.error('REFUSE: could not make the session read-only.'); await client.end(); return 2; }
-  // Every service below talks to the database only through this read-only connection.
-  const runner = { query: (t, p) => client.query(t, p), connect: async () => ({ query: (t, p) => client.query(t, p), release() {} }), pool: null };
-  const dbPath = require.resolve(path.join(ROOT, 'src', 'db'));
-  require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: runner };
-  const q1 = async (sql, p) => (await client.query(sql, p)).rows[0] || null;
+  // scripts/lib/prodReadOnly (incident 2026-10-14): the DIRECT endpoint (never the shared pooler), one BEGIN TRANSACTION READ
+  // ONLY transaction that always ROLLs BACK, and every statement checked: no SET, no transaction control, no writes.
+  const { withProdReadOnly } = require('./lib/prodReadOnly');
+  await withProdReadOnly(async (q) => {
+    // Every service below talks to the database only through this guarded, read-only transaction.
+    const runner = { query: async (t, p) => { const rows = await q(t, p || []); return { rows, rowCount: rows.length }; },
+      connect: async () => ({ query: (t, p) => runner.query(t, p), release() {} }), pool: null };
+    const dbPath = require.resolve(path.join(ROOT, 'src', 'db'));
+    require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: runner };
+    await runChecks(runner);
+  }, { statementTimeoutMs: 30000 });
+  return report();
+}
+
+async function runChecks(runner) {
+  const client = runner;   // every read below goes through the guarded runner
+  const q1 = async (sql, p) => (await runner.query(sql, p)).rows[0] || null;
   const svc = (p) => require(path.join(ROOT, 'src', p));
 
-  try {
+  {
     // ── 1. Seller account ──────────────────────────────────────────────────────────────────────────────────────────
     const sp = await q1(`SELECT sp.id, sp.user_id, sp.seller_type, sp.display_name, sp.storefront_slug, sp.storefront_published, sp.is_demo,
         sp.show_branding_to_buyers, sp.created_at, sp.default_pickup_city, sp.default_pickup_state, sp.default_pickup_confirmed_at,
         u.is_active AS owner_active
       FROM seller_profiles sp LEFT JOIN users u ON u.id = sp.user_id
       WHERE ${UUID.test(SELLER) ? 'sp.id = $1' : 'sp.storefront_slug = $1'}`, [SELLER]);
-    if (!sp) { add('Seller account', BLOCKED, `No seller found for "${SELLER}".`); return report(); }
+    if (!sp) { add('Seller account', BLOCKED, `No seller found for "${SELLER}".`); return; }
     const pro = svc('services/sellerTypeRules').isProfessional(sp.seller_type);
     const sellerName = sp.display_name || sp.storefront_slug;
     if (!pro || sp.is_demo || sp.owner_active === false) {
@@ -204,10 +211,7 @@ async function main() {
       WHERE (role = 'admin' OR staff_role IN ('super_admin','finance')) AND is_active IS NOT FALSE AND staff_active IS NOT FALSE`).catch(() => null);
     if (admins) add('Admin sale notices', admins.v > 0 ? PASS : OWNER, `${admins.v} of ${admins.n} administrator email address(es) verified (only verified addresses receive sale notices).`,
       admins.v > 0 ? null : 'Verify at least one administrator email address.');
-  } finally {
-    await client.end().catch(() => {});
   }
-  return report();
 }
 
 function report() {
