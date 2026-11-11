@@ -4,7 +4,7 @@ The one platform-wide list of approved-but-not-started work and open launch chec
 their own detail (for example `docs/projects/professional-storefront-roadmap.md`); this list points to them. Per the
 Data Minimization and Focused Development principle in CLAUDE.md, nothing here is built until the owner starts it.
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-11 (SEO 2/3/5/6 deployed; DMARC decision recorded).
 
 ---
 
@@ -30,13 +30,15 @@ reviewed READY. Owner will address these separately.
 - Known gap (not a blocker for the pilot): no seller-initiated order cancellation; refunds are admin-only.
 - Test plan: `docs/operations/storefront-first-sale-test-plan.md` (branch `docs/storefront-launch-prep`).
 
-## 2. Owner DNS action — DMARC reports out of info@ (OPEN)
+## 2. DMARC record — DECIDED: no change (owner decision 2026-11-11)
 
-`_dmarc.advantage.bid` sends aggregate reports to `info@advantage.bid` (the Sasha customer-service inbox). In the
-Brilliant Directories DNS panel, replace the TXT value with
-`v=DMARC1; p=none; sp=none; adkim=r; aspf=r; pct=100; fo=0; rf=afrf; ri=86400` (only `rua=` removed). Sasha already
-ignores these reports (deployed 2026-11-11, main 31c15fb); this stops the mail itself. Verify with
-`nslookup -type=TXT _dmarc.advantage.bid 8.8.8.8` once changed.
+- **DMARC DNS change: NOT REQUIRED at this time.** This is not an owner action and not a launch blocker.
+- **Owner decision:** leave the existing `_dmarc.advantage.bid` record unchanged, including its aggregate reporting to
+  `info@advantage.bid`, so email authentication reporting is preserved.
+- **Why it is safe:** Sasha's automated-mail filtering (deployed 2026-11-11, main 31c15fb) recognises DMARC aggregate
+  and forensic reports, bounces and other automated mail and never replies to them.
+- **Revisit only** if new evidence shows a problem with email delivery, authentication, reporting, or Sasha's
+  filtering (for example Sasha answering a report again). Do not raise it otherwise.
 
 ---
 
@@ -99,6 +101,9 @@ data in responses; refresh is rate-limited; disconnected sources never show zero
 Audit and record: `docs/projects/seo-audit-2026-11-11.md`. The Brilliant Directories sitemap is at
 `https://www.advantage.bid/filedata/cache/xml-sitemaps/sitemap.xml` and is already submitted to Google Search Console
 (verified valid 2026-11-11; do not move or duplicate it).
+
+**DEPLOYED 2026-11-11 19:11 UTC, production `main@aa7a1f6`** (CI 7,123 unit + 156 browser tests green; Marketplace
+Integrity gate PASS in strict mode on production, including the new sitemap and home-link checks; live pages verified).
 
 - [x] 2. Sitemap and page metadata use the shared visibility rules (demo, hidden, unpublished never indexed; completed sales kept).
 - [x] 3. Real 404s for unknown auctions, lots, events and storefronts.
