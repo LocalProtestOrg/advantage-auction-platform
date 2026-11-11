@@ -159,6 +159,13 @@ async function normalize(raw, receipt) {
   if (p.headers && typeof p.headers.forEach === 'function') {
     p.headers.forEach((value, key) => { headers[key] = headerText(value); });
   }
+  // mailparser folds every List-* header into one structured 'list' object (which headerText cannot flatten), so the
+  // mailing-list checks never saw List-Unsubscribe / List-Id. Keep each List-* header as its own raw text value.
+  for (const l of p.headerLines || []) {
+    const k = String(l.key || '').toLowerCase();
+    if (k.startsWith('list-') && !headers[k]) headers[k] = String(l.line || '').replace(/^[^:]*:\s*/, '').replace(/\r?\n\s*/g, ' ').trim();
+  }
+  if (headers.list === '[object Object]') delete headers.list;
   const from = (p.from && p.from.value && p.from.value[0]) || {};
   const refs = Array.isArray(p.references) ? p.references.join(' ') : (p.references || null);
   const text = p.text || (p.html ? stripHtml(p.html) : '');
@@ -377,7 +384,7 @@ async function processReceipt(id, deps = {}) {
     // Sasha customer service — isolated from Claimed Listing / Event Partner. No oversight copy: info@ already has it.
     let r;
     try {
-      r = await (deps.sashaEmail || require('../sasha/emailChannel')).handleInbound(normalized, { id });
+      r = await (deps.sashaEmail || require('../sasha/emailChannel')).handleInbound(normalized, { id, verdicts: receipt.verdicts });
     } catch (e) {
       if (e && e.code === 'INBOUND_DISABLED') return hold('inbound switch off', digest);
       return fail(id, row.attempts, e, programme, receipt, runner, async () => false, digest);
