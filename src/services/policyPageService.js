@@ -10,6 +10,8 @@
  */
 const storefront = require('./storefrontService');
 const policies = require('./sellerPolicyService');
+const { isProfessional } = require('./sellerTypeRules');
+const { brandingVisible } = require('../lib/sellerBranding');
 
 const PAGE_TO_KIND = { terms: 'store_terms', 'shipping-pickup': 'shipping_pickup' };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -52,19 +54,23 @@ async function render(slug, page, base) {
     body: '<h1>Policy not found</h1><p class="meta">This seller has not published this policy.</p><p><a href="/">Explore Advantage.Bid</a></p>' }) });
   if (!kind) return notFound();
   const sp = await storefront.resolveBySlug(slug);
-  if (!storefront.isPublicStorefront(sp)) return notFound();
+  // A published policy is part of the purchase terms, so it is readable even before the seller publishes its storefront
+  // page (owner 2026-11-10). Professional Sellers whose name is public only (a hidden-branding seller is never named).
+  if (!sp || !isProfessional(sp.seller_type) || !brandingVisible(sp.seller_type, sp.show_branding_to_buyers)) return notFound();
+  const storePublic = storefront.isPublicStorefront(sp);
   const all = await policies.publishedFor(sp.id);
   const p = all[kind];
   if (!p) return notFound();
   const name = storefront.sellerName(sp);
   const b = String(base).replace(/\/+$/, '');
   const url = `${b}/pro/${sp.storefront_slug}/${page}`;
-  const tabs = [`<a href="/pro/${esc(sp.storefront_slug)}#shop">Shop Items</a>`,
+  const tabs = [storePublic ? `<a href="/pro/${esc(sp.storefront_slug)}#shop">Shop Items</a>` : '',
     all.store_terms ? `<a href="/pro/${esc(sp.storefront_slug)}/terms"${kind === 'store_terms' ? ' aria-current="page"' : ''}>Store Terms &amp; Conditions</a>` : '',
     all.shipping_pickup ? `<a href="/pro/${esc(sp.storefront_slug)}/shipping-pickup"${kind === 'shipping_pickup' ? ' aria-current="page"' : ''}>Shipping &amp; Pickup Policy</a>` : '']
     .filter(Boolean).join('');
   const published = p.published_at ? new Date(p.published_at).toISOString().slice(0, 10) : '';
-  const body = `<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › <a href="/pro/${esc(sp.storefront_slug)}">${esc(name)}</a> › ${esc(p.label)}</nav>
+  const crumbName = storePublic ? `<a href="/pro/${esc(sp.storefront_slug)}">${esc(name)}</a>` : esc(name);
+  const body = `<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › ${crumbName} › ${esc(p.label)}</nav>
 <h1>${esc(p.label)}</h1>
 <div class="meta">${esc(name)} · version ${esc(p.version)}${published ? ' · published ' + esc(published) : ''}</div>
 <nav class="tabs" aria-label="Store sections">${tabs}</nav>

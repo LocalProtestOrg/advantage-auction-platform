@@ -185,7 +185,7 @@
       </div>
 
       <div id="pane-leads" style="display:none">
-        <div class="card"><h3 style="margin-bottom:.5rem">Consultation inquiries</h3><table><thead><tr><th>Received</th><th>From</th><th>Contact</th><th>Service</th><th>Status</th></tr></thead><tbody id="leadsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
+        <div class="card"><h3 style="margin-bottom:.5rem">Consultation inquiries</h3><table><thead><tr><th>Received</th><th>From</th><th>Contact</th><th>Message</th><th>Status</th></tr></thead><tbody id="leadsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
       </div>
 
       <!-- My Website Widget (roadmap 7.5): automatic for every Professional Seller; nothing to request. -->
@@ -635,8 +635,8 @@
     async function loadLeads(){
       var r=await api('GET','/api/seller-storefront/inquiries');var rows=r.data||[];
       document.getElementById('leadsBody').innerHTML=rows.length?rows.map(function(q){
-        return '<tr><td class="hint">'+new Date(q.created_at).toLocaleDateString()+'</td><td>'+esc(q.name||'')+(q.city?'<br><span class="hint">'+esc(q.city)+'</span>':'')+'</td><td>'+esc(q.phone||'')+(q.email?'<br>'+esc(q.email):'')+'</td><td>'+esc(q.service||'')+'</td><td><span class="pill">'+esc(q.status)+'</span></td></tr>';
-      }).join(''):'<tr><td colspan="5" class="hint">No inquiries yet. When visitors request a consultation on your storefront, they appear here.</td></tr>';
+        return '<tr><td class="hint">'+new Date(q.created_at).toLocaleDateString()+'</td><td>'+esc(q.name||'')+(q.city?'<br><span class="hint">'+esc(q.city)+'</span>':'')+'</td><td>'+esc(q.phone||'')+(q.email?'<br>'+esc(q.email):'')+'</td><td>'+(q.item_id?'<div><b>About:</b> <a href="/shop/item/'+encodeURIComponent(q.item_id)+'" target="_blank" rel="noopener">'+esc(q.item_title||'an item')+'</a></div>':'')+(q.service?'<div>'+esc(q.service)+'</div>':'')+(q.message?'<div class="hint" style="white-space:pre-line;color:#334155">'+esc(q.message)+'</div>':'')+'</td><td><span class="pill">'+esc(q.status)+'</span></td></tr>';
+      }).join(''):'<tr><td colspan="5" class="hint">No inquiries yet. Messages from your storefront page and questions about your items appear here.</td></tr>';
     }
     init();
   </script>

@@ -35,7 +35,7 @@ function template() {
 async function loadItem(id, runner = db) {
   if (!productData.UUID_RE.test(String(id || ''))) return null;
   const row = (await runner.query(
-    `SELECT mi.*, sp.storefront_slug, sp.seller_type, sp.show_branding_to_buyers, sp.is_demo AS seller_is_demo,
+    `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.is_demo AS seller_is_demo,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
@@ -58,6 +58,7 @@ function headHtml(item, base, { noindex }) {
   const title = `${item.title}${item.seller_name ? ' | ' + item.seller_name : ''} | Advantage.Bid`;
   const desc = productData.metaDescription(item);
   const img = productData.imagesOf(item)[0];
+  const alt = img ? productData.altTexts(item)[0] : '';
   return [
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(desc)}">`,
@@ -67,11 +68,16 @@ function headHtml(item, base, { noindex }) {
     `<meta property="og:title" content="${esc(item.title)}">`,
     `<meta property="og:description" content="${esc(desc)}">`,
     `<meta property="og:url" content="${esc(url)}">`,
+    '<meta property="og:site_name" content="Advantage.Bid">',
     img ? `<meta property="og:image" content="${esc(img)}">` : '',
+    img ? `<meta property="og:image:alt" content="${esc(alt)}">` : '',
     item.price_cents != null ? `<meta property="product:price:amount" content="${esc(productData.priceString(item.price_cents))}">` : '',
     item.price_cents != null ? '<meta property="product:price:currency" content="USD">' : '',
     item.status === 'sold' ? '<meta property="product:availability" content="out of stock">' : '',
-    '<meta name="twitter:card" content="summary_large_image">',
+    `<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="${esc(item.title)}">`,
+    `<meta name="twitter:description" content="${esc(desc)}">`,
+    img ? `<meta name="twitter:image" content="${esc(img)}">` : '',
   ].filter(Boolean).join('\n  ');
 }
 
@@ -81,7 +87,7 @@ const AVAIL_TEXT = { active: 'Available', pending_purchase: 'Sale in progress', 
 function bodyHtml(item) {
   const imgs = productData.imagesOf(item);
   const alts = productData.altTexts(item);
-  const seller = item.seller_name ? (item.storefront_slug ? `<a href="/pro/${esc(item.storefront_slug)}">${esc(item.seller_name)}</a>` : esc(item.seller_name)) : '';
+  const seller = item.seller_name ? (item.storefront_public ? `<a href="/pro/${esc(item.storefront_slug)}">${esc(item.seller_name)}</a>` : esc(item.seller_name)) : '';
   const place = [item.city, item.state].filter(Boolean).join(', ');
   const sh = item.shipping || { summary: 'Local pickup available' };
   const pills = [item.condition ? esc(item.condition) : '', item.era_or_period ? esc(item.era_or_period) : '', sh.shipping ? 'Shipping available' : 'Local pickup',
@@ -115,7 +121,7 @@ function moreHtml(item, more) {
     const img = productData.imagesOf(m)[0];
     return `<a class="more-card" href="${esc(productData.canonicalPath(m))}">${img ? `<img src="${esc(img)}" alt="${esc(productData.altTexts(m)[0])}" loading="lazy">` : ''}<span>${esc(m.title)}</span><b>${money(m.price_cents)}</b></a>`;
   }).join('');
-  const all = item.storefront_slug ? ` <a href="/pro/${esc(item.storefront_slug)}">See all items</a>` : '';
+  const all = item.storefront_public ? ` <a href="/pro/${esc(item.storefront_slug)}">See all items</a>` : '';
   return `<section class="wrap more" aria-label="More from this seller"><h2>More from ${esc(item.seller_name)}</h2><div class="more-grid">${cards}</div><p class="meta">${all}</p></section>`;
 }
 

@@ -317,7 +317,10 @@ router.get('/inquiries', sellerRead('company.storefront.manage'), asyncRoute(asy
   const s = req.sellerCtx && await items.sellerForUser(req.sellerCtx);
   if (!s) return res.json({ success: true, data: [] });
   const { rows } = await db.query(
-    'SELECT id, name, email, phone, city, service, preferred_contact, message, status, seller_notes, created_at FROM seller_inquiries WHERE seller_id = $1 ORDER BY created_at DESC LIMIT 200', [s.id]);
+    `SELECT q.id, q.name, q.email, q.phone, q.city, q.service, q.preferred_contact, q.message, q.status, q.seller_notes, q.created_at,
+            q.marketplace_item_id AS item_id, mi.title AS item_title
+       FROM seller_inquiries q LEFT JOIN marketplace_items mi ON mi.id = q.marketplace_item_id AND mi.seller_id = q.seller_id
+      WHERE q.seller_id = $1 ORDER BY q.created_at DESC LIMIT 200`, [s.id]);
   return res.json({ success: true, data: rows });
 }));
 router.patch('/inquiries/:id', seller('company.storefront.manage'), asyncRoute(async (req, res) => {
