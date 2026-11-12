@@ -41,6 +41,16 @@
     .pill-warn{background:#fef3c7;color:#92400e}
     .pk-edit{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:.4rem;margin-top:.4rem}
     @media (max-width:640px){.row3,.pk-edit{grid-template-columns:1fr}}
+    /* Store policy publishing status (from the server's saved state; never color alone: icon + bold word) */
+    #pol-status{margin-bottom:1rem}
+    .pol-st{border:1px solid;border-left-width:6px;border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;font-size:.92rem;line-height:1.45;overflow-wrap:anywhere}
+    .pol-st b{font-weight:800}
+    .pol-st .pol-ic{display:inline-block;font-weight:800;margin-right:.35rem}
+    .pol-st .pol-sub{display:block;font-size:.85rem;margin-top:.15rem}
+    .pol-st a{color:inherit;font-weight:700;text-decoration:underline}
+    .pol-st.pol-off{background:#fef2f2;border-color:#b91c1c;color:#991b1b}
+    .pol-st.pol-on{background:#f0fdf4;border-color:#15803d;color:#14532d}
+    .pol-st.pol-changed{background:#fffbeb;border-color:#b45309;color:#78350f}
   </style>
 </head>
 <body>
@@ -59,6 +69,7 @@
       <div class="msg" id="msg"></div>
 
       <div id="pane-store">
+        <div id="pol-status" aria-label="Store policy publishing status"></div>
         <div class="card">
           <label for="s-name">Business name</label><input id="s-name" maxlength="80" placeholder="e.g. Timeless Treasures">
           <p class="hint" id="s-name-hint" style="margin:.2rem 0 .6rem;color:#475569">The name buyers see on your storefront and listings.</p>
@@ -276,10 +287,41 @@
       box.innerHTML=shipFields(p,Object.assign({},defs,{shippable:true}));wireShip(p);msg('Store shipping default filled in. Check it fits this item.',true);}
     // ── Store policies editor (owner) ──
     var POLICIES=null;
+    // Build an element with DOM calls (no markup strings): el('p',{className:'x'},['text', node]).
+    function el(tag,props,kids){var n=document.createElement(tag);if(props)Object.keys(props).forEach(function(k){if(k==='style')n.style.cssText=props[k];else if(k.indexOf('data-')===0||k.indexOf('aria-')===0||k==='role'||k==='for')n.setAttribute(k,props[k]);else n[k]=props[k];});
+      (kids||[]).forEach(function(c){if(c!=null)n.appendChild(typeof c==='string'?document.createTextNode(c):c);});return n;}
+    var POL_DATE={year:'numeric',month:'long',day:'numeric'};
+    // Publishing status of one policy, read ONLY from the server's saved state (GET /policies): published version, and a
+    // saved draft that differs from it. Never from a click. Icon + bold word, so it is not shown by color alone.
+    function policyStatus(k,p){
+      var isTerms=k==='store_terms';
+      var changed=!!(p.published&&p.draft&&p.draft.content_hash!==p.published.content_hash);
+      var row=el('div',{id:'pol-st-'+k,className:'pol-st '+(p.published?(changed?'pol-changed':'pol-on'):'pol-off'),role:'status','aria-live':'polite','data-state':p.published?(changed?'changed':'published'):'not_published'});
+      var goto=function(text){var a=el('a',{href:'#pt-'+k},[text]);a.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('pt-'+k);if(!t)return;
+        t.scrollIntoView({behavior:'smooth',block:'center'});t.focus({preventScroll:true});});return a;};
+      if(!p.published){
+        row.appendChild(el('span',{className:'pol-ic','aria-hidden':'true'},['✖']));
+        row.appendChild(el('b',null,['Not Published.']));
+        row.appendChild(document.createTextNode(isTerms?' Buyers cannot purchase until you publish your terms.':' Buyers cannot purchase until you publish your Shipping & Pickup Policy.'));
+        row.appendChild(el('span',{className:'pol-sub'},[(p.draft?'A draft is saved but not published. ':''),goto(isTerms?'Write and publish your Store Terms & Conditions':'Write and publish your Shipping & Pickup Policy')]));
+        return row;
+      }
+      row.appendChild(el('span',{className:'pol-ic','aria-hidden':'true'},['✔']));
+      row.appendChild(el('b',null,['Published.']));
+      row.appendChild(document.createTextNode(isTerms?' Your terms are available to buyers.':' Your Shipping & Pickup Policy is available to buyers.'));
+      var when=p.published.published_at?new Date(p.published.published_at).toLocaleDateString('en-US',POL_DATE):'';
+      row.appendChild(el('span',{className:'pol-sub'},['Version '+p.published.version+(when?', published '+when:'')+'.']));
+      if(changed){
+        row.appendChild(el('span',{className:'pol-sub'},[el('b',null,['Unpublished changes.']),' Buyers still see version '+p.published.version+' until you publish your changes. ',goto('Review and publish')]));
+      }
+      return row;
+    }
     async function loadPolicies(){
       var r=await api('GET','/api/seller-storefront/policies'); if(!r.success)return; POLICIES=r.data;
+      var st=document.getElementById('pol-status'); if(st)st.textContent='';
       ['store_terms','shipping_pickup'].forEach(function(k){
         var p=POLICIES[k], box=document.getElementById('pol-'+k); if(!box)return;
+        if(st)st.appendChild(policyStatus(k,p));
         var text=(p.draft&&p.draft.body)||(p.published&&p.published.body)||'';
         var state=p.published?('Published version '+p.published.version+' · '+new Date(p.published.published_at).toLocaleDateString()):'Not published yet';
         if(p.draft)state+=' · unpublished changes saved';
@@ -287,13 +329,17 @@
         var guide=k==='store_terms'
           ?'Required for online purchases. Cover your return and refund rules (or that sales are final), and how condition is described. Whatever you write, buyers can always report an item that is materially different from its listing, and Advantage.Bid reviews those reports.'
           :'Required for online purchases. Cover where and when buyers collect items, how to arrange pickup, the pickup deadline, and what happens to items that are not collected (any storage charge or forfeiture must be stated here before the buyer pays). If you ship, cover how and when.';
-        box.innerHTML='<label for="pt-'+k+'"><b>'+esc(p.label)+'</b> <span class="hint">('+esc(state)+')</span></label>'
-          +'<p class="hint" style="margin:.2rem 0 .4rem;color:#475569">'+esc(guide)+'</p>'
-          +'<textarea id="pt-'+k+'" rows="8" maxlength="20000" style="width:100%">'+esc(text)+'</textarea>'
-          +'<div style="margin-top:.4rem;display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn b-ghost" type="button" onclick="savePolicy(\''+k+'\',this)">Save draft</button>'
-          +'<button class="btn b-ghost" type="button" onclick="previewPolicy(\''+k+'\')">Preview</button>'
-          +'<button class="btn b-blue" type="button" onclick="publishPolicy(\''+k+'\',this)">Publish</button></div>'
-          +'<div id="pv-'+k+'" class="card" hidden style="margin-top:.5rem;white-space:pre-wrap"></div>';
+        var ta=el('textarea',{id:'pt-'+k,rows:8,maxLength:20000,style:'width:100%'}); ta.value=text;
+        var bSave=el('button',{className:'btn b-ghost',type:'button'},['Save draft']); bSave.addEventListener('click',function(){savePolicy(k,bSave);});
+        var bPrev=el('button',{className:'btn b-ghost',type:'button'},['Preview']); bPrev.addEventListener('click',function(){previewPolicy(k);});
+        var bPub=el('button',{className:'btn b-blue',type:'button',id:'pp-'+k},['Publish']); bPub.addEventListener('click',function(){publishPolicy(k,bPub);});
+        var pv=el('div',{id:'pv-'+k,className:'card',style:'margin-top:.5rem;white-space:pre-wrap'}); pv.hidden=true;
+        box.textContent='';
+        box.appendChild(el('label',{'for':'pt-'+k},[el('b',null,[p.label]),' ',el('span',{className:'hint'},['('+state+')'])]));
+        box.appendChild(el('p',{className:'hint',style:'margin:.2rem 0 .4rem;color:#475569'},[guide]));
+        box.appendChild(ta);
+        box.appendChild(el('div',{style:'margin-top:.4rem;display:flex;gap:.5rem;flex-wrap:wrap'},[bSave,bPrev,bPub]));
+        box.appendChild(pv);
       });
     }
     async function savePolicy(k,btn){btn.disabled=true;var r=await api('PUT','/api/seller-storefront/policies/'+k,{body:document.getElementById('pt-'+k).value});btn.disabled=false;
