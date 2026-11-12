@@ -20,6 +20,22 @@ function mapErr(res, err, next) {
 
 router.use(auth, role(['admin']));
 
+// Read-only overview: every seller awaiting business verification (same rule as the sale gate) and every Professional
+// Seller currently exempt. Owner 2026-11-12: the page had no list, so a seller could only be found by its id.
+router.get('/queue', async (req, res, next) => {
+  try { return res.json({ success: true, data: await v.adminQueue() }); } catch (err) { mapErr(res, err, next); }
+});
+
+// One seller's status in plain words + its current settings (the settings form loads these, never defaults).
+router.get('/sellers/:sellerProfileId/summary', async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid seller id' });
+    const s = await v.adminSummary(req.params.sellerProfileId);
+    if (!s) return res.status(404).json({ success: false, message: 'Seller not found' });
+    return res.json({ success: true, data: s });
+  } catch (err) { mapErr(res, err, next); }
+});
+
 // Request documents from a seller (one request, multiple categories) + email link.
 router.post('/sellers/:sellerProfileId/requests', idempotency, async (req, res, next) => {
   try {

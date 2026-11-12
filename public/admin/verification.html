@@ -8,19 +8,29 @@
   <style>
     *{box-sizing:border-box}
     body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f1f5f9;color:#1f2937}
-    .wrap{max-width:920px;margin:1.2rem auto;padding:0 1rem}
+    .wrap{max-width:960px;margin:1.2rem auto;padding:0 1rem}
     .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem}
-    h1{font-size:1.15rem;margin:.2rem 0 .6rem}h2{font-size:1rem;margin:0 0 .5rem}
+    h1{font-size:1.15rem;margin:.2rem 0 .3rem}h2{font-size:1rem;margin:0 0 .5rem}
     label{display:block;font-size:.82rem;color:#334155;margin:.5rem 0 .2rem}
     input[type=text],textarea,select{width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
     .row{display:flex;gap:.5rem;flex-wrap:wrap}.row>*{flex:1;min-width:160px}
     .cats{display:flex;flex-wrap:wrap;gap:.4rem .9rem}.cats label{display:flex;align-items:center;gap:.3rem;margin:0;font-size:.85rem}
     button{background:#2563eb;color:#fff;border:0;border-radius:7px;padding:.5rem 1rem;font:inherit;cursor:pointer;margin-top:.6rem}
     button.ghost{background:#e2e8f0;color:#1f2937}
+    button.approve{background:#15803d}
     .badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;background:#e2e8f0}
     .muted{color:#64748b;font-size:.85rem}.err{color:#dc2626;font-size:.85rem}.ok{color:#166534;font-size:.85rem}
     .doc{border:1px solid #e5e7eb;border-radius:6px;padding:.5rem .7rem;margin:.4rem 0;font-size:.85rem}
     .warn{background:#fef3c7;color:#92400e;border-radius:6px;padding:.4rem .6rem;margin:.3rem 0;font-size:.85rem}
+    table{width:100%;border-collapse:collapse;font-size:.85rem}
+    th,td{text-align:left;padding:.45rem .4rem;border-bottom:1px solid #eef2f7;vertical-align:top}
+    th{color:#475569;font-weight:600;font-size:.78rem}
+    .tablewrap{overflow-x:auto}
+    .status{border-radius:8px;padding:.7rem .9rem;margin:.2rem 0 .4rem}
+    .s-verified{background:#dcfce7;color:#14532d}.s-admin_review{background:#dbeafe;color:#1e3a8a}
+    .s-seller_action{background:#fef9c3;color:#713f12}.s-blocked{background:#fee2e2;color:#7f1d1d}.s-exempt{background:#f1f5f9;color:#334155;border:1px dashed #94a3b8}
+    .status b{font-size:1rem}
+    ol.steps{margin:.3rem 0 0 1.1rem;padding:0;font-size:.86rem}ol.steps li{margin:.2rem 0}
     a{color:#2563eb}
   </style>
 </head>
@@ -29,61 +39,121 @@
   <div class="wrap">
     <div class="card">
       <h1>Seller Verification</h1>
-      <label for="sp">Seller profile ID</label>
+      <div class="muted">A Professional Seller can list items right away, but cannot accept a purchase until its business is verified here.
+        How it works: the seller submits business details and a document at <b>Business Verification</b> (/verify-documents.html), or you request specific documents below; you review them and choose <b>Approve business verification</b>.</div>
+    </div>
+
+    <div class="card" id="queueCard">
+      <h2>Sellers awaiting business verification</h2>
+      <div id="queueAwait" class="muted">Loading...</div>
+      <h2 style="margin-top:1rem">Professional Sellers not required to verify (exempt)</h2>
+      <div class="muted" style="margin-bottom:.3rem">These sellers can sell without verification. Open one and set the requirement to "Yes" to require it.</div>
+      <div id="queueExempt" class="muted">Loading...</div>
+    </div>
+
+    <div class="card">
+      <label for="sp">Open a seller by seller profile ID</label>
       <div class="row">
-        <input type="text" id="sp" placeholder="seller_profile uuid" />
-        <button id="loadBtn" style="flex:0 0 auto">Load</button>
+        <input type="text" id="sp" placeholder="seller profile id" />
+        <button id="loadBtn" style="flex:0 0 auto">Open</button>
       </div>
       <div class="muted" id="loadMsg"></div>
     </div>
 
-    <div class="card" id="riskCard" style="display:none">
-      <h2>Risk and publication gate</h2>
-      <div class="row">
-        <div><label>Risk level</label><select id="risk"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>
-        <div><label>Verification required before publication</label><select id="vreq"><option value="false">No</option><option value="true">Yes</option></select></div>
-      </div>
-      <label>Internal risk notes</label><textarea id="rnotes" rows="2"></textarea>
-      <button id="saveRisk">Save risk settings</button> <span id="riskMsg"></span>
-      <div id="dups"></div>
+    <div class="card" id="statusCard" style="display:none">
+      <h2 id="sellerTitle">Seller</h2>
+      <div id="statusBox" class="status"></div>
+      <div id="nextSteps"></div>
     </div>
 
     <div class="card" id="bizCard" style="display:none">
-      <h2>Business information (professional seller)</h2>
-      <div id="bizInfo" class="muted">—</div>
+      <h2>Business information submitted by the seller</h2>
+      <div id="bizInfo" class="muted">-</div>
+    </div>
+
+    <div class="card" id="listCard" style="display:none">
+      <h2>Verification requests and documents</h2>
+      <div id="reqs"></div>
     </div>
 
     <div class="card" id="reqCard" style="display:none">
-      <h2>Request verification documents</h2>
+      <h2>Request specific documents from the seller</h2>
       <div class="cats" id="cats"></div>
       <label>Message to seller (optional)</label><textarea id="msg" rows="2" placeholder="What is needed and why"></textarea>
       <button id="sendReq">Send request + email</button> <span id="reqMsg"></span>
     </div>
 
-    <div class="card" id="listCard" style="display:none">
-      <h2>Requests and submitted documents</h2>
-      <div id="reqs"></div>
+    <div class="card" id="riskCard" style="display:none">
+      <h2>Verification requirement and risk</h2>
+      <div class="row">
+        <div><label for="vreq">Business verification required before selling</label>
+          <select id="vreq"><option value="true">Yes, required (standard for Professional Sellers)</option><option value="false">No, exempt this seller</option></select></div>
+        <div><label for="risk">Risk level</label><select id="risk"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>
+      </div>
+      <label for="rnotes">Internal risk notes</label><textarea id="rnotes" rows="2"></textarea>
+      <button id="saveRisk">Save</button> <span id="riskMsg"></span>
+      <div id="dups"></div>
     </div>
   </div>
   <script>
     var token = localStorage.getItem('token');
     var CATS = ['government_id','passport','business_license','proof_of_ownership','receipt_invoice','estate_authority','probate_letter','business_registration','other'];   // EIN letters and tax forms are no longer requested (owner 2026-10-16)
-    var sp = '';
+    var sp = ''; var SUMMARY = null;
     function H(p,opt){ opt=opt||{}; opt.headers=Object.assign({Authorization:'Bearer '+token},opt.headers||{}); return fetch(p,opt).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}); }
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+    function day(v){ try{ return v?new Date(v).toISOString().slice(0,10):''; }catch(e){ return ''; } }
 
     document.getElementById('cats').innerHTML = CATS.map(function(c){ return '<label><input type="checkbox" value="'+c+'"> '+c.replace(/_/g,' ')+'</label>'; }).join('');
 
+    // ── Queue ──
+    function table(rows, withNeeded){
+      if(!rows.length) return '<div class="muted">None.</div>';
+      return '<div class="tablewrap"><table><thead><tr><th>Business</th><th>Type</th><th>Registered</th><th>Status</th>'+(withNeeded?'<th>Needed</th>':'')+'<th></th></tr></thead><tbody>'
+        + rows.map(function(r){ return '<tr><td><b>'+esc(r.name)+'</b></td><td>'+esc(r.seller_type)+'</td><td>'+esc(r.registered||'')+'</td><td>'+esc(r.status)+'</td>'
+          +(withNeeded?'<td>'+esc(r.needed||'')+'</td>':'')+'<td><button class="ghost" style="margin:0" data-open="'+esc(r.seller_profile_id)+'">Open</button></td></tr>'; }).join('')
+        + '</tbody></table></div>';
+    }
+    async function loadQueue(){
+      var q = await H('/api/admin/verification/queue');
+      var d = (q.ok && q.j.data) || { awaiting: [], exempt: [] };
+      document.getElementById('queueAwait').innerHTML = q.ok ? table(d.awaiting, true) : '<span class="err">Could not load the list.</span>';
+      document.getElementById('queueExempt').innerHTML = q.ok ? table(d.exempt, false) : '';
+      document.querySelectorAll('button[data-open]').forEach(function(b){ b.onclick=function(){ openSeller(b.getAttribute('data-open')); }; });
+    }
+
+    // ── One seller ──
+    function openSeller(id){ document.getElementById('sp').value=id; document.getElementById('loadBtn').onclick(); window.scrollTo(0, document.getElementById('statusCard').offsetTop - 10); }
+    var NEXT = {
+      verified: ['Business verification is complete. This seller can accept purchases once its other requirements (agreement, payout account, policies) are met.'],
+      admin_review: ['Review the business information and each document below.', 'Choose <b>Approve business verification</b> if they establish the business, <b>Request more info</b> if something is missing, or <b>Reject</b>.'],
+      seller_action: ['The seller submits business details and a document at Business Verification (/verify-documents.html, signed in as the seller).', 'Or request specific documents below; the seller is emailed a link.', 'When documents are submitted, this seller moves to <b>Awaiting Admin Review</b> and the Approve button appears on the request.'],
+      blocked: ['The last request was rejected or cancelled. Review the history below, then request new documents if the seller may still qualify.'],
+      exempt: ['This seller is exempt and can sell without verification.', 'To require verification, set "Business verification required before selling" to <b>Yes</b> below and save; the seller then appears in the awaiting list.'],
+    };
+    function showSummary(s){
+      SUMMARY = s;
+      document.getElementById('statusCard').style.display='';
+      document.getElementById('sellerTitle').textContent = (s.name || 'Seller') + ' (' + String(s.seller_type||'').replace(/_/g,' ') + ')';
+      var box = document.getElementById('statusBox'); box.className = 'status s-'+s.state;
+      box.innerHTML = '<b>'+esc(s.label)+'</b>'+(s.approved_at?' on '+esc(day(s.approved_at)):'')
+        + (s.needed?'<div style="margin-top:.25rem">'+esc(s.needed)+'</div>':'')
+        + '<div style="margin-top:.25rem;font-size:.82rem">Purchases: '+(s.can_sell?'not blocked by verification':'blocked until business verification is approved')+'. Registered '+esc(day(s.registered))+'.</div>';
+      document.getElementById('nextSteps').innerHTML = '<div class="muted" style="margin-top:.4rem"><b>What to do next</b></div><ol class="steps">'+(NEXT[s.state]||[]).map(function(t){return '<li>'+t+'</li>';}).join('')+'</ol>';
+      // The settings form shows the seller's REAL values (it used to open on "No", so saving silently exempted the seller).
+      document.getElementById('vreq').value = s.verification_required ? 'true' : 'false';
+      document.getElementById('risk').value = s.risk_level || 'low';
+      document.getElementById('rnotes').value = s.risk_notes || '';
+    }
+
     document.getElementById('loadBtn').onclick = async function(){
       sp = document.getElementById('sp').value.trim();
-      var m = document.getElementById('loadMsg'); m.className='muted'; m.textContent='Loading…';
+      var m = document.getElementById('loadMsg'); m.className='muted'; m.textContent='Loading...';
       if(!sp){ m.className='err'; m.textContent='Enter a seller profile id.'; return; }
-      var g = await H('/api/admin/verification/sellers/'+sp+'/publication-gate');
-      if(!g.ok){ m.className='err'; m.textContent=(g.j.message||'Not found'); return; }
-      document.getElementById('riskCard').style.display='';
-      document.getElementById('reqCard').style.display='';
-      document.getElementById('listCard').style.display='';
-      m.textContent='Publication gate: '+(g.j.data.blocked?'BLOCKED ('+g.j.data.reason+')':'not blocked ('+g.j.data.reason+')');
+      var s = await H('/api/admin/verification/sellers/'+sp+'/summary');
+      if(!s.ok){ m.className='err'; m.textContent=(s.j.message||'Not found'); return; }
+      m.textContent='';
+      ['riskCard','reqCard','listCard'].forEach(function(id){ document.getElementById(id).style.display=''; });
+      showSummary(s.j.data);
       loadDups(); loadReqs(); loadBusiness();
     };
     var PRO_TYPES = ['auction_house','estate_sale_company','professional_liquidator','retail_gallery_studio'];
@@ -92,11 +162,11 @@
       var card = document.getElementById('bizCard'), el = document.getElementById('bizInfo');
       if(!b.ok || !b.j.data || PRO_TYPES.indexOf(b.j.data.seller_type) === -1){ card.style.display='none'; return; }
       var d = b.j.data; card.style.display='';
-      el.innerHTML = '<div><strong>Seller type:</strong> '+esc(d.seller_type||'—')+'</div>'
-        + '<div><strong>Legal business name:</strong> '+esc(d.legal_business_name||'—')+'</div>'
-        + '<div><strong>DBA:</strong> '+esc(d.dba_name||'—')+'</div>'
-        + '<div><strong>Taxpayer ID:</strong> '+esc(({not_provided:'Not yet provided',pending:'Being verified',verified:'Verified',unverified:'Not verified'})[(d.taxpayer_id&&d.taxpayer_id.status)||'not_provided'])+(d.taxpayer_id&&d.taxpayer_id.last4?' (ending '+esc(d.taxpayer_id.last4)+')':'')+' <span class="small">collected during payout setup; not stored by Advantage.Bid</span></div>'
-        + '<div><strong>Address:</strong> '+esc([d.address_line1,d.city,d.state,d.postal_code].filter(Boolean).join(', ')||'—')+'</div>';
+      el.innerHTML = '<div><strong>Seller type:</strong> '+esc(d.seller_type||'-')+'</div>'
+        + '<div><strong>Legal business name:</strong> '+esc(d.legal_business_name||'Not provided yet')+'</div>'
+        + '<div><strong>DBA:</strong> '+esc(d.dba_name||'-')+'</div>'
+        + '<div><strong>Taxpayer ID:</strong> '+esc(({not_provided:'Not yet provided',pending:'Being verified',verified:'Verified',unverified:'Not verified'})[(d.taxpayer_id&&d.taxpayer_id.status)||'not_provided'])+(d.taxpayer_id&&d.taxpayer_id.last4?' (ending '+esc(d.taxpayer_id.last4)+')':'')+' <span class="muted">collected during payout setup; not stored by Advantage.Bid</span></div>'
+        + '<div><strong>Address:</strong> '+esc([d.address_line1,d.city,d.state,d.postal_code].filter(Boolean).join(', ')||'Not provided yet')+'</div>';
     }
     async function loadDups(){
       var d = await H('/api/admin/verification/sellers/'+sp+'/duplicates');
@@ -105,32 +175,38 @@
       el.innerHTML = w.length ? ('<div style="margin-top:.5rem"><strong>Duplicate signals:</strong>'+w.map(function(x){return '<div class="warn">'+esc(x.type)+': '+esc(x.value)+' ('+x.matches.length+' match)</div>';}).join('')+'</div>') : '<div class="muted" style="margin-top:.5rem">No duplicate signals.</div>';
     }
     document.getElementById('saveRisk').onclick = async function(){
-      var msg=document.getElementById('riskMsg'); msg.className=''; msg.textContent='Saving…';
-      var r = await H('/api/admin/verification/sellers/'+sp+'/risk',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({risk_level:document.getElementById('risk').value,risk_notes:document.getElementById('rnotes').value,verification_required_before_publication:document.getElementById('vreq').value==='true'})});
+      var msg=document.getElementById('riskMsg');
+      var required = document.getElementById('vreq').value==='true';
+      // Exempting a seller is a deliberate decision, never a side effect of saving notes.
+      if(SUMMARY && SUMMARY.verification_required && !required && !confirm('Exempt this seller from business verification? It will be able to accept purchases without being verified.')) return;
+      msg.className=''; msg.textContent='Saving...';
+      var r = await H('/api/admin/verification/sellers/'+sp+'/risk',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({risk_level:document.getElementById('risk').value,risk_notes:document.getElementById('rnotes').value,verification_required_before_publication:required})});
       msg.className = (r.ok&&r.j.success)?'ok':'err'; msg.textContent = (r.ok&&r.j.success)?' Saved.':(' '+(r.j.message||'Failed'));
-      if(r.ok) document.getElementById('loadBtn').onclick();
+      if(r.ok){ document.getElementById('loadBtn').onclick(); loadQueue(); }
     };
     document.getElementById('sendReq').onclick = async function(){
-      var msg=document.getElementById('reqMsg'); msg.className=''; msg.textContent='Sending…';
+      var msg=document.getElementById('reqMsg'); msg.className=''; msg.textContent='Sending...';
       var cats = Array.prototype.slice.call(document.querySelectorAll('#cats input:checked')).map(function(i){return i.value;});
       if(!cats.length){ msg.className='err'; msg.textContent=' Select at least one category.'; return; }
       var r = await H('/api/admin/verification/sellers/'+sp+'/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({categories:cats,message:document.getElementById('msg').value})});
       msg.className=(r.ok&&r.j.success)?'ok':'err'; msg.textContent=(r.ok&&r.j.success)?' Request sent + emailed.':(' '+(r.j.message||'Failed'));
-      if(r.ok) loadReqs();
+      if(r.ok){ loadReqs(); document.getElementById('loadBtn').onclick(); loadQueue(); }
     };
+    var REQ_LABEL = { open: 'Waiting for the seller', more_info: 'More information requested', submitted: 'Submitted, ready for review', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' };
     async function loadReqs(){
       var r = await H('/api/admin/verification/sellers/'+sp+'/requests');
       var reqs = (r.ok && r.j.data) || [];
-      document.getElementById('reqs').innerHTML = reqs.length ? reqs.map(reqHtml).join('') : '<div class="muted">No requests yet.</div>';
+      document.getElementById('reqs').innerHTML = reqs.length ? reqs.map(reqHtml).join('') : '<div class="muted">No verification requests yet. The seller has not submitted anything.</div>';
       reqs.forEach(wire);
     }
     function reqHtml(r){
-      return '<div class="doc"><div><span class="badge">'+esc(r.status)+'</span> requested: '+esc((r.categories||[]).join(', '))+'</div>'
-        +'<div id="docs-'+esc(r.id)+'" class="muted">loading docs…</div>'
+      var open = ['approved','rejected','cancelled'].indexOf(r.status) === -1;
+      return '<div class="doc"><div><span class="badge">'+esc(REQ_LABEL[r.status]||r.status)+'</span> requested: '+esc((r.categories||[]).join(', ')||'business documents')+'</div>'
+        +'<div id="docs-'+esc(r.id)+'" class="muted">loading documents...</div>'
         // data-act values are the exact statuses the server accepts (approved | more_info | rejected).
-        +'<div class="row"><button class="ghost" data-act="approved" data-req="'+esc(r.id)+'">Approve</button>'
-        +'<button class="ghost" data-act="more_info" data-req="'+esc(r.id)+'">Request more info</button>'
-        +'<button class="ghost" data-act="rejected" data-req="'+esc(r.id)+'">Reject</button></div>'
+        +(open?'<div class="row"><button class="approve" data-act="approved" data-req="'+esc(r.id)+'">Approve business verification</button>'
+          +'<button class="ghost" data-act="more_info" data-req="'+esc(r.id)+'">Request more info</button>'
+          +'<button class="ghost" data-act="rejected" data-req="'+esc(r.id)+'">Reject</button></div>':'')
         +'<div class="muted" id="rev-'+esc(r.id)+'"></div></div>';
     }
     function wire(r){
@@ -144,14 +220,17 @@
       });
       document.querySelectorAll('button[data-req="'+r.id+'"]').forEach(function(b){
         b.onclick=async function(){
-          var res=await H('/api/admin/verification/requests/'+r.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:b.getAttribute('data-act')})});
+          var act=b.getAttribute('data-act');
+          if(act==='approved' && !confirm('Approve this business verification? The seller will be able to accept purchases once its other requirements are met.')) return;
+          var res=await H('/api/admin/verification/requests/'+r.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:act})});
           // Show a refusal instead of silently reloading as if it had worked.
           if(!res.ok){var m=document.getElementById('rev-'+r.id);if(m){m.style.color='#b91c1c';m.textContent='Not saved: '+((res.j&&(res.j.message||res.j.error))||'please try again.');}return;}
-          document.getElementById('loadBtn').onclick(); };
+          document.getElementById('loadBtn').onclick(); loadQueue(); };
       });
     }
     if(!token){ document.querySelector('.wrap').innerHTML='<div class="card">Admin login required. <a href="/login.html">Sign in</a></div>'; }
-    // Opened from a Member Detail page (?seller=<seller profile id>): load that seller straight away.
+    else loadQueue();
+    // Opened from a Member Detail page or the daily review (?seller=<seller profile id>): load that seller straight away.
     (function(){ var q=new URLSearchParams(location.search).get('seller'); if(token && q && /^[0-9a-f-]{36}$/i.test(q)){ document.getElementById('sp').value=q; document.getElementById('loadBtn').onclick(); } })();
   </script>
 </body>

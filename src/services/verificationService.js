@@ -434,7 +434,60 @@ async function duplicateWarnings(sellerProfileId) {
   return warnings;
 }
 
+// ── Admin overview (owner 2026-11-12: the admin page gave no list and no clear status) ─────────────────────────────
+// Read-only. "Awaiting" uses the SAME rule as the sale gate and the 9:00 AM report (ownerReviewDigestService
+// .collectSellerVerification): verification required and no approved request. "Exempt" lists Professional Sellers whose
+// requirement is switched off and who were never verified, so an exemption is always visible and reversible.
+async function adminQueue(runner = db) {
+  const digest = require('./ownerReviewDigestService');
+  const awaiting = (await digest.collectSellerVerification(runner)).map((r) => ({
+    seller_profile_id: r.id, name: r.detail.name, seller_type: r.detail.type, registered: r.detail.registered,
+    status: r.detail.status, needed: r.detail.missing, waiting_since: r.since }));
+  const PRO_TYPES_SQL = "'auction_house','estate_sale_company','professional_liquidator','retail_gallery_studio'";   // sellerTypeRules.isProfessional
+  const exempt = (await runner.query(
+    `SELECT sp.id::text AS seller_profile_id, sp.display_name AS name, sp.seller_type, sp.created_at
+       FROM seller_profiles sp LEFT JOIN users u ON u.id = sp.user_id
+      WHERE sp.seller_type IN (${PRO_TYPES_SQL}) AND sp.verification_required_before_publication IS NOT TRUE
+        AND sp.is_demo IS NOT TRUE AND u.is_active IS NOT FALSE
+        AND NOT EXISTS (SELECT 1 FROM verification_requests a WHERE a.seller_profile_id = sp.id AND a.status = 'approved')
+      ORDER BY sp.created_at DESC LIMIT 200`)).rows.map((r) => ({ seller_profile_id: r.seller_profile_id, name: r.name || '(no business name yet)',
+    seller_type: String(r.seller_type || '').replace(/_/g, ' '), registered: r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : null,
+    status: 'Not required (exempt)' }));
+  return { awaiting, exempt };
+}
+
+// One seller's verification status for the admin page: what the sale gate sees, in plain words, plus the current
+// settings (so the settings form shows the real values instead of defaults).
+async function adminSummary(sellerProfileId, runner = db) {
+  const sp = (await runner.query(
+    `SELECT sp.id, sp.display_name, sp.seller_type, sp.created_at, sp.risk_level, sp.risk_notes, sp.verification_required_before_publication AS required
+       FROM seller_profiles sp WHERE sp.id = $1`, [sellerProfileId])).rows[0];
+  if (!sp) return null;
+  const approved = (await runner.query(
+    `SELECT reviewed_at FROM verification_requests WHERE seller_profile_id = $1 AND status = 'approved' ORDER BY reviewed_at DESC NULLS LAST LIMIT 1`, [sellerProfileId])).rows[0];
+  const latest = (await runner.query(
+    `SELECT v.id, v.status, (SELECT count(*)::int FROM verification_documents d WHERE d.request_id = v.id) AS docs
+       FROM verification_requests v WHERE v.seller_profile_id = $1 ORDER BY COALESCE(v.updated_at, v.created_at) DESC LIMIT 1`, [sellerProfileId])).rows[0] || null;
+  let state; let label; let needed = null;
+  if (approved) { state = 'verified'; label = 'Verified'; }
+  else if (!sp.required) { state = 'exempt'; label = 'Not required (exempt)'; needed = 'This seller can sell without business verification. Set the requirement to "Yes" to require it.'; }
+  else {
+    const v = require('./ownerReviewDigestService').verificationState(latest && latest.status, latest && latest.docs);
+    state = v.state; label = require('./ownerReviewDigestService').VERIFICATION_STATES[v.state].label; needed = v.missing;
+  }
+  const gate = await publicationGate(sellerProfileId, runner);
+  return {
+    seller_profile_id: sp.id, name: sp.display_name || null, seller_type: sp.seller_type, registered: sp.created_at,
+    professional: isProfessionalSellerType(sp.seller_type),
+    verification_required: !!sp.required, risk_level: sp.risk_level || 'low', risk_notes: sp.risk_notes || '',
+    state, label, needed, approved_at: approved ? approved.reviewed_at : null,
+    latest_request: latest ? { id: latest.id, status: latest.status, documents: latest.docs } : null,
+    can_sell: !gate.blocked,
+  };
+}
+
 module.exports = {
+  adminQueue, adminSummary,
   VerificationError, CATEGORIES, RISK_LEVELS,
   sellerProfileIdForUser,
   createRequest, getRequest, listForSeller, openRequestsForUser,
