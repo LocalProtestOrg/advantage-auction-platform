@@ -131,7 +131,7 @@
           '<div class="actions"><button class="b-blue" id="s-save">Save Changes</button><span class="msg" id="s-msg"></span></div>'+
           (s.business?'<h3>Business information</h3><div class="stat">Legal name: '+esc(s.business.legal_business_name||'-')+' · DBA: '+esc(s.business.dba_name||'-')+' · '+esc([s.business.address_line1,s.business.city,s.business.state,s.business.postal_code].filter(Boolean).join(', ')||'No business address')+'</div>':'')+
           '<h3>Links</h3><div class="links">'+(s.storefront.public_url?'<a href="'+esc(s.storefront.public_url)+'" target="_blank" rel="noopener">Public storefront</a>':'')+
-          '<a href="/admin/verification.html?seller='+encodeURIComponent(s.id)+'">Verification (approve here)</a><a href="/admin/agreements.html">Agreements</a><a href="/admin/storefront-moderation.html">Storefront moderation</a><a href="/admin/marketplace-orders.html">Storefront orders</a></div>'+
+          '<a href="/admin/verification.html?seller='+encodeURIComponent(s.id)+'" id="m-open-verification">Open in Seller Verification</a><a href="/admin/agreements.html">Agreements</a><a href="/admin/storefront-moderation.html">Storefront moderation</a><a href="/admin/marketplace-orders.html">Storefront orders</a></div>'+
           '<div class="stat">Seller profile ID: '+esc(s.id)+(D.organization?' · Company: '+esc(D.organization.name):'')+'</div>';
       }
       if(!s||s.classification!=='professional'){

@@ -26,10 +26,30 @@
     input[type=file]{font:inherit;margin:.3rem 0}
     .err{color:#dc2626;font-size:.85rem}.ok{color:#166534;font-size:.85rem}
     a{color:#2563eb}
+    /* Seller navigation and verification status (owner 2026-11-12): a clear way back after submitting, on any screen. */
+    .vd-nav{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1rem}
+    .vd-nav a{display:inline-flex;align-items:center;min-height:44px;padding:.5rem 1rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1e3a8a;font-weight:600;text-decoration:none}
+    .vd-nav a.primary{background:#2563eb;border-color:#2563eb;color:#fff}
+    .vd-nav a[hidden]{display:none}
+    .vd-status{border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}
+    .vd-status.s-approved{border-color:#bbf7d0;background:#f0fdf4;color:#14532d}
+    .vd-status.s-more_info,.vd-status.s-rejected{border-color:#fde68a;background:#fffbeb;color:#78350f}
+    .vd-status.s-documents_needed,.vd-status.s-not_submitted{border-color:#e5e7eb;background:#fff;color:#1f2937}
+    .vd-status b{font-size:1rem}
+    .vd-thanks{border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem;border:1px solid #bbf7d0;background:#f0fdf4;color:#14532d}
+    .vd-status[hidden],.vd-thanks[hidden]{display:none}
+    .wrap,.card{min-width:0;overflow-wrap:anywhere}
+    .wrap input[type=text],.wrap select,.wrap input[type=file]{max-width:100%}
   </style>
 </head>
 <body class="ob-body">
   <div class="wrap">
+    <nav class="vd-nav" id="vd-nav" aria-label="Seller navigation">
+      <a class="primary" id="vd-dashboard" href="/app.html#home">Return to Dashboard</a>
+      <a id="vd-storefront" href="/seller-storefront.html?tab=store" hidden>My Storefront</a>
+    </nav>
+    <div id="vd-thanks" class="vd-thanks" role="status" hidden></div>
+    <div id="vd-status" class="vd-status" hidden></div>
     <div class="card">
       <h1>Verification documents</h1>
       <div class="muted">Advantage.Bid has requested the documents below. Your files are stored privately and reviewed only by Advantage staff. You can keep using your seller dashboard while these are reviewed.</div>
@@ -54,11 +74,39 @@
       under_review:{c:'b-submitted',t:'Under Review'}, approved:{c:'b-approved',t:'Approved'},
       more_info:{c:'b-more_info',t:'Additional Information Needed'}, rejected:{c:'b-rejected',t:'Additional Information Needed'}
     };
+    // What each status means for the seller, in plain words (status from GET /api/verification/business).
+    var STATUS_TEXT = {
+      not_submitted: 'Submit your business details and one supporting document below.',
+      documents_needed: 'Submit your business details and one supporting document below.',
+      under_review: 'Advantage.Bid is reviewing your documents. You can check your status on this page at any time.',
+      approved: 'Your business is verified. No further documents are needed.',
+      more_info: 'Advantage.Bid needs more information. Please submit an additional document below.',
+      rejected: 'Advantage.Bid could not verify your business from the documents provided. Please submit an additional document below.'
+    };
+    var justSubmitted = false;
+    // Status panel and confirmation are built with DOM calls (no markup in strings).
+    function showStatus(d){
+      var box = document.getElementById('vd-status');
+      var st = (d && d.status) || 'not_submitted', meta = BIZ_STATUS[st] || BIZ_STATUS.not_submitted;
+      box.className = 'vd-status s-'+st; box.textContent = '';
+      var b = document.createElement('b'); b.id = 'vd-status-label';
+      b.textContent = st === 'approved' ? 'Verified: business verification approved' : 'Verification status: '+meta.t;
+      var p = document.createElement('div'); p.style.marginTop = '.3rem'; p.textContent = STATUS_TEXT[st] || '';
+      box.appendChild(b); box.appendChild(p); box.hidden = false;
+      var thanks = document.getElementById('vd-thanks');
+      if(justSubmitted){
+        thanks.textContent = 'Thank you. Your documents were submitted. Status: '+(st === 'under_review' ? 'Under review' : meta.t)+'. Advantage.Bid will review them, and you can check your status on this page at any time.';
+        thanks.hidden = false;
+      }
+    }
     async function loadBusiness(){
       if(!token) return;
       var d;
       try{ var r = await fetch('/api/verification/business', { headers:{ Authorization:'Bearer '+token } }); var j = await r.json(); d = j && j.data; }catch(e){ return; }
       if(!d || !d.business_info || PRO_TYPES.indexOf(d.business_info.seller_type) === -1){ biz.innerHTML=''; return; } // professionals only
+      document.getElementById('vd-storefront').hidden = false;   // My Storefront is a Professional Seller feature
+      showStatus(d);
+      if(d.status === 'approved'){ biz.innerHTML=''; return; }   // verified: nothing more to submit
       var info = d.business_info, meta = BIZ_STATUS[d.status] || BIZ_STATUS.not_submitted;
       var cats = (d.accepted_categories||['business_registration','business_license']).map(function(c){
         return '<option value="'+esc(c)+'">'+esc(CAT_LABEL[c]||c)+'</option>';
@@ -73,7 +121,7 @@
         + '<div class="cat">'
         + '<label>Legal business name</label><br><input type="text" id="bz-legal" value="'+esc(info.legal_business_name||'')+'" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
         + '<label>DBA / business name (if different)</label><br><input type="text" id="bz-dba" value="'+esc(info.dba_name||'')+'" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
-        + '<p class="muted" style="margin:.4rem 0">Taxpayer ID: '+esc(({not_provided:'collected when you set up payouts',pending:'being verified',verified:'verified',unverified:'not verified — please review your payout setup'})[(info.taxpayer_id&&info.taxpayer_id.status)||'not_provided'])+'</p>'
+        + '<p class="muted" style="margin:.4rem 0">Taxpayer ID: '+esc(({not_provided:'collected when you set up payouts',pending:'being verified',verified:'verified',unverified:'not verified: please review your payout setup'})[(info.taxpayer_id&&info.taxpayer_id.status)||'not_provided'])+'</p>'
         + '<label>Business address</label><br><input type="text" id="bz-addr" value="'+esc(info.address_line1||'')+'" placeholder="Street address" style="width:100%;padding:.5rem;margin:.2rem 0">'
         + '<input type="text" id="bz-city" value="'+esc(info.city||'')+'" placeholder="City" style="width:48%;padding:.5rem;margin:.2rem 4% .2rem 0">'
         + '<input type="text" id="bz-state" value="'+esc(info.state||'')+'" placeholder="State" style="width:22%;padding:.5rem;margin:.2rem 4% .2rem 0">'
@@ -110,7 +158,7 @@
             })
           });
           var json = await res.json();
-          if(res.ok && json.success){ msg.className='msg ok'; msg.textContent=' Submitted for review.'; loadBusiness(); }
+          if(res.ok && json.success){ msg.className='msg ok'; msg.textContent=' Submitted for review.'; justSubmitted = true; await loadBusiness(); var t = document.getElementById('vd-thanks'); if(t && t.scrollIntoView) t.scrollIntoView({ block:'start' }); }
           else { msg.className='msg err'; msg.textContent=' '+(json.message||'Submission failed.'); btn.disabled=false; }
         }catch(e){ msg.className='msg err'; msg.textContent=' Network error.'; btn.disabled=false; }
       };
@@ -170,5 +218,8 @@
     load();
     loadBusiness();
   </script>
+<script src="/widgets/shared/member-nav-config.js"></script>
+<script src="/widgets/shared/member-chrome.js"></script>
+<script src="/widgets/shared/seller-page-chrome.js"></script>
 </body>
 </html>

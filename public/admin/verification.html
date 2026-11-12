@@ -63,6 +63,7 @@
     <div class="card" id="statusCard" style="display:none">
       <h2 id="sellerTitle">Seller</h2>
       <div id="statusBox" class="status"></div>
+      <div id="memberLinkRow" class="muted" style="display:none">Account owner: <a id="memberLink" href="#">Open Member Detail</a></div>
       <div id="nextSteps"></div>
     </div>
 
@@ -138,6 +139,9 @@
       box.innerHTML = '<b>'+esc(s.label)+'</b>'+(s.approved_at?' on '+esc(day(s.approved_at)):'')
         + (s.needed?'<div style="margin-top:.25rem">'+esc(s.needed)+'</div>':'')
         + '<div style="margin-top:.25rem;font-size:.82rem">Purchases: '+(s.can_sell?'not blocked by verification':'blocked until business verification is approved')+'. Registered '+esc(day(s.registered))+'.</div>';
+      // Direct link to the account owner's Member Detail (owner 2026-11-12).
+      var ml = document.getElementById('memberLink'), mlRow = document.getElementById('memberLinkRow');
+      if(s.owner_user_id){ ml.href = '/admin/member.html?id='+encodeURIComponent(s.owner_user_id); mlRow.style.display=''; } else { mlRow.style.display='none'; }
       document.getElementById('nextSteps').innerHTML = '<div class="muted" style="margin-top:.4rem"><b>What to do next</b></div><ol class="steps">'+(NEXT[s.state]||[]).map(function(t){return '<li>'+t+'</li>';}).join('')+'</ol>';
       // The settings form shows the seller's REAL values (it used to open on "No", so saving silently exempted the seller).
       document.getElementById('vreq').value = s.verification_required ? 'true' : 'false';

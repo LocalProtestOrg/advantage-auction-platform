@@ -460,7 +460,7 @@ async function adminQueue(runner = db) {
 // settings (so the settings form shows the real values instead of defaults).
 async function adminSummary(sellerProfileId, runner = db) {
   const sp = (await runner.query(
-    `SELECT sp.id, sp.display_name, sp.seller_type, sp.created_at, sp.risk_level, sp.risk_notes, sp.verification_required_before_publication AS required
+    `SELECT sp.id, sp.user_id, sp.display_name, sp.seller_type, sp.created_at, sp.risk_level, sp.risk_notes, sp.verification_required_before_publication AS required
        FROM seller_profiles sp WHERE sp.id = $1`, [sellerProfileId])).rows[0];
   if (!sp) return null;
   const approved = (await runner.query(
@@ -477,7 +477,8 @@ async function adminSummary(sellerProfileId, runner = db) {
   }
   const gate = await publicationGate(sellerProfileId, runner);
   return {
-    seller_profile_id: sp.id, name: sp.display_name || null, seller_type: sp.seller_type, registered: sp.created_at,
+    seller_profile_id: sp.id, owner_user_id: sp.user_id || null,   // the account owner: links to Member Detail (owner 2026-11-12)
+    name: sp.display_name || null, seller_type: sp.seller_type, registered: sp.created_at,
     professional: isProfessionalSellerType(sp.seller_type),
     verification_required: !!sp.required, risk_level: sp.risk_level || 'low', risk_notes: sp.risk_notes || '',
     state, label, needed, approved_at: approved ? approved.reviewed_at : null,

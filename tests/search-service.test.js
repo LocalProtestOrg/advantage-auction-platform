@@ -78,3 +78,20 @@ describe('Phase 2 buildLotSearch', () => {
     expect(clampInt(undefined, 24, 1, 50)).toBe(24);
   });
 });
+
+// Admin User Management search (owner 2026-11-12): business name + literal (escaped) matching.
+describe('buildUserSearch', () => {
+  const { buildUserSearch, escapeLike } = require('../src/services/searchService');
+  test('q also matches the seller business name (seller_profiles.display_name), bound as a parameter', () => {
+    const r = buildUserSearch({ q: 'Timeless' });
+    expect(r.params).toEqual(['%Timeless%']);
+    expect(r.where.join(' AND ')).toMatch(/COALESCE\(sp\.display_name,''\) ILIKE \$1/);
+    expect(r.where.join(' AND ')).not.toMatch(/Timeless/);
+  });
+  test('%, _ and backslash typed by the admin are escaped, so they never act as wildcards', () => {
+    expect(typeof escapeLike).toBe('function');
+    expect(escapeLike('100%_a\\b')).toBe('100\\%\\_a\\\\b');
+    expect(buildUserSearch({ q: '%' }).params).toEqual(['%\\%%']);
+    expect(buildUserSearch({ q: 'a_b' }).params).toEqual(['%a\\_b%']);
+  });
+});

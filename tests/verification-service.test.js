@@ -114,3 +114,22 @@ describe('duplicateWarnings (passive; never blocks)', () => {
     expect(await v.duplicateWarnings('sp1')).toEqual([]);
   });
 });
+
+describe('adminSummary links the seller to its account owner (owner 2026-11-12)', () => {
+  test('returns owner_user_id (seller_profiles.user_id) so the admin page can open Member Detail', async () => {
+    route([
+      ['sp.risk_notes', [{ id: 'sp1', user_id: 'user-owner-1', display_name: 'Timeless Treasures', seller_type: 'retail_gallery_studio',
+        created_at: '2026-11-01T00:00:00Z', risk_level: 'low', risk_notes: '', required: true }]],
+      ["status = 'approved'", [{ reviewed_at: '2026-11-10T00:00:00Z' }]],
+      ['select verification_required_before_publication from seller_profiles', [{ verification_required_before_publication: true }]],
+      ["status='approved'", [{ '?column?': 1 }]],
+    ]);
+    const s = await v.adminSummary('sp1');
+    expect(s).toMatchObject({ seller_profile_id: 'sp1', owner_user_id: 'user-owner-1', name: 'Timeless Treasures', state: 'verified', can_sell: true });
+    expect(String(db.query.mock.calls[0][0])).toMatch(/sp\.user_id/);
+  });
+  test('unknown seller → null', async () => {
+    route([]);
+    expect(await v.adminSummary('nope')).toBeNull();
+  });
+});

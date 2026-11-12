@@ -81,14 +81,17 @@ function buildBuyerSearch(q) {
 // Admin ALL-USERS search (Account/Buyer Ops). Returns { where, params } over
 // `users u`. `q` matches email/full_name/phone (substring, partial). Optional
 // role filter and status (active|suspended). Requires migration 068 columns.
+// `q` also matches the seller business name (seller_profiles.display_name, joined as `sp` by the caller; owner
+// 2026-11-12). The typed text is matched literally: %, _ and \ are escaped (backslash is Postgres's default LIKE escape).
+function escapeLike(s) { return String(s).replace(/[\\%_]/g, (c) => '\\' + c); }
 function buildUserSearch(q) {
   q = q || {};
   const params = [];
   const where = ['1=1'];
   if (q.q && typeof q.q === 'string' && q.q.trim()) {
-    params.push('%' + q.q.trim().slice(0, 100) + '%');
+    params.push('%' + escapeLike(q.q.trim().slice(0, 100)) + '%');
     const i = params.length;
-    where.push(`(u.email ILIKE $${i} OR COALESCE(u.full_name,'') ILIKE $${i} OR COALESCE(u.phone,'') ILIKE $${i})`);
+    where.push(`(u.email ILIKE $${i} OR COALESCE(u.full_name,'') ILIKE $${i} OR COALESCE(u.phone,'') ILIKE $${i} OR COALESCE(sp.display_name,'') ILIKE $${i})`);
   }
   if (q.role && typeof q.role === 'string' && q.role.trim()) {
     params.push(q.role.trim());
@@ -99,4 +102,4 @@ function buildUserSearch(q) {
   return { where, params };
 }
 
-module.exports = { buildLotSearch, buildBuyerSearch, buildUserSearch, clampInt };
+module.exports = { buildLotSearch, buildBuyerSearch, buildUserSearch, clampInt, escapeLike };
