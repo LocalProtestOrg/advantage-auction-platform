@@ -8,33 +8,73 @@ Last updated: 2026-11-11 (SEO 2/3/5/6 deployed; DMARC decision recorded).
 
 ---
 
-## 1. Launch checklist — first controlled real-money storefront purchase (OPEN)
+## 1. Launch checklist: first controlled live purchase (Timeless Treasures), then all verified Professional Sellers (OPEN)
 
-Pilot seller: Timeless Treasures (`/pro/timeless-treasures`, the owner's own Professional Seller account; never Lewis &
-Maese). Read-only GO/NO-GO review 2026-11-11: **NO-GO** until the items below are done. Checkout stays OFF until then;
-the code paths (9% marketplace / 5% website commission, inventory holds, admin refund, seller isolation, notifications)
-reviewed READY. Owner will address these separately.
+The ONE consolidated launch checklist (owner 2026-11-12). Pilot seller: **Timeless Treasures**
+(`https://bid.advantage.bid/pro/timeless-treasures`; seller profile `81d6f0ce-9f3c-4605-9c09-04cb9c1601fc`, owner account
+`8c7feda1-a9d7-4dd6-88c5-830ca5d01fb3`). Never Lewis & Maese (grandfathered; untouched). Global checkout stays OFF.
 
-- [ ] Approve the seller's business verification (`/admin/verification.html`); the publication gate blocks until approved.
-- [ ] Seller completes Stripe Connect payout onboarding (ACH) until transfers and payouts are active.
-- [ ] Seller sets a default pickup address including the state.
-- [ ] Seller publishes Store Terms and the Shipping & Pickup Policy (both draft; checkout refuses `SELLER_POLICIES_REQUIRED`).
-- [ ] Seller lists at least one item ($1, quantity 1, pickup).
-- [ ] CPA decision for the pickup state, then an Admin > Tax Jurisdictions rule (0 rules today, so every order fails
-      closed with `TAX_CONFIGURATION_REQUIRED`). A Stripe Tax registration is account-wide and also taxes auction invoices.
-- [ ] Publish Buyer Terms v4 covering fixed-price purchases, or accept v3 in writing (legal decision).
-- [ ] Separate pilot buyer account with a saved non-prepaid card (`CANNOT_BUY_OWN` refuses buying your own item).
-- [ ] Set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS` / `MARKETPLACE_CHECKOUT_PILOT_USER_IDS`; leave `MARKETPLACE_CHECKOUT_ENABLED` unset.
-- [ ] Confirm the live Stripe webhook endpoint is enabled and points at production (last live webhook seen 2026-09-28).
-- [ ] Accept the $1 test economics (about -$0.24 net to Advantage after card cost; about -$0.33 more if refunded).
-- Known gap (not a blocker for the pilot): no seller-initiated order cancellation; refunds are admin-only.
-- Test plan: `docs/operations/storefront-first-sale-test-plan.md`; live webhook check `docs/operations/stripe-live-webhook-verification.md`;
-  tax steps `docs/operations/storefront-tax-configuration-steps.md`; Buyer Terms v4 draft `docs/legal/buyer-terms-v4-fixed-price.md`.
-- **Read-only pre-flight** (checks every item above with the same server code checkout runs; changes nothing):
-  `railway run --service advantage-auction-platform --environment production node scripts/storefront-pilot-preflight.js [--buyer <email or user id>]`.
-  Result 2026-11-11: NOT READY (6 PASS, 8 NEEDS OWNER ACTION, 2 BLOCKED, 1 UNVERIFIED).
-- The 9:00 AM Human Review Report lists every seller awaiting required business verification (fixed 2026-11-11; Timeless
-  Treasures appears as "Awaiting Seller Action" until approved).
+**Check progress at any time (read-only, changes nothing):**
+`railway run --service advantage-auction-platform --environment production node scripts/storefront-pilot-preflight.js --buyer <buyer email>`
+Ready when it shows no BLOCKED and no NEEDS OWNER ACTION (UNVERIFIED items are confirmed by hand).
+
+### A. Admin steps (you, signed in as administrator)
+- [ ] **A1. Seller type: Retail shop / gallery / studio** (it is "auction house" today). Member Detail
+      `https://bid.advantage.bid/admin/member.html?id=8c7feda1-a9d7-4dd6-88c5-830ca5d01fb3` > Professional type > "Retail Shop, Gallery or Studio" >
+      Save Changes (asks for a reason; audited).
+- [ ] **A2. Require business verification again** (it was switched off on 2026-11-12 because the page was unclear; not
+      a permanent exemption). `https://bid.advantage.bid/admin/verification.html?seller=81d6f0ce-9f3c-4605-9c09-04cb9c1601fc`
+      > "Business verification required before selling" = **Yes** > Save. Timeless Treasures then moves from the
+      "exempt" list to "Sellers awaiting business verification".
+
+### B. Seller steps (signed in as the Timeless Treasures account)
+- [ ] **B1. Submit business verification:** `https://bid.advantage.bid/verify-documents.html`: business details and one
+      business document (for example a business license or registration).
+- [ ] **B2. Payout account (live):** `https://bid.advantage.bid/payout-profile.html`: complete Stripe Connect with the
+      business bank account until transfers and payouts are both active. (The only Connect account in production today
+      is a test-mode one; a live one is needed.)
+- [ ] **B3. Pickup location and window:** `https://bid.advantage.bid/seller-storefront.html?tab=market` > "Storefront
+      pickup location" (full address including state) > save.
+- [ ] **B4. Publish policies:** `https://bid.advantage.bid/seller-storefront.html?tab=store` > publish Store Terms and the
+      Shipping & Pickup Policy (drafts exist).
+- [ ] **B5. List the pilot item:** `https://bid.advantage.bid/seller-inventory.html` (or Add Item): price $1.00, quantity
+      1, pickup only, published.
+
+### C. Admin approval (you, as administrator, after B1)
+- [ ] **C1. Approve:** the verification page above > the submitted request > review the documents > **Approve business
+      verification**. Nothing is approved without a submitted request.
+
+### D. Owner decisions (cannot be made in code)
+- [ ] **D1. Sales tax** for the pickup state: CPA decision (`docs/operations/storefront-tax-configuration-steps.md`), then
+      one rule at `https://bid.advantage.bid/admin/tax-jurisdictions.html`. Without a rule every order is refused
+      (fail-closed). A Stripe Tax registration is account-wide and also taxes auction invoices in that state.
+- [ ] **D2. Buyer Terms:** publish v4 covering fixed-price purchases (`docs/legal/buyer-terms-v4-fixed-price.md`), or approve
+      v3 for the pilot in writing.
+- [ ] **D3. Live Stripe webhook** (Stripe Dashboard, live > Developers > Webhooks): endpoint
+      `https://bid.advantage.bid/api/payments/webhook` enabled; events `payment_intent.succeeded`, `payment_intent.canceled`,
+      `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`,
+      `charge.dispute.closed`, `transfer.created`, `transfer.reversed`, `account.updated`; signing secret equals Railway
+      `STRIPE_WEBHOOK_SECRET`. Production has received no webhook since 2026-09-28 (no live activity since), and dispute and
+      transfer events have never arrived. 8-step check: `docs/operations/stripe-live-webhook-verification.md`.
+- [ ] **D4. Pilot buyer:** a buyer account separate from the seller (buying your own item is refused), with a real
+      non-prepaid card you control (entered at checkout).
+- [ ] **D5. Authorize activation** (explicit approval): set `MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS` =
+      `81d6f0ce-9f3c-4605-9c09-04cb9c1601fc` and `MARKETPLACE_CHECKOUT_PILOT_USER_IDS` = the buyer's user id. Leave
+      `MARKETPLACE_CHECKOUT_ENABLED` unset (no one else can buy).
+
+### E. The controlled purchase (after D5; `docs/operations/storefront-first-sale-test-plan.md`)
+- [ ] E1. $1 pickup purchase as the pilot buyer; confirm receipt, seller and admin notices, order, inventory 0, fee 9%.
+- [ ] E2. Seller marks ready for pickup / picked up; reporting period passes (48 h after pickup).
+- [ ] E3. Weekly payout: admin "Pay Seller" (a live charge may need a few days to settle; retry if Stripe reports
+      insufficient funds); confirm the transfer and the seller's payout.
+- [ ] E4. Refund check on a second $1 purchase (admin refund), if wanted. Economics: about -$0.24 per $1 sale after card
+      cost; a refund does not return the card fee (about -$0.33).
+- [ ] E5. Clear the pilot lists; decide on broader activation (each further seller: verified, Connect live, policies,
+      pickup or shipping, tax rule for its state).
+
+### Known gaps (not blockers for the pilot)
+- No buyer email when the seller marks "ready for pickup" or "shipped" (buyers see it on their purchases page).
+- No seller-initiated cancellation (admin refund covers it). Seller staff cannot see storefront payouts.
 
 ## 2. DMARC record — DECIDED: no change (owner decision 2026-11-11)
 
