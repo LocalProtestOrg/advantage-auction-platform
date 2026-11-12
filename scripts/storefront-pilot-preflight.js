@@ -179,10 +179,11 @@ async function runChecks(runner) {
       else if (buyer.id === sp.user_id) add('Pilot buyer', BLOCKED, 'The buyer is the seller\'s own account (CANNOT_BUY_OWN).', 'Use a separate buyer account.');
       else if (buyer.is_active === false) add('Pilot buyer', BLOCKED, 'The buyer account is closed.');
       else {
-        const card = await q1(`SELECT count(*)::int n FROM card_verifications WHERE user_id = $1 AND status = 'verified' AND stripe_payment_method_id IS NOT NULL`, [buyer.id]).catch(() => null);
         add('Pilot buyer', PASS, `Account ${buyer.id}, active, separate from the seller.`);
-        add('Buyer card on file', card && card.n > 0 ? UNVERIFIED : OWNER, card && card.n > 0 ? 'A verified card is on record; whether it was saved in live mode is confirmed at checkout.' : 'No verified card on record.',
-          card && card.n > 0 ? 'Confirm at checkout that the saved card is a real (non-prepaid) card.' : 'Signed in as the buyer: save a real debit or credit card.');
+        // Checkout takes the card the buyer enters at purchase (marketplaceOrderService.payOrder); a saved card is not
+        // required. Prepaid cards and another customer's saved card are refused there.
+        add('Buyer card', UNVERIFIED, 'The buyer enters a real debit or credit card at checkout (prepaid is refused); nothing to check in advance.',
+          'Use a real, non-prepaid card you control for the $1 purchase.');
       }
     }
 
@@ -196,6 +197,11 @@ async function runChecks(runner) {
     if (lg.marketplaceCheckoutAllowed({ sellerId: sp.id, userId: buyer && buyer.id })) add('Pilot checkout allowed', PASS, 'This buyer may check out from this seller (pilot lists).');
     else add('Pilot checkout allowed', OWNER, `Not yet: seller ${sellerListed ? 'listed' : 'not listed'} in MARKETPLACE_CHECKOUT_PILOT_SELLER_IDS; buyer ${buyerListed ? 'listed' : 'not listed'} in MARKETPLACE_CHECKOUT_PILOT_USER_IDS. (Lists now: ${pilot.sellers.length} seller(s), ${pilot.users.length} buyer(s).)`,
       `Activation step, only with explicit owner approval and only after every other check passes: set both lists to ${sp.id} and the buyer's id. Leave the global switch off.`);
+
+    // Payouts: the weekly payout preparation and the Connect transfer only run with these switches on.
+    add('Seller payouts switch', lg.sellerSettlementsEnabled() ? PASS : BLOCKED, `SELLER_SETTLEMENTS_ENABLED is ${lg.sellerSettlementsEnabled() ? 'on' : 'OFF: no payout would be prepared'}.`);
+    add('Stripe Connect switch', lg.stripeConnectEnabled() ? PASS : BLOCKED, `STRIPE_CONNECT_ENABLED is ${lg.stripeConnectEnabled() ? 'on' : 'OFF: sellers cannot connect a payout account'}.`);
+    if (ready && pref && pref.stripe_account_livemode == null) add('Payout account mode', UNVERIFIED, 'The payout account\'s Stripe mode (live or test) is not recorded.', 'Confirm in the Stripe Dashboard (live) that the seller\'s connected account exists there.');
 
     // ── 13. Stripe live mode and webhooks ─────────────────────────────────────────────────────────────────────────
     try {
