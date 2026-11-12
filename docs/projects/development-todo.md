@@ -122,3 +122,23 @@ Integrity gate PASS in strict mode on production, including the new sitemap and 
 - [ ] Indexing decision for imported government-surplus events (owner).
 - [ ] `www.bid.advantage.bid` certificate or remove its DNS record (owner).
 - [ ] BD page text and canonical links; Merchant Center for `/shop` (later).
+
+## 5. Test infrastructure — isolated database bridge stalls under load (OPEN, test-only; 2026-11-12)
+
+Not a production problem: production uses real Postgres. This affects only the browser journeys' isolated environment
+(`tests/fullstack`: PGlite served by `@electric-sql/pglite-socket` 0.0.22).
+
+- **Symptom:** intermittent 30-second waits in browser journeys (seen in `seller-importer`: the readiness panel and the
+  Unsold Inventory list never appear; CI and the site watchdog report "failed once, passed on the retry").
+- **Evidence (2026-11-12, reproduced with 8 suites in parallel):** app requests hang because their database queries are
+  never answered, while the database process is idle (no statement running, not in a transaction, its query queue
+  empty). The server answers every request that reaches the database within milliseconds.
+- **Variable:** the number of app connections to the bridge. App pool of 10: about 9 to 20 failures per stress run;
+  3: 2 failures; 1: none, but a single connection deadlocks sign-in (it needs a second connection), so it was rejected.
+  A two-connection run was stopped unfinished; it is not adopted.
+- **Not the cause (ruled out):** long or abandoned transactions (transaction watch silent), slow queries, the pool
+  running out (no waiters), browser connection limits, rate limits, serialized socket reads (made it worse).
+- **Next options:** (a) upgrade the test database stack (pglite-socket 0.2.x needs PGlite 0.5.x; every full-stack suite
+  must be re-verified); (b) report/patch the bridge's multi-connection handling; (c) a real Postgres service in CI.
+- **Already fixed separately:** the inventory page's stale selection after a bulk action (a real app defect found in the
+  same investigation) and the importer test's race with the list reload.

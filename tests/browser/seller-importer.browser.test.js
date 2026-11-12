@@ -99,6 +99,21 @@ describe('the five-step importer with the real AuctionFlex export', () => {
 
 describe('inventory management and dual distribution', () => {
   let itemId;
+  const isPath = (r, method, re) => r.request().method() === method && re.test(new URL(r.url()).pathname);
+  // Select the listed item and run a bulk action, then wait for what the page actually does next: the bulk request and
+  // the list reload it starts. The next step never races the reload (2026-11-12: the box still looked ticked while the
+  // selection was already empty, so the following action answered "Select one or more items first.").
+  async function bulkAction(label) {
+    await page.check('#invBody input[type=checkbox]');
+    expect(await page.textContent('#selCount')).toBe('1 selected');
+    const done = page.waitForResponse((r) => isPath(r, 'POST', /\/api\/seller-storefront\/items\/bulk$/));
+    const reload = page.waitForResponse((r) => isPath(r, 'GET', /\/api\/seller-storefront\/items$/));
+    await page.click(`#bulkBar >> text=${label}`);
+    expect((await (await done).json()).data).toMatchObject({ done: 1, refused: 0 });
+    await reload;
+    expect(await page.textContent('#invMsg')).toMatch(/^1 updated\./);
+    expect(await page.textContent('#selCount')).toBe('0 selected');
+  }
   test('search by Inventory Number; the automatic category is shown and can be changed; the seller choice is kept', async () => {
     await page.click('text=Review my drafts');
     await page.selectOption('#fStatus', '');
@@ -124,9 +139,7 @@ describe('inventory management and dual distribution', () => {
     const widget = () => fetch(stack.baseUrl + '/api/public/storefront/widget/' + sellerId).then((r) => r.json()).then((j) => JSON.stringify(j));
     expect(await pub()).toBe(404);
     expect(await widget()).not.toMatch(/KARL SPRINGER/);
-    await page.check('#invBody input[type=checkbox]');
-    await page.click('#bulkBar >> text=Publish');
-    await page.waitForFunction(() => /1 updated/.test(document.getElementById('invMsg').textContent));
+    await bulkAction('Publish');
     expect(await pub()).toBe(200);
     expect(await widget()).toMatch(/KARL SPRINGER/);
     // The public product page renders as a real page.
@@ -136,11 +149,30 @@ describe('inventory management and dual distribution', () => {
     expect(html.data.category).toBe('Antiques');
     await p2.close(); void pr;
     // Unpublish (move to draft): gone from both places at once.
-    await page.check('#invBody input[type=checkbox]');
-    await page.click('#bulkBar >> text=Move to draft');
-    await page.waitForFunction(() => /1 updated/.test(document.getElementById('invMsg').textContent));
+    await bulkAction('Move to draft');
     expect(await pub()).toBe(404);
     expect(await widget()).not.toMatch(/KARL SPRINGER/);
+  });
+
+  test('after a bulk action the selection is cleared on screen at once, even while the list is still reloading', async () => {
+    // Hold the list reload so the moment between "action done" and "list redrawn" can be inspected.
+    let release; const held = new Promise((r) => { release = r; });
+    await page.route('**/api/seller-storefront/items', async (route) => { if (route.request().method() === 'GET') await held; return route.continue(); });
+    const reload = page.waitForResponse((r) => isPath(r, 'GET', /\/api\/seller-storefront\/items$/));
+    try {
+      await page.check('#invBody input[type=checkbox]');
+      const done = page.waitForResponse((r) => isPath(r, 'POST', /\/api\/seller-storefront\/items\/bulk$/));
+      await page.selectOption('#bulkCat', 'antiques');                       // set category (the item keeps the same one)
+      await done;
+      await page.waitForFunction(() => /updated\./.test(document.getElementById('invMsg').textContent));
+      // The reload is still held: the page must already show nothing selected.
+      expect(await page.textContent('#selCount')).toBe('0 selected');
+      expect(await page.isChecked('#invBody input[type=checkbox]')).toBe(false);
+    } finally {
+      release();
+      await reload;   // the held reload completes before the route is removed
+      await page.unroute('**/api/seller-storefront/items');
+    }
   });
 
   test('the readiness panel, storefront link and embed code are shown; the page works on a phone', async () => {

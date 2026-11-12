@@ -342,7 +342,9 @@
         if(!r.success){say('invMsg',r.message||'Not saved. Please try again.');return;}done+=r.data.done;refused=refused.concat(r.data.results.filter(function(x){return !x.ok;}));}
       var byId={};ITEMS.forEach(function(m){byId[m.id]=m;});
       say('invMsg',done+' updated.'+(refused.length?' '+refused.length+' not changed: '+refused.slice(0,5).map(function(x){return '"'+((byId[x.id]||{}).title||'item')+'": '+x.message;}).join(' ')+(refused.length>5?' …':''):''),!refused.length);
-      SEL.clear();loadItems();loadReadiness();
+      // Clear the selection on screen at once (boxes and "0 selected"), not only when the list reload finishes: otherwise a
+      // box still looks ticked while nothing is selected, and the next action says "Select one or more items first."
+      SEL.clear();render();loadItems();loadReadiness();
     }
     document.getElementById('bulkCat').onchange=function(){var k=this.value;this.value='';if(k)bulk('set_category',k);};
     function bulkPrice(){var p=prompt('Sale Price for the selected items (USD):','');if(p===null)return;var c=Math.round(parseFloat(p)*100);if(!(c>0)){say('invMsg','Enter a Sale Price above zero.');return;}bulk('set_price',c);}
