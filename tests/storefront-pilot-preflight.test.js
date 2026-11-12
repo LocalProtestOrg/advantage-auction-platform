@@ -40,3 +40,22 @@ describe('storefront pilot pre-flight: read-only and private', () => {
     for (const s of ["'PASS'", "'BLOCKED'", "'NEEDS OWNER ACTION'", "'UNVERIFIED'"]) expect(SRC).toContain(s);
   });
 });
+
+describe('storefront pilot pre-flight: Buyer Terms coverage of fixed-price purchases', () => {
+  const { buyerTermsCoverFixedPrice } = require('../src/lib/storefrontPurchasePolicy');
+  const { extractBody } = require('../scripts/prod-publish-buyer-terms-version');
+  const read = (f) => extractBody(fs.readFileSync(path.join(__dirname, '..', 'docs', 'legal', f), 'utf8')).body;
+  test('Buyer Terms v4 (Part B: Fixed-Price Purchases) passes', () => {
+    expect(buyerTermsCoverFixedPrice(read('buyer-terms-v4-fixed-price.md'))).toBe(true);
+  });
+  test('the Terms of Service text, a passing mention of a storefront, or nothing: NEEDS OWNER ACTION', () => {
+    expect(buyerTermsCoverFixedPrice(read('terms-of-service-v4.md'))).toBe(false);
+    expect(buyerTermsCoverFixedPrice('# Buyer Terms\n\n1. Bids are binding. Our storefront and Buy Now pages show store terms.')).toBe(false);
+    expect(buyerTermsCoverFixedPrice('')).toBe(false);
+    expect(buyerTermsCoverFixedPrice(null)).toBe(false);
+  });
+  test('the pre-flight uses that check, and names the publication step when it fails', () => {
+    expect(code).toMatch(/buyerTermsCoverFixedPrice\(terms\.body_markdown\)/);
+    expect(SRC).toContain('--source docs/legal/buyer-terms-v4-fixed-price.md');
+  });
+});

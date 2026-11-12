@@ -165,9 +165,10 @@ async function runChecks(runner) {
     const terms = await q1(`SELECT version_int, title, effective_at, body_markdown FROM terms_versions WHERE kind = 'buyer_terms' AND is_current LIMIT 1`);
     if (!terms) add('Buyer Terms', BLOCKED, 'No current Buyer Terms version is published.');
     else {
-      const covers = /(fixed[- ]price|buy now|storefront|store terms)/i.test(terms.body_markdown || '');
-      add('Buyer Terms', covers ? PASS : OWNER, `Current: v${terms.version_int} (effective ${new Date(terms.effective_at).toISOString().slice(0, 10)}); the buyer accepts it at checkout and the acceptance is recorded. ${covers ? 'Covers fixed-price purchases.' : 'Does not mention fixed-price / storefront purchases.'}`,
-        covers ? null : 'Legal decision: publish Buyer Terms v4 (fixed-price), or approve v3 for the pilot in writing.');
+      // Covered only when the current text carries the fixed-price part (Buyer Terms v4 "Part B: Fixed-Price Purchases").
+      const covers = svc('lib/storefrontPurchasePolicy').buyerTermsCoverFixedPrice(terms.body_markdown);
+      add('Buyer Terms', covers ? PASS : OWNER, `Current: v${terms.version_int} (effective ${new Date(terms.effective_at).toISOString().slice(0, 10)}); the buyer accepts it at checkout and the acceptance is recorded. ${covers ? 'Covers fixed-price purchases (Part B: Fixed-Price Purchases).' : 'Does not contain the fixed-price purchase terms (Part B: Fixed-Price Purchases).'}`,
+        covers ? null : 'Publish Buyer Terms v4 (fixed-price): scripts/prod-publish-buyer-terms-version.js --source docs/legal/buyer-terms-v4-fixed-price.md (dry run first, then --apply).');
     }
 
     // ── 11. Pilot buyer ───────────────────────────────────────────────────────────────────────────────────────────

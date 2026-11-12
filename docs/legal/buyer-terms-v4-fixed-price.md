@@ -1,12 +1,13 @@
-# Buyer Terms Version 4 (proposed text, NOT PUBLISHED)
+# Buyer Terms Version 4 (approved for publication)
 
-Status: **draft for owner and attorney review; not legally certified; not published.** Prepared 2026-11-09.
-This file is the exact text proposed for `terms_versions` kind `buyer_terms`, version 4 (everything below the line).
+Status: **approved by the owner 2026-11-12 for publication (before counsel review).** Prepared 2026-11-09; not yet
+reviewed by counsel; not legally certified. Publication to production is a separate owner-run step
+(`scripts/prod-publish-buyer-terms-version.js --source docs/legal/buyer-terms-v4-fixed-price.md`).
+This file is the exact text for `terms_versions` kind `buyer_terms`, version 4 (everything below the line).
 Part A is Buyer Terms Version 3 as published in production (read 2026-11-09), with only the changes listed in
 `docs/legal/storefront-terms-review-packet.md` ("What changes from Version 3"). Part B is the Fixed-Price Purchase Terms
 from `docs/legal/storefront-purchase-terms-addendum-draft.md`, adapted to sit inside the Buyer Terms.
 It must be published with `includes_sales_near_you = true` (Part A keeps the Sales Near You clause).
-
 ---
 
 # Advantage.Bid Buyer Terms & Conditions of Sale (Version 4)
@@ -207,7 +208,6 @@ including consumer protection law.
 ### 15. Sales tax
 
 Sales tax, if any, is calculated at checkout from the pickup location or the shipping address and shown before you pay.
-[TO BE COMPLETED AFTER THE TEXAS SALES TAX DECISION; this bracket must be removed before publication.]
 
 ### 16. Changes
 

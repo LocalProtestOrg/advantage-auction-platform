@@ -65,4 +65,11 @@ function reportTiming(window, reportedAt) {
   return at.getTime() <= new Date(window.ends_at).getTime() ? 'within' : 'after';
 }
 
-module.exports = { REPORT_WINDOW_HOURS, FULFILLED_TO, fulfilledAtSql, reportingPeriodEndedSql, reportingWindow, reportTiming };
+// Whether a Buyer Terms text covers fixed-price storefront purchases: it carries the fixed-price part (Buyer Terms v4,
+// docs/legal/buyer-terms-v4-fixed-price.md, "Part B: Fixed-Price Purchases"). A passing mention of a storefront is not enough.
+function buyerTermsCoverFixedPrice(body) {
+  const text = String(body || '');
+  return /^#{1,6}\s*Part B\b[^\n]*Fixed-Price/im.test(text) || /^#{1,6}[^\n]*Fixed-Price Purchases/im.test(text);
+}
+
+module.exports = { REPORT_WINDOW_HOURS, FULFILLED_TO, fulfilledAtSql, reportingPeriodEndedSql, reportingWindow, reportTiming, buyerTermsCoverFixedPrice };

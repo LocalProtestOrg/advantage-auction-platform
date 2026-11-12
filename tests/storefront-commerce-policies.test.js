@@ -478,4 +478,40 @@ describe('each order records the platform Buyer Terms version in force', () => {
     // the buyer's agreement at checkout is also an acceptance of that version in the terms ledger (owner 2026-11-06)
     expect((await one('SELECT count(*)::int n FROM terms_acceptances WHERE terms_version_id = $1', [cur.id])).n).toBe(1);
   });
+  test('Buyer Terms v4 (fixed price) published as current: an earlier v3 acceptance does not satisfy checkout; accepting v4 records v4 on the order', async () => {
+    const { extractBody } = require('../scripts/prod-publish-buyer-terms-version');
+    const v4Body = extractBody(fs.readFileSync(path.join(ROOT, 'docs', 'legal', 'buyer-terms-v4-fixed-price.md'), 'utf8')).body;
+    // v3 current, accepted by the buyer (e.g. at an auction registration)
+    await q(`UPDATE terms_versions SET is_current = false WHERE kind = 'buyer_terms'`);
+    const v3 = await one(`INSERT INTO terms_versions (kind, version_int, title, body_markdown, is_current, includes_sales_near_you)
+      VALUES ('buyer_terms', 3, 'Buyer Terms v3', 'Version 3 text.', true, true) RETURNING id`);
+    await q('INSERT INTO terms_acceptances (user_id, terms_version_id) VALUES ($1, $2)', [U.ben.id, v3.id]);
+    // v4 published the way the publication script does it: the previous version keeps its text and acceptances
+    await q(`UPDATE terms_versions SET is_current = false WHERE kind = 'buyer_terms' AND is_current`);
+    const v4 = await one(`INSERT INTO terms_versions (kind, version_int, title, body_markdown, is_current, includes_sales_near_you)
+      VALUES ('buyer_terms', 4, 'Advantage.Bid Buyer Terms & Conditions of Sale', $1, true, true) RETURNING id`, [v4Body]);
+    // the checkout page reads the current text and version from here
+    const current = await require('../src/services/termsService').getCurrentTerms();
+    expect(current).toMatchObject({ id: v4.id, version_int: 4 });
+    expect(current.body_markdown).toMatch(/Part B: Fixed-Price Purchases/);
+
+    const it = await listQ(1);
+    // the v3 acceptance alone is not enough: the buyer must agree at this checkout
+    const noAck = await call('ben', 'POST', '/api/marketplace/orders', { item_id: it.id });
+    expect([noAck.status, noAck.body.code]).toEqual([422, 'POLICIES_ACK_REQUIRED']);
+    // a page that still showed v3 is refused, and nothing is recorded or reserved
+    const stale = await buy(it.id, 'ben', 1, { expected_buyer_terms_version: 3 });
+    expect([stale.status, stale.body.code]).toEqual([409, 'TERMS_CHANGED']);
+    expect((await one('SELECT count(*)::int n FROM terms_acceptances WHERE user_id = $1 AND terms_version_id = $2', [U.ben.id, v4.id])).n).toBe(0);
+    expect(await stock(it.id)).toMatchObject({ quantity: 1, status: 'active' });
+    // agreeing to v4 at checkout: v4 is accepted in the ledger and recorded on the order
+    const ok = await buy(it.id, 'ben', 1, { expected_buyer_terms_version: 4 });
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.order.buyer_terms_version).toBe(4);
+    expect(await one('SELECT buyer_terms_version_id, buyer_terms_version_int FROM marketplace_orders WHERE id = $1', [ok.body.data.order.id]))
+      .toEqual({ buyer_terms_version_id: v4.id, buyer_terms_version_int: 4 });
+    expect((await one('SELECT count(*)::int n FROM terms_acceptances WHERE user_id = $1 AND terms_version_id = $2', [U.ben.id, v4.id])).n).toBe(1);
+    // the earlier acceptance is untouched
+    expect((await one('SELECT count(*)::int n FROM terms_acceptances WHERE user_id = $1 AND terms_version_id = $2', [U.ben.id, v3.id])).n).toBe(1);
+  });
 });
