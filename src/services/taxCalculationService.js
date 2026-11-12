@@ -62,6 +62,9 @@ function addressComplete(a) {
  *   address       — where the buyer takes possession: the pickup location (pickup) or the ship-to address (shipping).
  *   shipFrom      — the origin of the goods (the item/auction pickup location); optional, sent when complete.
  *   addressSource — 'shipping' (default: a place of delivery or pickup) or 'billing'.
+ *   shippingCents — optional (storefront orders). When > 0 the shipping charge is sent separately as the calculation's
+ *                   shipping_cost (tax-exclusive), so each state's own shipping taxability rule applies; taxableBaseCents
+ *                   is then the goods only. Omitted or 0: the request is exactly as before (auction callers).
  * Returns { enabled, taxCents, calculationId, exempt }.
  *  - flag OFF                          → { enabled:false, taxCents:0, calculationId:null, exempt:false }  (NO Stripe call)
  *  - approved applicable exemption     → { enabled:true,  taxCents:0, calculationId:null, exempt:true  }  (NO Stripe call)
@@ -69,10 +72,11 @@ function addressComplete(a) {
  *  - Stripe failure (flag ON)          → throws TaxCalculationError('TAX_CALCULATION_FAILED')  (caller must FAIL the payment)
  *  - otherwise                         → { enabled:true,  taxCents:<stripe>, calculationId:<id>, exempt:false }
  */
-async function computeTax({ buyerUserId, taxableBaseCents, address, shipFrom = null, addressSource = 'shipping', currency = 'usd', reference }) {
+async function computeTax({ buyerUserId, taxableBaseCents, shippingCents = 0, address, shipFrom = null, addressSource = 'shipping', currency = 'usd', reference }) {
   if (!taxEnabled()) return { enabled: false, taxCents: 0, calculationId: null, exempt: false };
 
   const base = Math.max(0, Math.round(Number(taxableBaseCents) || 0));
+  const ship = Math.max(0, Math.round(Number(shippingCents) || 0));
 
   // Approved, applicable exemption → $0 tax. Only an admin approval produces this (users.tax_exempt
   // mirror + buyer_tax_exemptions.status='approved'); pending/rejected are NEVER treated as exempt.
@@ -94,11 +98,14 @@ async function computeTax({ buyerUserId, taxableBaseCents, address, shipFrom = n
     calc = await stripe.tax.calculations.create({
       currency,
       line_items: [{
-        amount: base,                 // hammer + buyer premium (tax-exclusive base)
+        amount: base,                 // hammer + buyer premium, or a storefront order's goods (tax-exclusive base)
         reference: reference || 'auction-sale',
         tax_behavior: 'exclusive',
         tax_code: DEFAULT_TAX_CODE,
       }],
+      // Shipping as its own amount, so the provider applies the destination state's shipping taxability
+      // (tax_amount_exclusive then includes any tax on shipping). Never sent for auctions.
+      ...(ship > 0 ? { shipping_cost: { amount: ship, tax_behavior: 'exclusive' } } : {}),
       customer_details: {
         address: {
           line1: address.line1,

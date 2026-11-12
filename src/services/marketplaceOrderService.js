@@ -308,9 +308,9 @@ async function quote(itemId, buyerUserId, opts = {}) {
   const taxRule = await assertTaxRule(saleState);
   // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
   const loc = await resolveTaxLocation({ method, item, shipTo: opts.ship_to || opts.address });
-  const taxable = goods + shippingCents;
+  // Goods and shipping go to the tax calculation separately, so each state's own shipping taxability applies.
   const tax = await taxService.computeTax({
-    buyerUserId, taxableBaseCents: taxable, address: loc && loc.address, shipFrom: loc && loc.shipFrom,
+    buyerUserId, taxableBaseCents: goods, shippingCents, address: loc && loc.address, shipFrom: loc && loc.shipFrom,
     addressSource: 'shipping', reference: 'marketplace-quote:' + itemId,
   });
   taxConfiguration(taxRule, saleState, tax);   // the result must agree with the rule (refused before the buyer pays)
@@ -487,11 +487,13 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
 
   // ── Sales tax (flag-gated). Pickup → the item's pickup location; shipping → the order's stored ship-to (destination)
   // with the item's pickup location as origin. ──
-  const taxableBase = order.item_price_cents + order.shipping_cents;
+  // Goods and shipping are sent separately (shipping as the calculation's shipping cost), so each state's own rule for
+  // taxing shipping applies; the returned tax covers both.
   let tax;
   try {
     const loc = await resolveTaxLocation({ method, item: pre.item, shipTo: order.ship_to || shipToObj });
-    tax = await taxService.computeTax({ buyerUserId, taxableBaseCents: taxableBase, address: loc && loc.address,
+    tax = await taxService.computeTax({ buyerUserId, taxableBaseCents: Number(order.item_price_cents),
+      shippingCents: Number(order.shipping_cents) || 0, address: loc && loc.address,
       shipFrom: loc && loc.shipFrom, addressSource: 'shipping', reference: 'marketplace-order:' + order.order_number });
   } catch (taxErr) {
     await releaseOrder(order.id, 'tax:' + (taxErr.code || 'error'));
