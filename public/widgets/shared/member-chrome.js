@@ -1,9 +1,9 @@
 /* ============================================================================
-   Advantage Member Chrome — the ONE shared renderer for the unified Marketplace
+   Advantage Member Chrome: the ONE shared renderer for the unified Marketplace
    shell (rail + header + mobile bottom nav + mode context + identity). Both the
    full SPA (member-shell.js on /app.html) AND the professional workspace pages
    (/org/*) render their surrounding navigation from THIS module, so there is a
-   single source of truth for the sidebar — never a hand-maintained copy.
+   single source of truth for the sidebar, never a hand-maintained copy.
 
    Nav DEFINITIONS come from AdvNav (member-nav-config.js). This module only turns
    a context object into the chrome HTML, and (in the browser) can mount that
@@ -54,7 +54,7 @@
       var cur = item.id === ctx.activeRoute ? ' aria-current="page"' : '';
       return '<a class="adv-nav-item" href="' + item.href + '" data-route="' + item.id + '"' + cur + '>' + inner + '</a>';
     }
-    // Standalone page (e.g. /org/*): in-shell sections live in the SPA — link there.
+    // Standalone page (e.g. /org/*): in-shell sections live in the SPA; link there.
     return '<a class="adv-nav-item" href="/app.html' + item.href + '">' + inner + '</a>';
   }
 
@@ -100,6 +100,11 @@
     '.adv-header .adv-mode-mini .adv-mode-opt{flex:0 0 auto;padding:5px 10px;border:1px solid rgba(15,23,42,.15);background:#fff}' +
     '.adv-header .adv-mode-mini .adv-mode-opt.on{display:none}' +
     '@media (max-width:860px){.adv-header .adv-mode-mini{display:flex}}' +
+    // Phones hide the sidebar (and its Log out), so the header carries a clearly visible Log out (owner 2026-11-12).
+    '.adv-header .adv-mobile-logout{display:none}' +
+    '@media (max-width:860px){.adv-header .adv-mobile-logout{display:inline-flex;align-items:center;min-height:36px;padding:6px 12px;' +
+      'border:1px solid rgba(15,23,42,.15);border-radius:999px;background:#fff;color:#991b1b;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap}}' +
+    '.adv-header .adv-mobile-logout:focus-visible{outline:2px solid #2563eb;outline-offset:2px}' +
     '.adv-moresheet .adv-nav-section{color:#64748b;border-top-color:rgba(15,23,42,.08)}' +
     '.adv-moresheet-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 6px}' +
     '.adv-moresheet-head strong{font-size:14px}' +
@@ -199,6 +204,8 @@
       '<div class="adv-user"><div class="adv-avatar" aria-hidden="true">' + esc(initials(u).toUpperCase()) + '</div>' +
         '<div class="adv-user-meta"><div class="adv-user-name">' + esc(u.full_name || u.email || '') + '</div>' +
         '<div class="adv-user-role">' + esc(m.label) + '</div></div></div>' +
+      // the central sign-out (server cookie, then the saved sign-in, then the login page), same as the sidebar's Log out
+      '<a class="adv-mobile-logout" href="/logout">Log out</a>' +
     '</header>';
   }
 

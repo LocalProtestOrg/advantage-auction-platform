@@ -76,10 +76,13 @@
     '#admin-nav .an-sec .an-logout-m{color:#991b1b}' +
     'html.an-locked,html.an-locked body{overflow:hidden}' +
     '@media (max-width:' + MOBILE_MAX + 'px){' +
-      '#admin-nav .an-links,#admin-nav .an-auth{display:none}' +
+      // Log out stays visible in the phone bar (owner 2026-11-12), not only at the end of the Menu.
+      '#admin-nav .an-links{display:none}' +
+      '#admin-nav .an-auth{margin-left:auto}#admin-nav .an-auth a{display:inline-flex;align-items:center;min-height:40px;padding:7px 8px}' +
+      '#admin-nav .an-menubtn{margin-left:0}' +
       '#admin-nav .an-menubtn{display:inline-flex;align-items:center}' +
       '#admin-nav .an-inner{padding:8px 12px;gap:8px}' +
-      '#admin-nav .an-brand{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis}' +
+      '#admin-nav .an-brand{margin:0;min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}' +
       '#admin-nav .an-badge{display:none}' +
     '}' +
     '@media (min-width:' + (MOBILE_MAX + 1) + 'px){#admin-nav .an-panel{display:none!important}}' +
@@ -183,7 +186,7 @@
 
   // Publish the ACTUAL rendered header height as a CSS variable (--admin-nav-h) on <html>, so any admin
   // page can offset fixed/absolute overlays (e.g. side drawers, modals) by the real height rather than a
-  // hardcoded guess. The header is sticky (in normal flow), so page CONTENT needs no offset — this var is
+  // hardcoded guess. The header is sticky (in normal flow), so page CONTENT needs no offset; this var is
   // for elements taken OUT of flow. The mobile menu panel is position:fixed, so it never changes the height.
   function setNavHeightVar(header) {
     try {
@@ -284,7 +287,7 @@
     Array.prototype.forEach.call(header.querySelectorAll('.an-sheet-list a:not([data-an-logout])'), function (a) {
       a.addEventListener('click', function () { setPanel(header, false); });
     });
-    setNavHeightVar(header); // links/badge just changed the height — republish
+    setNavHeightVar(header); // links/badge just changed the height: republish
   }
 
   function mount() {

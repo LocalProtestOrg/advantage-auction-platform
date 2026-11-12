@@ -97,7 +97,9 @@ describe('desktop and mobile behaviour', () => {
     expect(NAV).toMatch(/e\.key === 'Escape' && panelOpen\(header\)/);
     expect(NAV).toMatch(/\.an-backdrop'\)\.addEventListener\('click'/);
     expect(NAV).toMatch(/function trapFocus/);
-    expect(NAV).toMatch(/max-width:' \+ MOBILE_MAX \+ 'px\)\{' \+\s+'#admin-nav \.an-links,#admin-nav \.an-auth\{display:none\}'/);
+    expect(NAV).toMatch(/max-width:' \+ MOBILE_MAX \+ 'px\)\{' \+[\s\S]{0,200}'#admin-nav \.an-links\{display:none\}'/);
+    // Log out stays visible in the phone bar (owner 2026-11-12)
+    expect(NAV).not.toMatch(/#admin-nav \.an-auth\{display:none\}/);
     expect(NAV).toMatch(/max-height:calc\(100% - 56px\)/);   // a tappable strip always remains to dismiss
     expect(NAV).toMatch(/min-height:44px/);                   // touch-friendly rows
   });
