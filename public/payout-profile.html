@@ -39,15 +39,17 @@
 <body>
   <div class="wrap">
     <h1>Payout Profile</h1>
-    <p class="lede">Choose how you would like to receive your auction settlement payments. You can update this at any time.</p>
+    <p class="lede">Set up where Advantage.Bid sends your money: your auction settlements and your fixed-price Storefront sales. Payouts are made by direct deposit to your bank account, set up securely through Stripe.</p>
     <div id="loading" class="center">Loading your payout profile…</div>
+    <div id="load-problem" class="card hide" role="alert"><h2 id="lp-title">Payouts are set up from your seller account</h2><p id="lp-text" style="margin:0 0 .6rem;font-size:.92rem;line-height:1.5"></p><a id="lp-action" class="hide" href="/logout" style="display:inline-block;background:#1d4ed8;color:#fff;border-radius:8px;padding:.7rem 1.1rem;font-weight:700;text-decoration:none">Sign Out and Switch Accounts</a></div>
 
     <div id="app" class="hide">
       <!-- Payout Status -->
       <div class="card">
         <h2>Payout Status</h2>
-        <span id="status-badge" class="status incomplete">Incomplete</span>
-        <p style="font-size:.85rem;color:#475569;margin-top:.6rem">Payouts are <b>processed every Thursday</b>. Auction payouts are processed on the first Thursday after pickup is complete and the sale is eligible; Professional Storefront sales completed by Wednesday 11:59&nbsp;PM are processed in that week's Thursday cycle. When funds arrive in your bank depends on your bank/ACH timing.</p>
+        <span id="status-badge" class="status incomplete">Not Connected</span>
+        <p id="status-explain" style="font-size:.88rem;color:#1f2937;margin:.6rem 0 0"></p>
+        <p style="font-size:.85rem;color:#475569;margin-top:.6rem">Payouts are <b>processed every Thursday</b>. Auction payouts are processed on the first Thursday after pickup is complete and the sale is eligible. Professional Storefront sales are processed in the Thursday cycle after they become eligible (48 hours after pickup, or 7 days after delivery for a shipped order) when that happens by Wednesday 11:59&nbsp;PM. When funds arrive in your bank depends on your bank/ACH timing.</p>
       </div>
 
       <!-- Preferred Payment Method -->
@@ -76,7 +78,7 @@
           <p id="ach-status-note" style="margin:0 0 .6rem">Set up secure direct deposit through Stripe. You'll be taken to Stripe to verify your identity and add your bank account.</p>
           <div id="ach-pw-wrap" class="hide"><label class="f" for="ach-pw">Current Password</label><input class="t" id="ach-pw" type="password" autocomplete="current-password" /></div>
           <div id="ach-code-wrap" class="hide"><label class="f" for="ach-code">Verification Code</label><input class="t" id="ach-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="max-width:180px" /> <button class="secondary" type="button" id="ach-code-send">Email Me a Code</button></div>
-          <button id="ach-connect-btn">Set Up Direct Deposit</button>
+          <button id="ach-connect-btn">Set Up Payouts</button>
           <div class="reassure">Your banking information is securely collected and stored by Stripe. Advantage.Bid never sees or stores your routing or account numbers.</div>
           <div class="msg" id="ach-msg"></div>
         </div>
@@ -105,7 +107,17 @@
     if (!token) { location.href = '/login.html?next=' + encodeURIComponent('/payout-profile.html'); return; }
     const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
     const $ = (id) => document.getElementById(id);
-    const STATUS_LABEL = { ready: 'Ready for Payment', needs_attention: 'Needs Attention', incomplete: 'Incomplete' };
+    // Direct deposit setup state from the server (lib/payoutProfile connectState). Owner 2026-11-12.
+    const STATE = {
+      not_connected: { label: 'Not Connected', cls: 'incomplete', btn: 'Set Up Payouts (Connect Bank Account)',
+        text: 'No bank account is connected yet. Select Set Up Payouts to continue on Stripe, where you verify your identity and add your bank account.' },
+      setup_incomplete: { label: 'Setup Incomplete', cls: 'needs_attention', btn: 'Continue Payout Setup',
+        text: 'You started payout setup with Stripe but have not finished it. Continue where you left off.' },
+      verification_required: { label: 'Verification Required', cls: 'needs_attention', btn: 'Continue Verification with Stripe',
+        text: 'Stripe needs more information, or is still verifying what you submitted, before payouts can be sent. Continue to see what is needed.' },
+      ready: { label: 'Ready for Payouts', cls: 'ready', btn: 'Update Payout Details',
+        text: 'Your bank account is connected and verified. Auction settlements and Storefront sales will be paid by direct deposit.' }
+    };
 
     function api(method, url, body) {
       return fetch(url, { method, headers: H, body: body ? JSON.stringify(body) : undefined })
@@ -133,8 +145,9 @@
 
     function render(data) {
       const p = (data && data.profile) || { method: null };
-      const status = (data && data.status) || 'incomplete';
-      const badge = $('status-badge'); badge.className = 'status ' + status; badge.textContent = STATUS_LABEL[status] || 'Incomplete';
+      const st = STATE[(data && data.connect_state)] || STATE.not_connected;
+      const badge = $('status-badge'); badge.className = 'status ' + st.cls; badge.textContent = st.label;
+      $('status-explain').textContent = st.text;
       // Direct Deposit visibility: only when Stripe Connect is enabled server-side.
       const connectEnabled = !!(data && data.connect_enabled);
       $('m-ach').style.display = connectEnabled ? '' : 'none';
@@ -157,12 +170,13 @@
         } else {
           $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide');
           const note = $('ach-status-note');
-          if (p.connect_status === 'restricted') note.textContent = 'Stripe needs more information before you can receive direct deposits. Continue setup to resolve it.';
-          else if (p.details_submitted) note.textContent = 'Your Stripe setup is being reviewed. You can resume or update it below.';
-          else note.textContent = 'Set up secure direct deposit through Stripe. You’ll verify your identity and add your bank account.';
-          $('ach-connect-btn').textContent = p.stripe_account_id ? 'Resume Direct Deposit Setup' : 'Set Up Direct Deposit';
+          note.textContent = st.text;
+          $('ach-connect-btn').textContent = st.btn;
         }
-      } else { $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide'); }
+      } else {
+        $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide');
+        $('ach-status-note').textContent = st.text; $('ach-connect-btn').textContent = st.btn;
+      }
       $('tax-status').value = (data && data.tax_status) || 'not_started';
     }
     function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
@@ -199,15 +213,35 @@
     // Load: if returning from Stripe hosted onboarding, refresh live Connect status first.
     const connectReturn = /[?&]connect=(return|refresh)/.test(location.search);
     const loadUrl = connectReturn ? '/api/payout-profile/me/connect/status' : '/api/payout-profile/me';
-    const loadMethod = connectReturn ? 'GET' : 'GET';
-    api(loadMethod, loadUrl).then(d => {
+    // A refusal is explained, never a bare failure: payouts belong to the seller account that owns the storefront, so an
+    // administrator or buyer account signed in here is told which account it is and how to switch (owner 2026-11-12).
+    function showLoadProblem(httpStatus) {
+      $('loading').classList.add('hide'); $('load-problem').classList.remove('hide');
+      if (httpStatus !== 403) {
+        $('lp-title').textContent = 'Your payout profile could not be loaded';
+        $('lp-text').textContent = 'Please refresh this page in a moment. If it keeps happening, contact Advantage.Bid support.';
+        return;
+      }
+      $('lp-action').classList.remove('hide');
+      $('lp-text').textContent = 'This page is for the seller account that owns the auctions or Storefront. You are signed in with a different account. Sign out, then sign in with the seller account to set up payouts.';
+      fetch('/api/auth/me', { headers: H }).then(r => r.ok ? r.json() : null).then(j => {
+        const u = j && (j.data || j.user || j); if (!u || !u.email) return;
+        const kind = u.role === 'admin' ? 'an administrator account' : (u.role === 'buyer' ? 'a buyer account' : 'an account without a seller profile');
+        $('lp-text').textContent = 'You are signed in as ' + u.email + ', ' + kind + '. Payouts are set up from the seller account that owns the auctions or Storefront. Sign out, then sign in with the seller account to set up payouts.';
+      }).catch(() => {});
+    }
+    fetch(loadUrl, { headers: H }).then(r => {
+      if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html?next=' + encodeURIComponent('/payout-profile.html'); throw new Error('unauthorized'); }
+      if (!r.ok) { showLoadProblem(r.status); throw new Error('handled'); }
+      return r.json();
+    }).then(d => {
       if (d.success) {
         render(d.data); $('loading').classList.add('hide'); $('app').classList.remove('hide');
         if (connectReturn && d.data && d.data.profile && d.data.profile.method === 'ach') {
           setMsg('ach-msg', (d.data.profile.transfers_active && d.data.profile.payouts_enabled) ? 'Direct Deposit is ready.' : 'Setup received. Stripe is finishing verification.', d.data.profile.payouts_enabled);
         }
-      } else $('loading').textContent = 'Could not load your payout profile.';
-    }).catch(e => { if (e.message !== 'unauthorized') $('loading').textContent = 'Could not load your payout profile.'; });
+      } else showLoadProblem(0);
+    }).catch(e => { if (e.message !== 'unauthorized' && e.message !== 'handled') showLoadProblem(0); });
   })();
   </script>
 <!-- Seller dashboard frame (owner 2026-11-10): the shared sidebar / phone menu around this page. -->

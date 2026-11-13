@@ -87,8 +87,27 @@ function usBankAccountDisplay(paymentMethod, setupIntentStatus) {
   };
 }
 
+/**
+ * Direct deposit (Stripe Connect) setup state, in the seller's words (owner 2026-11-12). PURE; derived from the stored row
+ * and never exposes the Stripe account id:
+ *   not_connected          no Connect account yet (or a mailed check on file): offer "Set Up Payouts"
+ *   setup_incomplete       a Connect account exists but the seller has not finished Stripe's form
+ *   verification_required  details submitted, but Stripe needs more information or is still verifying
+ *   ready                  transfers and payouts are both active: ready for payouts
+ */
+const CONNECT_STATE = Object.freeze({ NOT_CONNECTED: 'not_connected', SETUP_INCOMPLETE: 'setup_incomplete',
+  VERIFICATION_REQUIRED: 'verification_required', READY: 'ready' });
+const CONNECT_STATE_LABEL = Object.freeze({ not_connected: 'Not Connected', setup_incomplete: 'Setup Incomplete',
+  verification_required: 'Verification Required', ready: 'Ready for Payouts' });
+function connectState(pref) {
+  if (!pref || pref.payout_method !== 'ach' || !pref.stripe_account_id) return CONNECT_STATE.NOT_CONNECTED;
+  if (pref.connect_transfers_active && pref.connect_payouts_enabled) return CONNECT_STATE.READY;
+  if (pref.connect_details_submitted || pref.connect_status === 'restricted' || pref.connect_disabled_reason) return CONNECT_STATE.VERIFICATION_REQUIRED;
+  return CONNECT_STATE.SETUP_INCOMPLETE;
+}
+
 module.exports = {
   PAYOUT_STATUS, PAYOUT_STATUS_LABEL, TAX_STATUS, TAX_STATUS_LABEL,
-  payoutProfileStatus, maskedPayoutSummary, isCheckComplete, isAchComplete,
+  payoutProfileStatus, maskedPayoutSummary, connectState, CONNECT_STATE, CONNECT_STATE_LABEL, isCheckComplete, isAchComplete,
   usBankAccountDisplay,
 };

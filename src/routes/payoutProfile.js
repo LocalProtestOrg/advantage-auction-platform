@@ -14,7 +14,7 @@ const { blockDemoSideEffects } = require('../middleware/demoGuard');
 const role = require('../middleware/roleMiddleware');
 const svc = require('../services/payoutProfileService');
 const connect = require('../services/stripeConnectService');
-const { maskedPayoutSummary, payoutProfileStatus } = require('../lib/payoutProfile');
+const { maskedPayoutSummary, payoutProfileStatus, connectState } = require('../lib/payoutProfile');
 const { stripeConnectEnabled } = require('../lib/launchGuards');
 const safeguards = require('../services/payoutSafeguards');
 
@@ -24,6 +24,7 @@ function serialize(pref) {
   return {
     profile: maskedPayoutSummary(pref),
     status: payoutProfileStatus(pref),
+    connect_state: connectState(pref),         // Not Connected / Setup Incomplete / Verification Required / Ready for Payouts
     tax_status: (pref && pref.tax_status) || 'not_started',
     setup_completed_at: (pref && pref.setup_completed_at) || null,
     connect_enabled: stripeConnectEnabled(),   // UI shows Direct Deposit only when true
