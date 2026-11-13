@@ -61,8 +61,8 @@ async function sendPaid(orderId) {
   if (!o) return;
   const method = o.fulfillment_method === 'shipping' ? 'Shipping' : 'Local pickup';
   const next = o.fulfillment_method === 'shipping'
-    ? 'The seller will prepare and ship your item. You will receive shipment details when it ships.'
-    : 'The seller will prepare your item and mark it ready for pickup. Watch for pickup details.';
+    ? 'The seller will prepare and ship your item. The carrier and tracking number appear under View your purchases once it ships.'
+    : 'The seller will prepare your item for pickup. Check View your purchases for pickup details and status.';
 
   // Buyer receipt
   if (o.buyer_email) {
@@ -74,7 +74,7 @@ async function sendPaid(orderId) {
       <p style="margin:16px 0 4px"><b>Fulfillment:</b> ${method}</p>
       <p style="color:#555;margin:0 0 16px">${esc(next)}</p>
       ${pickupBlock(o)}
-      <p><a href="${APP_BASE}/app.html#purchases" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">View your purchases</a></p>
+      <p><a href="${APP_BASE}/marketplace-purchases.html" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">View your purchases</a></p>
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
     await sendEmail({ to: o.buyer_email, subject: `Order confirmed — ${o.item_title} (${o.order_number})`, html,

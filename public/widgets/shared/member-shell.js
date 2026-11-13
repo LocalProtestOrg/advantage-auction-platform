@@ -621,14 +621,16 @@
     if (state.route !== 'purchases') return;
     var host = document.getElementById('adv-sec-live'); if (!host) return;
     var inv = (r.ok && r.body && r.body.invoices) || [];
-    if (!inv.length) { host.innerHTML = emptyCard('📦', 'No purchases yet',
+    // Fixed-price shop orders live on their own page (receipt, pickup or tracking, Report a problem). Owner 2026-11-12.
+    var shopLink = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">Bought a fixed-price item from a shop? <a id="adv-shop-purchases" href="/marketplace-purchases.html">View your shop purchases</a></div>';
+    if (!inv.length) { host.innerHTML = shopLink + emptyCard('📦', 'No auction purchases yet',
       "When you win a lot, your invoice, payment, and pickup details show up here.", '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
     var payable = inv.filter(isPayable), paid = inv.filter(function (i) { return String(i.status || '').toLowerCase() === 'paid'; });
     var other = inv.filter(function (i) { return !isPayable(i) && String(i.status || '').toLowerCase() !== 'paid'; });
     var head = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">' +
       (payable.length ? ('You have ' + payable.length + ' purchase' + (payable.length > 1 ? 's' : '') + ' awaiting payment.') : 'All your purchases are paid. Nicely done.') + '</div>';
     var sec = function (t, list) { return list.length ? ('<div class="adv-section-title">' + t + '</div><div style="display:grid;gap:12px">' + list.map(purchaseCard).join('') + '</div>') : ''; };
-    host.innerHTML = head + sec('Action needed', payable) + sec('Processing', other) + sec('Completed', paid);
+    host.innerHTML = shopLink + head + sec('Action needed', payable) + sec('Processing', other) + sec('Completed', paid);
     enrichPickups(inv);
   }
   async function enrichPickups(inv) {
