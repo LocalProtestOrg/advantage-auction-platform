@@ -1818,6 +1818,11 @@ class PaymentService {
 
   // Internal dispatch — assumes the event has already been acquired.
   async _dispatchWebhookEvent(event) {
+    // Accounts v2 event notifications (seller Direct Deposit accounts). They carry no object data, only a reference, so the
+    // account's status is always re-read from the payment processor. Any other notification is acknowledged without action.
+    if (event.object === 'v2.core.event') {
+      return require('./stripeConnectService').applyAccountV2Event(event);
+    }
     const obj = event.data.object;
 
     // ── Fixed-price Marketplace orders (Buy Now). These reuse THIS same signature-verified + idempotent

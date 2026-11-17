@@ -215,6 +215,29 @@ async function applyAccountUpdated(account) {
   }
 }
 
+// Accounts v2 event notifications (thin events). The notification is only a signal: it names the account and nothing in
+// it is trusted as status. Only an account already recorded for a seller is looked up (an unknown id makes no outside call),
+// and the status is re-read from the payment processor. A failed re-read THROWS so the delivery is retried, because a
+// stale "ready" must not outlive a capability the processor has switched off.
+const ACCOUNT_V2_EVENTS = Object.freeze([
+  'v2.core.account[requirements].updated',
+  'v2.core.account[configuration.recipient].capability_status_updated',
+  'v2.core.account[configuration.recipient].updated',
+  'v2.core.account.updated',
+  'v2.core.account.closed',
+]);
+async function applyAccountV2Event(event) {
+  const type = event && event.type;
+  if (!ACCOUNT_V2_EVENTS.includes(type)) return { updated: 0, ignored: 'event_type' };
+  const ref = event.related_object || {};
+  const id = typeof ref.id === 'string' && /^acct_[A-Za-z0-9]+$/.test(ref.id) ? ref.id : null;
+  if (!id || (ref.type && ref.type !== 'v2.core.account')) return { updated: 0, ignored: 'no_account' };
+  const known = (await db.query('SELECT 1 FROM seller_payout_preferences WHERE stripe_account_id = $1', [id])).rows[0];
+  if (!known) return { updated: 0, ignored: 'unknown_account' };
+  const mapped = await syncAccountById(id);
+  return { updated: mapped ? 1 : 0, status: mapped && mapped.connect_status };
+}
+
 // Webhook payout.paid / payout.failed — connected-account health (event.account). Aggregate,
 // not per-settlement; updates the seller's payout health + reason. Never marks a settlement paid.
 async function applyPayoutEvent(accountId, { failed = false, failureMessage = null } = {}) {
@@ -234,6 +257,6 @@ module.exports = {
   STRIPE_API_VERSION, getStripe,
   mapAccountToStatus, isConnectReady,
   ensureConnectAccount, createOnboardingLink, refreshAccountStatus, syncAccountById,
-  applyAccountUpdated, applyPayoutEvent,
+  applyAccountUpdated, applyPayoutEvent, applyAccountV2Event, ACCOUNT_V2_EVENTS,
   persistStatusForSeller, getPref, getRawPref,
 };

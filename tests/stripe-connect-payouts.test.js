@@ -203,6 +203,26 @@ describe('webhook: applyAccountUpdated / applyPayoutEvent', () => {
   });
 });
 
+describe('webhook: Accounts v2 notifications for a seller account on record', () => {
+  const note = { id: 'evt_v2', object: 'v2.core.event', type: 'v2.core.account[configuration.recipient].capability_status_updated',
+    related_object: { id: 'acct_1', type: 'v2.core.account' } };
+  beforeEach(() => { stripeMock.__retrieve.mockReset(); });
+  test('the status is re-read from the processor and saved by account id (nothing in the notification is trusted)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });   // the account is on record
+    stripeMock.__retrieve.mockResolvedValueOnce(V2_READY);
+    db.query.mockResolvedValueOnce({ rowCount: 1 });                 // the UPDATE
+    const r = await connect.applyAccountV2Event({ ...note, data: { connect_status: 'ready', anything: 'ignored' } });
+    expect(stripeMock.__retrieve).toHaveBeenCalledWith('acct_1', expect.objectContaining({ include: expect.any(Array) }));
+    expect(r).toEqual({ updated: 1, status: 'ready' });
+    expect(db.query.mock.calls[1][0]).toMatch(/UPDATE seller_payout_preferences/);
+  });
+  test('a failed re-read throws, so the delivery is retried and a stale status is not kept silently', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+    stripeMock.__retrieve.mockRejectedValueOnce(new Error('processor unavailable'));
+    await expect(connect.applyAccountV2Event(note)).rejects.toThrow('processor unavailable');
+  });
+});
+
 // ── Security + regression (source-level, deterministic) ──────────────────────────────────
 describe('security: no raw bank credentials stored', () => {
   test('migration 108 adds no routing/account-number columns', () => {

@@ -46,6 +46,14 @@ async function main() {
   // scripts/lib/prodReadOnly (incident 2026-10-14): the DIRECT endpoint (never the shared pooler), one BEGIN TRANSACTION READ
   // ONLY transaction that always ROLLs BACK, and every statement checked: no SET, no transaction control, no writes.
   const { withProdReadOnly } = require('./lib/prodReadOnly');
+  // LIVE or TEST: from the secret key when this process can see it, otherwise from what the production server reports.
+  // Decided BEFORE any service loads, so payout records are read in the same mode the server uses (no credential needed).
+  const modeHelper = require('./lib/preflightStripeMode');
+  const mode = await modeHelper.resolve({ base: BASE });
+  modeHelper.apply(mode);
+  if (mode.live == null) add('Payment mode for this check', UNVERIFIED, 'Could not tell whether production runs in LIVE or TEST mode (no key visible here and the health endpoint was unreadable), so a LIVE payout account may be reported as not ready below.',
+    'Run the pre-flight again when ' + BASE + '/api/health is reachable.');
+  else add('Payment mode for this check', PASS, `${mode.live ? 'LIVE' : 'TEST'} (from ${mode.source === 'key' ? 'the configured key' : 'the production health report'}).`);
   await withProdReadOnly(async (q) => {
     // Every service below talks to the database only through this guarded, read-only transaction.
     const runner = { query: async (t, p) => { const rows = await q(t, p || []); return { rows, rowCount: rows.length }; },

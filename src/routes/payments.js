@@ -233,12 +233,23 @@ router.post('/:paymentId/refund', (req, res) => {
 // (STRIPE_WEBHOOK_SECRET) and, optionally, the connected-accounts endpoint (STRIPE_CONNECT_WEBHOOK_SECRET),
 // which the provider signs with its own secret. Returns the event or throws the last verification error.
 function verifyWebhookEvent(rawBody, sig, env = process.env) {
-  const secrets = [env.STRIPE_WEBHOOK_SECRET, env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(Boolean);
+  // STRIPE_ACCOUNTS_V2_WEBHOOK_SECRET: the separate event destination (thin payload, "Your account") that carries Accounts v2
+  // notifications for seller Direct Deposit accounts. Each destination has its own signing secret.
+  const secrets = [env.STRIPE_WEBHOOK_SECRET, env.STRIPE_CONNECT_WEBHOOK_SECRET, env.STRIPE_ACCOUNTS_V2_WEBHOOK_SECRET].filter(Boolean);
   if (!secrets.length) { const e = new Error('Webhook secret not configured'); e.code = 'NO_WEBHOOK_SECRET'; throw e; }
   const stripe = Stripe(env.STRIPE_SECRET_KEY || 'sk_test_unset');
   let lastErr;
   for (const secret of secrets) {
     try { return stripe.webhooks.constructEvent(rawBody, sig, secret); } catch (err) { lastErr = err; }
+    // Accounts v2 status changes arrive as event notifications (object "v2.core.event"), which constructEvent refuses by
+    // design AFTER its signature check. They carry the same Stripe-Signature scheme, so the signature is verified here
+    // again, explicitly, with the same secret and tolerance before the notification is accepted.
+    try {
+      stripe.webhooks.signature.verifyHeader(rawBody, sig, secret, stripe.webhooks.DEFAULT_TOLERANCE);
+      const text = Buffer.isBuffer(rawBody) || rawBody instanceof Uint8Array ? Buffer.from(rawBody).toString('utf8') : String(rawBody);
+      const note = JSON.parse(text);
+      if (note && note.object === 'v2.core.event' && typeof note.id === 'string' && typeof note.type === 'string') return note;
+    } catch (_e) { /* not signed with this secret (or not a notification): keep the first error */ }
   }
   throw lastErr;
 }

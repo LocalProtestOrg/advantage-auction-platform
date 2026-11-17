@@ -62,6 +62,31 @@ v2 events, through the seller's payout page, which re-reads the status from Stri
 Check: Developers > Webhooks, is there an endpoint "listening to events on Connected accounts"? If not, no action is
 required for launch; the seller opens their payout page after finishing onboarding and the status updates.
 
+### 3a. Accounts v2 notifications (added 2026-11-17)
+
+Seller payout accounts created from November 2026 are Accounts v2 recipients. Their status changes are NOT sent as
+`account.updated`; they are sent as event notifications (thin payload), which need their own event destination. Until it
+exists the app still works: the seller's payout page re-reads the status whenever it is opened, and a transfer to an account
+that the processor has disabled is refused by the processor. The destination makes the recorded status update by itself.
+
+Owner steps (Stripe Dashboard, LIVE mode; source: docs.stripe.com/webhooks, "Create an event destination"):
+
+1. Developers > Webhooks (Workbench > Webhooks). Leave the existing destination as it is.
+2. Create an event destination. Events from: **Your account**. Payload: **Thin**.
+3. Select these five events:
+   `v2.core.account[requirements].updated`, `v2.core.account[configuration.recipient].capability_status_updated`,
+   `v2.core.account[configuration.recipient].updated`, `v2.core.account.updated`, `v2.core.account.closed`.
+4. Destination type: Webhook endpoint. Endpoint URL: `https://bid.advantage.bid/api/payments/webhook` (the same address as
+   the existing destination; a thin destination is a separate destination by design, not a duplicate).
+5. Reveal the signing secret (`whsec_...`) and add it in Railway (production service) as a NEW variable named
+   `STRIPE_ACCOUNTS_V2_WEBHOOK_SECRET`. Do not change `STRIPE_WEBHOOK_SECRET`. Paste the secret nowhere else.
+6. After the redeploy, open the Timeless Treasures payout page once, or wait for the next account change, and check the
+   destination's Event deliveries tab for HTTP 200.
+
+The app verifies each notification's signature, ignores any event outside the five above, ignores an account it has no
+record of, and never trusts the notification's content: it re-reads the account from the processor
+(`stripeConnectService.applyAccountV2Event`; tests: `tests/stripe-accounts-v2-events.test.js`).
+
 ## 4. A live check without a sale
 
 Stripe Dashboard > the endpoint > "Send test event" sends a sample `payment_intent.succeeded`. The app answers 500 for a
