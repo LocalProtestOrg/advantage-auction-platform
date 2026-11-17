@@ -791,7 +791,8 @@ app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
 app.use('/api/admin/settlements', adminSettlementsRoutes);
 app.use('/api/admin/storefront-payouts', require('./src/routes/adminStorefrontPayouts')); // storefront seller payouts (admin; mig 213)
-app.use('/api/admin/tax-jurisdictions', require('./src/routes/adminTaxJurisdictions')); // storefront sales tax responsibility per state (admin; mig 214)
+app.use('/api/admin/tax-jurisdictions', require('./src/routes/adminTaxJurisdictions')); // sales tax rule per state, all channels (admin; migs 214, 231)
+app.use('/api/admin/tax', require('./src/routes/adminTax')); // sales tax administration: ledger, registrations, filings, nexus, reports (admin; mig 231)
 app.use('/api/admin/subscribers', require('./src/routes/adminSubscribers'));
 app.use('/api/admin/marketing-campaigns', require('./src/routes/adminMarketingCampaigns'));
 app.use('/api/admin/audiences', require('./src/routes/adminAudiences'));
@@ -1053,6 +1054,10 @@ server.listen(PORT, () => {
     // Site watchdog: non-destructive checks of every page and key API on a risk-tier schedule; alerts on new problems.
     // Idle unless WATCHDOG_ENABLED=true (src/services/watchdog, migration 210).
     spawnWorker(path.join(__dirname, 'src/workers/watchdogWorker.js'));
+    // Sales tax bookkeeping: keeps the tax ledger current (every 15 minutes) and, once a day, opens due filing rows, raises
+    // deadline and nexus alerts and reconciles the ledger. Records and alerts only: it never registers, files or pays.
+    // TAX_WORKER_DISABLED=true turns it off.
+    spawnWorker(path.join(__dirname, 'src/workers/taxWorker.js'));
     // Phase 3P Owner Creative Reference library: reconcile folders/sidecars by content hash and upsert the durable
     // index at boot (best-effort; adding approved images needs no software change). Never publishes anything.
     setTimeout(() => {

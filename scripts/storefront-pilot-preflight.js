@@ -142,6 +142,22 @@ async function runChecks(runner) {
       // Checkout's own item load (eligibility, own-item rule, price, pickup). A placeholder buyer id never matches the seller.
       try { loaded = await orders.loadItemForPurchase(it.id, '00000000-0000-4000-8000-000000000000', 'pickup', runner); add('Item purchasable for pickup (server check)', PASS, 'loadItemForPurchase passes.'); }
       catch (e) { add('Item purchasable for pickup (server check)', BLOCKED, `Checkout refuses: ${e.code || e.message}.`); }
+      // The controlled test is a SHIPPED order ($3.00 + $2.00 shipping) to an address in the ship-to state (--ship-state,
+      // default: the pickup state). A shipped order is taxed in the ship-to state, so that state needs its own rule.
+      const pickupState = loaded ? ((saleLocation.forItem(loaded.item).address || {}).state || null) : null;
+      const shipState = String((process.argv.includes('--ship-state') ? process.argv[process.argv.indexOf('--ship-state') + 1] : pickupState) || '').toUpperCase() || null;
+      if (shipState) {
+        try {
+          const shipped = await orders.loadItemForPurchase(it.id, '00000000-0000-4000-8000-000000000000', 'shipping', runner, { shipToState: shipState, shipToCountry: 'US' });
+          add('Item purchasable as a shipped order (server check)', PASS, `Ships to ${shipState} for $${(Number(shipped.shippingCents) / 100).toFixed(2)}.`);
+        } catch (e) { add('Item purchasable as a shipped order (server check)', BLOCKED, `Checkout refuses a shipped order to ${shipState}: ${e.code || e.message}.`); }
+        if (shipState !== pickupState) {
+          const shipRule = await orders.taxRuleFor(shipState, runner);
+          add('Sales tax rule for the ship-to state', shipRule && shipRule.remitter !== 'seller' ? PASS : BLOCKED,
+            shipRule && shipRule.remitter !== 'seller' ? `${shipState}: "${shipRule.remitter}".` : `No usable rule for ${shipState}: a shipped order there is refused.`,
+            shipRule && shipRule.remitter !== 'seller' ? null : `Ship the test order to an address in ${pickupState || 'the pickup state'}, or add the rule for ${shipState} in Admin > Sales Tax Rules.`);
+        }
+      }
     }
 
     // ── 9. Sales tax rule for the sale state ──────────────────────────────────────────────────────────────────────
@@ -150,11 +166,18 @@ async function runChecks(runner) {
     else {
       const rule = await orders.taxRuleFor(state, runner);
       if (!rule) add('Sales tax rule', BLOCKED, `No effective rule for ${state}: every order there fails closed (TAX_CONFIGURATION_REQUIRED).`,
-        `Get the CPA's decision for ${state}, then add it in Admin > Tax Jurisdictions (seller_direct, or platform/seller with a Stripe Tax registration).`);
+        `Get the CPA's decision for ${state}, then add it in Admin > Sales Tax Rules: "platform" (Advantage.Bid collects and remits; record the registration first) or "seller_direct".`);
+      else if (rule.remitter === 'seller') add('Sales tax rule', BLOCKED, `${state} still has the retired "seller" rule: new orders are refused.`,
+        `Replace it in Admin > Sales Tax Rules with "platform" or "seller_direct" per the CPA's decision.`);
       else {
         add('Sales tax rule', PASS, `${state}: remitter "${rule.remitter}".`);
-        if (rule.remitter === 'platform' || rule.remitter === 'seller') add('Stripe Tax registration', UNVERIFIED, `The rule collects tax at checkout, so Stripe must be collecting in ${state}; registrations cannot be read from here.`,
-          `Stripe Dashboard (live) > Tax > Registrations: confirm ${state}. A registration also taxes auction invoices there.`);
+        if (rule.remitter === 'platform') {
+          const reg = await runner.query(`SELECT status, processor_registered FROM tax_registrations WHERE state = $1 AND status = 'active'`, [state]).then((r) => r.rows[0]).catch(() => null);
+          add('Sales tax registration on record', reg ? PASS : OWNER, reg ? `${state}: active registration recorded.` : `No active ${state} registration is recorded.`,
+            reg ? null : `Admin > Sales Tax > Registrations: record the ${state} registration.`);
+          add('Stripe Tax registration', UNVERIFIED, `The rule collects tax at checkout, so Stripe must be collecting in ${state}; registrations cannot be read from here.`,
+            `Stripe Dashboard (live) > Tax > Registrations: confirm ${state}. A registration also taxes auction invoices there.`);
+        }
       }
     }
     const taxSvc = svc('services/taxCalculationService');

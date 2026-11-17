@@ -4,42 +4,55 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Storefront Sales Tax Rules - Admin</title>
+  <title>Sales Tax Rules - Admin</title>
   <style>
     *,*::before,*::after{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
-    .wrap{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    .wrap{max-width:1200px;margin:0 auto;padding:1.25rem 1rem 4rem}
     h1{font-size:1.3rem;margin:0 0 .4rem}
     .sub{color:#64748b;font-size:13px;margin:0 0 1rem;max-width:900px;line-height:1.5}
     .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px}
     label{display:block;font-size:12px;font-weight:700;color:#475569;margin:8px 0 3px}
     input,select,textarea{width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font:inherit;font-size:14px}
-    .row{display:grid;grid-template-columns:120px 200px 1fr 160px;gap:10px}@media(max-width:800px){.row{grid-template-columns:1fr}}
-    .btn{padding:8px 14px;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;background:#2563eb;color:#fff;margin-top:10px}
-    .btn-mut{background:#fee2e2;color:#991b1b;margin:0}
-    table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px}
+    .row{display:grid;grid-template-columns:120px 260px 1fr 160px;gap:10px}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:800px){.row,.row2{grid-template-columns:1fr}}
+    .btn{padding:8px 14px;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;background:#2563eb;color:#fff;margin:10px 4px 0 0}
+    .btn-sm{margin:2px 4px 2px 0;padding:6px 10px;font-size:12px}
+    .btn-mut{background:#e2e8f0;color:#334155}
+    .btn-danger{background:#fee2e2;color:#991b1b}
+    .tblwrap{overflow-x:auto;background:#fff;border-radius:10px}
+    table{width:100%;border-collapse:collapse;min-width:900px}
     th,td{text-align:left;padding:8px 10px;font-size:13px;border-bottom:1px solid #f1f5f9;vertical-align:top}
-    th{background:#f8fafc;color:#475569}
+    th{background:#f8fafc;color:#475569;white-space:nowrap}
     .msg{font-size:13px;margin:8px 0;min-height:1em}
+    .small{font-size:12px;color:#64748b}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;background:#fef3c7;color:#92400e}
+    .hist td{background:#f8fafc;font-size:12px}
+    a{color:#2563eb}
   </style>
 </head>
 <body>
   <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
-    <h1>Storefront Sales Tax Rules</h1>
-    <p class="sub">Record, for each state, how sales tax on storefront purchases is handled, from professional tax advice: collected at checkout and remitted by Advantage.Bid (the tax is never paid to the seller); collected at checkout and paid to the seller with their proceeds (the seller remits); or not collected at checkout because the seller handles its own tax. <b>Every storefront order is refused in a state without a rule here</b>, even when no tax is calculated. When a rule says tax is collected at checkout, an order is also refused if tax is not actually being collected for that state (for example, no active registration with the payment processor). Every change is recorded.</p>
+    <h1>Sales Tax Rules</h1>
+    <p class="sub">Record, for each state, how sales tax is handled, from professional tax advice. One rule covers every kind of sale in that state: auctions, marketplace purchases and purchases made on a seller's own website. There are two choices: collected at checkout and remitted by Advantage.Bid (the tax is never paid to the seller), or not collected at checkout because the seller is responsible for its own tax. A rule under which Advantage.Bid collects can be saved only after the active registration for that state is recorded on the <a href="/admin/tax.html#registrations">Sales Tax</a> page. <b>A state without a rule is never permission to collect nothing</b>: storefront orders there are refused, and auction payments are reported or held according to the safeguard setting. When a rule says tax is collected at checkout, a sale is also refused or held if tax is not actually being collected for that state. Every change is recorded.</p>
     <div class="card">
       <div class="row">
         <div><label for="st">State</label><select id="st"></select></div>
-        <div><label for="rem">Who remits</label><select id="rem"><option value="platform">Collected at checkout; Advantage.Bid remits</option><option value="seller">Collected at checkout; the seller remits</option><option value="seller_direct">Not collected at checkout; the seller handles its own tax</option></select></div>
+        <div><label for="rem">How sales tax is handled</label><select id="rem"><option value="platform">Collected at checkout; Advantage.Bid remits</option><option value="seller_direct">Not collected at checkout; the seller is responsible</option></select></div>
         <div><label for="basis">Legal basis (advice or law relied on, who and when)</label><input id="basis" maxlength="1000"></div>
         <div><label for="eff">Effective from</label><input id="eff" type="date"></div>
+      </div>
+      <div class="row2">
+        <div><label for="source">Source reference (statute, publication or advice letter; optional)</label><input id="source" maxlength="1000"></div>
+        <div><label for="local">Local jurisdiction notes (county, city or district rules; optional)</label><input id="local" maxlength="500"></div>
       </div>
       <label for="notes">Notes (optional)</label><textarea id="notes" rows="2" maxlength="1000"></textarea>
       <button class="btn" id="save" type="button">Save Rule</button>
       <div class="msg" id="msg" role="status"></div>
     </div>
-    <table><thead><tr><th>State</th><th>Who remits</th><th>Legal basis</th><th>Effective</th><th>Updated</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+    <div class="tblwrap"><table><thead><tr><th>State</th><th>How sales tax is handled</th><th>Legal basis</th><th>Source and local notes</th><th>Effective</th><th>Last verified</th><th>Updated</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
   </div>
   <script src="/admin/tax-jurisdictions.js"></script>
 </body>

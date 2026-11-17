@@ -34,17 +34,20 @@ describe('the rule check (no decision about who is legally responsible; it enfor
   test('no rule: refused, whatever the calculation says', () => {
     for (const tax of [T({ taxCents: 825, collecting: true }), T({}), { enabled: false, taxCents: 0 }]) refused(() => taxConfiguration(null, 'TX', tax), 'TAX_CONFIGURATION_REQUIRED');
   });
-  test.each(['platform', 'seller'])('rule "%s" (collected at checkout)', (remitter) => {
-    expect(taxConfiguration({ remitter }, 'tx', T({ taxCents: 825, collecting: true }))).toEqual({ remitter, jurisdiction: 'TX' });
-    expect(taxConfiguration({ remitter }, 'TX', T({ collecting: true }))).toEqual({ remitter: 'none', jurisdiction: 'TX' });   // not taxable
-    expect(taxConfiguration({ remitter }, 'TX', T({ exempt: true }))).toEqual({ remitter: 'none', jurisdiction: 'TX' });       // approved exemption
+  test.each(['platform'])('rule "%s" (collected at checkout)', (remitter) => {
+    expect(taxConfiguration({ remitter }, 'tx', T({ taxCents: 825, collecting: true }))).toEqual({ remitter, jurisdiction: 'TX', basis: 'taxed' });
+    expect(taxConfiguration({ remitter }, 'TX', T({ collecting: true }))).toEqual({ remitter: 'none', jurisdiction: 'TX', basis: 'not_taxable' });   // not taxable
+    expect(taxConfiguration({ remitter }, 'TX', T({ exempt: true }))).toEqual({ remitter: 'none', jurisdiction: 'TX', basis: 'exempt' });       // approved exemption
     refused(() => taxConfiguration({ remitter }, 'TX', T({})), 'TAX_NOT_COLLECTING');                                         // not registered
     refused(() => taxConfiguration({ remitter }, 'TX', { enabled: false, taxCents: 0 }), 'TAX_NOT_COLLECTING');               // calculation off
     refused(() => taxConfiguration({ remitter }, 'TX', T({ collecting: undefined })), 'TAX_NOT_COLLECTING');                  // unknown: fail closed
   });
+  test('rule "seller" (collected and paid to the seller) is retired for new orders: treated as no rule (owner 2026-11-16)', () => {
+    for (const tax of [T({ taxCents: 825, collecting: true }), T({ collecting: true }), T({})]) refused(() => taxConfiguration({ remitter: 'seller' }, 'TX', tax), 'TAX_CONFIGURATION_REQUIRED');
+  });
   test('rule "seller_direct" (not collected at checkout)', () => {
-    expect(taxConfiguration({ remitter: 'seller_direct' }, 'TX', { enabled: false, taxCents: 0 })).toEqual({ remitter: 'none', jurisdiction: 'TX' });
-    expect(taxConfiguration({ remitter: 'seller_direct' }, 'TX', T({}))).toEqual({ remitter: 'none', jurisdiction: 'TX' });
+    expect(taxConfiguration({ remitter: 'seller_direct' }, 'TX', { enabled: false, taxCents: 0 })).toEqual({ remitter: 'none', jurisdiction: 'TX', basis: 'seller_direct' });
+    expect(taxConfiguration({ remitter: 'seller_direct' }, 'TX', T({}))).toEqual({ remitter: 'none', jurisdiction: 'TX', basis: 'seller_direct' });
     refused(() => taxConfiguration({ remitter: 'seller_direct' }, 'TX', T({ taxCents: 825, collecting: true })), 'TAX_CONFIGURATION_CONFLICT');
   });
   test('an unknown rule value is refused', () => { refused(() => taxConfiguration({ remitter: 'buyer' }, 'TX', T({ taxCents: 825, collecting: true })), 'TAX_CONFIGURATION_REQUIRED'); });

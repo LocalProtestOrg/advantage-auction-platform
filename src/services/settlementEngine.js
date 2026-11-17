@@ -585,6 +585,13 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
 
     // Create the Stripe Transfer (platform balance → seller Connected Account). Stable, per-auction
     // idempotency key: a retry after a partial failure returns the SAME transfer, never a second one.
+    // Sales tax reserve (services/tax/taxReserveService): a payout never spends money held for tax Advantage.Bid must remit.
+    try {
+      await require('./tax/taxReserveService').assertTransferLeavesReserve({ transferCents: net, stripe: require('./stripeConnectService').getStripe() });
+    } catch (e) {
+      if (e && e.name === 'TaxReserveError') throw Object.assign(new PaySellerError(e.message), { status: 409, code: e.code });
+      throw e;
+    }
     let transfer;
     try {
       const stripe = require('./stripeConnectService').getStripe();

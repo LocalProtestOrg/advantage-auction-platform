@@ -141,6 +141,15 @@ beforeAll(async () => {
   }
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
   await global.__PG.exec(mig('198_storefront_moderation_reports.sql'));
+  // Central tax management (migration 231), only what the administrator rule route reads and writes: the rule source and
+  // verification fields, the rule history and the registrations. The real statements are taken from the migration file.
+  const m231 = mig('231_central_tax_management.sql');
+  for (const re of [/ALTER TABLE marketplace_tax_jurisdictions[^;]+;/g, /CREATE TABLE IF NOT EXISTS tax_jurisdiction_history[\s\S]+?\n\);/g,
+    /CREATE TABLE IF NOT EXISTS tax_registrations[\s\S]+?\n\);/g]) {
+    const found = m231.replace(/\r\n/g, '\n').match(re);
+    if (!found) throw new Error('migration 231 statement not found: ' + re);
+    for (const sql of found) await global.__PG.exec(sql);
+  }
 
   for (const [name, role] of [['nora', 'seller'], ['sue', 'seller'], ['gus', 'seller'], ['bea', 'buyer'], ['ben', 'buyer'], ['admin', 'admin']]) {
     U[name] = await one(`INSERT INTO users (email, full_name, role) VALUES ($1, $2, $3) RETURNING *`, [name + '@test.example', name.toUpperCase(), role]);
@@ -352,7 +361,8 @@ describe('sales tax responsibility (decided per jurisdiction, never assumed)', (
         global.__TAX = tax;
         const it = await listQ(1);
         const r = await buy(it.id, 'bea', 1);
-        expect([r.status, r.body.code]).toEqual([409, 'TAX_NOT_COLLECTING']);
+        // 'seller' is retired (migration 231): a state still carrying it has no usable rule.
+        expect([r.status, r.body.code]).toEqual([409, remitter === 'seller' ? 'TAX_CONFIGURATION_REQUIRED' : 'TAX_NOT_COLLECTING']);
         expect(await stock(it.id)).toMatchObject({ quantity: 1, status: 'active' });   // units released, no payment started
       }
     }
@@ -380,11 +390,15 @@ describe('sales tax responsibility (decided per jurisdiction, never assumed)', (
     const it = await listQ(1);
     expect((await buy(it.id, 'bea', 1)).body.code).toBe('TAX_CONFIGURATION_REQUIRED');
   });
-  test('seller remits: the order records it and the tax is paid to the seller with the proceeds', async () => {
-    await q(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis) VALUES ('TX', 'seller', 'Test rule only')
-             ON CONFLICT (state) DO UPDATE SET remitter = 'seller'`);
+  test('seller remits is retired: no new order is taken under it, and an order recorded under it earlier is still paid out with its tax', async () => {
+    await q(`UPDATE marketplace_tax_jurisdictions SET remitter = 'seller' WHERE state = 'TX'`);
     global.__TAX = { cents: 825 };
+    const it = await listQ(1);
+    expect((await buy(it.id, 'bea', 1)).body.code).toBe('TAX_CONFIGURATION_REQUIRED');
+    // A historical order (taken while the rule existed) keeps its recorded treatment.
+    await q(`UPDATE marketplace_tax_jurisdictions SET remitter = 'platform' WHERE state = 'TX'`);
     const id = await paidAndPickedUp(10000);
+    await q(`UPDATE marketplace_orders SET tax_remitter = 'seller' WHERE id = $1`, [id]);
     expect(await one('SELECT tax_cents, tax_remitter, tax_jurisdiction, seller_proceeds_cents FROM marketplace_orders WHERE id = $1', [id]))
       .toEqual({ tax_cents: 825, tax_remitter: 'seller', tax_jurisdiction: 'TX', seller_proceeds_cents: 9100 });   // marketplace sale: 9%
     global.__TAX = null;
@@ -405,11 +419,19 @@ describe('sales tax responsibility (decided per jurisdiction, never assumed)', (
     const id = await paidAndPickedUp(3000);
     expect((await one('SELECT tax_cents, tax_remitter, tax_jurisdiction FROM marketplace_orders WHERE id = $1', [id]))).toEqual({ tax_cents: 0, tax_remitter: 'none', tax_jurisdiction: 'TX' });
   });
-  test('the administrator can record each of the three answers; anything else is refused', async () => {
-    for (const remitter of ['platform', 'seller', 'seller_direct']) {
-      const r = await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter, legal_basis: 'Test advice recorded for this suite' });
+  test('the administrator can record each of the two current answers; the retired one and anything else are refused', async () => {
+    // Advantage.Bid may collect only where an ACTIVE registration is recorded (migration 231).
+    const basis = { legal_basis: 'Test advice recorded for this suite' };
+    expect((await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter: 'platform', ...basis })).body.code).toBe('REGISTRATION_REQUIRED');
+    await q(`INSERT INTO tax_registrations (state, status) VALUES ('NM', 'active')`);
+    for (const remitter of ['platform', 'seller_direct']) {
+      const r = await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter, ...basis });
       expect(r.body.data).toMatchObject({ state: 'NM', remitter });
     }
+    // 'seller' (collected at checkout and paid to the seller) is retired: refused for a new or changed rule.
+    const retired = await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter: 'seller', ...basis });
+    expect([retired.status, retired.body.code]).toEqual([422, 'REMITTER_RETIRED']);
+    expect(await one(`SELECT remitter FROM marketplace_tax_jurisdictions WHERE state = 'NM'`)).toEqual({ remitter: 'seller_direct' });
     expect((await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NM', { remitter: 'none', legal_basis: 'Test advice recorded for this suite' })).body.code).toBe('REMITTER_INVALID');
     await expect(global.__PG.query(`UPDATE marketplace_tax_jurisdictions SET remitter = 'buyer' WHERE state = 'NM'`)).rejects.toThrow(/remitter_check/);
   });
@@ -451,12 +473,14 @@ describe('the administrator tax rules (one rule per state, reasons recorded, aud
     expect((await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NY', { remitter: 'buyer', legal_basis: 'Advice from counsel' })).body.code).toBe('REMITTER_INVALID');
     expect((await call('admin', 'PUT', '/api/admin/tax-jurisdictions/NY', { remitter: 'platform', legal_basis: 'short' })).body.code).toBe('BASIS_REQUIRED');
     audit().mockClear();
+    await q(`INSERT INTO tax_registrations (state, status) VALUES ('NY', 'active')`);   // an active registration is required before Advantage.Bid collects
     const ok = await call('admin', 'PUT', '/api/admin/tax-jurisdictions/ny', { remitter: 'platform', legal_basis: 'Test advice recorded for this suite' });
     expect(ok.body.data).toMatchObject({ state: 'NY', remitter: 'platform', updated_by: U.admin.id });
     expect(audit()).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'tax_jurisdiction_rule_set', actor_id: U.admin.id }));
     expect((await call('admin', 'DELETE', '/api/admin/tax-jurisdictions/NY')).body.data.removed).toBe(true);
     expect(audit()).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'tax_jurisdiction_rule_removed' }));
     expect(await one(`SELECT count(*)::int n FROM marketplace_tax_jurisdictions WHERE state = 'NY'`)).toEqual({ n: 0 });
+    expect((await q(`SELECT action FROM tax_jurisdiction_history WHERE state = 'NY' ORDER BY id`)).map((r) => r.action)).toEqual(['set', 'removed']);   // history kept (migration 231)
   });
 });
 

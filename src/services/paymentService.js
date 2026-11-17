@@ -723,6 +723,9 @@ class PaymentService {
         await this._failPendingPayment(paymentId, 'tax:' + (taxErr.code || 'error'));
         if (taxErr.code === 'BUYER_TAX_ADDRESS_REQUIRED') return { skipped: 'tax_address_required', paymentId };
         if (taxErr.code === 'PICKUP_LOCATION_MISSING') return { status: 'location_missing', paymentId, missing: taxErr.missing || [] };
+        // Held by the sales tax safeguard: not the buyer's problem. No charge and no payment request; an administrator
+        // has been alerted and the buyer pays once the configuration is completed.
+        if (taxErr.taxHold) return { status: 'tax_hold', paymentId, code: taxErr.code };
         return { status: 'failed', paymentId, reason: 'tax_' + String(taxErr.code || 'error').toLowerCase() };
       }
     }
@@ -1584,6 +1587,10 @@ class PaymentService {
         auctionId: loc.auctionId, paymentId, missing: loc.missing });
       throw saleLocation.locationError('PICKUP_LOCATION_MISSING', 'buyer', loc.missing, 409);
     }
+    const taxPolicy = require('./tax/taxPolicy');
+    // Lots in a category an administrator mapped to its own tax code are calculated on their own line (null = one line).
+    const lines = await require('./tax/taxCategoryService').auctionLines(paymentId, taxableBaseCents)
+      .catch((e) => { console.error('[tax] auction tax lines unavailable; using one line:', e.message); return null; });
     const t = await taxService.computeTax({
       buyerUserId,
       taxableBaseCents,
@@ -1591,16 +1598,37 @@ class PaymentService {
       shipFrom: loc.address,       // the goods' origin is the same place
       addressSource: 'shipping',
       reference: 'payment:' + paymentId,
+      lines,
     });
-    const chargeCents = current + (t.taxCents || 0);
+    // ── Sales tax safeguard (owner 2026-11-16; services/tax/taxPolicy) ─────────────────────────────────────────
+    // A $0 result is never accepted on its own: the state's rule says whether Advantage.Bid collects there, and the
+    // calculation says whether it really is collecting. A payment that cannot be taxed correctly is HELD for an
+    // administrator (never charged without tax, never lost): the buyer pays once the configuration is completed.
+    const state = loc.address && loc.address.state ? String(loc.address.state).toUpperCase() : null;
+    const [rule, mode, exception] = await Promise.all([
+      taxPolicy.ruleFor(state), taxPolicy.auctionEnforcement(), taxPolicy.activeException(loc.auctionId, state)]);
+    const d = taxPolicy.decideAuction({ rule, tax: t, mode, exception });
+    if (d.action === 'hold') {
+      await require('./tax/taxHolds').recordAuctionHold({ auctionId: loc.auctionId, paymentId, buyerUserId, state, code: d.code });
+      throw new taxPolicy.TaxHoldError(d.code, { state, auctionId: loc.auctionId });
+    }
+    if (d.remitter === 'unconfigured' || d.remitter === 'exception') {
+      await require('./tax/taxHolds').reportUntaxedAuctionSale({ auctionId: loc.auctionId, paymentId, state, remitter: d.remitter });
+    }
+    const chargeCents = current + d.taxCents;
     await db.query(
       `UPDATE payments
           SET amount_cents               = $1,
               taxable_base_cents         = $2,
               sales_tax_cents            = $3,
-              stripe_tax_calculation_id  = $4
+              stripe_tax_calculation_id  = $4,
+              tax_remitter               = $6,
+              tax_jurisdiction           = $7,
+              tax_basis                  = $8,
+              tax_detail                 = $9::jsonb
         WHERE id = $5`,
-      [chargeCents, taxableBaseCents, t.taxCents || 0, t.calculationId || null, paymentId]);
+      [chargeCents, taxableBaseCents, d.taxCents, d.keepCalculation ? (t.calculationId || null) : null, paymentId,
+        d.remitter, state, d.basis, t.detail ? JSON.stringify(t.detail) : null]);
     return chargeCents;
   }
 

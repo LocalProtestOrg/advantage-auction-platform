@@ -72,7 +72,8 @@ function addressComplete(a) {
  *  - Stripe failure (flag ON)          → throws TaxCalculationError('TAX_CALCULATION_FAILED')  (caller must FAIL the payment)
  *  - otherwise                         → { enabled:true,  taxCents:<stripe>, calculationId:<id>, exempt:false }
  */
-async function computeTax({ buyerUserId, taxableBaseCents, shippingCents = 0, address, shipFrom = null, addressSource = 'shipping', currency = 'usd', reference }) {
+async function computeTax({ buyerUserId, taxableBaseCents, shippingCents = 0, address, shipFrom = null, addressSource = 'shipping', currency = 'usd', reference,
+  category = null, lines = null }) {
   if (!taxEnabled()) return { enabled: false, taxCents: 0, calculationId: null, exempt: false };
 
   const base = Math.max(0, Math.round(Number(taxableBaseCents) || 0));
@@ -92,17 +93,15 @@ async function computeTax({ buyerUserId, taxableBaseCents, shippingCents = 0, ad
       'A billing address is required to calculate sales tax before payment.', 422);
   }
 
+  // Merchandise tax codes (migration 231, tax_category_codes): a category an administrator mapped is sent with its own
+  // code; everything else keeps the general code. With no mapping the request is exactly the single line it always was.
+  const lineItems = await buildLineItems({ base, reference, category, lines });
   let calc;
   try {
     const stripe = getStripe();
     calc = await stripe.tax.calculations.create({
       currency,
-      line_items: [{
-        amount: base,                 // hammer + buyer premium, or a storefront order's goods (tax-exclusive base)
-        reference: reference || 'auction-sale',
-        tax_behavior: 'exclusive',
-        tax_code: DEFAULT_TAX_CODE,
-      }],
+      line_items: lineItems,
       // Shipping as its own amount, so the provider applies the destination state's shipping taxability
       // (tax_amount_exclusive then includes any tax on shipping). Never sent for auctions.
       ...(ship > 0 ? { shipping_cost: { amount: ship, tax_behavior: 'exclusive' } } : {}),
@@ -126,6 +125,8 @@ async function computeTax({ buyerUserId, taxableBaseCents, shippingCents = 0, ad
         postal_code: shipFrom.postal_code,
         country: shipFrom.country || DEFAULT_COUNTRY,
       } } } : {}),
+      // Each line's own breakdown names the jurisdictions (state, county, city, district) for the tax ledger.
+      expand: ['line_items.data.tax_breakdown'],
     }, { timeout: 15000 });
   } catch (e) {
     // Never assume $0 on failure — the caller MUST block the payment (fail-safe).
@@ -135,7 +136,61 @@ async function computeTax({ buyerUserId, taxableBaseCents, shippingCents = 0, ad
   }
 
   const taxCents = Math.max(0, Math.round(Number(calc.tax_amount_exclusive) || 0));
-  return { enabled: true, taxCents, calculationId: calc.id, exempt: false, collecting: isCollecting(calc, taxCents) };
+  return { enabled: true, taxCents, calculationId: calc.id, exempt: false, collecting: isCollecting(calc, taxCents), detail: taxDetail(calc) };
+}
+
+// One line per distinct tax code. `lines` (auction lots) = [{ amountCents, category }]; their amounts must add up to base,
+// otherwise the single general line is used (the amount charged is never changed by a mapping problem).
+async function buildLineItems({ base, reference, category, lines }) {
+  const ref = reference || 'auction-sale';
+  const single = (code) => [{ amount: base, reference: ref, tax_behavior: 'exclusive', tax_code: code || DEFAULT_TAX_CODE }];
+  let codes;
+  try { codes = require('./tax/taxCategoryService'); } catch (_e) { return single(null); }
+  try {
+    if (Array.isArray(lines) && lines.length) {
+      const byCode = new Map();
+      let sum = 0;
+      for (const l of lines) {
+        const amt = Math.max(0, Math.round(Number(l.amountCents) || 0));
+        const code = (await codes.codeFor(l.category)) || DEFAULT_TAX_CODE;
+        byCode.set(code, (byCode.get(code) || 0) + amt); sum += amt;
+      }
+      if (sum !== base || byCode.size <= 1) return single(byCode.size === 1 ? [...byCode.keys()][0] : null);
+      return [...byCode.entries()].map(([code, amount], i) => ({ amount, reference: ref + ':' + (i + 1), tax_behavior: 'exclusive', tax_code: code }));
+    }
+    return single(category ? await codes.codeFor(category) : null);
+  } catch (e) {
+    console.error('[tax] tax code lookup failed; using the general code:', e.message);
+    return single(null);
+  }
+}
+
+// What the calculation said, kept with the transaction for the tax ledger: the taxable amount and each rate applied.
+function taxDetail(calc) {
+  try {
+    const rows = Array.isArray(calc && calc.tax_breakdown) ? calc.tax_breakdown : [];
+    const taxable = rows.reduce((m, r) => Math.max(m, Number(r && r.taxable_amount) || 0), 0);
+    const places = [];
+    for (const li of ((calc.line_items && calc.line_items.data) || [])) {
+      for (const b of (li.tax_breakdown || [])) {
+        const j = b.jurisdiction || {};
+        if (!j.display_name) continue;
+        const found = places.find((x) => x.name === j.display_name && x.level === (j.level || null));
+        if (found) found.amount_cents += Number(b.amount) || 0;
+        else places.push({ name: j.display_name, level: j.level || null, state: j.state || null, amount_cents: Number(b.amount) || 0 });
+      }
+    }
+    return {
+      taxable_cents: taxable,
+      jurisdictions: places.slice(0, 20),
+      breakdown: rows.slice(0, 12).map((r) => ({
+        amount_cents: Number(r.amount) || 0, taxable_cents: Number(r.taxable_amount) || 0, reason: r.taxability_reason || null,
+        rate: r.tax_rate_details ? { percentage: r.tax_rate_details.percentage_decimal || null, state: r.tax_rate_details.state || null,
+          country: r.tax_rate_details.country || null, tax_type: r.tax_rate_details.tax_type || null } : null,
+        jurisdiction: r.jurisdiction ? { name: r.jurisdiction.display_name || null, level: r.jurisdiction.level || null, state: r.jurisdiction.state || null } : null,
+      })),
+    };
+  } catch (_e) { return null; }
 }
 
 // Whether the processor is actually COLLECTING tax for this address, read from the calculation itself. A $0 result can mean

@@ -209,7 +209,8 @@ function replySubject(conv, original) {
 async function sendReply(conv, inbound, text, deps) {
   const email = deps.emailService || require('../emailService');
   const refs = [...new Set([...idsFrom(inbound.references_header), ...idsFrom(inbound.email_message_id)])].slice(-10).join(' ');
-  const body = text.trim() + SIGNATURE + `\n\nRef: ${conv.ref}`;
+  // Outbound safeguard (taxConfidentiality.js): the same check the engine and the conversation store apply, at the send itself.
+  const body = require('./taxConfidentiality').guardOutbound(String(text), 'email').text.trim() + SIGNATURE + `\n\nRef: ${conv.ref}`;
   const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f2937">'
     + body.split(/\n{2,}/).map((p) => '<p style="margin:0 0 12px">' + p.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
       .replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>') + '</p>').join('') + '</div>';

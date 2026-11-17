@@ -17,8 +17,9 @@ const db = require('../../db');
 const tools = require('./tools');
 const conversations = require('./conversationService');
 const settings = require('./settings');
+const taxConfidentiality = require('./taxConfidentiality');
 
-const MODEL = () => process.env.SASHA_MODEL || 'claude-sonnet-5';
+const MODEL =() => process.env.SASHA_MODEL || 'claude-sonnet-5';
 // USD per million tokens for the default model (claude-sonnet-5, Anthropic list price checked 2026-10-07: input $2, output $10,
 // prompt-cache read $0.20, prompt-cache write $2.50). Override with env when SASHA_MODEL points at a differently priced model.
 const PRICE_IN_PER_MTOK = () => Number(process.env.SASHA_PRICE_INPUT_PER_MTOK || 2);
@@ -203,6 +204,22 @@ async function recordRun(row) {
 }
 
 /**
+ * Internal tax and financial administration (owner instruction 2026-11; taxConfidentiality.js). When the customer's
+ * newest message asks about it, the reply is fixed: the required wording, then the existing hand-off (offered, or
+ * opened when the customer already asked for someone to follow up). Decided by a deterministic classifier, never by
+ * the model, and the same whoever the requester says they are. Returns null for every other message.
+ */
+async function taxConfidentialReply({ conversationId, transcript, ctx }) {
+  const verdict = taxConfidentiality.classifyInbound(taxConfidentiality.latestCustomerText(transcript));
+  if (!verdict.restricted) return null;
+  // On a call the hand-off is a message for the team (request_callback needs the caller's number confirmed), so it is offered.
+  if (ctx.channel === 'phone' || !verdict.wantsFollowUp) return { text: taxConfidentiality.requiredReply(ctx.channel), handoff: null };
+  const handoff = { reason: 'customer_request', summary: taxConfidentiality.HANDOFF_SUMMARY };
+  await require('./toolGuard').run('request_human', () => conversations.requestHandoff(conversationId, { reasonCode: handoff.reason, reasonText: handoff.summary, createdBy: 'customer' }));
+  return { text: taxConfidentiality.requiredReply(ctx.channel, { handoffOpened: true, askEmail: ctx.channel === 'chat' && !ctx.userId && !ctx.hasContactEmail }), handoff };
+}
+
+/**
  * Produce Sasha's reply for a conversation.
  * ctx: { channel: 'email'|'chat', userId?: authenticated user id, customerName? }
  * Returns { outcome: 'replied'|'handoff'|'skipped'|'error', text?, handoff?: {reason, summary}, runId }.
@@ -217,10 +234,17 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
   if ((await spentTodayUsd()) >= s.daily_budget_usd) {
     return { outcome: 'skipped', budget: true, runId: await recordRun({ ...base, outcome: 'skipped', reason: 'daily_budget_reached' }) };
   }
+  const transcript = await conversations.transcriptForModel(conversationId);
+  // Internal tax and financial administration: answered with the owner's required wording, without asking the model.
+  const taxReply = await taxConfidentialReply({ conversationId, transcript, ctx });
+  if (taxReply) {
+    const outcome = taxReply.handoff ? 'handoff' : 'replied';
+    const runId = await recordRun({ ...base, model: null, outcome, reason: 'tax_confidential', latencyMs: Date.now() - started });
+    return { outcome, text: taxReply.text, handoff: taxReply.handoff, runId, taxConfidential: true };
+  }
   const anthropic = getClient(deps);
   if (!anthropic) return { outcome: 'error', runId: await recordRun({ ...base, outcome: 'error', reason: 'no_model_key', error: 'ANTHROPIC_API_KEY not set' }) };
 
-  const transcript = await conversations.transcriptForModel(conversationId);
   const messages = buildMessages(transcript);
   if (!messages.length) return { outcome: 'skipped', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'no_customer_message' }) };
 
@@ -245,12 +269,15 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
       cacheWriteTok += (res.usage && (res.usage.cache_creation_input_tokens || 0)) || 0;
       const toolUses = (res.content || []).filter((b) => b.type === 'tool_use');
       if (res.stop_reason !== 'tool_use' || !toolUses.length || round === MAX_TOOL_ROUNDS) {
-        const text = plainText((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
+        const draft = plainText((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
         const costMicro = costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok });
-        if (!text) throw new Error('empty reply');
+        if (!draft) throw new Error('empty reply');
+        // Outbound safeguard: a reply that would state internal tax administration details is replaced by the required wording.
+        const checked = taxConfidentiality.guardOutbound(draft, ctx.channel);
+        const text = checked.text;
         const outcome = handoff ? 'handoff' : 'replied';
-        const runId = await recordRun({ ...base, outcome, reason: handoff ? handoff.reason : null, tools: used, inTok, outTok, cacheTok, costMicro, latencyMs: Date.now() - started });
-        return { outcome, text, handoff, runId };
+        const runId = await recordRun({ ...base, outcome, reason: checked.blocked ? 'tax_confidential_outbound' : (handoff ? handoff.reason : null), tools: used, inTok, outTok, cacheTok, costMicro, latencyMs: Date.now() - started });
+        return { outcome, text, handoff, runId, ...(checked.blocked ? { taxConfidential: true } : {}) };
       }
       messages.push({ role: 'assistant', content: res.content });
       const results = [];
@@ -386,9 +413,18 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
   if (limits.perCallUsd != null && (await spentOnConversationUsd(conversationId)) >= limits.perCallUsd) {
     return { outcome: 'skipped', budget: 'per_call', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'call_budget_reached' }) };
   }
+  const transcript = await conversations.transcriptForModel(conversationId);
+  // Internal tax and financial administration: the required wording is spoken without asking the model (same rule as respond()).
+  const taxReply = await taxConfidentialReply({ conversationId, transcript, ctx: { ...ctx, channel: 'phone' } });
+  if (taxReply) {
+    const text = speakable(taxReply.text);
+    onSpeak(text, { kind: 'speech' });
+    const runId = await recordRun({ ...base, model: null, outcome: 'replied', reason: 'tax_confidential', latencyMs: Date.now() - started });
+    return { outcome: 'replied', text, handoff: null, runId, interrupted: false, tools: [], taxConfidential: true };
+  }
   const anthropic = getClient(deps);
   if (!anthropic) return { outcome: 'error', runId: await recordRun({ ...base, outcome: 'error', reason: 'no_model_key', error: 'ANTHROPIC_API_KEY not set' }) };
-  const messages = buildMessages(await conversations.transcriptForModel(conversationId));
+  const messages = buildMessages(transcript);
   if (!messages.length) return { outcome: 'skipped', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'no_customer_message' }) };
   if (ctx.userId && ctx.sellerType === undefined) {
     const sp = (await db.query(`SELECT seller_type FROM seller_profiles WHERE user_id = $1`, [ctx.userId]).catch(() => ({ rows: [] }))).rows[0];
@@ -416,8 +452,15 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
   // A website address is spoken only when the caller asked for it (otherwise "the Advantage.Bid website").
   const lastCustomer = (() => { const u = [...messages].reverse().find((m) => m.role === 'user'); return u && typeof u.content === 'string' ? u.content : ''; })();
   const allowDomain = /\b(website|web ?site|web address|url|domain|site address|what(?:'s| is) (?:your|the) site)\b/i.test(lastCustomer);
+  // Outbound safeguard for speech: each sentence is checked BEFORE it is spoken. A sentence that would state internal
+  // tax administration details is never spoken; the required wording is spoken instead, once, and the turn ends.
+  let taxBlocked = false;
   const say = (t, kind) => {
-    const x = speakable(t, { allowDomain }); if (!x) return;
+    let x = speakable(t, { allowDomain }); if (!x) return;
+    if (kind === 'speech') {
+      if (taxBlocked) return;
+      if (taxConfidentiality.outboundViolation(x)) { taxBlocked = true; x = speakable(taxConfidentiality.requiredReply('phone')); }
+    }
     if (kind === 'speech') { fillerPending = false; opActive = false; if (!HOLDING_ONLY.test(x)) answered = true; }
     lastSpokeAt = Date.now(); spoken.push(x); onSpeak(x, { kind });
   };
@@ -438,6 +481,7 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
         signal ? { signal } : undefined);
       for await (const ev of stream) {
         if (aborted()) { interrupted = true; break; }
+        if (taxBlocked) break;   // the required wording was spoken: nothing more from this draft, and no further lookups
         if (!firstOutput && (ev.type === 'content_block_start' || ev.type === 'content_block_delta')) {
           firstOutput = true; timing('first_output', { round, kind: ev.content_block ? ev.content_block.type : 'delta' });
         }
@@ -462,6 +506,7 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
       outTok += roundOut;
       if (aborted()) interrupted = true;   // the stream may end quietly on abort: never speak the leftover partial sentence
       if (interrupted) break;
+      if (taxBlocked) break;
       if (stop === 'max_tokens') {
         // Stopped by the ceiling: never speak the unfinished sentence and never run a half-written tool call. Whole
         // sentences already spoken stand; if nothing real was said, the turn ends in the recovery line (below).
@@ -504,9 +549,9 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
     // A turn must end with a real answer: never silence, never only a holding phrase.
     if (!interrupted && (!text || !answered)) throw Object.assign(new Error(ceilingHit ? 'output ceiling reached before an answer' : 'empty reply'), { ceiling: ceilingHit });
     const outcome = handoff ? 'handoff' : 'replied';
-    const runId = await recordRun({ ...base, outcome, reason: interrupted ? 'interrupted' : (handoff ? handoff.reason : (ceilingHit ? 'output_ceiling' : null)), tools: used, inTok, outTok, cacheTok,
+    const runId = await recordRun({ ...base, outcome, reason: taxBlocked ? 'tax_confidential_outbound' : (interrupted ? 'interrupted' : (handoff ? handoff.reason : (ceilingHit ? 'output_ceiling' : null))), tools: used, inTok, outTok, cacheTok,
       costMicro: costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok }), latencyMs: Date.now() - started });
-    return { outcome, text, handoff, runId, interrupted, tools: used };
+    return { outcome, text, handoff, runId, interrupted, tools: used, ...(taxBlocked ? { taxConfidential: true } : {}) };
   } catch (e) {
     if (aborted()) {
       const runId = await recordRun({ ...base, outcome: 'replied', reason: 'interrupted', tools: used, inTok, outTok, cacheTok,

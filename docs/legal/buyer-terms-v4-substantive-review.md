@@ -22,6 +22,11 @@ Factual corrections already in v4 (no decision needed; already approved): debit 
 verified with the bank with no charge to verify; maximum bids; the Sales Near You paragraph carried over from version 3;
 contact address 2205 Ogden Hwy, Adrian, MI 49221.
 
+*Clarification 2026-11-16 (the review above is unchanged): row 1 calls Adrian, Michigan "the business address". It is
+a mailing address only. Advantage.Bid is legally registered in New Jersey and operates out of New Jersey. Governing
+law, venue and the published address are with counsel:
+`docs/legal/governing-law-and-address-corrections-draft-2026-11.md`.*
+
 **How to approve:** reply with approve or change for each row. Changes are made in `docs/legal/terms-of-service-v4.md`,
 then published with `scripts/prod-publish-buyer-terms-version.js` (dry run first). Buyers then accept at their next
 registration, bid or purchase; no announcement is sent; earlier acceptances stay on record.

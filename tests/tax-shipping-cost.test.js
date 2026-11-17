@@ -32,6 +32,7 @@ test('auction call (no shippingCents): the exact request as before, with no ship
     line_items: [{ amount: 11800, reference: 'auction-sale-1', tax_behavior: 'exclusive', tax_code: tax.DEFAULT_TAX_CODE }],
     customer_details: { address: { line1: ORIGIN.line1, line2: undefined, city: ORIGIN.city, state: 'NJ', postal_code: ORIGIN.postal_code, country: 'US' }, address_source: 'shipping' },
     ship_from_details: { address: { line1: ORIGIN.line1, line2: undefined, city: ORIGIN.city, state: 'NJ', postal_code: ORIGIN.postal_code, country: 'US' } },
+    expand: ['line_items.data.tax_breakdown'],   // jurisdiction names for the tax ledger (migration 231); changes no amount
   });
 });
 

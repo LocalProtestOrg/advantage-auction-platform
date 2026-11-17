@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Sales Tax - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1280px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    h1{font-size:1.3rem;margin:0 0 .4rem}
+    h2{font-size:1.05rem;margin:1.2rem 0 .5rem}
+    h3{font-size:.92rem;margin:0 0 .5rem;color:#334155}
+    .sub{color:#64748b;font-size:13px;margin:0 0 1rem;max-width:960px;line-height:1.5}
+    .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+    .tab{padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:#334155;cursor:pointer}
+    .tab[aria-selected="true"]{background:#1e3a8a;border-color:#1e3a8a;color:#fff}
+    .panel[hidden]{display:none}
+    .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+    .stat{background:#fff;border-radius:10px;padding:12px}
+    .stat .k{font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em}
+    .stat .v{font-size:1.25rem;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+    .stat .n{font-size:12px;color:#64748b;margin-top:2px}
+    label{display:block;font-size:12px;font-weight:700;color:#475569;margin:8px 0 3px}
+    input,select,textarea{width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font:inherit;font-size:14px;background:#fff}
+    input[type=checkbox]{width:auto;margin-right:6px}
+    .check{display:flex;align-items:center;font-size:13px;font-weight:600;color:#334155;margin-top:10px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+    .bar > div{min-width:130px;flex:1 1 130px}
+    .bar > .fixed{flex:0 0 auto;min-width:0}
+    .btn{padding:8px 14px;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;margin:2px 4px 2px 0;background:#2563eb;color:#fff}
+    .btn-ok{background:#166534;color:#fff}.btn-mut{background:#e2e8f0;color:#334155}.btn-danger{background:#fee2e2;color:#991b1b}
+    .btn-sm{padding:6px 10px;font-size:12px}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .tblwrap{overflow-x:auto;background:#fff;border-radius:10px;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:8px 10px;font-size:13px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{background:#f8fafc;color:#475569;white-space:nowrap}
+    td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    tfoot td{font-weight:800;background:#f8fafc}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;background:#e2e8f0;color:#334155}
+    .b-ok{background:#dcfce7;color:#166534}.b-warn{background:#fef3c7;color:#92400e}.b-bad{background:#fee2e2;color:#991b1b}.b-info{background:#e0e7ff;color:#3730a3}
+    .msg{font-size:13px;margin:8px 0;min-height:1em}
+    .small{font-size:12px;color:#64748b}
+    .note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;margin-bottom:14px}
+    .alert{border-left:4px solid #cbd5e1;padding:8px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 8px 8px 0;font-size:13px}
+    .alert.critical{border-color:#dc2626}.alert.warning{border-color:#d97706}.alert.info{border-color:#4f46e5}
+    a{color:#2563eb}
+    #status{position:sticky;top:var(--admin-nav-h,0);z-index:5;background:#f1f5f9;padding:4px 0}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Sales Tax</h1>
+    <p class="sub">Sales tax for every kind of sale (auctions, marketplace purchases and purchases made on a seller's own website), from the permanent tax ledger. This page records and reports. It never registers with a state, files a return or pays tax: each of those is done by a person, and then recorded here. Reports are totals; no buyer details are shown.</p>
+    <div class="msg" id="status" role="status"></div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button class="tab" type="button" role="tab" data-tab="overview">Overview</button>
+      <button class="tab" type="button" role="tab" data-tab="ledger">Ledger</button>
+      <button class="tab" type="button" role="tab" data-tab="registrations">Registrations and Filings</button>
+      <button class="tab" type="button" role="tab" data-tab="rules">Rules</button>
+      <button class="tab" type="button" role="tab" data-tab="codes">Tax Codes</button>
+      <button class="tab" type="button" role="tab" data-tab="nexus">Nexus</button>
+      <button class="tab" type="button" role="tab" data-tab="exceptions">Exceptions and Holds</button>
+      <button class="tab" type="button" role="tab" data-tab="sellers">Seller Reporting</button>
+    </div>
+
+    <!-- Overview -->
+    <section class="panel" id="panel-overview" role="tabpanel">
+      <div class="bar">
+        <div><label for="period">Month</label><select id="period"></select></div>
+        <div class="fixed"><button class="btn btn-mut" id="ov-refresh" type="button">Refresh</button></div>
+        <div class="fixed"><button class="btn btn-mut" id="ov-csv" type="button">Download State Summary (CSV)</button></div>
+      </div>
+      <div class="stats" id="ov-stats"></div>
+      <div class="tblwrap"><table id="ov-table" style="min-width:1180px">
+        <thead><tr><th>State</th><th class="num">Gross sales</th><th class="num">Taxable</th><th class="num">Tax collected</th><th class="num">Tax refunded</th><th class="num">Net tax to remit</th><th class="num">Remitted (all time)</th><th class="num">Outstanding (all time)</th><th>Rule</th><th>Registration</th><th>Filing</th></tr></thead>
+        <tbody id="ov-rows"><tr><td colspan="11" class="small">Loading...</td></tr></tbody>
+        <tfoot id="ov-totals"></tfoot>
+      </table></div>
+      <div class="tblwrap"><table>
+        <thead><tr><th>Sales channel (this month)</th><th class="num">Sales</th><th class="num">Gross sales</th><th class="num">Taxable</th><th class="num">Net tax</th></tr></thead>
+        <tbody id="ov-channels"></tbody>
+      </table></div>
+
+      <h2>Sales tax held for remittance</h2>
+      <div class="card">
+        <div class="small" id="reserve-text"></div>
+        <h3 style="margin-top:12px">Record a transfer to the tax bank account</h3>
+        <p class="small">Record money you moved at the bank. Enter a negative amount for money moved back. Nothing is moved by this page.</p>
+        <div class="grid">
+          <div><label for="rt-amount">Amount (dollars)</label><input id="rt-amount" inputmode="decimal" placeholder="0.00"></div>
+          <div><label for="rt-date">Date moved</label><input id="rt-date" type="date"></div>
+          <div><label for="rt-ref">Bank reference</label><input id="rt-ref" maxlength="120"></div>
+          <div><label for="rt-note">Note (optional)</label><input id="rt-note" maxlength="400"></div>
+        </div>
+        <button class="btn" id="rt-save" type="button">Record Transfer</button>
+      </div>
+
+      <h2>Safeguards</h2>
+      <div class="card">
+        <div id="mode-text" style="font-size:14px;line-height:1.5"></div>
+        <div class="small" id="owner-note" style="margin:6px 0"></div>
+        <button class="btn btn-ok" id="mode-enforce" type="button">Turn Enforcement On</button>
+        <button class="btn btn-mut" id="mode-report" type="button">Return to Report Only</button>
+        <button class="btn btn-mut" id="guard-toggle" type="button">Payout Safeguard</button>
+        <button class="btn btn-mut" id="audit-load" type="button">Show Auction Audit</button>
+        <div id="audit-box" hidden>
+          <p class="small" id="audit-summary" style="margin-top:10px"></p>
+          <div class="tblwrap" style="border:1px solid #e2e8f0"><table style="min-width:860px">
+            <thead><tr><th>Auction</th><th>Seller</th><th>Status</th><th>Pickup state</th><th>Tax rule</th><th>Bidding opens</th><th>Bidding closes</th></tr></thead>
+            <tbody id="audit-rows"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <h2>Open alerts</h2>
+      <div class="card"><div id="alert-list"></div>
+        <button class="btn btn-mut btn-sm" id="alerts-resolved" type="button">Show Resolved Alerts</button>
+        <div id="alert-resolved-list" hidden style="margin-top:10px"></div>
+      </div>
+
+      <h2>Reconciliation</h2>
+      <div class="card">
+        <div id="recon-text" style="font-size:14px"></div>
+        <div id="recon-checks" class="small" style="margin:8px 0"></div>
+        <button class="btn" id="recon-run" type="button">Run Now</button>
+        <button class="btn btn-mut" id="recon-history" type="button">Show History</button>
+        <div id="recon-history-list" class="small" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <!-- Ledger -->
+    <section class="panel" id="panel-ledger" role="tabpanel" hidden>
+      <div class="card">
+        <div class="bar">
+          <div><label for="lf-state">State</label><select id="lf-state"><option value="">All states</option></select></div>
+          <div><label for="lf-period">Month</label><input id="lf-period" type="month"></div>
+          <div><label for="lf-channel">Channel</label><select id="lf-channel"><option value="">All channels</option><option value="auction">Auction</option><option value="marketplace">Marketplace</option><option value="seller_website">Seller website</option><option value="platform">Advantage.Bid (remittances, corrections)</option></select></div>
+          <div><label for="lf-remitter">Tax responsibility</label><select id="lf-remitter"><option value="">Any</option><option value="platform">Advantage.Bid remits</option><option value="seller_direct">Seller is responsible</option><option value="none">No tax due</option><option value="unconfigured">No rule (unconfigured)</option><option value="exception">Exception</option><option value="seller">Paid to seller (retired)</option></select></div>
+          <div><label for="lf-type">Entry type</label><select id="lf-type"><option value="">All types</option><option value="sale">Sale</option><option value="refund">Refund</option><option value="dispute">Dispute</option><option value="remittance">Remittance</option><option value="reserve_transfer">Tax account transfer</option><option value="adjustment">Correction</option></select></div>
+          <div><label for="lf-seller">Seller profile ID</label><input id="lf-seller" maxlength="36"></div>
+          <div><label for="lf-source">Source ID</label><input id="lf-source" maxlength="100"></div>
+        </div>
+        <button class="btn" id="lf-apply" type="button">Apply Filters</button>
+        <button class="btn btn-mut" id="lf-clear" type="button">Clear</button>
+        <button class="btn btn-mut" id="lf-csv" type="button">Download Ledger (CSV)</button>
+        <span class="small" id="lf-count"></span>
+      </div>
+      <div class="tblwrap"><table style="min-width:1240px">
+        <thead><tr><th>Entry</th><th>Date</th><th>Type</th><th>Channel</th><th>State</th><th>Tax responsibility</th><th>Seller</th><th class="num">Gross</th><th class="num">Taxable</th><th class="num">Exempt</th><th class="num">Tax collected</th><th class="num">Remitted</th><th>Source and note</th></tr></thead>
+        <tbody id="lf-rows"></tbody>
+      </table></div>
+      <button class="btn btn-mut" id="lf-prev" type="button">Previous</button>
+      <button class="btn btn-mut" id="lf-next" type="button">Next</button>
+
+      <h2>Post a correction</h2>
+      <div class="card">
+        <p class="small">The ledger is permanent: entries are never edited or deleted. A correction is a new entry with a written reason. Use a negative amount to reduce.</p>
+        <div class="grid">
+          <div><label for="adj-state">State</label><select id="adj-state"></select></div>
+          <div><label for="adj-channel">Channel</label><select id="adj-channel"><option value="platform">Advantage.Bid (general)</option><option value="auction">Auction</option><option value="marketplace">Marketplace</option><option value="seller_website">Seller website</option></select></div>
+          <div><label for="adj-remitter">Tax responsibility</label><select id="adj-remitter"><option value="platform">Advantage.Bid remits</option><option value="seller_direct">Seller is responsible</option><option value="none">No tax due</option></select></div>
+          <div><label for="adj-tax">Tax collected (dollars)</label><input id="adj-tax" inputmode="decimal" placeholder="0.00"></div>
+          <div><label for="adj-gross">Gross sales (dollars)</label><input id="adj-gross" inputmode="decimal" placeholder="0.00"></div>
+          <div><label for="adj-taxable">Taxable sales (dollars)</label><input id="adj-taxable" inputmode="decimal" placeholder="0.00"></div>
+          <div><label for="adj-date">Date it applies to</label><input id="adj-date" type="date"></div>
+          <div><label for="adj-entry">Corrects entry number (optional)</label><input id="adj-entry" inputmode="numeric"></div>
+        </div>
+        <label for="adj-reason">Reason</label><textarea id="adj-reason" rows="2" maxlength="1000"></textarea>
+        <button class="btn" id="adj-save" type="button">Post Correction</button>
+      </div>
+    </section>
+
+    <!-- Registrations and filings -->
+    <section class="panel" id="panel-registrations" role="tabpanel" hidden>
+      <h2 style="margin-top:0">Registrations</h2>
+      <p class="sub">Record each sales tax registration after it is made with the state. Only the last four characters of a registration number are kept here; the full number stays with the state and your accountant.</p>
+      <div class="card">
+        <h3 id="reg-form-title">Record a registration</h3>
+        <div class="grid">
+          <div><label for="reg-state">State</label><select id="reg-state"></select></div>
+          <div><label for="reg-status">Status</label><select id="reg-status"><option value="pending">Pending</option><option value="active">Active</option><option value="closed">Closed</option></select></div>
+          <div><label for="reg-from">Effective from</label><input id="reg-from" type="date"></div>
+          <div><label for="reg-to">Effective to (if closed)</label><input id="reg-to" type="date"></div>
+          <div><label for="reg-freq">Filing frequency</label><select id="reg-freq"><option value="">Not set</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="other">Other</option></select></div>
+          <div><label for="reg-last4">Registration number, last 4 only</label><input id="reg-last4" maxlength="4" autocomplete="off"></div>
+        </div>
+        <label class="check"><input id="reg-zero" type="checkbox" checked>A return is required even when no tax is due</label>
+        <label class="check"><input id="reg-proc" type="checkbox">I confirmed the matching registration is entered in the tax calculation settings</label>
+        <label for="reg-notes">Notes (optional)</label><textarea id="reg-notes" rows="2" maxlength="2000"></textarea>
+        <button class="btn" id="reg-save" type="button">Save Registration</button>
+        <button class="btn btn-mut" id="reg-cancel" type="button" hidden>Cancel Edit</button>
+      </div>
+      <div class="tblwrap"><table style="min-width:900px">
+        <thead><tr><th>State</th><th>Status</th><th>Effective</th><th>Filing frequency</th><th>Zero returns</th><th>Number (last 4)</th><th>Tax calculation settings</th><th>Notes</th><th>Actions</th></tr></thead>
+        <tbody id="reg-rows"></tbody>
+      </table></div>
+
+      <h2>Filings</h2>
+      <p class="sub">One row per return. Rows for periods that just closed are opened automatically for active registrations with a filing frequency, without a due date: enter the due date from the state's filing calendar. Filing and paying are done outside this page and then recorded here.</p>
+      <div class="card">
+        <h3 id="fil-form-title">Add a filing</h3>
+        <div class="grid">
+          <div><label for="fil-state">State</label><select id="fil-state"></select></div>
+          <div><label for="fil-start">Period first day</label><input id="fil-start" type="date"></div>
+          <div><label for="fil-end">Period last day</label><input id="fil-end" type="date"></div>
+          <div><label for="fil-due">Due date</label><input id="fil-due" type="date"></div>
+          <div><label for="fil-status">Status</label><select id="fil-status"><option value="open">Open</option><option value="filed">Filed</option></select></div>
+          <div><label for="fil-amount">Amount on the return (dollars)</label><input id="fil-amount" inputmode="decimal" placeholder="0.00"></div>
+          <div><label for="fil-filed">Date filed</label><input id="fil-filed" type="date"></div>
+          <div><label for="fil-method">Filed by</label><select id="fil-method"><option value="">Not set</option><option value="accountant">Accountant</option><option value="self">Advantage.Bid staff</option><option value="processor">Payment processor filing tool</option><option value="service">Filing service</option></select></div>
+          <div><label for="fil-conf">Confirmation number</label><input id="fil-conf" maxlength="120"></div>
+        </div>
+        <label for="fil-notes">Notes (optional)</label><textarea id="fil-notes" rows="2" maxlength="2000"></textarea>
+        <button class="btn" id="fil-save" type="button">Save Filing</button>
+        <button class="btn btn-mut" id="fil-cancel" type="button" hidden>Cancel Edit</button>
+        <button class="btn btn-mut" id="fil-ensure" type="button">Open Filings for Closed Periods</button>
+      </div>
+      <div class="card" id="pay-card" hidden>
+        <h3 id="pay-title">Record a payment</h3>
+        <p class="small">Record a payment already made to the state. It is posted to the ledger as tax remitted and the filing is marked paid.</p>
+        <div class="grid">
+          <div><label for="pay-amount">Amount paid (dollars)</label><input id="pay-amount" inputmode="decimal" placeholder="0.00"></div>
+          <div><label for="pay-date">Date paid</label><input id="pay-date" type="date"></div>
+          <div><label for="pay-ref">Payment confirmation or reference</label><input id="pay-ref" maxlength="120"></div>
+          <div><label for="pay-note">Note (optional)</label><input id="pay-note" maxlength="400"></div>
+        </div>
+        <button class="btn btn-ok" id="pay-save" type="button">Record Payment</button>
+        <button class="btn btn-mut" id="pay-cancel" type="button">Cancel</button>
+      </div>
+      <div class="tblwrap"><table style="min-width:1000px">
+        <thead><tr><th>State</th><th>Period</th><th>Due</th><th>Status</th><th class="num">Amount on return</th><th>Filed</th><th>Confirmation</th><th>Notes</th><th>Actions</th></tr></thead>
+        <tbody id="fil-rows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- Rules -->
+    <section class="panel" id="panel-rules" role="tabpanel" hidden>
+      <div class="card">
+        <h3>Sales tax rules by state</h3>
+        <p class="sub">Each state has one rule for every kind of sale: Advantage.Bid collects and remits (this needs a recorded active registration), or nothing is collected at checkout and the seller is responsible. A state without a rule is never permission to collect nothing.</p>
+        <a class="btn" href="/admin/tax-jurisdictions.html" style="display:inline-block;text-decoration:none">Open Sales Tax Rules</a>
+      </div>
+      <div class="tblwrap"><table>
+        <thead><tr><th>State</th><th>Rule</th><th>Effective</th><th>Last verified</th><th>Registration</th></tr></thead>
+        <tbody id="rule-rows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- Tax codes -->
+    <section class="panel" id="panel-codes" role="tabpanel" hidden>
+      <p class="sub">Which tax product code is used for each merchandise category when tax is calculated. A category without a mapping uses the general code for tangible goods. Nothing is mapped until an administrator enters it with its source.</p>
+      <div class="card">
+        <div class="grid">
+          <div><label for="code-cat">Category</label><select id="code-cat"></select></div>
+          <div><label for="code-code">Tax product code (txcd_ and 8 digits)</label><input id="code-code" maxlength="13" placeholder="txcd_00000000"></div>
+          <div><label for="code-source">Source (who determined it, or the published reference)</label><input id="code-source" maxlength="500"></div>
+          <div><label for="code-notes">Notes (optional)</label><input id="code-notes" maxlength="500"></div>
+        </div>
+        <button class="btn" id="code-save" type="button">Save Mapping</button>
+      </div>
+      <div class="tblwrap"><table style="min-width:760px">
+        <thead><tr><th>Category</th><th>Tax product code</th><th>Source</th><th>Notes</th><th>Updated</th><th>Actions</th></tr></thead>
+        <tbody id="code-rows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- Nexus -->
+    <section class="panel" id="panel-nexus" role="tabpanel" hidden>
+      <p class="sub">Sales measured against each state's economic nexus threshold. Thresholds are entered here from the state's published rule, with the legal reference; none is assumed. Sales are measured without sales tax and net of refunds. This page reports and alerts. It never registers anything.</p>
+      <div class="tblwrap"><table style="min-width:1080px">
+        <thead><tr><th>State</th><th>Status</th><th class="num">Of threshold</th><th class="num">Measured sales</th><th class="num">Transactions</th><th>By channel</th><th>Threshold</th><th>Registration</th></tr></thead>
+        <tbody id="nx-status"></tbody>
+      </table></div>
+      <div class="card">
+        <h3>Enter or change a threshold</h3>
+        <div class="grid">
+          <div><label for="nx-state">State</label><select id="nx-state"></select></div>
+          <div><label for="nx-sales">Sales threshold (dollars; optional)</label><input id="nx-sales" inputmode="decimal"></div>
+          <div><label for="nx-tx">Transaction threshold (optional)</label><input id="nx-tx" inputmode="numeric"></div>
+          <div><label for="nx-combine">When both are set</label><select id="nx-combine"><option value="or">Either one creates nexus</option><option value="and">Both are required</option></select></div>
+          <div><label for="nx-period">Measurement period</label><select id="nx-period"><option value="calendar_year">Current calendar year</option><option value="previous_calendar_year">Previous calendar year</option><option value="current_or_previous_calendar_year">Current or previous calendar year</option><option value="rolling_12_months">Rolling 12 months</option></select></div>
+          <div><label for="nx-counts">Do sales made through the platform count?</label><select id="nx-counts"><option value="">Not yet determined</option><option value="true">Yes</option><option value="false">No</option></select></div>
+          <div><label for="nx-eff">Effective from (optional)</label><input id="nx-eff" type="date"></div>
+          <div><label for="nx-verified">Verified on (optional)</label><input id="nx-verified" type="date"></div>
+        </div>
+        <label class="check"><input id="nx-physical" type="checkbox">Advantage.Bid has a physical presence in this state</label>
+        <label for="nx-legal">Legal reference (statute, rule or official publication)</label><input id="nx-legal" maxlength="1000">
+        <label for="nx-url">Source web address (optional)</label><input id="nx-url" maxlength="500" placeholder="https://">
+        <label for="nx-notes">Notes (optional)</label><textarea id="nx-notes" rows="2" maxlength="2000"></textarea>
+        <button class="btn" id="nx-save" type="button">Save Threshold</button>
+      </div>
+      <div class="tblwrap"><table style="min-width:900px">
+        <thead><tr><th>State</th><th>Threshold</th><th>Measurement period</th><th>Platform sales count</th><th>Legal reference</th><th>Verified</th><th>Actions</th></tr></thead>
+        <tbody id="nx-rows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- Exceptions and holds -->
+    <section class="panel" id="panel-exceptions" role="tabpanel" hidden>
+      <h2 style="margin-top:0">Payments on hold and sales without tax</h2>
+      <p class="sub">Auction payments held by the sales tax safeguard, and auctions paid without sales tax while the safeguard only reports. A hold ends when the state's rule and registration are completed, or when an exception is recorded below.</p>
+      <div class="card"><div id="hold-list"></div></div>
+      <h2>Exceptions</h2>
+      <p class="sub">An exception lets one auction's payments proceed in one state without sales tax collected. It needs a written reason and is recorded with your name. Review each one with the accountant.</p>
+      <div class="card">
+        <div class="grid">
+          <div><label for="ex-auction">Auction ID</label><input id="ex-auction" maxlength="36"></div>
+          <div><label for="ex-state">State</label><select id="ex-state"></select></div>
+        </div>
+        <label for="ex-reason">Reason (at least 20 characters: who decided it and why)</label><textarea id="ex-reason" rows="2" maxlength="2000"></textarea>
+        <button class="btn" id="ex-save" type="button">Record Exception</button>
+      </div>
+      <div class="tblwrap"><table style="min-width:820px">
+        <thead><tr><th>Auction</th><th>State</th><th>Reason</th><th>Recorded</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="ex-rows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- Seller reporting -->
+    <section class="panel" id="panel-sellers" role="tabpanel" hidden>
+      <div class="note" id="sr-note"></div>
+      <div class="bar">
+        <div><label for="sr-year">Calendar year</label><select id="sr-year"></select></div>
+        <div class="fixed"><button class="btn btn-mut" id="sr-csv" type="button">Download (CSV)</button></div>
+      </div>
+      <div class="tblwrap"><table style="min-width:860px">
+        <thead><tr><th>Seller</th><th class="num">Gross sales processed</th><th class="num">Refunds</th><th class="num">Sale transactions</th><th class="num">Paid: auctions</th><th class="num">Paid: storefront</th><th class="num">Paid: total</th></tr></thead>
+        <tbody id="sr-rows"></tbody>
+        <tfoot id="sr-totals"></tfoot>
+      </table></div>
+    </section>
+  </div>
+  <script src="/admin/tax.js"></script>
+</body>
+</html>

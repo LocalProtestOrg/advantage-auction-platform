@@ -71,7 +71,7 @@ describe('taxCalculationService.computeTax', () => {
     process.env.STRIPE_TAX_ENABLED = 'true';
     mockCalcCreate.mockResolvedValue({ id: 'taxcalc_1', tax_amount_exclusive: 974 });
     const r = await tax.computeTax({ buyerUserId: 'u1', taxableBaseCents: 11800, address: ADDR, reference: 'payment:P1' });
-    expect(r).toEqual({ enabled: true, taxCents: 974, calculationId: 'taxcalc_1', exempt: false, collecting: true });   // collecting: read only by the storefront safeguard
+    expect(r).toMatchObject({ enabled: true, taxCents: 974, calculationId: 'taxcalc_1', exempt: false, collecting: true });   // collecting: read only by the storefront safeguard
     const arg = mockCalcCreate.mock.calls[0][0];
     expect(arg.line_items[0].amount).toBe(11800);                 // taxable base = hammer + premium
     expect(arg.line_items[0].tax_behavior).toBe('exclusive');

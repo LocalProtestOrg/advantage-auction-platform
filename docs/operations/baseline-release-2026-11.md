@@ -39,6 +39,8 @@ of this release.
 6. **Postal address for commercial email** (owner instruction 2026-11-07): set `company.postal_address` to
    "Advantage.Bid, 2205 Ogden Hwy, Adrian, MI 49221" (today it holds the Jersey City address). Owner-only once 222 and
    step 4 are done; audited and notified.
+   *Clarification 2026-11-16 (the record above is unchanged): the Adrian, Michigan address is Advantage.Bid's mailing
+   address only. Advantage.Bid is legally registered in New Jersey and operates out of New Jersey.*
 7. **Merge to main and push** (Railway auto-deploys). Confirm with `/api/health` started_at and the deployment status.
 8. **Verify on production:** the seven pricing pages show "Just 7% Total Seller Fees"; registration shows the unchecked
    terms box; /terms.html shows the full Terms with 6A Text Messages; an admin who is not the owner is refused a
@@ -64,6 +66,10 @@ owner's decision on its substantive provisions (see "Owner decisions").
    need approval: `docs/legal/buyer-terms-v4-substantive-review.md`.
 2. **Contact address: 2205 Ogden Hwy, Adrian, MI 49221** everywhere (privacy policy, data-deletion page, Terms page and
    v4 source: done in this release; commercial-email setting: deploy step 4). The phone number is unchanged.
+   *Clarification 2026-11-16 (the decision above is recorded as made): this is a mailing address only, not the
+   principal operating location and not a tax location. Advantage.Bid is legally registered in New Jersey and operates
+   out of New Jersey. Whether each public page should label it "Mailing Address", and what the published legal
+   address is, are open owner and counsel items: `docs/legal/governing-law-and-address-corrections-draft-2026-11.md`.*
 3. **Waivers preserved** (records unchanged). Investigation (read-only, 2026-11-08): **10** sellers (not 11), all waived
    on 2026-06-17, the day the Seller Agreement system launched, all created before it (May to June 17). None has ever
    signed an agreement; 5 have auctions (up to 21). No audit row records who set them (a launch-time bulk grandfathering).

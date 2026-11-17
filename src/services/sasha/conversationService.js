@@ -67,7 +67,10 @@ async function addSashaReply(conversationId, m) {
     if (!conv) { await c.query('ROLLBACK'); return { blocked: 'missing' }; }
     if (conv.owner !== 'sasha') { await c.query('ROLLBACK'); return { blocked: 'staff_owned' }; }
     if (conv.status === 'closed' || conv.status === 'ignored') { await c.query('ROLLBACK'); return { blocked: 'closed' }; }
-    const msg = await addMessage(conversationId, { ...m, direction: 'outbound', author: 'sasha' }, c);
+    // Last line of the outbound safeguard: whatever produced this reply, internal tax administration details are never
+    // stored or shown as Sasha's words (taxConfidentiality.js). The engine already checks every reply before this point.
+    const safeText = require('./taxConfidentiality').guardOutbound(m.text, m.channel).text;
+    const msg = await addMessage(conversationId, { ...m, text: safeText, direction: 'outbound', author: 'sasha' }, c);
     await c.query('COMMIT');
     return msg;
   } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }

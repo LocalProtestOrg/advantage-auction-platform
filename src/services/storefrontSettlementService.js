@@ -269,6 +269,13 @@ async function payPayout(id, { actorId = null, confirmedCompleted = false, final
       throw e;
     }
 
+    // Sales tax reserve (services/tax/taxReserveService): a payout never spends money held for tax Advantage.Bid must remit.
+    try {
+      await require('./tax/taxReserveService').assertTransferLeavesReserve({ transferCents: sum, stripe: require('./stripeConnectService').getStripe() });
+    } catch (e) {
+      if (e && e.name === 'TaxReserveError') throw Object.assign(new PayError(e.message), { status: 409, code: e.code });
+      throw e;
+    }
     let transfer;
     try {
       transfer = await require('./stripeConnectService').getStripe().transfers.create({

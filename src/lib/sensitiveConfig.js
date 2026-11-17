@@ -18,6 +18,7 @@ const PREFIXES = Object.freeze([
   'marketing.destinations.', 'marketing.measurement.',
   'sasha.', 'seller_activation.', 'claimed_listings.', 'event_partners.', 'auction_sms.',
   'owner.', 'webhooks.',
+  'tax.',                          // sales tax safeguards (auction enforcement, payout reserve guard)
 ]);
 const EXACT = Object.freeze(['marketing.a7_send_enabled', 'marketing.a9_publish_enabled']);
 const CONTAINS = Object.freeze(['kill', 'ceiling', 'budget', 'execution']);

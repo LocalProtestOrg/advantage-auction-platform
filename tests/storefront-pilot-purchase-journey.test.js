@@ -57,7 +57,7 @@ jest.mock('../src/middleware/authMiddleware', () => (req, res, next) => {
 });
 
 // ── Payment processor stand-in (in memory), including the tax calculation API ──────────────────────────────
-const mockStripe = { intents: new Map(), taxCalcs: [], taxTx: [], n: 0 };
+const mockStripe = { intents: new Map(), taxCalcs: [], taxTx: [], taxRev: [], refunds: [], n: 0 };
 const TAX_CENTS = 33;   // what the stand-in tax calculation returns (it includes any tax on shipping)
 jest.mock('stripe', () => () => ({
   paymentIntents: {
@@ -68,11 +68,12 @@ jest.mock('stripe', () => () => ({
     cancel: async (id) => { const pi = mockStripe.intents.get(id); pi.status = 'canceled'; return { ...pi }; },
   },
   paymentMethods: { retrieve: async (id) => ({ id, type: 'card', card: { funding: 'credit', brand: 'visa', last4: '4242' }, customer: null }) },
-  refunds: { create: async () => ({ id: 're_1' }) },
+  refunds: { create: async (p) => { mockStripe.refunds.push(p); return { id: 're_' + mockStripe.refunds.length, status: 'succeeded' }; } },
   tax: {
     calculations: { create: async (p) => { mockStripe.taxCalcs.push(JSON.parse(JSON.stringify(p)));
       return { id: 'taxcalc_' + mockStripe.taxCalcs.length, tax_amount_exclusive: TAX_CENTS, tax_breakdown: [{ taxability_reason: 'standard_rated' }] }; } },
-    transactions: { createFromCalculation: async (p) => { mockStripe.taxTx.push(p); return { id: 'taxtxn_' + mockStripe.taxTx.length }; } },
+    transactions: { createFromCalculation: async (p) => { mockStripe.taxTx.push(p); return { id: 'taxtxn_' + mockStripe.taxTx.length }; },
+      createReversal: async (p) => { mockStripe.taxRev.push(p); return { id: 'taxrev_' + mockStripe.taxRev.length }; } },
   },
 }));
 
@@ -137,6 +138,8 @@ beforeAll(async () => {
       verification_required_before_publication)
     VALUES ($1, 'retail_gallery_studio', 'Pilot Gallery', '1 Nassau St', 'Princeton', 'NJ', '08542', 'US', now(), true, 'pilot-gallery', false) RETURNING id`,
     [U.gallery.id])).id;
+  // Migration 231's two descriptive order columns (the rest of 231 is exercised in tests/tax-ledger-integration.test.js).
+  await global.__PG.exec('ALTER TABLE marketplace_orders ADD COLUMN IF NOT EXISTS tax_basis TEXT; ALTER TABLE marketplace_orders ADD COLUMN IF NOT EXISTS tax_detail JSONB;');
   // The approved New Jersey tax rule (TEST ONLY): tax is collected at checkout and remitted by Advantage.Bid.
   await q(`INSERT INTO marketplace_tax_jurisdictions (state, remitter, legal_basis, effective_from) VALUES ('NJ', 'platform', 'TEST ONLY: pilot journey test', DATE '2020-01-01')
     ON CONFLICT (state) DO UPDATE SET remitter = 'platform', effective_from = DATE '2020-01-01'`);
@@ -239,5 +242,62 @@ describe('pilot purchase: NJ gallery, $3.00 item, $2.00 shipping, NJ buyer, tax 
     expect(web.orderTaxRequest.line_items[0].amount).toBe(300);
     expect(web.orderTaxRequest.shipping_cost).toEqual({ amount: 200, tax_behavior: 'exclusive' });
     expect(await stock(it.id)).toMatchObject({ quantity: 0, quantity_sold: 1, status: 'sold' });
+  });
+});
+
+// The owner's controlled live test (2026-11-16): a real purchase of the temporary $3.00 + $2.00 test listing, then a
+// COMPLETE refund. The listing is not merchandise: nothing is shipped, no tracking or delivery is ever recorded, and the
+// test must never produce a seller payout.
+describe('the controlled test procedure: purchase, then a complete refund, with no fulfillment and no payout', () => {
+  let t;
+  test('steps 1 to 5: the purchase is charged, taxed, recorded and notified', async () => {
+    const it = await pilotItem('Temporary test listing');
+    mockStripe.taxTx.length = 0;
+    t = await buyAndPay('bea', it.id);
+    t.itemId = it.id;
+    expect(await orderRow(t.orderId)).toMatchObject({ item_price_cents: 300, shipping_cents: 200, tax_cents: TAX_CENTS, total_charge_cents: 533,
+      platform_fee_cents: 27, seller_proceeds_cents: 473, tax_remitter: 'platform', tax_jurisdiction: 'NJ', payment_status: 'paid', fulfillment_status: 'unfulfilled' });
+    expect(mockStripe.taxTx).toHaveLength(1);
+    expect((await one('SELECT tax_basis FROM marketplace_orders WHERE id = $1', [t.orderId])).tax_basis).toBe('taxed');
+    const queued = await q('SELECT event FROM storefront_notifications WHERE order_id = $1 ORDER BY event', [t.orderId]);
+    expect(queued.map((r) => r.event)).toEqual(['sale_paid', 'sale_paid_admin']);
+  });
+
+  test('steps 6 and 7: an administrator refunds the whole order; the full amount is refunded and the tax is reversed in full', async () => {
+    mockStripe.refunds.length = 0; mockStripe.taxRev.length = 0;
+    const r = await call('admin', 'POST', '/api/marketplace/admin/orders/' + t.orderId + '/refund', { reason: 'Controlled test purchase: complete refund', fault: 'platform' });
+    expect(r.status).toBe(200);
+    expect(mockStripe.refunds).toHaveLength(1);
+    expect(mockStripe.taxRev).toEqual([expect.objectContaining({ mode: 'full', original_transaction: expect.stringMatching(/^taxtxn_/) })]);
+    const o = await one('SELECT payment_status, refund_status, refunded_amount_cents, stripe_tax_reversal_id, payout_eligible, fulfillment_status, tracking_number FROM marketplace_orders WHERE id = $1', [t.orderId]);
+    expect(o).toMatchObject({ payment_status: 'refunded', refund_status: 'refunded', refunded_amount_cents: 533, payout_eligible: false,
+      fulfillment_status: 'unfulfilled', tracking_number: null });
+    expect(o.stripe_tax_reversal_id).toMatch(/^taxrev_/);
+  });
+
+  test('a buyer or a seller cannot issue the refund', async () => {
+    for (const who of ['bea', 'gallery']) {
+      expect((await call(who, 'POST', '/api/marketplace/admin/orders/' + t.orderId + '/refund', { reason: 'not allowed' })).status).toBe(403);
+    }
+  });
+
+  test('steps 9 and 10: nothing was shipped or delivered, and the order never reaches a seller payout', async () => {
+    const events = await q(`SELECT event_type, data->>'to' AS moved_to FROM marketplace_order_events WHERE order_id = $1 AND event_type = 'fulfillment'`, [t.orderId]);
+    expect(events).toEqual([]);
+    const S = require('../src/services/storefrontSettlementService');
+    await S.prepareWeek({ cutoff: new Date(Date.now() + 30 * 864e5) });   // even a month later
+    expect(await one('SELECT 1 AS x FROM storefront_payout_lines WHERE marketplace_order_id = $1', [t.orderId])).toBeUndefined();
+    // A fulfillment step on a refunded order is refused, so no shipment record can be added afterwards either.
+    await expect(orders.updateFulfillment(t.orderId, U.gallery.id, 'shipped', { tracking_carrier: 'USPS', tracking_number: '1' })).rejects.toMatchObject({ status: 409 });
+  });
+
+  test('step 8: the unit comes off the sold count, and the seller relists it back to quantity 1', async () => {
+    // The refund never puts an item back on sale by itself (existing rule); the seller relists it with one action.
+    expect(await stock(t.itemId)).toMatchObject({ quantity_sold: 0, status: 'removed' });
+    await q('UPDATE marketplace_items SET quantity = 1 WHERE id = $1 AND quantity = 0', [t.itemId]);   // the seller sets the available quantity
+    const r = await call('gallery', 'POST', '/api/marketplace/seller/items/' + t.itemId + '/relist', {});
+    expect(r.body.message || r.body.code || '').toBe('');
+    expect(r.status).toBe(200);
+    expect(await stock(t.itemId)).toMatchObject({ quantity: 1, quantity_sold: 0, status: 'active' });
   });
 });

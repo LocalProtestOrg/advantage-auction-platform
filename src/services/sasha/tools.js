@@ -81,7 +81,10 @@ async function searchHelpCenter({ query }) {
       ? { guidance: r.title, status: 'UNRESOLVED: follow only this interim guidance; state no figures that are not in it (help pages on this topic may be out of date); offer a team member if the customer needs the exact answer', text: r.body.slice(0, 1800) }
       : { guidance: r.title, text: r.body.slice(0, 1800) });
   }
-  return { approved_guidance: guidance, help_pages: pages.map((p) => ({ page: p.url, section: p.heading, text: p.text })) };
+  // Internal tax administration wording never reaches a conversation, even if it was saved as guidance (fail closed).
+  const taxConfidentiality = require('./taxConfidentiality');
+  return { approved_guidance: guidance.filter((g) => !taxConfidentiality.isRestrictedKnowledge(g.guidance + '. ' + g.text)),
+    help_pages: pages.filter((p) => !taxConfidentiality.isRestrictedKnowledge(p.heading + '. ' + p.text)).map((p) => ({ page: p.url, section: p.heading, text: p.text })) };
 }
 
 // ── Public auction / lot facts (canonical visibility; city/state only) ──────────────────────────────────
@@ -313,6 +316,10 @@ async function run(name, input, ctx) {
   let out;
   try { out = await guard.run(name, () => runRaw(name, input, ctx)); }
   catch (e) { if (e instanceof guard.SashaToolPermissionError) out = { error: 'not permitted' }; else throw e; }
+  // No tool result may carry an internal tax administration identifier (table, route, page, configuration key or
+  // document path) toward the model, whatever produced it. The replacement says nothing about what was withheld.
+  let serialized = ''; try { serialized = JSON.stringify(out) || ''; } catch (_e) { serialized = ''; out = { error: 'not available' }; }
+  if (require('./taxConfidentiality').containsRestrictedIdentifier(serialized)) out = { error: 'not available' };
   return withLocalTimes(out, tz);
 }
 async function runRaw(name, input, ctx) {

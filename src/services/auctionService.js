@@ -815,6 +815,29 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
       throw e;
     }
 
+    // SALES TAX (owner 2026-11-16; services/tax/taxPolicy): an auction is taxed where it is picked up, so the state's tax
+    // rule is checked here, before anyone can bid. With enforcement on, a state with no rule cannot be published (a won
+    // lot is then never blocked at payment). In report mode nothing is refused: the tax administrator is alerted.
+    {
+      const taxPolicy = require('./tax/taxPolicy');
+      const taxCheck = await taxPolicy.auctionPublicationCheck(current.rows[0].address_state, client);
+      if (taxCheck.code === 'TAX_CONFIGURATION_REQUIRED') {
+        await require('./tax/taxAlerts').raise({ key: `auction_publish_no_rule:${auctionId}`, type: 'auction_no_tax_rule',
+          severity: taxCheck.allowed ? 'warning' : 'critical',
+          message: taxCheck.allowed
+            ? `An auction with pickup in ${taxCheck.state} was published, and ${taxCheck.state} has no sales tax rule (report mode). Add a rule before it closes.`
+            : `An auction with pickup in ${taxCheck.state} could not be published: ${taxCheck.state} has no sales tax rule. Add the rule, then it can be published.`,
+          detail: { auction_id: auctionId, state: taxCheck.state, mode: taxCheck.mode } });
+        // The owner is texted once per auction and state in either mode, so a rule can be entered before the auction closes.
+        await require('./ownerAlertService').notifyAdminActionRequired({ actionType: 'tax_rule_needed', entityType: 'auction_tax_rule',
+          entityId: `${auctionId}:${taxCheck.state}`, headline: taxCheck.allowed ? 'An auction was published in a state with no sales tax rule' : 'An auction is waiting on a sales tax rule',
+          context: 'State: ' + taxCheck.state, adminPath: '/admin/tax.html', actionLabel: 'Review' }).catch(() => {});
+        if (!taxCheck.allowed) {
+          const e = new Error(taxPolicy.PUBLICATION_MESSAGE); e.code = 'TAX_CONFIGURATION_REQUIRED'; e.status = 409; throw e;
+        }
+      }
+    }
+
     // Current Seller Agreement (owner decisions 2026-11-07): the single publish authority refuses a seller (Professional
     // self-publish) who has not accepted the current version; an administrator publishing proceeds (audited override).
     const actorRole = actorId ? ((await client.query('SELECT role FROM users WHERE id = $1', [actorId])).rows[0] || {}).role : null;
@@ -1250,6 +1273,9 @@ async function closeAuction(auctionId, actorId = null) {
             } else if (r.status === 'pending') {
               // requires_action / processing — leave the header; the webhook settles it
               // (payment_intent.succeeded) and sends the success package on arrival.
+            } else if (r.status === 'tax_hold') {
+              // Held by the sales tax safeguard (services/tax/taxPolicy): no charge and no payment request. The tax
+              // administrator has been alerted; the invoice stays open and is paid once the configuration is completed.
             } else if (r.status === 'location_missing') {
               // The auction's pickup address is incomplete, so tax cannot be calculated. Not the buyer's problem:
               // no charge and no payment request. paymentService has already audited it and told the admin what

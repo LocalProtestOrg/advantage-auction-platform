@@ -29,10 +29,15 @@ class TaxExemptionError extends Error {
 // ── Pure eligibility helpers (unit-testable; the seam future tax logic will call) ───────────────────
 // An approved exemption applies to a sale only when: status=approved, the jurisdiction matches the taxing
 // state (when both are known), and the sale date is within [effective, expiration]. Never assumes nationwide.
+// Scope (owner 2026-11-16): a certificate is valid only where it says. A single-state certificate (resale, state
+// exemption, other) with NO state recorded applies nowhere until an administrator records its state; only the multi-state
+// forms (Streamlined, MTC) may apply without one.
+const MULTI_STATE_TYPES = ['streamlined_sst', 'mtc'];
 function exemptionApplies(exemption, { state = null, date = null } = {}) {
   if (!exemption || exemption.status !== 'approved') return false;
   if (state && exemption.jurisdiction_state
       && String(exemption.jurisdiction_state).toUpperCase() !== String(state).toUpperCase()) return false;
+  if (state && !exemption.jurisdiction_state && !MULTI_STATE_TYPES.includes(exemption.exemption_type)) return false;
   if (date && exemption.effective_date && new Date(date) < new Date(exemption.effective_date)) return false;
   if (date && exemption.expiration_date && new Date(date) > new Date(exemption.expiration_date)) return false;
   return true;

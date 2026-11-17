@@ -209,16 +209,18 @@ function taxConfiguration(rule, state, tax) {
       console.error('[storefront-tax] tax calculated where the rule says none is collected at checkout', jurisdiction);
       throw err(409, 'TAX_CONFIGURATION_CONFLICT', TAX_NOT_READY_MESSAGE);
     }
-    return { remitter: 'none', jurisdiction };
+    return { remitter: 'none', jurisdiction, basis: 'seller_direct' };
   }
-  if (rule.remitter !== 'platform' && rule.remitter !== 'seller') throw err(409, 'TAX_CONFIGURATION_REQUIRED', TAX_NOT_READY_MESSAGE);
+  // 'seller' (collected at checkout and paid to the seller) is RETIRED for new orders (owner 2026-11-16: it collected under
+  // Advantage.Bid's own registration, a double-remittance risk). A state still carrying it has no usable rule.
+  if (rule.remitter !== 'platform') throw err(409, 'TAX_CONFIGURATION_REQUIRED', TAX_NOT_READY_MESSAGE);
   const notCollecting = () => {
     console.error('[storefront-tax] the rule says tax is collected at checkout, but it is not being collected for', jurisdiction);
     return err(409, 'TAX_NOT_COLLECTING', TAX_NOT_READY_MESSAGE);
   };
   if (!(tax && tax.enabled)) throw notCollecting();
-  if (cents > 0) return { remitter: rule.remitter, jurisdiction };
-  if (tax.exempt === true || tax.collecting === true) return { remitter: 'none', jurisdiction };   // approved exemption / not taxable
+  if (cents > 0) return { remitter: rule.remitter, jurisdiction, basis: 'taxed' };
+  if (tax.exempt === true || tax.collecting === true) return { remitter: 'none', jurisdiction, basis: tax.exempt === true ? 'exempt' : 'not_taxable' };   // approved exemption / not taxable
   throw notCollecting();
 }
 
@@ -311,7 +313,7 @@ async function quote(itemId, buyerUserId, opts = {}) {
   // Goods and shipping go to the tax calculation separately, so each state's own shipping taxability applies.
   const tax = await taxService.computeTax({
     buyerUserId, taxableBaseCents: goods, shippingCents, address: loc && loc.address, shipFrom: loc && loc.shipFrom,
-    addressSource: 'shipping', reference: 'marketplace-quote:' + itemId,
+    addressSource: 'shipping', reference: 'marketplace-quote:' + itemId, category: item.category || null,
   });
   taxConfiguration(taxRule, saleState, tax);   // the result must agree with the rule (refused before the buyer pays)
   const b = computeBreakdown({ itemPriceCents: goods, shippingCents, taxCents: tax.taxCents, feeBps });
@@ -494,7 +496,8 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     const loc = await resolveTaxLocation({ method, item: pre.item, shipTo: order.ship_to || shipToObj });
     tax = await taxService.computeTax({ buyerUserId, taxableBaseCents: Number(order.item_price_cents),
       shippingCents: Number(order.shipping_cents) || 0, address: loc && loc.address,
-      shipFrom: loc && loc.shipFrom, addressSource: 'shipping', reference: 'marketplace-order:' + order.order_number });
+      shipFrom: loc && loc.shipFrom, addressSource: 'shipping', reference: 'marketplace-order:' + order.order_number,
+      category: (pre.item && pre.item.category) || null });
   } catch (taxErr) {
     await releaseOrder(order.id, 'tax:' + (taxErr.code || 'error'));
     throw taxErr;
@@ -537,6 +540,11 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
       WHERE id = $1 RETURNING *`,
     [order.id, intent.id, tax.calculationId, finalB.tax_cents, finalB.total_charge_cents, resp.remitter, resp.jurisdiction,
      buyerTerms ? buyerTerms.id : null, buyerTerms ? buyerTerms.version_int : null])).rows[0];
+  // Why the tax is what it is (taxed, exempt, not taxable, seller responsible) and what the calculation said, for the tax
+  // ledger (migration 231). Descriptive only: a failure here is logged and never stops a checkout that is otherwise sound.
+  await db.query('UPDATE marketplace_orders SET tax_basis = $2, tax_detail = $3::jsonb WHERE id = $1',
+    [order.id, resp.basis || null, tax.detail ? JSON.stringify(tax.detail) : null])
+    .catch((e) => console.error('[storefront-tax] tax basis not recorded for order', order.order_number, e.message));
 
   return { order: buyerOrder(updated), client_secret: intent.client_secret, breakdown: buyerBreakdown(finalB),
     tax_enabled: tax.enabled, tax_exempt: tax.exempt };

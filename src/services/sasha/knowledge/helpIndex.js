@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const taxConfidentiality = require('../taxConfidentiality');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', '..', '..', 'public');
 const SITE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
@@ -58,14 +59,27 @@ function sectionsFromHtml(html) {
   return { title, sections: out };
 }
 
+/** May this file be loaded into Sasha's knowledge? The public folder only; never administration pages or restricted documents. */
+function isLoadable(file, full) {
+  const rel = path.relative(PUBLIC_DIR, full).split(path.sep).join('/');
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false;
+  if (/^admin(\/|$)/i.test(rel)) return false;
+  return !taxConfidentiality.isRestrictedDocPath(file) && !taxConfidentiality.isRestrictedDocPath(full) && !taxConfidentiality.isRestrictedRoute('/' + rel);
+}
+
 let INDEX = null;
 function build() {
   const docs = [];
   for (const file of HELP_PAGES) {
     let html;
-    try { html = fs.readFileSync(path.join(PUBLIC_DIR, file), 'utf8'); } catch (_e) { continue; }
+    // Fail closed: only a public page inside the public folder is ever read. Internal documents (the legal folder, tax
+    // operations documents, administration pages) are refused whatever the list says (taxConfidentiality deny-list).
+    const full = path.resolve(PUBLIC_DIR, file);
+    if (!isLoadable(file, full)) continue;
+    try { html = fs.readFileSync(full, 'utf8'); } catch (_e) { continue; }
     const { title, sections } = sectionsFromHtml(html);
     for (const s of sections) {
+      if (taxConfidentiality.isRestrictedKnowledge(s.heading + '. ' + s.text)) continue;   // internal tax administration wording is never indexed
       const toks = tokens(s.heading + ' ' + s.heading + ' ' + s.text);   // headings count double
       const tf = new Map(); toks.forEach((t) => tf.set(t, (tf.get(t) || 0) + 1));
       docs.push({ page: file, url: `${SITE}/${file}`, title, heading: s.heading, text: s.text, tf, len: toks.length || 1 });
@@ -98,4 +112,4 @@ function search(query, limit = 5) {
 
 function stats() { const idx = INDEX || build(); return { pages: HELP_PAGES.length, sections: idx.n, built_at: idx.builtAt }; }
 
-module.exports = { search, stats, sectionsFromHtml, HELP_PAGES, _reset: () => { INDEX = null; } };
+module.exports = { search, stats, sectionsFromHtml, HELP_PAGES, isLoadable, PUBLIC_DIR, _reset: () => { INDEX = null; } };

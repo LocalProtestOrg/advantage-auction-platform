@@ -379,7 +379,7 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
       [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [itemRow] }],
       [/INSERT INTO marketplace_orders/, (p) => ({ rows: [ORDER({ fulfillment_method: 'shipping', ship_to: JSON.parse(p[10]) })] })],
       [/UPDATE marketplace_items SET quantity = quantity - \$2/, { rows: [{ quantity: 0 }] }],
-      [/FROM marketplace_tax_jurisdictions WHERE state = \$1/, (p) => ({ rows: p[0] === 'TX' ? [{ remitter: 'seller' }] : [] })],   // migration 214 rule
+      [/FROM marketplace_tax_jurisdictions WHERE state = \$1/, (p) => ({ rows: p[0] === 'TX' ? [{ remitter: 'platform' }] : [] })],   // migration 214 rule
       // the seller's published Store Terms and Shipping & Pickup Policy (required for a purchase, owner 2026-11-09)
       [/FROM seller_policy_versions WHERE seller_id = \$1 AND status = 'published'/, { rows: [
         { id: 'pol-st', kind: 'store_terms', version: 1, content_hash: 'h1', published_at: new Date() },
@@ -397,7 +397,7 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
     expect(pi.confirmation_method).toBe('manual'); // the browser cannot confirm with an unchecked card
     // who remits the tax comes from the state of the taxed (ship-to) address, never from the request-body address
     const upd = db.query.mock.calls.find(([sql]) => /SET stripe_payment_intent_id/.test(sql));
-    expect(upd[1].slice(5, 7)).toEqual(['seller', 'TX']);
+    expect(upd[1].slice(5, 7)).toEqual(['platform', 'TX']);
     expect(pi.payment_method_types).toEqual(['card']);
   });
 });

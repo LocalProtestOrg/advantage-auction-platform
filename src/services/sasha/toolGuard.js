@@ -12,13 +12,18 @@
  *      invoices, payment amounts, orders, refunds, payouts, accounts or permissions.
  *   2. Payment processor: any request to Stripe's API from inside a tool is refused (Sasha never charges, refunds,
  *      changes prices or reads/edits Stripe configuration).
- * Reads are unrestricted here; each tool already scopes reads to the verified customer.
+ *   3. Internal tax administration (owner instruction 2026-11; deny-list in taxConfidentiality.js): any statement, read
+ *      or write, that touches the internal tax tables or tax configuration keys, and any request to the internal tax
+ *      administration routes or pages, is refused. So no tool, directly or through a service it calls, can bring that
+ *      information into a conversation, whoever asks.
+ * Other reads are unrestricted here; each tool already scopes reads to the verified customer.
  *
  * Approved customer-service communications (verification codes, permitted texts, payment-link delivery, seller pickup
  * requests, callbacks) and their logs keep working: their tables are on the allowlist below.
  */
 
 const { AsyncLocalStorage } = require('async_hooks');
+const taxConfidentiality = require('./taxConfidentiality');
 
 const als = new AsyncLocalStorage();
 
@@ -75,8 +80,10 @@ function deny(store, why) {
 }
 
 /** Throws if the statement is not allowed in the current tool context. No-op outside a Sasha tool. */
-function checkSql(sql) {
+function checkSql(sql, values) {
   const store = current(); if (!store) return;
+  // Internal tax administration data is unreachable from any tool (reads included). The refusal names no table.
+  if (taxConfidentiality.sqlTouchesRestricted(sql, values)) deny(store, 'access internal tax administration records');
   const { tables, ddl } = writesOf(sql);
   if (ddl) deny(store, 'change the database structure or permissions');
   const allowed = new Set(TOOL_WRITES[store.tool] || []);
@@ -90,6 +97,12 @@ function checkHost(host) {
   const store = current(); if (!store) return;
   const h = String(host || '').toLowerCase().replace(/:\d+$/, '');
   if (STRIPE_HOST.test(h)) deny(store, 'contact the payment processor');
+}
+
+/** Throws if a request made inside a Sasha tool targets an internal tax administration route or page (any host). */
+function checkPath(urlOrPath) {
+  const store = current(); if (!store) return;
+  if (taxConfidentiality.isRestrictedRoute(urlOrPath)) deny(store, 'reach internal tax administration pages');
 }
 
 // Optional recorder (tests / audits only): SASHA_TOOL_GUARD_RECORD=<file> appends one JSON line per write seen.
@@ -108,7 +121,8 @@ if (process.env.SASHA_TOOL_GUARD_RECORD) {
 function guardQuery(fn) {
   return function guardedQuery(...args) {
     const first = args[0];
-    try { checkSql(first && typeof first === 'object' && first.text ? first.text : first); } catch (e) {
+    const asConfig = !!(first && typeof first === 'object' && first.text);
+    try { checkSql(asConfig ? first.text : first, asConfig ? first.values : (Array.isArray(args[1]) ? args[1] : undefined)); } catch (e) {
       const cb = args.find((a) => typeof a === 'function') || (first && typeof first === 'object' && typeof first.callback === 'function' ? first.callback : null);
       if (cb) { process.nextTick(() => cb(e)); return undefined; }
       return Promise.reject(e);
@@ -148,6 +162,7 @@ function installNet() {
         if (current()) {
           const a = args[0];
           checkHost(typeof a === 'string' ? new URL(a).host : a instanceof URL ? a.host : (a && (a.hostname || a.host)));
+          checkPath(typeof a === 'string' ? a : a instanceof URL ? a.href : (a && a.path));
         }
         return orig.apply(this, args);
       };
@@ -156,7 +171,7 @@ function installNet() {
   if (typeof globalThis.fetch === 'function') {
     const of = globalThis.fetch;
     globalThis.fetch = function (input, init) {
-      if (current()) { try { checkHost(new URL(typeof input === 'string' ? input : (input && (input.url || input.href))).host); } catch (e) { if (e instanceof SashaToolPermissionError) return Promise.reject(e); } }
+      if (current()) { try { const u = new URL(typeof input === 'string' ? input : (input && (input.url || input.href))); checkHost(u.host); checkPath(u.href); } catch (e) { if (e instanceof SashaToolPermissionError) return Promise.reject(e); } }
       return of.call(this, input, init);
     };
   }
@@ -175,4 +190,4 @@ function scheduleOutside(fn) {
   als.exit(() => setImmediate(() => { Promise.resolve().then(fn).catch(() => {}); }));
 }
 
-module.exports = { run, scheduleOutside, installDb, installNet, checkSql, checkHost, writesOf, TOOL_WRITES, SashaToolPermissionError, _current: current };
+module.exports = { run, scheduleOutside, installDb, installNet, checkSql, checkHost, checkPath, writesOf, TOOL_WRITES, SashaToolPermissionError, _current: current };

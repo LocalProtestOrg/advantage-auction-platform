@@ -106,7 +106,8 @@
       { href: '/admin/invoices.html', label: 'Invoices' },
       { href: '/admin/marketplace-orders.html', label: 'Storefront Orders' },
       { href: '/admin/storefront-payouts.html', label: 'Storefront Payouts' },
-      { href: '/admin/tax-jurisdictions.html', label: 'Storefront Tax Rules' },
+      { href: '/admin/tax.html', label: 'Sales Tax' },
+      { href: '/admin/tax-jurisdictions.html', label: 'Sales Tax Rules' },
       { href: '/admin/storefront-moderation.html', label: 'Storefront Moderation', perm: 'marketplace.moderate' },
     ] },
     { key: 'people', label: 'People & Sellers', title: 'People & Sellers', links: [

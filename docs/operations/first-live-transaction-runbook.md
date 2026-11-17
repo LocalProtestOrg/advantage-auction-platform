@@ -1,5 +1,10 @@
 # First live storefront transaction: the owner's own new Professional Seller account (owner decision 2026-11-04)
 
+**Superseded in part, 2026-11-16.** The seller account now exists (Timeless Treasures, Jersey City, New Jersey) and the
+first controlled purchase is a $3.00 test listing plus $2.00 flat shipping, bought as a shipped order to a New Jersey address,
+refunded in full with no fulfillment and no payout. Current procedure: `docs/operations/storefront-first-sale-test-plan.md`;
+current status: `docs/projects/development-todo.md` section 1. The steps below are kept as the original record.
+
 The first live seller is a **new** Professional Seller account for the owner's independent shop, separate from Lewis &
 Maese (whose account is not used or changed for this test). Every step is the owner's action unless marked *(Claude)*.
 Purchasing stays closed to everyone else throughout: the controlled pilot opens checkout only for the one listed seller

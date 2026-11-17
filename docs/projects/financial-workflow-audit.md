@@ -217,7 +217,7 @@ Two systems exist: a **legacy mock** (`src/services/notificationService.js`, con
 The CLAUDE.md business rule "tax is calculated after auction close" is **aspirational and unbuilt**. A planning doc — `docs/projects/tax-exemption-reseller-certificate-plan.md` — already confirms this and marks tax a **Stripe-LIVE blocker**.
 
 ### Risks
-- **Charging real money with no sales tax collection is a legal/compliance exposure** (Michigan governing law per the seller agreement; marketplace facilitator rules may apply by state).
+- **Charging real money with no sales tax collection is a legal/compliance exposure** (Michigan governing law per the seller agreement; marketplace facilitator rules may apply by state). *Clarification 2026-11-16: the governing-law clause is a contract term and says nothing about where tax is owed. Advantage.Bid is a New Jersey business operating out of New Jersey; New Jersey is the starting point for sales tax compliance, and the Adrian, Michigan address is a mailing address only. See `docs/operations/storefront-sales-tax-decision-checklist.md`.*
 - Retrofitting tax after launch requires invoice/payment/payout restructuring and possibly re-billing.
 
 ### Missing functionality (everything)
