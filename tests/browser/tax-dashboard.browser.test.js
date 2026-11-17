@@ -179,7 +179,7 @@ test('the rules page offers only the two current options and shows a historical 
   await page.waitForFunction(() => /Saved/.test(document.getElementById('msg').textContent));
   await page.waitForFunction(() => !/Retired/.test(document.getElementById('rows').textContent));
   expect((await stack.query(`SELECT remitter FROM marketplace_tax_jurisdictions WHERE state = 'NM'`)).rows[0].remitter).toBe('seller_direct');
-  expect(await page.$eval('.wrap', (e) => e.textContent)).not.toMatch(/AI|Stripe|Railway|[–—]/);
+  expect(await page.$eval('.wrap', (e) => e.textContent)).not.toMatch(/\bAI\b|Stripe|Railway|[–—]/);
   expect(errors).toEqual([]);
   await ctx.close();
 });
