@@ -19,7 +19,8 @@
 
 const CONDITION_TYPES = ['new', 'used', 'refurbished'];
 const SCHEMA_CONDITION = { new: 'https://schema.org/NewCondition', used: 'https://schema.org/UsedCondition', refurbished: 'https://schema.org/RefurbishedCondition' };
-const SCHEMA_AVAILABILITY = { active: 'https://schema.org/InStock', pending_purchase: 'https://schema.org/OutOfStock', sold: 'https://schema.org/SoldOut' };
+const SCHEMA_AVAILABILITY = { active: 'https://schema.org/InStock', pending_purchase: 'https://schema.org/OutOfStock', sold: 'https://schema.org/SoldOut',
+  unavailable: 'https://schema.org/Discontinued' };   // taken off sale after a refund: not a completed sale, not purchasable
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function err(code, message) { const e = new Error(message); e.status = 422; e.code = code; return e; }
@@ -132,7 +133,7 @@ function productJsonLd(item, base) {
   if (props.length) p.additionalProperty = props;
   const offer = { '@type': 'Offer', url, availability: SCHEMA_AVAILABILITY[item.status] || 'https://schema.org/OutOfStock' };
   // A sold item's price is private (§12.3): SoldOut with no price or shipping rate.
-  const priced = item.status !== 'sold' && item.price_cents != null;
+  const priced = item.status !== 'sold' && item.status !== 'unavailable' && item.price_cents != null;
   if (priced) { offer.price = priceString(item.price_cents); offer.priceCurrency = 'USD'; }
   if (p.itemCondition) offer.itemCondition = p.itemCondition;
   const ship = priced ? require('./storefrontShipping').shippingDetailsJsonLd(item) : undefined;

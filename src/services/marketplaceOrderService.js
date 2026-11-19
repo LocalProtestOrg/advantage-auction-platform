@@ -1148,6 +1148,8 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
     // A full refund undoes the sale: its units come off the sold count. They are NOT put back on sale automatically (the
     // goods may already have left); the seller adjusts the available quantity. A fully sold item becomes non-public
     // 'removed' and must be explicitly RELISTED; an item still on sale (other units available or held) stays as it is.
+    // Its public page stays at the same address as "No longer available" (migration 232: unavailable_since); checkout
+    // stays impossible because the item is not on sale.
     const itemRow = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id])).rows[0] || {};
     const soldMark = 'sold_at' in itemRow;
     // A multi-quantity item that sold out keeps its other buyers' sales: while another paid order remains it stays
@@ -1159,6 +1161,7 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
     const back = (await client.query(
       `UPDATE marketplace_items SET quantity_sold = GREATEST(quantity_sold - $2, 0),
               status = CASE WHEN ${unsell} THEN 'removed' ELSE status END,
+              ${'unavailable_since' in itemRow ? `unavailable_since = CASE WHEN ${unsell} AND moderation_status = 'none' THEN now() ELSE unavailable_since END,` : ''}
               pending_order_id = CASE WHEN ${unsell} THEN NULL ELSE pending_order_id END,
               pending_expires_at = CASE WHEN ${unsell} THEN NULL ELSE pending_expires_at END,
               updated_at = now()${soldMark ? `, sold_at = CASE WHEN ${unsell} THEN NULL ELSE sold_at END` : ''}

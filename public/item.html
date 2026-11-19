@@ -113,6 +113,8 @@
       var buyBox;
       if(status==='sold'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
+      } else if(status==='unavailable'){
+        buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">No longer available</span><p class="meta" style="margin:10px 0 0">This item is no longer available for purchase.</p></div>';
       } else if(status==='pending_purchase'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill">Sale in progress</span><p class="meta" style="margin:10px 0 0">This item is temporarily unavailable while another buyer completes checkout. Check back shortly.</p></div>';
       } else if(CFG.checkout_enabled&&it.purchase_policies_ready!==false&&it.accepting_orders===true){   // accepting_orders: the seller can take an order now (verified, agreement, payout account)   // the seller's Store Terms and Shipping & Pickup Policy are required (server-enforced)
@@ -129,8 +131,8 @@
         '<div class="crumb"><a href="/">Advantage.Bid</a> › Marketplace › '+sellerLink+'</div>'+
         '<div class="grid"><div class="gallery" id="gallery"></div>'+
         '<div><h1>'+esc(it.title)+'</h1><div class="meta">Sold by '+sellerLink+'</div>'+
-        // A sold item's price is never sent to the public; a signed-in member sees the realized price only when the seller allows it.
-        '<div class="price">'+(status==='sold'?(it.realized_price_cents!=null?money(it.realized_price_cents)+' <span class="meta" style="font-size:14px">sold · fixed-price sale</span>':'<span class="pill pill-sold">SOLD</span>'):money(it.price_cents))+'</div>'+
+        // A sold item's price is never shown, to anyone (owner 2026-11-19: storefront selling prices are private).
+        '<div class="price">'+(status==='sold'?'<span class="pill pill-sold">SOLD</span>':(status==='unavailable'?'<span class="pill pill-sold">No longer available</span>':money(it.price_cents)))+'</div>'+
         '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.is_oversized?'<span class="pill">Oversized item</span>':'')+(it.is_fragile?'<span class="pill">Fragile</span>':'')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
         (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
         '<div class="meta"><b>Shipping &amp; pickup:</b> '+esc((it.shipping&&it.shipping.summary)||'Local pickup available')+((it.shipping&&it.shipping.notes)?' — '+esc(it.shipping.notes):'')+'</div>'+

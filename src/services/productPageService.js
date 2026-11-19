@@ -20,7 +20,7 @@ const productData = require('../lib/productData');
 const { publicItem } = require('./marketplaceItemService');
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 
-const PUBLIC_STATUSES = ['active', 'pending_purchase', 'sold'];
+const { PUBLIC_ITEM_STATUS_SQL } = require('./marketplaceItemService');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
 const money = (c) => '$' + (Math.max(0, parseInt(c, 10) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,8 +39,8 @@ async function loadItem(id, runner = db) {
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.id = $1 AND mi.status = ANY($2::text[]) AND mi.moderation_status = 'none' AND sp.seller_type = ANY($3::text[])`,
-    [id, PUBLIC_STATUSES, PROFESSIONAL_SELLER_TYPES])).rows[0];
+      WHERE mi.id = $1 AND ${PUBLIC_ITEM_STATUS_SQL} AND mi.moderation_status = 'none' AND sp.seller_type = ANY($2::text[])`,
+    [id, PROFESSIONAL_SELLER_TYPES])).rows[0];
   if (!row) return null;
   return { item: publicItem(row), sellerId: row.seller_id, demo: !!(row.is_demo || row.seller_is_demo) };
 }
@@ -73,7 +73,7 @@ function headHtml(item, base, { noindex }) {
     img ? `<meta property="og:image:alt" content="${esc(alt)}">` : '',
     item.price_cents != null ? `<meta property="product:price:amount" content="${esc(productData.priceString(item.price_cents))}">` : '',
     item.price_cents != null ? '<meta property="product:price:currency" content="USD">' : '',
-    item.status === 'sold' ? '<meta property="product:availability" content="out of stock">' : '',
+    item.status === 'sold' || item.status === 'unavailable' ? '<meta property="product:availability" content="out of stock">' : '',
     `<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">`,
     `<meta name="twitter:title" content="${esc(item.title)}">`,
     `<meta name="twitter:description" content="${esc(desc)}">`,
@@ -81,7 +81,7 @@ function headHtml(item, base, { noindex }) {
   ].filter(Boolean).join('\n  ');
 }
 
-const AVAIL_TEXT = { active: 'Available', pending_purchase: 'Sale in progress', sold: 'Sold' };
+const AVAIL_TEXT = { active: 'Available', pending_purchase: 'Sale in progress', sold: 'Sold', unavailable: 'No longer available' };
 
 // The page content crawlers (and visitors before scripts run) see. The browser script re-renders the same item.
 function bodyHtml(item) {
@@ -98,8 +98,8 @@ function bodyHtml(item) {
   return `<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › ${seller ? seller + ' › ' : ''}<span>${esc(item.title)}</span></nav>
 <div class="grid"><div class="gallery">${imgs.map((u, i) => `<img src="${esc(u)}" alt="${esc(alts[i])}"${i === 0 ? ' id="main"' : ' width="72" height="72" loading="lazy"'}>`).join('')}</div>
 <div><h1>${esc(item.title)}</h1>${seller ? `<div class="meta">Sold by ${seller}</div>` : ''}
-<div class="price">${item.status === 'sold' ? '<span class="pill pill-sold">SOLD</span>' : money(item.price_cents)}</div>
-<div class="meta">${esc(AVAIL_TEXT[item.status] || '')}</div>
+<div class="price">${item.status === 'sold' ? '<span class="pill pill-sold">SOLD</span>' : item.status === 'unavailable' ? '<span class="pill pill-sold">No longer available</span>' : money(item.price_cents)}</div>
+<div class="meta">${esc(item.status === 'unavailable' ? '' : AVAIL_TEXT[item.status] || '')}</div>
 <div style="margin:8px 0">${pills}</div>${place ? `<div class="meta">${esc(place)}</div>` : ''}
 <div class="meta" id="ship-summary"><b>Shipping &amp; pickup:</b> ${esc(sh.summary)}${sh.notes ? ' — ' + esc(sh.notes) : ''}</div>
 ${item.description ? `<div class="desc">${esc(item.description)}</div>` : ''}${facts ? `<ul class="meta">${facts}</ul>` : ''}${policyLinks(item)}</div></div>`;

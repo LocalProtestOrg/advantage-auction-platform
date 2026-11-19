@@ -638,19 +638,24 @@ async function listPublicForSeller(sellerId, limit = 200, runner = db, { exclude
     return { ...rest, shippable: shipping.shippingOffer(r).available };
   });
 }
+// Which items have a public page (ONE definition; the item API and the server-rendered page both use it). On sale, held
+// in a checkout, or sold; plus an item a full refund took off sale (migration 232: unavailable_since), which keeps its
+// page as "No longer available". A seller's own removal, a draft and a moderation takedown are never public.
+// (The mark is read through to_jsonb so the query is also valid on a database that does not have the column yet.)
+const PUBLIC_ITEM_STATUS_SQL = "(mi.status IN ('active','pending_purchase','sold') OR (mi.status = 'removed' AND (to_jsonb(mi)->>'unavailable_since') IS NOT NULL AND mi.moderation_status = 'none'))";
 // opts.viewerUserId: the signed-in Advantage.Bid member viewing the page (null = public). A sold item's realized price is
 // added ONLY for a signed-in member AND only when the seller chose to show it (show_realized_price_to_members).
 async function getPublicItem(id, runner = db, { viewerUserId = null } = {}) {
   // Public statuses: 'active' (purchasable), 'pending_purchase' (temporarily held during a checkout),
-  // and 'sold' (shown as SOLD). 'draft'/'removed' remain non-public (404). The item page reads status
-  // to decide Buy Now vs. SOLD vs. temporarily-unavailable.
+  // 'sold' (shown as SOLD) and, after a full refund, 'unavailable' (No longer available). 'draft' and a seller's or
+  // moderator's removal remain non-public (404). The item page reads status to decide what to offer.
   const { rows } = await runner.query(
     `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.storefront->>'website' AS seller_website,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds,
             (SELECT json_object_agg(v.kind, v.version) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_versions
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
+      WHERE mi.id = $1 AND ${PUBLIC_ITEM_STATUS_SQL} AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
   if (!rows[0]) return null;
   const out = publicItem(rows[0]);
   // Whether "Ask the seller a question" is offered on this item to this viewer (general switch, or the controlled pilot).
@@ -664,10 +669,9 @@ async function getPublicItem(id, runner = db, { viewerUserId = null } = {}) {
     try { out.accepting_orders = await require('./sellerSaleEligibility').assertSellerCanSell(rows[0].seller_id, runner); }
     catch (e) { if (!e || e.code !== 'SELLER_NOT_ACCEPTING_ORDERS') console.warn('[items] accepting_orders check failed closed:', e && e.message); }   // fail closed: no Buy Now
   }
-  if (out.status === 'sold' && viewerUserId && rows[0].show_realized_price_to_members === true) {
-    const realized = await realizedSalePrice(rows[0].id, runner);
-    if (realized != null) { out.realized_price_cents = realized; out.realized_price_label = 'Fixed-price sale'; }
-  }
+  // A storefront sale's actual selling price is private, including from signed-in members (owner 2026-11-19). The
+  // per-item show_realized_price_to_members choice is no longer honored for fixed-price sales; auction sold-price
+  // rules are separate and unchanged.
   return out;
 }
 // The item price actually paid on the item's paid, never-refunded order (never shipping, tax or fees). Null otherwise.
@@ -720,9 +724,12 @@ function publicItem(row) {
   // price. Every public surface (JSON API, server-rendered page, structured data) is built from this shape. The seller's
   // own tools read the full record; signed-in members may see the realized price only by the seller's choice
   // (getPublicItem). A pending checkout is not a sale and keeps its price.
-  if (out.status === 'sold') {
+  // The stored status 'removed' is never published: a retained page after a refund reads 'unavailable' (it is not a
+  // completed sale, so it is never called sold). It cannot be bought, so it carries no price or shipping charge either.
+  if (out.status === 'removed') out.status = 'unavailable';
+  if (out.status === 'sold' || out.status === 'unavailable') {
     out.price_cents = null; out.shipping_cost_cents = null; out.shipping_price_mode = null;
-    out.shipping = { pickup: false, pickup_only: false, shipping: null, summary: 'This item has sold.', oversized: out.shipping.oversized, fragile: out.shipping.fragile };
+    out.shipping = { pickup: false, pickup_only: false, shipping: null, summary: out.status === 'sold' ? 'This item has sold.' : 'This item is no longer available.', oversized: out.shipping.oversized, fragile: out.shipping.fragile };
     out.shippable = false;
     out.price_hidden = true;
   }
@@ -734,7 +741,7 @@ async function listingForLot(lotId, runner = db) {
   return rows[0] || null;
 }
 
-module.exports = { assertStorefrontAgreement, checkStorefrontAgreement, sendAgreementIfNeeded,
+module.exports = { PUBLIC_ITEM_STATUS_SQL, assertStorefrontAgreement, checkStorefrontAgreement, sendAgreementIfNeeded,
   appendPhotos, setItemPhotos, MAX_PHOTOS, SELLER_TRANSITIONS, _normalizeInventoryNumber: normalizeInventoryNumber,
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
   listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, UNSOLD_JOIN,

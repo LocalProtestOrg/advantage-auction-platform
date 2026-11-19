@@ -130,7 +130,7 @@ beforeAll(async () => {
   await global.__PG.exec(require('./helpers/saleReadySchema').SALE_READY_SQL);   // sellers start sale-ready (agreement + payouts)
   for (const f of ['071_verification_documents.sql', '119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql', '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '227_storefront_tax_rule_seller_direct.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql', '205_storefront_item_messaging.sql', '206_sold_price_privacy_and_message_moderation.sql', '207_storefront_bulk_import.sql', '209_marketplace_inventory_importer.sql', '211_retail_gallery_studio_seller_type.sql', '212_marketplace_multi_quantity.sql', '214_storefront_shipping_quantity_and_tax_responsibility.sql', '227_storefront_tax_rule_seller_direct.sql', '215_storefront_channel_commission.sql', '216_storefront_agreement_terms_and_refund_fault.sql', '232_item_unavailable_history.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -281,21 +281,20 @@ describe('member disclosure is the seller\'s choice, off by default', () => {
     expect(priceLeak(JSON.stringify(r.body))).toBe(false);
   });
 
-  test('ON: signed-in members see the realized item price (labelled fixed-price sale); the public still does not', async () => {
+  test('a storefront sale price is private from signed-in members too, whatever the old per-item choice says (owner 2026-11-19)', async () => {
     const { it } = await soldItem();
     const on = await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { show_realized_price_to_members: true });
     expect(on.status).toBe(200);
     const member = await fetch(base + '/api/public/storefront/item/' + it.id, { headers: { authorization: 'Bearer ' + tokenFor('ben') } });
     const mb = await member.json();
-    expect(mb.data).toMatchObject({ price_cents: null, realized_price_cents: PRICE, realized_price_label: 'Fixed-price sale' });
-    expect(member.headers.get('cache-control')).toBe('private, no-store');
-    const pub = await anon('/api/public/storefront/item/' + it.id);
-    expect(priceLeak(JSON.stringify(pub.body))).toBe(false);
+    expect(mb.data.price_cents).toBe(null);
+    expect(mb.data.realized_price_cents).toBeUndefined();
+    expect(priceLeak(JSON.stringify(mb))).toBe(false);
     const html = (await pages().render(it.id, pdata().slugify(it.title), 'https://bid.example')).html;
-    expect(priceLeak(html)).toBe(false);      // the page crawlers see is always the public version
-    // and it can be switched off again at any time
-    await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { show_realized_price_to_members: false });
-    expect((await call('ben', 'GET', '/api/public/storefront/item/' + it.id)).body.data.realized_price_cents).toBeUndefined();
+    expect(priceLeak(html)).toBe(false);
+    // the seller's tools no longer offer the choice, and the item page no longer reads a member price
+    expect(fs.readFileSync(path.join(ROOT, 'public', 'seller-storefront.html'), 'utf8')).not.toMatch(/Show the sale price to signed-in/);
+    expect(fs.readFileSync(path.join(ROOT, 'public', 'item.html'), 'utf8')).not.toMatch(/realized_price_cents/);
   });
 
   test('only the item\'s own seller can change it; a non-boolean is refused; other details stay locked after the sale', async () => {
@@ -316,21 +315,59 @@ describe('member disclosure is the seller\'s choice, off by default', () => {
     const ownerCtx = { sellerId: SP.nora, sellerType: 'estate_sale_company', role: 'owner', userId: U.nora.id, staff: false };
     await items.updateItem(it.id, ownerCtx, { show_realized_price_to_members: true });
     expect((await one('SELECT show_realized_price_to_members AS v FROM marketplace_items WHERE id = $1', [it.id])).v).toBe(true);
-    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'seller-storefront.html'), 'utf8');
-    expect(html).toMatch(/if\(m\.status==='sold'&&!\(CFG&&CFG\.staff\)\)acts=/);
   });
 
-  test('a refunded sale has no realized price and no SOLD page', async () => {
+  test('a refunded sale keeps its page as "No longer available": never SOLD, no price, no checkout, not relisted', async () => {
     const { it, order } = await soldItem();
-    await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { show_realized_price_to_members: true });
     const soldMark = (await global.__PG.query('SELECT sold_at FROM marketplace_items WHERE id = $1', [it.id])).rows[0].sold_at;
     expect(soldMark).not.toBeNull();                                  // the paid sale marked it sold (migration 207)
     await orders.refundOrder(order.id, { adminId: U.admin.id, reason: 'Refund for the price-privacy test' });
     expect(await items.realizedSalePrice(it.id)).toBe(null);
-    // The full refund undid the sale: the item is out of view and may be relisted deliberately.
-    expect((await global.__PG.query('SELECT status, sold_at FROM marketplace_items WHERE id = $1', [it.id])).rows[0]).toEqual({ status: 'removed', sold_at: null });
-    const r = await call('ben', 'GET', '/api/public/storefront/item/' + it.id);
-    if (r.status === 200) expect(r.body.data.realized_price_cents).toBeUndefined();
+    // The full refund undid the sale: the item is off sale and is not relisted.
+    const row = (await global.__PG.query('SELECT status, sold_at, unavailable_since FROM marketplace_items WHERE id = $1', [it.id])).rows[0];
+    expect(row).toMatchObject({ status: 'removed', sold_at: null });
+    expect(row.unavailable_since).not.toBeNull();
+    for (const who of ['ben', null]) {
+      const r = who ? await call(who, 'GET', '/api/public/storefront/item/' + it.id) : await anon('/api/public/storefront/item/' + it.id);
+      expect(r.status).toBe(200);
+      expect(r.body.data).toMatchObject({ status: 'unavailable', price_cents: null, accepting_orders: false, questions_enabled: false, title: it.title });
+      expect(JSON.stringify(r.body)).not.toMatch(/"removed"|refund/i);
+      expect(priceLeak(JSON.stringify(r.body))).toBe(false);
+    }
+    const page = await pages().render(it.id, pdata().slugify(it.title), 'https://bid.example');
+    expect(page.status).toBe(200);
+    expect(page.html).toMatch(/No longer available/);
+    expect(page.html).not.toMatch(/<div class="price"><span class="pill pill-sold">SOLD</);
+    expect(page.html).toMatch(/<link rel="canonical" href="https:\/\/bid\.example\//);
+    expect(page.html).toMatch(/schema\.org\/Discontinued/);
+    expect(page.html).not.toMatch(/"price":/);   // no priced offer in the structured data
+    expect(priceLeak(page.html)).toBe(false);
+    // it cannot be bought
+    const buy = await call('ben', 'POST', '/api/marketplace/orders/quote', { item_id: it.id, fulfillment_method: 'pickup' });
+    expect(buy.status).toBeGreaterThanOrEqual(400);
+  });
+
+  test('a seller removal, a draft and a moderation takedown stay hidden; hiding or relisting a retained page clears the mark', async () => {
+    const page = async (it) => (await pages().render(it.id, pdata().slugify(it.title), 'https://bid.example')).status;
+    const api = async (it) => (await anon('/api/public/storefront/item/' + it.id)).status;
+    // a seller's own removal never has a public page
+    const mine = await noraItem({ title: 'Removed by the seller ' + Math.random().toString(36).slice(2, 7), price_cents: PRICE });
+    await call('nora', 'PATCH', '/api/seller-storefront/items/' + mine.id, { status: 'removed' });
+    expect([await page(mine), await api(mine)]).toEqual([404, 404]);
+    // a retained page the seller moves to draft is hidden for good, even if it is removed again later
+    const a = await soldItem();
+    await orders.refundOrder(a.order.id, { adminId: U.admin.id, reason: 'Refund for the history test' });
+    expect(await page(a.it)).toBe(200);
+    await global.__PG.query(`UPDATE marketplace_items SET status = 'draft' WHERE id = $1`, [a.it.id]);
+    expect((await one('SELECT unavailable_since AS v FROM marketplace_items WHERE id = $1', [a.it.id])).v).toBe(null);
+    await global.__PG.query(`UPDATE marketplace_items SET status = 'removed' WHERE id = $1`, [a.it.id]);
+    expect([await page(a.it), await api(a.it)]).toEqual([404, 404]);
+    // a moderation takedown hides a retained page
+    const b = await soldItem();
+    await orders.refundOrder(b.order.id, { adminId: U.admin.id, reason: 'Refund for the history test' });
+    await global.__PG.query(`UPDATE marketplace_items SET moderation_status = 'taken_down' WHERE id = $1`, [b.it.id]);
+    expect((await one('SELECT unavailable_since AS v FROM marketplace_items WHERE id = $1', [b.it.id])).v).toBe(null);
+    expect([await page(b.it), await api(b.it)]).toEqual([404, 404]);
   });
 });
 
@@ -346,7 +383,7 @@ describe('only a confirmed, current sign-in is a member (no access-control bypas
 
   test('a current session sees the price; a forged, expired or unsigned token is the public view', async () => {
     const it = await sharedSoldItem();
-    expect((await memberView(it, { authorization: 'Bearer ' + tokenFor('ben') })).body.data.realized_price_cents).toBe(PRICE);
+    expect((await memberView(it, { authorization: 'Bearer ' + tokenFor('ben') })).body.data.realized_price_cents).toBeUndefined();   // private from members too (owner 2026-11-19)
     const jwt = require('jsonwebtoken');
     const forged = jwt.sign({ id: U.ben.id, role: 'buyer' }, 'not-the-server-secret');
     const expired = jwt.sign({ id: U.ben.id, role: 'buyer', exp: Math.floor(Date.now() / 1000) - 60 }, process.env.JWT_SECRET);
