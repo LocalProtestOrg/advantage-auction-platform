@@ -324,7 +324,7 @@ describe('switches', () => {
 });
 
 function liveDb(f, { claim = true, owner = 'sasha', sashaOn = true, proMode = null } = {}) {
-  route(/pg_try_advisory_lock/, () => ({ rows: [{ ok: true }] }));
+  route(/pg_try_advisory_xact_lock/, () => ({ rows: [{ ok: true }] }));
   route(/seller_activation\.%/, () => cfgRows({ mode: 'live', ...(proMode ? { pro_mode: proMode } : {}) }));
   route(/FROM platform_config/, () => ({ rows: [['enabled', sashaOn], ['engine_enabled', true], ['email_inbound_enabled', true], ['email_autoreply_enabled', true]].map(([k, v]) => ({ key: 'sasha.' + k, value: v })) }));
   route(/FROM seller_profiles sp JOIN users u/, () => ({ rows: [f] }));
@@ -353,6 +353,16 @@ describe('shadow mode sends nothing', () => {
   test('sendCheckIn refuses outside live mode', async () => {
     route(/seller_activation\.%/, () => cfgRows({ mode: 'shadow' }));
     expect(await sa.sendCheckIn('x', null, { emailService: { sendEmail: jest.fn() } })).toEqual({ sent: false, reason: 'not_live' });
+  });
+  test('the single-run lock is transaction-scoped, so it cannot be stranded on a pooled connection', async () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'sellerActivationService.js'), 'utf8');
+    expect(src).toMatch(/pg_try_advisory_xact_lock/);
+    expect(src).not.toMatch(/pg_try_advisory_lock\(|pg_advisory_unlock/);
+    liveDb(seller({ agreement_signed_at: null }));
+    ROUTES.unshift([/seller_activation\.%/, () => cfgRows({ mode: 'shadow' })]);
+    await sa.runPass({ now: NOW, deps: { emailService: { sendEmail: jest.fn() } } });
+    const lockSql = calls.map((c) => c.sql).filter((x) => /^(BEGIN|COMMIT)$|advisory/.test(x));
+    expect(lockSql).toEqual(['BEGIN', 'SELECT pg_try_advisory_xact_lock($1) AS ok', 'COMMIT']);
   });
   test('the Director "Re-evaluate" endpoint never sends, even in live mode', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'adminDirector.js'), 'utf8');

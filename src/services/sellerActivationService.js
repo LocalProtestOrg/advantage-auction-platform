@@ -764,7 +764,9 @@ async function sendCheckIn(sellerProfileId, selected, deps = {}) {
 }
 
 // ── the pass ───────────────────────────────────────────────────────────────────────────────────────────
-const LOCK_KEY = 187001;
+// Transaction-scoped: connections are pooled in transaction mode, where a session lock can be stranded on a server
+// connection and block every later pass. A new key, so a lock stranded under the old one cannot block this.
+const LOCK_KEY = 1870012;
 
 /**
  * Evaluate every seller, record the decision, and (live mode, allowSend) send due check-ins under the daily cap.
@@ -775,7 +777,8 @@ async function runPass({ allowSend = true, now = new Date(), deps = {} } = {}) {
   if (!cfg.enabled) return { skipped: 'disabled', mode: cfg.mode };
   const lockClient = await db.connect();
   try {
-    const got = (await lockClient.query('SELECT pg_try_advisory_lock($1) AS ok', [LOCK_KEY])).rows[0].ok;
+    await lockClient.query('BEGIN');
+    const got = (await lockClient.query('SELECT pg_try_advisory_xact_lock($1) AS ok', [LOCK_KEY])).rows[0].ok;
     if (!got) return { skipped: 'locked' };
     try {
       const facts = await loadFacts();
@@ -798,8 +801,11 @@ async function runPass({ allowSend = true, now = new Date(), deps = {} } = {}) {
         }
       }
       return { mode: cfg.mode, evaluated: facts.length, counts, sends };
-    } finally { await lockClient.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {}); }
-  } finally { lockClient.release(); }
+    } finally { /* the lock is released when the transaction ends, below */ }
+  } finally {
+    await lockClient.query('COMMIT').catch(() => {});   // ends the lock transaction; releases the lock
+    lockClient.release();
+  }
 }
 
 /** Evaluate without writing anything (Director preview / reports). */
