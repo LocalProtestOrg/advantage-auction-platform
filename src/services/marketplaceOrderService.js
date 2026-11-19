@@ -1231,7 +1231,7 @@ async function updateFulfillment(orderId, sellerActorRef, action, opts = {}) {
   const spec = FULFILL[action];
   if (!spec) throw err(400, 'BAD_ACTION', 'Unknown fulfillment action.');
   if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
-  return withTransaction(async (client) => {
+  const view = await withTransaction(async (client) => {
     const seller = await sellerActor.sellerRow(sellerActorRef, client);
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
     const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
@@ -1265,6 +1265,9 @@ async function updateFulfillment(orderId, sellerActorRef, action, opts = {}) {
         payout_eligible: upd.payout_eligible } });
     return sellerOrderView(upd, sellerActorRef);
   });
+  // Tell the buyer once the shipment is recorded (after commit; best-effort, so a mail failure never undoes the step).
+  if (action === 'shipped') { try { await require('./marketplaceOrderNotifier').sendShipped(orderId); } catch (e) { /* best-effort */ } }
+  return view;
 }
 
 // ── Read models ───────────────────────────────────────────────────────────────────────────────────────
