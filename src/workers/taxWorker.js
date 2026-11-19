@@ -20,7 +20,13 @@ require('dotenv').config();
 
 const TICK_MS = 15 * 60 * 1000;
 const START_DELAY_MS = 2 * 60 * 1000;
-const LOCK_KEY = 231116;   // advisory lock for the tax worker (migration 231)
+// Advisory lock for the tax worker. TRANSACTION-scoped on purpose (incident 2026-11-19): production reaches the database
+// through a transaction-mode pooler, where a SESSION advisory lock is taken on one shared server connection and the
+// unlock can land on another, so the lock was never released and every later pass skipped silently (the first live
+// refund was not posted to the ledger). A transaction-scoped lock is held by the one server connection the pooler pins
+// for the transaction and is released by the database when the transaction ends, whatever happens to this process.
+// The key differs from the first one (231116) so a lock still stranded on a pooled connection cannot block the fix.
+const LOCK_KEY = 2311162;
 
 function enabled(env = process.env) {
   if (String(env.TAX_WORKER_DISABLED || '').toLowerCase() === 'true') return false;
@@ -46,8 +52,9 @@ async function tick({ now = new Date(), daily = null, force = false, deps = {} }
   try {
     const db = deps.db || require('../db');
     client = await db.connect();
-    const got = (await client.query('SELECT pg_try_advisory_lock($1) AS ok', [LOCK_KEY])).rows[0].ok;
-    if (!got) return { skipped: 'locked' };
+    await client.query('BEGIN');
+    const got = (await client.query('SELECT pg_try_advisory_xact_lock($1) AS ok', [LOCK_KEY])).rows[0].ok;
+    if (!got) { console.log('[tax-worker] pass skipped: another pass holds the lock'); return { skipped: 'locked' }; }
     try {
       const ledger = deps.ledger || require('../services/tax/taxLedgerService');
       await step('ledger_sync', () => ledger.sync(), results);
@@ -68,13 +75,16 @@ async function tick({ now = new Date(), daily = null, force = false, deps = {} }
       const posted = results.ledger_sync && results.ledger_sync.ok && results.ledger_sync.result ? results.ledger_sync.result.posted : null;
       if (posted || runDaily) console.log('[tax-worker] pass complete: ledger entries posted ' + (posted == null ? 'n/a' : posted) + (runDaily ? '; daily steps ' +
         ['ensure_filings', 'deadline_alerts', 'nexus_alerts', 'reconciliation'].map((k) => k + '=' + (results[k] && results[k].ok ? 'ok' : 'failed')).join(' ') : ''));
-    } finally { await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {}); }
+    } finally { /* the lock is released when the transaction ends, below */ }
     return results;
   } catch (e) {
     console.error('[tax-worker] pass failed:', e && e.message);
     return { ...results, error: e && e.message };
   } finally {
-    if (client) { try { client.release(); } catch (_) { /* already released */ } }
+    if (client) {
+      await client.query('COMMIT').catch(() => {});   // ends the lock transaction (it holds only the lock); releases the lock
+      try { client.release(); } catch (_) { /* already released */ }
+    }
     busy = false;
   }
 }

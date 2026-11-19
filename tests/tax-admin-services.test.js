@@ -496,6 +496,25 @@ describe('the worker pass', () => {
     const again = await worker().tick({ now: NOW, force: true, daily: false, deps });
     expect(Object.keys(again)).toEqual(['ledger_sync']);   // the 15-minute pass only brings the ledger up to date
   });
+  test('the single-run lock is transaction-scoped, so it cannot be stranded on a pooled connection (incident 2026-11-19)', async () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'workers', 'taxWorker.js'), 'utf8');
+    expect(src).toMatch(/pg_try_advisory_xact_lock\(\$1\)/);
+    expect(src).not.toMatch(/pg_try_advisory_lock\(|pg_advisory_unlock\(/);
+    // The lock transaction is always ended, on every path: a pass that is refused the lock, one that completes, one that fails.
+    const sent = [];
+    const client = (grant) => ({ query: async (t) => { sent.push(t); return { rows: [{ ok: grant }] }; }, release() { sent.push('release'); } });
+    const deps = (grant, sync) => ({ db: { connect: async () => client(grant) }, ledger: { sync } });
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {}); const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await worker().tick({ now: NOW, force: true, daily: false, deps: deps(false, async () => ({ posted: 0 })) })).toEqual({ skipped: 'locked' });
+    expect(sent).toEqual(['BEGIN', 'SELECT pg_try_advisory_xact_lock($1) AS ok', 'COMMIT', 'release']);
+    sent.length = 0;
+    await worker().tick({ now: NOW, force: true, daily: false, deps: deps(true, async () => { throw new Error('boom'); }) });
+    expect(sent).toEqual(['BEGIN', 'SELECT pg_try_advisory_xact_lock($1) AS ok', 'COMMIT', 'release']);
+    sent.length = 0;
+    expect((await worker().tick({ now: NOW, force: true, daily: false, deps: deps(true, async () => ({ posted: 1 })) })).ledger_sync).toEqual({ ok: true, result: { posted: 1 } });
+    expect(sent).toEqual(['BEGIN', 'SELECT pg_try_advisory_xact_lock($1) AS ok', 'COMMIT', 'release']);
+    log.mockRestore(); errSpy.mockRestore();
+  });
   test('against the real services and schema: the ledger sync and the daily steps complete', async () => {
     const r = await worker().tick({ now: NOW, force: true, daily: true, deps: { reconciliation: { run: async () => ({ id: 1, status: 'clean' }) } } });
     expect(r.ledger_sync).toMatchObject({ ok: true });
