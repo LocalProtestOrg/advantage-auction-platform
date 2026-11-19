@@ -75,3 +75,29 @@ describe('start-selling.html: benefits-first, two audiences kept separate', () =
     for (const [, id] of page.matchAll(/href="#([a-z-]+)"/g)) expect(page).toContain('id="' + id + '"');
   });
 });
+
+describe('the three ways to sell are presented, with the storefront as an option on its own (owner 2026-11-19)', () => {
+  const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8');
+  test('Start Selling names the three options and states the approved storefront terms', () => {
+    const s = read('start-selling.html');
+    const ways = s.slice(s.indexOf('id="ways-to-sell"'), s.indexOf('id="professional"'));
+    for (const h of ['Open an Online Storefront', 'Conduct Online Auctions', 'Promote Estate Sales']) expect(ways).toContain('<h3>' + h + '</h3>');
+    expect(ways).toMatch(/No auction or estate sale required/);
+    expect(ways).toMatch(/No monthly or listing fees/);
+    expect(ways).toMatch(/<b>5%<\/b> for sales that come through the storefront embedded on your website, <b>9%<\/b> for sales that come through the Advantage\.Bid marketplace/);
+    expect(ways).toMatch(/draft your inventory before verification is complete; live selling begins once Advantage\.Bid has approved your business/);
+    expect(ways).toMatch(/href="\/become-professional-seller\.html"/);   // the one registration path
+    expect(s).toMatch(/href="#ways-to-sell" class="btn-hero-secondary"/);
+  });
+  test('the registration choice offers all three, each through the existing registration', () => {
+    const s = read('become-seller.html');
+    for (const id of ['path-auction', 'path-storefront', 'path-estate-sales']) expect(s).toContain('id="' + id + '"');
+    expect(s).toMatch(/No auction or estate sale is needed to open a shop/);
+    expect(read('become-professional-seller.html')).toMatch(/Only want an online shop\?/);
+  });
+  test('no seller page still says online purchasing is not open', () => {
+    for (const f of ['professional-sellers.html', 'start-selling.html', 'become-seller.html', 'become-professional-seller.html', 'widgets/shared/website-widgets.js']) {
+      expect(read(f)).not.toMatch(/not open yet|once online purchasing opens/i);
+    }
+  });
+});
