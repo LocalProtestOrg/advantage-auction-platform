@@ -96,7 +96,7 @@ describe('the three ways to sell are presented, with the storefront as an option
     expect(read('become-professional-seller.html')).toMatch(/Only want an online shop\?/);
   });
   test('no seller page still says online purchasing is not open', () => {
-    for (const f of ['professional-sellers.html', 'start-selling.html', 'become-seller.html', 'become-professional-seller.html', 'widgets/shared/website-widgets.js']) {
+    for (const f of ['professional-sellers.html', 'start-selling.html', 'become-seller.html', 'become-professional-seller.html', 'widgets/shared/website-widgets.js', 'faq.html', 'seller-demo.html']) {
       expect(read(f)).not.toMatch(/not open yet|once online purchasing opens/i);
     }
   });
