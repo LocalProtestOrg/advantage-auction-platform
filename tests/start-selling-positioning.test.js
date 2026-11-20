@@ -83,8 +83,7 @@ describe('the three ways to sell are presented, with the storefront as an option
     const ways = s.slice(s.indexOf('id="ways-to-sell"'), s.indexOf('id="professional"'));
     for (const h of ['Open an Online Storefront', 'Conduct Online Auctions', 'Promote Estate Sales']) expect(ways).toContain('<h3>' + h + '</h3>');
     expect(ways).toMatch(/No auction or estate sale required/);
-    expect(ways).toMatch(/No monthly or listing fees/);
-    expect(ways).toMatch(/<b>5%<\/b> for sales that come through the storefront embedded on your website, <b>9%<\/b> for sales that come through the Advantage\.Bid marketplace/);
+    expect(ways).toContain(require('./helpers/approvedStorefrontCommissionCopy').BODY);   // owner-approved wording 2026-11-19
     expect(ways).toMatch(/draft your inventory before verification is complete; live selling begins once Advantage\.Bid has approved your business/);
     expect(ways).toMatch(/href="\/become-professional-seller\.html"/);   // the one registration path
     expect(s).toMatch(/href="#ways-to-sell" class="btn-hero-secondary"/);

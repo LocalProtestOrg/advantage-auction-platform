@@ -101,7 +101,7 @@ describe('professional-sellers.html landing', () => {
   const page = read('public', 'professional-sellers.html');
   test('states the Storefront commission (5% website / 9% marketplace, processing included), NOT 8% + 3%', () => {
     expect(page).toMatch(/5% or 9%/);
-    expect(page).toMatch(/<b>5%<\/b> when the sale comes through your own website/);
+    expect(page).toContain(require('./helpers/approvedStorefrontCommissionCopy').BODY);   // owner-approved wording 2026-11-19
     expect(page).not.toMatch(/11%/);
     expect(page).not.toMatch(/8%\s*\+\s*3%/);
   });

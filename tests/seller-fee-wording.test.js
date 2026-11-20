@@ -56,8 +56,8 @@ describe('seller fee wording — no Advantage platform fee / 10% seller-fee clai
 
   test('no seller-facing page names Stripe in copy', () => {
     SELLER_PAGES.forEach((page) => {
-      // allow none — Stripe naming was removed from seller-facing copy
-      expect(read(page)).not.toMatch(/\bStripe\b/);
+      // allow none, except inside the owner-approved storefront commission statement (2026-11-19), exact wording only
+      expect(require('./helpers/approvedStorefrontCommissionCopy').withoutApproved(read(page))).not.toMatch(/\bStripe\b/);
     });
   });
 });

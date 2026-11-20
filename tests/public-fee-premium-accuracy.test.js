@@ -23,7 +23,8 @@ const BUYER_PAGES = ['buyer-faq.html', 'how-to-buy.html', 'faq.html'];
 
 describe('Decision 1: seller fee wording', () => {
   test.each(SELLER_PAGES)('%s has no "at launch", no approximate processing fee and no unqualified "no seller platform fee"', (f) => {
-    const html = read(f);
+    // the owner-approved storefront commission statement (2026-11-19) is the only place "Roughly 3%" may appear
+    const html = require('./helpers/approvedStorefrontCommissionCopy').withoutApproved(read(f));
     expect(html).not.toMatch(/at launch/i);
     expect(html).not.toMatch(/approximate(ly)? 3%|about 3%|~\s*3%|roughly 3%/i);
     expect(html).not.toMatch(/no seller platform fee/i);
