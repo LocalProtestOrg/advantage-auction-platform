@@ -116,7 +116,11 @@ test('structured data is valid JSON and the FAQ markup matches the visible FAQ e
 });
 
 test('copy keeps to approved pricing and the public language rules', () => {
-  const text = SRC.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ');
+  const full = SRC.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ');
+  // The owner-approved commission statement (2026-11-19) appears exactly as written; the rules below apply to everything else.
+  const approved = require('../helpers/approvedStorefrontCommissionCopy');
+  expect(full).toContain(approved.BODY);
+  const text = approved.withoutApproved(full);
   expect(text).toMatch(/5% when the sale comes through your own website using your Advantage\.Bid embedded storefront, and 9% when it comes through the Advantage\.Bid marketplace\. Both include credit card processing/);
   expect(text).toMatch(/not on shipping or sales tax/);
   // No other percentage, price or subscription amount is advertised.
