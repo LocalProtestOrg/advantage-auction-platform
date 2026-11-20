@@ -620,6 +620,19 @@ function staffItemView(row) {
   return out;
 }
 
+// A seller's completed sales, for the storefront's Previously Sold section (owner 2026-11-20). Photo, title and category
+// only: never the selling price, the sale date, the buyer or the order. Only genuine completed sales (status 'sold');
+// refunded, removed and taken-down items never appear.
+async function listSoldForSeller(sellerId, limit = 24, runner = db) {
+  const { rows } = await runner.query(
+    `SELECT mi.id, mi.title, mi.thumbnail_url, mi.images, mi.category
+       FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
+      WHERE mi.seller_id = $1 AND mi.status = 'sold' AND mi.moderation_status = 'none'
+        AND sp.seller_type = ANY($3::text[])
+      ORDER BY mi.updated_at DESC LIMIT $2`, [sellerId, limit, PROFESSIONAL_SELLER_TYPES]);
+  return rows.map((r) => ({ id: r.id, title: r.title, thumbnail_url: r.thumbnail_url || (Array.isArray(r.images) ? r.images[0] : null) || null, category: r.category || null }));
+}
+
 // Public active listings for a seller (storefront + feed).
 // opts.excludeDemoItems: also leave out demo-flagged items (the website widget for a real seller, so it matches the
 // canonical live-item rule in marketplaceVisibility.activeMarketplaceItemSql).
@@ -650,7 +663,7 @@ async function getPublicItem(id, runner = db, { viewerUserId = null } = {}) {
   // 'sold' (shown as SOLD) and, after a full refund, 'unavailable' (No longer available). 'draft' and a seller's or
   // moderator's removal remain non-public (404). The item page reads status to decide what to offer.
   const { rows } = await runner.query(
-    `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.storefront->>'website' AS seller_website,
+    `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.storefront->>'website' AS seller_website, to_jsonb(sp)->>'logo_url' AS seller_logo_url,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds,
             (SELECT json_object_agg(v.kind, v.version) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_versions
@@ -709,6 +722,8 @@ function publicItem(row) {
   // slug itself is still used for the seller's published policy pages, which do not depend on the storefront page.
   out.storefront_public = !!(branded && out.storefront_slug && row.storefront_published === true);
   // The seller's own website (from their storefront settings): the way back after a purchase started in their shop widget.
+  // The seller's own uploaded logo (About the Seller panel); never shown for a seller whose branding is hidden.
+  out.seller_logo_url = branded && row.seller_logo_url && /^https?:\/\//i.test(String(row.seller_logo_url)) ? String(row.seller_logo_url) : null;
   out.seller_website = branded && row.seller_website && /^https?:\/\//i.test(String(row.seller_website)) ? String(row.seller_website) : null;
   // Which of THIS item's seller's policies are published (links go to that seller's own policy pages, never another's).
   // Hidden branding: the seller's policies cannot be linked without revealing the seller, so none are shown (or applied).
@@ -741,7 +756,7 @@ async function listingForLot(lotId, runner = db) {
   return rows[0] || null;
 }
 
-module.exports = { PUBLIC_ITEM_STATUS_SQL, assertStorefrontAgreement, checkStorefrontAgreement, sendAgreementIfNeeded,
+module.exports = { PUBLIC_ITEM_STATUS_SQL, listSoldForSeller, assertStorefrontAgreement, checkStorefrontAgreement, sendAgreementIfNeeded,
   appendPhotos, setItemPhotos, MAX_PHOTOS, SELLER_TRANSITIONS, _normalizeInventoryNumber: normalizeInventoryNumber,
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
   listForSeller, listPublicForSeller, getPublicItem, realizedSalePrice, listingForLot, UNSOLD_JOIN,

@@ -27,11 +27,11 @@ describe('Item 1 — Map View / List View labels (display-mode switch, not "Brow
 describe('Item 3 — the Advantage.Bid brand/logo links to https://advantage.bid', () => {
   const event = read('public', 'event.html');
   const shell = read('public', 'widgets', 'shared', 'member-chrome.js'); // shared chrome renders the brand
-  test('event-detail brand goes to advantage.bid (not the marketplace root)', () => {
-    expect(event).toMatch(/<a class="brand" href="https:\/\/advantage\.bid">Advantage<span>\.Bid<\/span><\/a>/);
-  });
-  test('a labeled marketplace link (Map) may still point to the Railway root', () => {
-    expect(event).toMatch(/class="hlink" href="\/">🗺 Map<\/a>/);
+  // Owner-approved unified header (2026-11-20): the event page uses the one shared public header, like every other public page.
+  test('event-detail uses the shared public header (no page-specific header)', () => {
+    expect(event).toMatch(/<div data-adv-public-nav><\/div>/);
+    expect(event).toContain('/widgets/shared/public-nav.js');
+    expect(event).not.toMatch(/<header><div class="hin">/);
   });
   test('the dashboard shell brand already links to advantage.bid (desktop + mobile)', () => {
     expect((shell.match(/href="https:\/\/advantage\.bid"/g) || []).length).toBeGreaterThanOrEqual(2);

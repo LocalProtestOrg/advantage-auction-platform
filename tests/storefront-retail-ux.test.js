@@ -57,12 +57,14 @@ describe('seller navigation — retail entry points', () => {
 
 describe('public storefront — reads like a shop', () => {
   test('empty Shop section is hidden (no "check back soon" placeholder)', () => {
-    expect(storefront).toMatch(/vis\.marketplace!==false && d\.marketplace\.length/);
+    expect(storefront).toMatch(/if\(vis\.marketplace===false\)return '';/);   // a seller who turned the shop off shows no Shop section at all
     expect(storefront).not.toContain('No items listed right now');
   });
   test('Shop is the PRIMARY hero action for a retail-first seller (items, no auctions)', () => {
     expect(storefront).toContain('var shopPrimary=(!d.auctions.length && d.marketplace.length)');
-    expect(storefront).toContain('Shop Now');
+    // approved storefront layout (owner 2026-11-20): Shop is the first tab and the first section; the profile row carries Follow and Contact
+    expect(storefront).toMatch(/\(hasShop\?'<a href="#shop">Shop<\/a>':''\)\+\s*\(hasAbout/);
+    expect(storefront).toContain('if(shopPrimary||!hasAuctions&&!hasEvents)html+=shopSection(d,s,vis);');
   });
   test('contact copy is generic, not estate-only', () => {
     expect(storefront).toContain('Get in touch');

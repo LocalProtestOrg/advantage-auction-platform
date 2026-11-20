@@ -54,11 +54,11 @@ describe('shared public-nav widget', () => {
     expect(nav).toMatch(/mobile-open/);
     expect(nav).toMatch(/@media\(max-width:920px\)/); // fallback mobile CSS so the hamburger always works
   });
-  test('canonical relative "/" logo; active-state by pathname; professional variant', () => {
-    expect(nav).toMatch(/href="\/" class="brand"/);
+  test('canonical relative "/" logo; active-state by pathname; one navigation for every page (owner-approved unified header, 2026-11-20)', () => {
+    expect(nav).toMatch(/href="\/" class="brand abn-brand"/);
     expect(nav).toMatch(/aria-current="page"/);
-    expect(nav).toMatch(/variant === 'professional'/);
-    expect(nav).toMatch(/Sell Professionally/);
+    for (const label of ['Auctions Near You', 'Estate Sales Near You', 'Buy Now Marketplace', 'Find Professionals', 'Start Selling']) expect(nav).toContain("label: '" + label + "'");
+    expect(nav).not.toMatch(/Sell Professionally/);
   });
   test('no AI/tracking params in the widget', () => {
     expect(nav).not.toMatch(/utm_source=chatgpt|chatgpt\.com|openai|claude\.ai|utm_/i);

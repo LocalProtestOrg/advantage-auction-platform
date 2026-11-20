@@ -50,8 +50,53 @@
     .more-card img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;display:block;margin-bottom:6px}
     .more-card span{display:block;margin-bottom:2px}
   </style>
+  <style>
+    /* Approved item page layout (2026-11-20). */
+    body{background:#fff}
+    .wrap{max-width:1180px}
+    .crumb{margin:4px 0 18px;font-size:14px}
+    .grid{grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:36px;align-items:start}
+    h1{font-size:clamp(26px,3.3vw,38px);letter-spacing:-.01em}
+    .summary .meta{font-size:15px}
+    .price{font-size:36px;margin:14px 0 6px}
+    .price .pill-sold{font-family:Inter,-apple-system,sans-serif;font-size:16px;font-weight:800;padding:10px 18px;border-radius:10px;margin:0;display:inline-flex;align-items:center;gap:8px}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+    .chips .pill,.chip{display:inline-flex;align-items:center;gap:6px;background:#eef3fb;color:#14356b;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;margin:0}
+    .chip svg{flex:none}
+    .acts{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0}
+    .btn-pill{border-radius:999px;padding:9px 18px;font-size:14px}
+    .btn-primary{background:#14356b}.btn-primary:hover{background:#0f2a57}
+    .btn-block{display:flex;justify-content:center;width:100%;margin-top:10px}
+    .gallery>img{display:inline-block;width:72px;height:72px;object-fit:cover;border-radius:10px;margin:8px 8px 0 0}
+    .gallery>img#main{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#f3f5f8;border-radius:14px;margin:0}
+    @media(min-width:761px){
+      #gallery .advg{flex-direction:row-reverse;align-items:flex-start;gap:14px}
+      #gallery .advg-main{flex:1 1 auto;min-width:0}
+      #gallery .advg-thumbs{flex:0 0 auto;flex-direction:column;flex-wrap:nowrap;max-height:560px;overflow:auto}
+      #gallery .advg-thumb{width:76px;height:76px}
+    }
+    .lower{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:36px;margin-top:38px;align-items:start}
+    .sec-h{font-family:Fraunces,serif;font-size:24px;line-height:1.2;margin:0 0 12px}
+    .desc{margin:0 0 26px;font-size:15.5px;line-height:1.7}
+    .details table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    .details th{text-align:left;font-weight:700;font-size:14px;padding:9px 0;width:42%;vertical-align:top;border-bottom:1px solid #eef1f5}
+    .details td{font-size:14px;padding:9px 0;color:#334155;border-bottom:1px solid #eef1f5}
+    .details ul{list-style:none;margin:8px 0 0}
+    .seller-card .seller-row{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+    .seller-logo{width:64px;height:64px;border-radius:12px;object-fit:contain;background:#fff;border:1px solid #e6eaef;flex:none}
+    .seller-initial{display:flex;align-items:center;justify-content:center;font-family:Fraunces,serif;font-weight:700;font-size:26px;color:#14356b;background:#eef3fb}
+    .seller-name{font-weight:700;font-size:17px;margin-bottom:4px}
+    .badge-pro{display:inline-block;background:#fbbf24;color:#3a2a00;font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 11px}
+    .note{background:#eef4ff;border-radius:14px;padding:16px 18px;margin-top:18px;font-size:14px;color:#334155}
+    .note b{display:block;color:#0f172a;font-size:15px;margin-bottom:4px}
+    #shareBox{margin:18px 0 0}
+    .more{max-width:1180px;margin:0 auto;padding:8px 18px 28px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr;gap:20px}.lower{grid-template-columns:1fr;gap:22px;margin-top:26px}.wrap{padding:16px 14px}.price{font-size:30px}}
+  </style>
 </head>
 <body>
+  <script>try{if(new URLSearchParams(location.search).get('ref')==='widget')window.ADV_PUBLIC_NAV_VARIANT='minimal';}catch(e){}</script>
+  <div data-adv-public-nav></div>
   <div class="wrap" id="app"><!-- SSR-BODY:START --><p style="color:#64748b">Loading…</p><!-- SSR-BODY:END --></div>
   <!-- SSR-MORE -->
   <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
@@ -84,7 +129,7 @@
       fetch('/api/marketplace/config',{headers:authHdr()}).then(function(r){return r.json();}).catch(function(){return {};})
     ]).then(function(a){
       var res=a[0]; if(a[1]&&a[1].data)CFG=a[1].data;
-      if(!res.success){document.getElementById('app').innerHTML='<h1>Item not available</h1><p class="meta">This item may have sold or been removed.</p><p style="margin-top:16px"><a class="btn btn-primary" href="/">Explore Advantage.Bid</a></p>';return;}
+      if(!res.success){document.getElementById('app').innerHTML='<div style="text-align:center;padding:60px 0"><h1>Item not available</h1><p class="meta" style="margin-top:10px">This item may have sold or been removed.</p><p style="margin-top:18px"><a class="btn btn-primary" href="/shop">Browse the Marketplace</a></p></div>';return;}
       ITEM=res.data;render();
     }).catch(function(){document.getElementById('app').textContent='Unable to load item.';});
 
@@ -96,6 +141,12 @@
       if(p.shipping_pickup)a.push('<a href="'+b+'/shipping-pickup" target="_blank" rel="noopener">Shipping &amp; Pickup Policy</a>');
       return '<p class="meta" style="margin-top:12px">'+esc(it.seller_name||'Seller')+': '+a.join(' · ')+'</p>';
     }
+    var IC={
+      star:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+      truck:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>',
+      pin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.300"/></svg>'
+    };
+    function chip(icon,text){return '<span class="chip">'+icon+esc(text)+'</span>';}
     function render(){
       var it=ITEM;
       document.title=it.title+' · Advantage.Bid';
@@ -112,9 +163,9 @@
         '<button type="button" class="btn btn-ghost" id="contactBtn">Contact Seller</button>';
       var buyBox;
       if(status==='sold'){
-        buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
+        buyBox='<p class="meta" id="statusLine" style="font-size:15.5px;color:#334155">This item has been sold.</p>';
       } else if(status==='unavailable'){
-        buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">No longer available</span><p class="meta" style="margin:10px 0 0">This item is no longer available for purchase.</p></div>';
+        buyBox='<p class="meta" id="statusLine" style="font-size:15.5px;color:#334155">This item is no longer available for purchase.</p>';
       } else if(status==='pending_purchase'){
         buyBox='<div class="card" style="margin:16px 0"><span class="pill">Sale in progress</span><p class="meta" style="margin:10px 0 0">This item is temporarily unavailable while another buyer completes checkout. Check back shortly.</p></div>';
       } else if(CFG.checkout_enabled&&it.purchase_policies_ready!==false&&it.accepting_orders===true){   // accepting_orders: the seller can take an order now (verified, agreement, payout account)   // the seller's Store Terms and Shipping & Pickup Policy are required (server-enforced)
@@ -127,20 +178,37 @@
         buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+'<button type="button" class="btn btn-primary" id="contactBtn">Contact Seller</button>'+'</div>';
       }
 
+      var historical=(status==='sold'||status==='unavailable');
+      var details=[['Condition',it.condition],['Category',it.category],['Era or period',it.era_or_period],['Location',loc],
+        ['Pickup / Shipping',historical?'':((it.shipping&&it.shipping.summary)||'Local pickup available')],['Brand',it.brand],['Maker',it.manufacturer],['Material',it.material],['Model or part number',it.mpn]]
+        .filter(function(r){return r[1];}).map(function(r){return '<tr><th scope="row">'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>';}).join('');
+      // About the Seller: the seller's own name and logo, a link to their storefront (once published) and Contact Seller.
+      var sellerPanel=it.seller_name?('<aside class="card seller-card" id="aboutSeller" aria-label="About the seller"><h2 class="sec-h">About the Seller</h2>'+
+        '<div class="seller-row">'+(it.seller_logo_url?'<img class="seller-logo" src="'+esc(it.seller_logo_url)+'" alt="'+esc(it.seller_name)+' logo" width="64" height="64">':'<span class="seller-logo seller-initial" aria-hidden="true">'+esc(String(it.seller_name).slice(0,1))+'</span>')+
+        '<div><div class="seller-name">'+esc(it.seller_name)+'</div><span class="badge-pro">Professional Seller</span></div></div>'+
+        (it.storefront_public?'<a class="btn btn-ghost btn-block" id="visitStorefront" href="/pro/'+esc(it.storefront_slug)+'">Visit Seller Storefront</a>':'')+
+        '<button type="button" class="btn btn-primary btn-block" id="sellerContactBtn">Contact Seller</button></aside>'):'';
       document.getElementById('app').innerHTML=
-        '<div class="crumb"><a href="/">Advantage.Bid</a> › Marketplace › '+sellerLink+'</div>'+
+        '<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › <a href="/shop">Marketplace</a> › '+sellerLink+'</nav>'+
         '<div class="grid"><div class="gallery" id="gallery"></div>'+
-        '<div><h1>'+esc(it.title)+'</h1><div class="meta">Sold by '+sellerLink+'</div>'+
+        '<div class="summary"><h1>'+esc(it.title)+'</h1><div class="meta">Sold by '+sellerLink+'</div>'+
         // A sold item's price is never shown, to anyone (owner 2026-11-19: storefront selling prices are private).
         '<div class="price">'+(status==='sold'?'<span class="pill pill-sold">SOLD</span>':(status==='unavailable'?'<span class="pill pill-sold">No longer available</span>':money(it.price_cents)))+'</div>'+
-        '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.is_oversized?'<span class="pill">Oversized item</span>':'')+(it.is_fragile?'<span class="pill">Fragile</span>':'')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
-        (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
-        '<div class="meta"><b>Shipping &amp; pickup:</b> '+esc((it.shipping&&it.shipping.summary)||'Local pickup available')+((it.shipping&&it.shipping.notes)?' — '+esc(it.shipping.notes):'')+'</div>'+
+        '<div class="chips">'+(it.condition?chip(IC.star,it.condition):'')+chip(IC.truck,it.shippable?'Shipping available':'Local pickup')+(loc?chip(IC.pin,loc):'')+
+          (it.is_oversized?chip('','Oversized item'):'')+(it.is_fragile?chip('','Fragile'):'')+(it.source_lot_id?chip('','Previously at auction'):'')+'</div>'+
         buyBox+
-        (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
-        policyLinks(it)+
-        '<p class="meta" style="margin-top:18px"><a href="#" id="reportLink">Report this listing</a></p>'+
+        '<div id="shareSlot"></div>'+
+        '</div></div>'+
+        '<div class="lower"><div>'+
+          (it.description?'<h2 class="sec-h">Item Description</h2><div class="desc">'+esc(it.description)+'</div>':'')+
+          '<div class="card details"><h2 class="sec-h">Item Details</h2><table>'+details+'</table>'+
+          ((it.shipping&&it.shipping.notes)?'<p class="meta">'+esc(it.shipping.notes)+'</p>':'')+
+          policyLinks(it)+
+          '<p class="meta" style="margin-top:14px"><a href="#" id="reportLink">Report this listing</a></p></div>'+
+        '</div><div>'+sellerPanel+
+          (historical?'<div class="note" id="historyNote"><b>Why am I seeing this item?</b><p>This is a historical listing kept for reference. '+(status==='sold'?'This item has been sold.':'This item is no longer available for purchase.')+'</p></div>':'')+
         '</div></div>';
+      var sc=document.getElementById('sellerContactBtn'); if(sc)sc.addEventListener('click',(CFG.messaging_enabled||it.questions_enabled)?openAsk:openContact);
       if(window.AdvGallery)AdvGallery.mount(document.getElementById('gallery'),{images:imgs,alts:it.image_alt||[],title:it.title});
       var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
       var rl=document.getElementById('reportLink'); if(rl)rl.addEventListener('click',function(e){e.preventDefault();openReport();});
@@ -204,7 +272,7 @@
     // seller beyond what the page already shows.
     function itemUrl(){var c=document.querySelector('link[rel="canonical"]');return (c&&c.href)||(location.origin+location.pathname);}
     function mountShare(it){
-      var col=document.querySelector('#app .grid > div:last-child'); if(!col||document.getElementById('shareBox'))return;
+      var col=document.getElementById('shareSlot')||document.querySelector('#app .grid > div:last-child'); if(!col||document.getElementById('shareBox'))return;
       var url=itemUrl(), title=it.title||'Item on Advantage.Bid', img=(it.images&&it.images[0])||it.thumbnail_url||'';
       var enc=encodeURIComponent, msg=el('span',{'class':'meta',id:'shareMsg',role:'status',style:'margin:0 0 0 4px'});
       function link(id,label,href){return el('a',{'class':'btn btn-ghost',id:id,href:href,target:'_blank',rel:'noopener',style:'padding:9px 14px;font-size:14px'},[document.createTextNode(label)]);}
@@ -221,7 +289,7 @@
         else prompt('Copy this link:',url);}}}));
       row.appendChild(msg);
       var box=el('div',{'class':'card',id:'shareBox',style:'margin:16px 0;padding:14px 16px'},[el('div',{style:'font-weight:700;margin-bottom:8px',text:'Share this item'}),row]);
-      var anchor=col.querySelector('.card'); if(anchor&&anchor.nextSibling)col.insertBefore(box,anchor.nextSibling); else col.appendChild(box);
+      col.appendChild(box);
     }
 
     // Contact Seller (owner 2026-11-10): a question about THIS item, always available (whether or not the seller's
@@ -437,6 +505,7 @@
           '<button class="btn btn-ghost" onclick="location.reload()">Done</button></div>');
     }
   </script>
+<script src="/widgets/shared/public-nav.js" defer></script>
 <script src="/widgets/shared/analytics.js" defer></script>
 <script src="/widgets/shared/local-alerts.js" defer></script>
 </body>

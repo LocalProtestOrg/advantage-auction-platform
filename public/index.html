@@ -542,8 +542,12 @@
       <a class="brand" href="/">Advantage<span style="color:var(--accentSoft)">.Bid</span></a>
       <div class="tagline">Discover estate auctions near you</div>
       <a href="/">🧭 Explore the map</a>
+      <a href="/?show=auctions">🔨 Auctions Near You</a>
+      <a href="/?show=estate-sales">🏠 Estate Sales Near You</a>
+      <a href="/shop">🛍 Buy Now Marketplace</a>
+      <a href="/?show=professionals">👥 Find Professionals</a>
+      <a href="/start-selling.html">＋ Start Selling</a>
       <a href="/search.html">⌕ Search &amp; browse</a>
-      <a href="/shop">🛍 Shop items for sale</a>
       <a href="/events.html">📅 Estate sales &amp; events</a>
       <a href="/app.html#watchlist">♡ Watchlist</a>
       <a href="/my-bids.html">▣ My bids</a>
@@ -1088,6 +1092,23 @@
       + '<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       + '<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
     mpWireLegend();
+    mpApplyPreset();
+  }
+  // A navigation link can open the map showing one kind of listing: /?show=auctions | estate-sales | professionals |
+  // marketplace. It only pre-sets the same legend switches a visitor can change; once they touch the key, it is theirs.
+  var MP_PRESETS={ auctions:['live','ending','coming','event_auction'], 'estate-sales':['event_estate_sale'],
+    professionals:['estate_sale_companies','auction_houses','appraisers'], marketplace:['marketplace_items'] };
+  var MP_PRESET=null, MP_PRESET_TOUCHED=false;
+  try{ MP_PRESET=MP_PRESETS[String(new URLSearchParams(location.search).get('show')||'').toLowerCase()]||null; }catch(e){}
+  function mpApplyPreset(){
+    var el=document.getElementById('legend'); if(!el||!MP_PRESET||MP_PRESET_TOUCHED) return;
+    if(!el.__presetWired){ el.__presetWired=true; el.addEventListener('click',function(){ MP_PRESET_TOUCHED=true; },true); el.addEventListener('keydown',function(){ MP_PRESET_TOUCHED=true; },true); }
+    var rows=el.querySelectorAll('.legend-row'), any=false;
+    rows.forEach(function(row){ if(MP_PRESET.indexOf(row.getAttribute('data-key'))!==-1) any=true; });
+    if(!any) return;   // nothing of that kind is listed right now: leave everything visible rather than an empty map
+    rows.forEach(function(row){ mpSetRow(row, MP_PRESET.indexOf(row.getAttribute('data-key'))!==-1); });
+    if(typeof mpApplyFilter==='function') mpApplyFilter();
+    if(typeof mpRefreshDrawer==='function') mpRefreshDrawer();
   }
   function mpSetRow(row, on){
     var kind=row.getAttribute('data-kind'), key=row.getAttribute('data-key');

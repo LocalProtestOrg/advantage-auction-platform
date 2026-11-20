@@ -139,7 +139,7 @@ describe('Storefront Branding: logo and banner photo', () => {
     await page.goto(stack.baseUrl + '/pro/harbor-gallery', { waitUntil: 'networkidle' });
     const logo = await page.$eval('.hero-logo', (e) => ({ bg: getComputedStyle(e).backgroundImage, size: getComputedStyle(e).backgroundSize }));
     expect(logo.bg).toMatch(/isolated-photo-store\.invalid/); expect(logo.size).toBe('contain');
-    expect(await page.$eval('.hero-cover', (e) => getComputedStyle(e).backgroundImage)).toMatch(/isolated-photo-store\.invalid/);
+    expect(await page.$eval('.sf-banner img', (e) => e.getAttribute('src'))).toMatch(/isolated-photo-store\.invalid/);   // the seller's own banner, shown whole (approved layout 2026-11-20)
     const feed = await (await fetch(stack.baseUrl + '/api/public/storefront/widget/' + shop.sellerProfileId)).json();
     expect(feed.data.seller.logo_url).toMatch(/isolated-photo-store\.invalid/);
     await ctx.close();

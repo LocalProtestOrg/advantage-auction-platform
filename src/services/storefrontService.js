@@ -238,7 +238,10 @@ async function getPublicData(slug) {
                ORDER BY e.start_at ASC NULLS LAST LIMIT 8`, [sp.id]),
   ]);
   const storePolicies = await require('./sellerPolicyService').publishedFor(sp.id);
+  // Previously Sold: shown under the seller's existing Past Sales setting; photo and title only (never a price or buyer).
+  const sold = (cfg.section_visibility && cfg.section_visibility.past === false) ? [] : await marketplaceItems.listSoldForSeller(sp.id, 24).catch(() => []);
   return {
+    previously_sold: sold,
     policies: storePolicies,
     seller: {
       id: sp.id, name: sellerName(sp), seller_type: sp.seller_type, is_professional: isProfessional(sp.seller_type),

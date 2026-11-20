@@ -156,7 +156,7 @@ describe('home page links to public inventory', () => {
     const tpl = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'index.html'), 'utf8');
     const ns = tpl.slice(tpl.indexOf('<noscript>'), tpl.indexOf('</noscript>'));
     expect(ns).toContain('<!-- SSR-DISCOVER -->');
-    expect(tpl).toContain('<a href="/shop">🛍 Shop items for sale</a>');
+    expect(tpl).toContain('<a href="/shop">🛍 Buy Now Marketplace</a>');
     expect(tpl).toContain('<a href="/events.html">📅 Estate sales &amp; events</a>');
     expect(tpl).not.toContain('href="/how-it-works.html"');
   });

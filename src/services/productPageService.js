@@ -35,7 +35,7 @@ function template() {
 async function loadItem(id, runner = db) {
   if (!productData.UUID_RE.test(String(id || ''))) return null;
   const row = (await runner.query(
-    `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.is_demo AS seller_is_demo,
+    `SELECT mi.*, sp.storefront_slug, sp.storefront_published, sp.seller_type, sp.show_branding_to_buyers, sp.is_demo AS seller_is_demo, to_jsonb(sp)->>'logo_url' AS seller_logo_url,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
@@ -95,14 +95,25 @@ function bodyHtml(item) {
     .filter(Boolean).map((t) => `<span class="pill">${t}</span>`).join('');
   const facts = [['Brand', item.brand], ['Maker', item.manufacturer], ['Material', item.material], ['Model or part number', item.mpn]]
     .filter(([, v]) => v).map(([k, v]) => `<li><b>${esc(k)}:</b> ${esc(v)}</li>`).join('');
-  return `<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › ${seller ? seller + ' › ' : ''}<span>${esc(item.title)}</span></nav>
+  const historical = item.status === 'sold' || item.status === 'unavailable';
+  const statusLine = item.status === 'sold' ? 'This item has been sold.' : item.status === 'unavailable' ? 'This item is no longer available for purchase.' : '';
+  const details = [['Condition', item.condition], ['Category', item.category], ['Era or period', item.era_or_period], ['Location', place]]
+    .filter(([, v]) => v).map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
+  const sellerPanel = item.seller_name ? `<aside class="card seller-card" id="aboutSeller" aria-label="About the seller"><h2 class="sec-h">About the Seller</h2>
+<div class="seller-row">${item.seller_logo_url ? `<img class="seller-logo" src="${esc(item.seller_logo_url)}" alt="${esc(item.seller_name)} logo" width="64" height="64" loading="lazy">` : `<span class="seller-logo seller-initial" aria-hidden="true">${esc(String(item.seller_name).slice(0, 1))}</span>`}
+<div><div class="seller-name">${esc(item.seller_name)}</div><span class="badge-pro">Professional Seller</span></div></div>
+${item.storefront_public ? `<a class="btn btn-ghost btn-block" id="visitStorefront" href="/pro/${esc(item.storefront_slug)}">Visit Seller Storefront</a>` : ''}</aside>` : '';
+  return `<nav class="crumb" aria-label="Breadcrumb"><a href="/">Advantage.Bid</a> › <a href="/shop">Marketplace</a> › ${seller ? seller + ' › ' : ''}<span>${esc(item.title)}</span></nav>
 <div class="grid"><div class="gallery">${imgs.map((u, i) => `<img src="${esc(u)}" alt="${esc(alts[i])}"${i === 0 ? ' id="main"' : ' width="72" height="72" loading="lazy"'}>`).join('')}</div>
-<div><h1>${esc(item.title)}</h1>${seller ? `<div class="meta">Sold by ${seller}</div>` : ''}
+<div class="summary"><h1>${esc(item.title)}</h1>${seller ? `<div class="meta">Sold by ${seller}</div>` : ''}
 <div class="price">${item.status === 'sold' ? '<span class="pill pill-sold">SOLD</span>' : item.status === 'unavailable' ? '<span class="pill pill-sold">No longer available</span>' : money(item.price_cents)}</div>
-<div class="meta">${esc(item.status === 'unavailable' ? '' : AVAIL_TEXT[item.status] || '')}</div>
-<div style="margin:8px 0">${pills}</div>${place ? `<div class="meta">${esc(place)}</div>` : ''}
-<div class="meta" id="ship-summary"><b>Shipping &amp; pickup:</b> ${esc(sh.summary)}${sh.notes ? ' — ' + esc(sh.notes) : ''}</div>
-${item.description ? `<div class="desc">${esc(item.description)}</div>` : ''}${facts ? `<ul class="meta">${facts}</ul>` : ''}${policyLinks(item)}</div></div>`;
+<div class="meta">${esc(historical ? statusLine : AVAIL_TEXT[item.status] || '')}</div>
+<div class="chips">${pills}${place ? `<span class="pill">${esc(place)}</span>` : ''}</div></div></div>
+<div class="lower"><div>${item.description ? `<h2 class="sec-h">Item Description</h2><div class="desc">${esc(item.description)}</div>` : ''}
+<div class="card details"><h2 class="sec-h">Item Details</h2><table>${details}</table>
+<div class="meta" id="ship-summary"><b>Shipping &amp; pickup:</b> ${esc(sh.summary)}${sh.notes ? ' - ' + esc(sh.notes) : ''}</div>
+${facts ? `<ul class="meta">${facts}</ul>` : ''}${policyLinks(item)}</div></div>
+<div>${sellerPanel}${historical ? `<div class="note" id="historyNote"><b>Why am I seeing this item?</b><p>This is a historical listing kept for reference. ${esc(statusLine)}</p></div>` : ''}</div></div>`;
 }
 
 // Links to THIS item's seller's own published policies (only when the seller is shown and has published them).

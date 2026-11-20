@@ -73,10 +73,56 @@
     .empty{color:var(--muted);font-size:14px;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:20px;text-align:center}
     .demo-ribbon{background:#fef3c7;color:#92400e;text-align:center;font-size:13px;font-weight:700;padding:7px}
     .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;display:none;z-index:50}
+    /* Approved storefront layout (2026-11-20): Advantage.Bid navigation on top, then the seller's own banner, logo and shop. */
+    body{background:#fff}
+    .wrap{max-width:1180px}
+    .sf-banner{position:relative;max-width:1180px;margin:10px auto 0;border-radius:14px;overflow:hidden;background:linear-gradient(135deg,var(--accent),#0f172a);height:clamp(130px,25.4vw,300px)}
+    .sf-banner img{width:100%;height:100%;object-fit:cover;display:block}
+    @media(max-width:1200px){.sf-banner{margin:0;border-radius:0}}
+    .sf-profile{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-top:-44px;position:relative;padding-bottom:6px}
+    .sf-logo{width:112px;height:112px;border-radius:16px;background:#fff center/contain no-repeat;background-origin:content-box;padding:8px;border:1px solid var(--line);box-shadow:0 6px 18px rgba(15,23,42,.14);flex:none;display:flex;align-items:center;justify-content:center;font-family:Fraunces,serif;font-weight:700;font-size:40px;color:var(--accent)}
+    .sf-main{flex:1;min-width:240px;padding-top:54px}
+    .sf-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .sf-title h1{font-size:clamp(24px,3.4vw,34px);font-weight:700}
+    .badge-pro{background:#fbbf24;color:#3a2a00}.badge-loc{background:#eef2f8;color:#334155}
+    .sf-tagline{color:var(--muted);font-size:16px;margin-top:4px;max-width:720px}
+    .sf-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn-navy{background:#14356b;color:#fff}.btn-navy:hover{background:#0f2a57}
+    .store-tabs{display:flex;gap:4px;margin:22px 0 0;border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+    .store-tabs a{flex:none;padding:12px 16px;font-weight:600;font-size:15.5px;color:var(--ink);border-bottom:3px solid transparent;white-space:nowrap}
+    .store-tabs a:hover,.store-tabs a.on{color:#14356b;border-bottom-color:#14356b}
+    section{padding:28px 0 6px;scroll-margin-top:12px}
+    .sec-head h2{font-size:26px}
+    .about{border-radius:12px}
+    .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:6px}
+    .cat-tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 8px 10px;cursor:pointer;font-family:Fraunces,Georgia,serif;font-weight:700;font-size:15px;color:var(--ink);text-align:center}
+    .cat-tile .ph,.cat-tile img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:#eef2f7 center/cover no-repeat;margin-bottom:8px}
+    .cat-tile small{display:block;font-family:Inter,sans-serif;font-weight:500;font-size:12px;color:var(--muted)}
+    .cat-tile[aria-pressed="true"]{border-color:#14356b;box-shadow:0 0 0 2px #14356b}
+    .cat-tile:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+    .prod{display:flex;flex-direction:column;transition:box-shadow .15s,transform .15s}
+    .prod:hover{box-shadow:0 10px 24px rgba(15,23,42,.10);transform:translateY(-2px)}
+    .prod .ph,.prod img{aspect-ratio:1/1}
+    .prod .body{display:flex;flex-direction:column;flex:1}
+    .prod .t{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:15.5px}
+    .prod .price{font-family:Inter,sans-serif;font-weight:800;font-size:18px;margin-top:6px}
+    .prod .go{align-self:flex-start;margin-top:10px;background:#14356b;color:#fff;border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:700}
+    .prod[hidden],.btn[hidden]{display:none!important}
+    .pill-sold{background:#fee2e2;color:#991b1b}
+    .empty-shop{text-align:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:16px;padding:44px 20px}
+    .empty-shop svg{color:#94a3b8;margin:0 auto 12px;display:block}
+    .empty-shop h3{font-size:21px;margin-bottom:6px}
+    .empty-shop p{color:var(--muted);max-width:460px;margin:0 auto 16px}
+    .pol-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+    .pol-card{display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;color:var(--ink);font-weight:700}
+    .pol-card span{display:block;font-weight:500;color:var(--muted);font-size:13.5px;margin-top:4px}
+    .pol-card:hover{border-color:#14356b}
+    @media(max-width:640px){.sf-profile{margin-top:-36px;gap:12px}.sf-logo{width:84px;height:84px;font-size:30px}.sf-main{padding-top:0;flex-basis:100%}.grid-4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.sec-head h2{font-size:22px}}
   </style>
   <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
+  <div data-adv-public-nav></div>
   <div id="demo-ribbon"></div>
   <div id="app" aria-live="polite">
     <div class="wrap" style="padding:60px 18px;text-align:center;color:#64748b" id="loading">Loading storefront…</div>
@@ -99,84 +145,93 @@
     var DATA=null;
 
     fetch('/api/public/storefront/'+encodeURIComponent(SLUG)).then(function(r){return r.json();}).then(function(res){
-      if(!res.success){document.getElementById('app').innerHTML='<div class="wrap" style="padding:80px 18px;text-align:center"><h1 style="font-size:28px">Storefront not found</h1><p class="muted" style="margin-top:10px">This company page is not available.</p><p style="margin-top:18px"><a class="btn btn-primary" href="/">Explore Advantage.Bid</a></p></div>';return;}
+      if(!res.success){document.getElementById('app').innerHTML='<div class="wrap" style="padding:80px 18px;text-align:center"><h1 style="font-size:28px">Storefront not found</h1><p class="muted" style="margin-top:10px">This company page is not available.</p><p style="margin-top:18px"><a class="btn btn-primary" href="/shop">Browse the Marketplace</a></p></div>';return;}
       DATA=res.data;render(DATA);ping('storefront_view',{});
     }).catch(function(){document.getElementById('app').textContent='Unable to load storefront.';});
 
     function accent(cfg){if(cfg.accent){document.documentElement.style.setProperty('--accent',cfg.accent);}}
 
-    // The fixed-price shop: photos, titles and prices, each linking to its item page; the first 12 items then
-    // View All Items; a friendly note when nothing is for sale (owner 2026-11-10).
+    // The fixed-price shop: the seller's real items only (photo, title, price), each linking to its item page. Category
+    // tiles appear when the items span more than one category and filter the grid; a friendly panel when nothing is for sale.
     var SHOP_FIRST=12;
     function shopSection(d,s,vis){
-      var out='';
-
-      // Store sections: Shop Items | Store Terms & Conditions | Shipping & Pickup Policy (the seller's own published policies;
-      // each also has a stable page at /pro/<slug>/terms and /pro/<slug>/shipping-pickup). Wraps on small screens.
-      var pol=d.policies||{};
-      if((vis.marketplace!==false && d.marketplace.length) || pol.store_terms || pol.shipping_pickup){
-        var base='/pro/'+encodeURIComponent(s.slug||'');
-        out+='<nav class="store-tabs" role="tablist" aria-label="Store sections" style="display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 8px">'
-          +((vis.marketplace!==false && d.marketplace.length)?'<a role="tab" class="btn btn-ghost" href="#shop">Shop Items</a>':'')
-          +(pol.store_terms?'<a role="tab" class="btn btn-ghost" href="'+base+'/terms">Store Terms &amp; Conditions</a>':'')
-          +(pol.shipping_pickup?'<a role="tab" class="btn btn-ghost" href="'+base+'/shipping-pickup">Shipping &amp; Pickup Policy</a>':'')
-          +'</nav>';
+      if(vis.marketplace===false)return '';
+      var items=d.marketplace||[], out='<section id="shop">';
+      if(!items.length){
+        return out+'<div class="sec-head"><div><h2>Shop</h2></div></div><div class="empty-shop">'+
+          '<svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 9h16l-1.2 10.2a2 2 0 0 1-2 1.8H7.200a2 2 0 0 1-2-1.800z"/><path d="M8.500 9V7a3.500 3.500 0 0 1 7 0v2"/></svg>'+
+          '<h3>No items for sale right now</h3><p>Follow '+esc(s.name)+' to hear when new items are added.</p>'+
+          '<button type="button" class="btn btn-navy" data-follow="company">☆ Follow this company</button></div></section>';
       }
-      if(vis.marketplace!==false && d.marketplace.length){
-        out+='<section id="shop"><div class="sec-head"><div><h2>Shop</h2><div class="sec-sub">'+d.marketplace.length+' item'+(d.marketplace.length!==1?'s':'')+' available now from '+esc(s.name)+'</div></div></div>';
-        out+= ('<div class="grid grid-4" id="shopGrid">'+d.marketplace.map(function(m,ix){
-          var img=AdvLotImage.img(m.thumbnail_url||(m.images&&m.images[0]), m.title);
-          var loc=[m.city,m.state].filter(Boolean).join(', ');
-          return '<a class="card prod'+(ix>=SHOP_FIRST?' shop-more':'')+'"'+(ix>=SHOP_FIRST?' hidden':'')+' href="'+esc(itemUrl(m))+'" onclick="ping(\'storefront_cta_click\',{cta:\'item\'})">'+img+'<div class="body"><div class="t">'+esc(m.title)+'</div><div class="price">'+money(m.price_cents)+'</div><div class="meta">'+(loc?'<span>'+esc(loc)+'</span>':'')+(m.shippable?'<span class="pill">Ships</span>':'')+(m.source_lot_id?'<span class="pill">From auction</span>':'')+'</div></div></a>';
-        }).join('')+'</div>');
-        if(d.marketplace.length>SHOP_FIRST)out+='<div style="text-align:center;margin-top:16px"><button type="button" class="btn btn-ghost" id="viewAllItems">View All Items ('+d.marketplace.length+')</button></div>';
-        out+='</section>';
-      } else if(vis.marketplace!==false){
-        out+='<section id="shop"><div class="sec-head"><div><h2>Shop</h2></div></div><div class="card" style="padding:22px;text-align:center"><p style="font-weight:700;margin-bottom:4px">No items for sale right now</p><p class="muted">Follow '+esc(s.name)+' to hear when new items are added.</p></div></section>';
+      var cats={}, order=[];
+      items.forEach(function(m){var c=(m.category||'').trim(); if(!c)return; if(!cats[c]){cats[c]={n:0,img:m.thumbnail_url||(m.images&&m.images[0])||''};order.push(c);} cats[c].n++;});
+      if(order.length>1){
+        out+='<div class="sec-head"><h2>Shop by Category</h2></div><div class="cat-grid" id="catGrid">'+order.map(function(c){
+          return '<button type="button" class="cat-tile" data-cat="'+esc(c)+'" aria-pressed="false">'+AdvLotImage.img(cats[c].img,c)+esc(c)+'<small>'+cats[c].n+' item'+(cats[c].n!==1?'s':'')+'</small></button>';
+        }).join('')+'</div>';
       }
-      return out;
+      out+='<div class="sec-head" style="margin-top:'+(order.length>1?'22px':'0')+'"><div><h2 id="shopHeading">Latest Items</h2><div class="sec-sub" id="shopCount">'+items.length+' item'+(items.length!==1?'s':'')+' available now from '+esc(s.name)+'</div></div>'+
+        (order.length>1?'<button type="button" class="btn btn-ghost" id="catClear" hidden>Show all items</button>':'')+'</div>';
+      out+='<div class="grid grid-4" id="shopGrid">'+items.map(function(m,ix){
+        var img=AdvLotImage.img(m.thumbnail_url||(m.images&&m.images[0]), m.title);
+        var loc=[m.city,m.state].filter(Boolean).join(', ');
+        return '<a class="card prod'+(ix>=SHOP_FIRST?' shop-more':'')+'"'+(ix>=SHOP_FIRST?' hidden':'')+' data-cat="'+esc((m.category||'').trim())+'" href="'+esc(itemUrl(m))+'" onclick="ping(\'storefront_cta_click\',{cta:\'item\'})">'+img+'<div class="body"><div class="t">'+esc(m.title)+'</div><div class="price">'+money(m.price_cents)+'</div><div class="meta">'+(loc?'<span>'+esc(loc)+'</span>':'')+(m.shippable?'<span class="pill">Ships</span>':'')+(m.source_lot_id?'<span class="pill">From auction</span>':'')+'</div><span class="go">View Item</span></div></a>';
+      }).join('')+'</div>';
+      if(items.length>SHOP_FIRST)out+='<div style="text-align:center;margin-top:16px"><button type="button" class="btn btn-ghost" id="viewAllItems">View All Items ('+items.length+')</button></div>';
+      return out+'</section>';
     }
     function render(d){
-      var s=d.seller,cfg=d.config||{},vis=cfg.section_visibility||{},c=d.contact||{};
+      var s=d.seller,cfg=d.config||{},vis=cfg.section_visibility||{},c=d.contact||{},pol=d.policies||{};
       accent(cfg);
       document.title=s.name+' | Advantage.Bid';
-      if(s.is_demo)document.getElementById('demo-ribbon').innerHTML='<div class="demo-ribbon">DEMO STOREFRONT — sample content for demonstration</div>';
-      var logo=s.logo_url?('<div class="hero-logo" style="background-image:url('+esc(s.logo_url)+')"></div>'):('<div class="hero-logo">'+esc((s.name||'?').slice(0,1))+'</div>');
-      var badges='<div class="hero-badges">'+(s.is_professional?'<span class="badge badge-pro">Professional Seller</span>':'')+(s.location_label?'<span class="badge badge-loc">'+esc(s.location_label)+'</span>':'')+'</div>';
-      var cover=cfg.hero_image?('<div class="hero-cover" style="background-image:url('+esc(cfg.hero_image)+')"></div>'):'';
-      // Shop becomes the PRIMARY hero action for a retail-first seller (items, no auctions) so an antique
-      // store reads as a shop; an auction/estate seller still leads with auctions/estate sales.
+      if(s.is_demo)document.getElementById('demo-ribbon').innerHTML='<div class="demo-ribbon">DEMO STOREFRONT: sample content for demonstration</div>';
+      var base='/pro/'+encodeURIComponent(s.slug||'');
+      var logo=s.logo_url?('<div class="sf-logo hero-logo" role="img" aria-label="'+esc(s.name)+' logo" style="background-image:url('+esc(s.logo_url)+')"></div>'):('<div class="sf-logo hero-logo" aria-hidden="true">'+esc((s.name||'?').slice(0,1))+'</div>');
+      var badges=(s.is_professional?'<span class="badge badge-pro">Professional Seller</span>':'')+(s.location_label?'<span class="badge badge-loc">'+esc(s.location_label)+'</span>':'');
+      // The seller's own uploaded banner, shown whole; a plain band in the seller's accent color when none is uploaded.
+      var banner='<div class="sf-banner hero">'+(cfg.hero_image?'<img src="'+esc(cfg.hero_image)+'" alt="'+esc(s.name)+' banner">':'')+'</div>';
+      var hasShop=(vis.marketplace!==false), hasItems=hasShop&&d.marketplace.length>0;
+      var hasAbout=(vis.about!==false && (cfg.about||cfg.years_in_business||(cfg.about_facts||[]).length));
+      var hasServices=(vis.services!==false && (cfg.services||[]).length);
+      var hasAuctions=(vis.auctions!==false && d.auctions.length);
+      var hasEvents=(vis.events!==false && d.events && d.events.length);
+      var hasPolicies=!!(pol.store_terms||pol.shipping_pickup);
+      var sold=(vis.past!==false && d.previously_sold)||[];
+      var hasPast=(vis.past!==false && d.past_auctions.length);
+      var hasSold=sold.length>0||hasPast;
+      var cta='<div class="sf-cta hero-cta">'+
+        '<button type="button" class="btn btn-navy hero-follow" id="followBtn" data-follow="count">☆ Follow ('+d.follower_count+')</button>'+
+        (vis.contact!==false?'<a class="btn btn-ghost" href="#contact">Contact</a>':'')+'</div>';
+      var tabs='<nav class="store-tabs" aria-label="Store sections">'+
+        (hasShop?'<a href="#shop">Shop</a>':'')+
+        (hasAbout?'<a href="#about">About</a>':'')+
+        (hasAuctions?'<a href="#auctions">Auctions</a>':'')+
+        (hasEvents?'<a href="#events">Estate Sales</a>':'')+
+        (hasServices?'<a href="#services">Services</a>':'')+
+        (hasPolicies?'<a href="#policies">Policies</a>':'')+
+        (hasSold?'<a href="#sold">Previously Sold</a>':'')+
+        (vis.contact!==false?'<a href="#contact">Contact</a>':'')+'</nav>';
+      var html=banner+'<div class="wrap"><div class="sf-profile">'+logo+'<div class="sf-main"><div class="sf-title"><h1>'+esc(s.name)+'</h1>'+badges+'</div>'+
+        (cfg.tagline?'<p class="sf-tagline tagline">'+esc(cfg.tagline)+'</p>':'')+cta+'</div></div>'+tabs;
+
+      // Shop leads for a retail-first seller (items, no auctions); an auction or estate sale seller leads with those.
       var shopPrimary=(!d.auctions.length && d.marketplace.length);
-      var cta='<div class="hero-cta">'+
-        (d.auctions.length?'<a class="btn btn-primary" href="#auctions">View Auctions</a>':'')+
-        ((d.events&&d.events.length&&vis.events!==false)?'<a class="btn '+(d.auctions.length?'btn-ghost':'btn-primary')+'" href="#events">Estate Sales</a>':'')+
-        (d.marketplace.length?'<a class="btn '+(shopPrimary?'btn-primary':'btn-ghost')+'" href="#shop">Shop Now</a>':'')+
-        '<button class="btn hero-follow" id="followBtn">☆ Follow ('+d.follower_count+')</button>'+
-        (vis.contact!==false?'<a class="btn hero-ghost btn-ghost" href="#contact">Contact</a>':'')+'</div>';
-      var hero='<div class="hero">'+cover+'<div class="hero-inner">'+logo+'<div class="hero-main">'+badges+'<h1>'+esc(s.name)+'</h1>'+(cfg.tagline?'<p class="tagline">'+esc(cfg.tagline)+'</p>':'')+cta+'</div></div></div>';
-
-      var html=hero+'<div class="wrap">';
-
       // About
-      if(vis.about!==false && (cfg.about||cfg.years_in_business||(cfg.about_facts||[]).length)){
+      if(hasAbout){
         html+='<section id="about"><div class="sec-head"><h2>About '+esc(s.name)+'</h2></div><div class="about">'+esc(cfg.about||'')+
           ((cfg.about_facts||[]).length||cfg.years_in_business?'<div class="facts">'+(cfg.years_in_business?'<div class="fact"><b>'+esc(cfg.years_in_business)+'</b><span>Years in business</span></div>':'')+(cfg.about_facts||[]).map(function(f){return '<div class="fact"><b>✓</b><span>'+esc(f)+'</span></div>';}).join('')+'</div>':'')+'</div></section>';
       }
-      // Services
-      if(vis.services!==false && (cfg.services||[]).length){
-        html+='<section id="services"><div class="sec-head"><h2>Services</h2></div><div class="chips">'+cfg.services.map(function(x){return '<span class="chip">'+esc(x)+'</span>';}).join('')+'</div></section>';
-      }
-      if(shopPrimary)html+=shopSection(d,s,vis);
+      if(shopPrimary||!hasAuctions&&!hasEvents)html+=shopSection(d,s,vis);
       // Auctions
-      if(vis.auctions!==false && d.auctions.length){
+      if(hasAuctions){
         html+='<section id="auctions"><div class="sec-head"><h2>Current & Upcoming Auctions</h2></div><div class="grid grid-3">'+d.auctions.map(function(a){
           var img=AdvLotImage.img(a.image, a.title);
           var loc=[a.city,a.state].filter(Boolean).join(', ')||'Online';
           return '<a class="card prod" href="/auction-view.html?auctionId='+esc(a.id)+'" onclick="ping(\'storefront_cta_click\',{cta:\'auction\'})">'+img+'<div class="body"><div class="t">'+esc(a.title)+'</div><div class="meta"><span class="pill">'+esc(a.auction_state==="active"?"Bidding open":"Upcoming")+'</span><span>'+esc(loc)+'</span></div></div></a>';
         }).join('')+'</div></section>';
       }
-      // Upcoming estate sales / events (seller's own, via authoritative org link)
-      if(vis.events!==false && d.events && d.events.length){
+      // Upcoming estate sales / events (the seller's own, via the authoritative organization link)
+      if(hasEvents){
         html+='<section id="events"><div class="sec-head"><h2>Upcoming Estate Sales</h2><div class="sec-sub">In-person sales & events from '+esc(s.name)+'</div></div><div class="grid grid-3">'+d.events.map(function(ev){
           var img=AdvLotImage.img(ev.image, ev.title);
           var loc=[ev.city,ev.state].filter(Boolean).join(', ')||(ev.event_format==='online'?'Online':'');
@@ -184,14 +239,29 @@
           return '<a class="card prod" href="'+esc(ev.url)+'" onclick="ping(\'storefront_cta_click\',{cta:\'event\'})">'+img+'<div class="body"><div class="t">'+esc(ev.title)+'</div><div class="meta">'+(when?'<span class="pill">'+esc(when)+'</span>':'')+(loc?'<span>'+esc(loc)+'</span>':'')+'</div></div></a>';
         }).join('')+'</div></section>';
       }
-      // Shop: before auctions and estate sales for a retail-first seller, after them otherwise.
-      if(!shopPrimary)html+=shopSection(d,s,vis);
-      // Past auctions / portfolio
-      if(vis.past!==false && d.past_auctions.length){
-        html+='<section id="past"><div class="sec-head"><h2>Past Sales</h2><div class="sec-sub">A portfolio of completed sales</div></div><div class="grid grid-4">'+d.past_auctions.map(function(a){
+      if(!(shopPrimary||!hasAuctions&&!hasEvents))html+=shopSection(d,s,vis);
+      // Services
+      if(hasServices){
+        html+='<section id="services"><div class="sec-head"><h2>Services</h2></div><div class="chips">'+cfg.services.map(function(x){return '<span class="chip">'+esc(x)+'</span>';}).join('')+'</div></section>';
+      }
+      // Policies: the seller's own published policies (each has a stable page of its own).
+      if(hasPolicies){
+        html+='<section id="policies"><div class="sec-head"><h2>Policies</h2></div><div class="pol-grid">'+
+          (pol.store_terms?'<a class="pol-card" href="'+base+'/terms">Store Terms &amp; Conditions<span>Returns, sales and store rules from '+esc(s.name)+'</span></a>':'')+
+          (pol.shipping_pickup?'<a class="pol-card" href="'+base+'/shipping-pickup">Shipping &amp; Pickup Policy<span>How and when items ship or are picked up</span></a>':'')+
+          '</div></section>';
+      }
+      // Previously Sold: completed sales, photo and title only (a selling price or a buyer is never shown), then past auctions.
+      if(hasSold){
+        html+='<section id="sold"><div class="sec-head"><h2>Previously Sold</h2><div class="sec-sub">A look at what '+esc(s.name)+' has sold</div></div>';
+        if(sold.length)html+='<div class="grid grid-4" id="soldGrid">'+sold.map(function(m){
+          return '<a class="card prod" href="'+esc(itemUrl(m))+'">'+AdvLotImage.img(m.thumbnail_url, m.title)+'<div class="body"><div class="t">'+esc(m.title)+'</div><div class="meta"><span class="pill pill-sold">Sold</span></div></div></a>';
+        }).join('')+'</div>';
+        if(hasPast)html+='<div id="past" style="margin-top:'+(sold.length?'22px':'0')+'"><h3 style="font-size:19px;margin-bottom:12px">Past Sales</h3><div class="grid grid-4">'+d.past_auctions.map(function(a){
           var img=AdvLotImage.img(a.image, a.title);
           return '<a class="card prod" href="/auction-view.html?auctionId='+esc(a.id)+'">'+img+'<div class="body"><div class="t">'+esc(a.title)+'</div><div class="meta"><span>'+esc([a.city,a.state].filter(Boolean).join(', '))+'</span></div></div></a>';
-        }).join('')+'</div></section>';
+        }).join('')+'</div></div>';
+        html+='</section>';
       }
       // Gallery
       if(vis.gallery!==false && (cfg.gallery||[]).length){
@@ -200,11 +270,11 @@
       // Testimonials
       if(vis.testimonials!==false && (cfg.testimonials||[]).length){
         html+='<section id="testimonials"><div class="sec-head"><h2>What Clients Say</h2>'+(s.is_demo?'<div class="sec-sub">Demo testimonials</div>':'<div class="sec-sub">Company testimonials</div>')+'</div><div class="grid grid-3">'+cfg.testimonials.map(function(t){
-          return '<div class="tst"><div class="q">“'+esc(t.text)+'”</div><div class="by">— '+esc(t.name||'Client')+(t.location?', '+esc(t.location):'')+'</div></div>';
+          return '<div class="tst"><div class="q">“'+esc(t.text)+'”</div><div class="by">'+esc(t.name||'Client')+(t.location?', '+esc(t.location):'')+'</div></div>';
         }).join('')+'</div></section>';
       }
       // Follow CTA
-      html+='<section><div class="follow-cta"><h2>Never miss a sale</h2><p>Follow '+esc(s.name)+' and Advantage.Bid will notify you when they publish new sales, auctions, and items.</p><button class="btn btn-primary" id="followBtn2">☆ Follow this company</button></div></section>';
+      html+='<section><div class="follow-cta"><h2>Never miss a sale</h2><p>Follow '+esc(s.name)+' and Advantage.Bid will notify you when they publish new sales, auctions, and items.</p><button class="btn btn-primary" id="followBtn2" data-follow="company">☆ Follow this company</button></div></section>';
       // Contact / consultation
       if(vis.contact!==false){
         html+='<section id="contact"><div class="sec-head"><h2>Get in touch</h2></div><div class="contact-grid"><div class="card" style="padding:20px">'+
@@ -216,14 +286,14 @@
           '<label>Message</label><textarea id="i-message" rows="4" maxlength="2000"></textarea>'+
           '<p class="muted" style="font-size:12px;margin:8px 0">Provide a phone or email so the company can reach you.</p>'+
           '<button class="btn btn-primary" type="submit" style="margin-top:6px">Send Message</button><div id="inqMsg" class="muted" style="font-size:13px;margin-top:8px"></div></form></div>'+
-          '<div class="card" style="padding:20px"><h3 style="font-size:18px;margin-bottom:10px">Contact</h3>'+
+          ((c.phone||c.email||c.website||c.service_area||c.hours||Object.keys(c.socials||{}).length)?'<div class="card" style="padding:20px"><h3 style="font-size:18px;margin-bottom:10px">Contact</h3>'+
           (c.phone?'<p style="margin:6px 0">📞 <a href="tel:'+esc(String(c.phone).replace(/[^0-9+]/g,''))+'">'+esc(c.phone)+'</a></p>':'')+
           (c.email?'<p style="margin:6px 0">✉ <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a></p>':'')+
           (c.website?'<p style="margin:6px 0">🌐 <a href="'+esc(c.website)+'" target="_blank" rel="noopener nofollow">Website</a></p>':'')+
           (c.service_area?'<p style="margin:6px 0">📍 '+esc(c.service_area)+'</p>':'')+
           (c.hours?'<p style="margin:10px 0 0;white-space:pre-line" class="muted">'+esc(c.hours)+'</p>':'')+
           (Object.keys(c.socials||{}).length?'<p style="margin:12px 0 0">'+Object.keys(c.socials).map(function(k){return '<a href="'+esc(c.socials[k])+'" target="_blank" rel="noopener nofollow" style="margin-right:12px;text-transform:capitalize">'+esc(k)+'</a>';}).join('')+'</p>':'')+
-          '</div></div></section>';
+          '</div>':'')+'</div></section>';
       }
       html+='</div>'; // wrap
       html+='<div class="footer"><div class="wrap"><div style="font-weight:800;font-size:16px;color:#fff">'+esc(s.name)+'</div>'+(c.service_area?'<div style="margin-top:4px">'+esc(c.service_area)+'</div>':'')+'<div class="powered">Professional Storefront powered by <a href="/">Advantage.Bid</a></div></div></div>';
@@ -234,7 +304,8 @@
 
     function wire(){
       var followers=DATA.follower_count;var following=false;
-      function updateFollow(){['followBtn','followBtn2'].forEach(function(id){var b=document.getElementById(id);if(b)b.textContent=(following?'✓ Following ':'☆ Follow ')+(id==='followBtn'?('('+followers+')'):'this company');});}
+      var fbtns=document.querySelectorAll('[data-follow]');
+      function updateFollow(){Array.prototype.forEach.call(fbtns,function(b){b.textContent=(following?'✓ Following ':'☆ Follow ')+(b.getAttribute('data-follow')==='count'?('('+followers+')'):'this company');});}
       function doFollow(){
         if(!token){toast('Sign in to follow');setTimeout(function(){location.href='/login.html?next='+encodeURIComponent(location.pathname);},900);return;}
         var method=following?'DELETE':'POST';
@@ -243,7 +314,15 @@
           else toast('Could not update follow');
         }).catch(function(){toast('Network error');});
       }
-      ['followBtn','followBtn2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',doFollow);});
+      Array.prototype.forEach.call(fbtns,function(b){b.addEventListener('click',doFollow);});
+      // Category tiles filter the shop grid (the seller's real categories only); Show all items clears the filter.
+      var tiles=document.querySelectorAll('#catGrid .cat-tile'), clear=document.getElementById('catClear'), CAT='';
+      function applyCat(){var n=0;Array.prototype.forEach.call(document.querySelectorAll('#shopGrid .prod'),function(a,ix){var show=!CAT||a.getAttribute('data-cat')===CAT; if(CAT){a.hidden=!show;}else{a.hidden=a.classList.contains('shop-more')&&!!document.getElementById('viewAllItems');} if(show)n++;});
+        Array.prototype.forEach.call(tiles,function(t){t.setAttribute('aria-pressed',t.getAttribute('data-cat')===CAT?'true':'false');});
+        var h=document.getElementById('shopHeading'); if(h)h.textContent=CAT||'Latest Items'; if(clear)clear.hidden=!CAT;
+        var va0=document.getElementById('viewAllItems'); if(va0)va0.parentNode.style.display=CAT?'none':'';}
+      Array.prototype.forEach.call(tiles,function(t){t.addEventListener('click',function(){var c=t.getAttribute('data-cat');CAT=(CAT===c?'':c);applyCat();});});
+      if(clear)clear.addEventListener('click',function(){CAT='';applyCat();});
       var va=document.getElementById('viewAllItems');
       if(va)va.addEventListener('click',function(){Array.prototype.forEach.call(document.querySelectorAll('#shopGrid .shop-more'),function(a){a.hidden=false;});va.parentNode.removeChild(va);});
       var f=document.getElementById('inqForm');
@@ -258,6 +337,7 @@
       function val(id){return (document.getElementById(id)||{}).value||'';}
     }
   </script>
+<script src="/widgets/shared/public-nav.js" defer></script>
 <script src="/widgets/shared/analytics.js" defer></script>
 <script src="/widgets/shared/local-alerts.js" defer></script>
 </body>

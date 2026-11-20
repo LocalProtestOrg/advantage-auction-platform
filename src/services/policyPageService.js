@@ -43,7 +43,7 @@ function shell({ title, description, canonical, noindex, body }) {
     .note{font-size:13px;color:#475569;margin-top:16px}
   </style>
 </head>
-<body><div class="wrap">${body}</div></body>
+<body><div data-adv-public-nav></div><div class="wrap">${body}</div><script src="/widgets/shared/public-nav.js" defer></script></body>
 </html>`;
 }
 

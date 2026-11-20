@@ -56,6 +56,8 @@
   <script src="/widgets/shared/legend-visibility.js"></script>
 </head>
 <body>
+<div data-adv-public-nav></div>
+<script src="/widgets/shared/public-nav.js" defer></script>
   <div class="wrap">
     <h1>Search auctions &amp; lots</h1>
     <div class="searchbar">
@@ -80,7 +82,6 @@
     <button class="more" id="more" style="display:none">Load more</button>
   </div>
 
-  <script src="/widgets/shared/buyer-nav.js"></script>
   <script>
     const $ = s => document.querySelector(s);
     const results = $('#results'), meta = $('#meta'), moreBtn = $('#more');
